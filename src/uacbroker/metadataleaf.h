@@ -1,0 +1,103 @@
+/*
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Allow verified timestamps on special NTFS files. | Preserve their compression, sparse and encryption state without changing attributes. | #731 | GPT-6.1 Terra |
+| 2026-11-08 | Allow basic attributes on one verified directory. | Keep directory changes in the same bounded metadata update. | | GPT-6.1 Sol (Codex) |
+| 2026-11-08 | Allow timestamps on one verified directory. | Restrict directory metadata to the selected timestamps. | | GPT-6.1 Sol (Codex) |
+| 2026-11-07 | Set basic metadata once on an identity-verified NTFS file. | Avoid partially applying attributes and times before consent or on a retry. | | GPT-6.1 Sol (Codex) |
+*/
+#pragma once
+
+#include "f7pilot.h"
+#include "renameleaf.h"
+
+namespace UacMetadataLeaf
+{
+inline bool IsOrdinary(DWORD attrs)
+{
+    return attrs == FILE_ATTRIBUTE_NORMAL || (attrs != 0 && (attrs & ~UacF7::basicAttributes) == 0);
+}
+
+inline bool IsValidTime(LONGLONG time)
+{
+    if (time < 0)
+        return false;
+    const FILETIME value{static_cast<DWORD>(time), static_cast<DWORD>(static_cast<ULONGLONG>(time) >> 32)};
+    SYSTEMTIME converted{};
+    return FileTimeToSystemTime(&value, &converted) != FALSE;
+}
+
+inline bool IsDirectory(const UacF7::MetadataChange& change)
+{
+    return (change.expectedAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+}
+
+inline bool IsValid(const UacF7::MetadataChange& change)
+{
+    const bool validExpected = IsDirectory(change)
+        ? (change.expectedAttributes & ~(FILE_ATTRIBUTE_DIRECTORY | UacF7::basicAttributes)) == 0
+        : IsOrdinary(change.expectedAttributes);
+    const bool specialTimes = UacF7::IsSpecialTimestampFile(change.expectedAttributes) && !change.attributes;
+    return (validExpected || specialTimes) && (change.attributes == 0 || IsOrdinary(change.attributes)) &&
+           (change.attributes || change.created || change.accessed || change.modified) &&
+           IsValidTime(change.created) && IsValidTime(change.accessed) && IsValidTime(change.modified);
+}
+
+inline DWORD CheckAttributes(HANDLE file, const UacF7::MetadataChange& change)
+{
+    FILE_BASIC_INFO current{};
+    if (!GetFileInformationByHandleEx(file, FileBasicInfo, &current, sizeof(current)))
+        return GetLastError();
+    if (current.FileAttributes != change.expectedAttributes)
+        return ERROR_FILE_INVALID;
+    return ERROR_SUCCESS;
+}
+
+inline DWORD SetVerifiedMetadata(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expectedParent,
+                                 const FILE_ID_INFO& expectedSource, std::wstring_view leaf,
+                                 const UacF7::MetadataChange& change)
+{
+    if (!UacDirectoryLeaf::IsComponent(leaf) || !IsValid(change))
+        return ERROR_INVALID_DATA;
+    UacDirectoryLeaf::ParentIdentity actualParent;
+    DWORD error = UacDirectoryLeaf::ReadParentIdentity(parent, actualParent);
+    if (error != ERROR_SUCCESS)
+        return error;
+    if (!UacDirectoryLeaf::SameParent(expectedParent, actualParent) ||
+        expectedSource.VolumeSerialNumber != actualParent.file.VolumeSerialNumber)
+        return ERROR_FILE_INVALID;
+
+    HANDLE file = nullptr;
+    FILE_ID_INFO actualSource{};
+    if (IsDirectory(change))
+    {
+        UacDirectoryLeaf::ParentIdentity directory;
+        error = UacDirectoryLeaf::OpenParentBelowRoot(parent, leaf, file, directory, FILE_WRITE_ATTRIBUTES);
+        if (error != ERROR_SUCCESS)
+            return error;
+        actualSource = directory.file;
+    }
+    else
+    {
+        error = UacRenameLeaf::Detail::OpenSource(parent, leaf, file, FILE_WRITE_ATTRIBUTES, FILE_SHARE_READ);
+        if (error != ERROR_SUCCESS)
+            return error;
+        error = UacRenameLeaf::Detail::ReadSourceIdentity(file, actualSource);
+    }
+    if (error == ERROR_SUCCESS && !UacRenameLeaf::Detail::SameSource(actualSource, expectedSource))
+        error = ERROR_FILE_INVALID;
+    if (error == ERROR_SUCCESS)
+        error = CheckAttributes(file, change);
+    if (error == ERROR_SUCCESS)
+    {
+        FILE_BASIC_INFO basic{};
+        basic.CreationTime.QuadPart = change.created;
+        basic.LastAccessTime.QuadPart = change.accessed;
+        basic.LastWriteTime.QuadPart = change.modified;
+        basic.FileAttributes = change.attributes;
+        if (!SetFileInformationByHandle(file, FileBasicInfo, &basic, sizeof(basic)))
+            error = GetLastError();
+    }
+    CloseHandle(file);
+    return error;
+}
+}

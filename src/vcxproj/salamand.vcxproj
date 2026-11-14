@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Compile the file-list workspace without the host PCH. | Keep native Windows identity types scoped to one translation unit. | #731 | GPT-6.1 Sol |
+| 2026-11-07 | Build the F7 broker host transport. | Share the verified one-shot handshake with the application. | | GPT-6.1 Sol (Codex) | -->
 <!--
 | Date | Summary | Reason | Ticket | Model |
 | 2026-11-12 | Disable the PCH for the UTF-8 wrapper implementation. | Keep its raw ANSI fallback calls outside the PCH's wrapper macros. | | openai/gpt-6-luna-pro |
@@ -536,6 +539,15 @@
     <ClCompile Include="..\fileswn3.cpp">
     </ClCompile>
     <ClCompile Include="..\fileswn4.cpp">
+    </ClCompile>
+    <ClCompile Include="..\uacbroker\uacbroker.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>SAM_UAC_F7_HOST;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExceptionHandling>Sync</ExceptionHandling>
+    </ClCompile>
+    <ClCompile Include="..\uacfilelist.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ExceptionHandling>Sync</ExceptionHandling>
     </ClCompile>
     <ClCompile Include="..\fileswn5.cpp">
     </ClCompile>

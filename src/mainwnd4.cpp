@@ -1,8 +1,14 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Bound file-list error formatting. | Treat localized strings and paths as data. | #731 | GPT-6 |
+// | 2026-11-11 | Bind file-list exclusions with the portable identity type. | Keep panel headers independent of Windows FILE_ID_INFO availability. | #731 | GPT-6.1 Sol |
+// | 2026-11-11 | Create a new protected file list through scoped UAC copy. | Keep the generated source and target identity bound across consent. | #731 | GPT-6.1 Sol |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#include "format_two_strings.h"
 
 #include "stswnd.h"
 #include "editwnd.h"
@@ -26,6 +32,8 @@ extern "C"
 #include "salshlib.h"
 #include "zip.h"
 #include "common/widepath.h"
+#include "fileactiondisktarget.h"
+#include "uacfilelist.h"
 
 BOOL ImageDragging = FALSE;
 BOOL ImageDraggingVisible = FALSE;
@@ -524,6 +532,131 @@ BOOL CMainWindow::CanUnloadPlugin(HWND parent, CPluginInterfaceAbstract* plugin)
     return TRUE; // unload is possible; all plug-in resources were released
 }
 
+// The ordinary truncate and append paths are deliberately left unchanged.
+// This fallback only requests creation. When target attributes are hidden,
+// the broker performs the definitive create-only check after Windows consent.
+static bool CreateProtectedFileList(CMainWindow* main, CFilesWindow* panel,
+                                    const char* fileName, BOOL recursively)
+try
+{
+    if (!main || !panel || !panel->Is(ptDisk) || panel->FilesActionInProgress)
+        return false;
+    const std::wstring target = SalMultiByteToWidePath(fileName,
+        IsValidPathUtf8Text(fileName) ? CP_UTF8 : CP_ACP);
+    if (target.empty()) return false;
+    const std::wstring ioTarget = SalPathAddExtendedPrefixW(target.c_str());
+    if (GetFileAttributesW(ioTarget.c_str()) != INVALID_FILE_ATTRIBUTES) return false;
+    const DWORD attributeError = GetLastError();
+    if (attributeError != ERROR_FILE_NOT_FOUND && attributeError != ERROR_ACCESS_DENIED) return false;
+
+    CFilesActionDiskTarget sourcePanel;
+    if (!sourcePanel.Capture(main, panel)) return false;
+    UacFileList::Workspace workspace([](void* context, const std::wstring& path, DWORD cleanupError) {
+        const std::string display = SalWideToMultiBytePath(path.c_str(), CP_UTF8);
+        if (display.empty() && !path.empty()) throw std::bad_alloc();
+        const std::string message = display + "\n\n" + GetErrorText(cleanupError);
+        SalMessageBox(static_cast<HWND>(context), message.c_str(), LoadStr(IDS_ERRORDELETINGDIR),
+                      MB_OK | MB_ICONEXCLAMATION);
+    }, main->HWindow, [](void* context, const std::wstring& path, DWORD cleanupError) noexcept {
+        try
+        {
+            wchar_t title[256]{}, reason[512]{};
+            const auto convert = [](const char* text, wchar_t* output, int capacity) {
+                if (!text || !MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, -1, output, capacity))
+                    MultiByteToWideChar(CP_ACP, 0, text ? text : "", -1, output, capacity);
+            };
+            convert(LoadStr(IDS_ERRORDELETINGDIR), title, ARRAYSIZE(title));
+            convert(GetErrorText(cleanupError), reason, ARRAYSIZE(reason));
+            int pressed = 0;
+            using TaskDialogEntry = HRESULT (WINAPI*)(HWND, HINSTANCE, PCWSTR, PCWSTR, PCWSTR,
+                TASKDIALOG_COMMON_BUTTON_FLAGS, PCWSTR, int*);
+            const HMODULE common = GetModuleHandleW(L"comctl32.dll");
+            const auto task = common ? reinterpret_cast<TaskDialogEntry>(GetProcAddress(common, "TaskDialog")) : nullptr;
+            if (task && SUCCEEDED(task(static_cast<HWND>(context), HInstance, title, reason, path.c_str(),
+                                       TDCBF_OK_BUTTON, TD_ERROR_ICON, &pressed))) return;
+            MessageBoxW(static_cast<HWND>(context), path.c_str(), reason, MB_OK | MB_ICONERROR);
+        }
+        catch (...) { MessageBoxW(static_cast<HWND>(context), path.c_str(), L"Open Samandarin", MB_OK | MB_ICONERROR); }
+    });
+    DWORD error = workspace.Create();
+    if (error)
+    {
+        SalMessageBox(main->HWindow, GetErrorText(error), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+        return true;
+    }
+    // Pass the final name, not the workspace name: recursive enumeration must
+    // omit the same output path as the ordinary operation.
+    const CFileListExclusion exclusion{workspace.DirectoryName(), workspace.ParentIdentity()};
+    BOOL generated = FALSE;
+    try { generated = panel->MakeFileList(workspace.Writer(), recursively, fileName, &exclusion); }
+    catch (...)
+    {
+        CFilesWindow* live = CFilesActionDiskTarget::FindLive(main, sourcePanel.Panel);
+        if (live && live->GetPanelTabId() == sourcePanel.Tab) live->FilesActionInProgress = FALSE;
+        throw;
+    }
+    if (!generated)
+        return true;
+    error = workspace.Seal();
+    if (error)
+    {
+        SalMessageBox(main->HWindow, GetErrorText(error), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+        return true;
+    }
+    UacF7::PreparedTransfer request;
+    const UacF7::MoveFileIdentity fileId = workspace.Identity(), parentId = workspace.ParentIdentity();
+    // The list consists solely of the generated unnamed stream. Never carry a
+    // stream that another same-user process attached to the temporary file.
+    if (!request.Prepare(workspace.Path(), target, workspace.Size(), UacF7::Operation::CopyIgnoreAds) ||
+        !request.MatchesSourceIdentity(fileId, parentId) || !sourcePanel.IsCurrent(main))
+        return false;
+
+    struct BusyPanel
+    {
+        CMainWindow* Main;
+        CFilesActionDiskTarget& Source;
+        explicit BusyPanel(CMainWindow* mainWindow, CFilesActionDiskTarget& source) : Main(mainWindow), Source(source)
+        { Source.Panel->FilesActionInProgress = TRUE; }
+        ~BusyPanel()
+        {
+            CFilesWindow* live = CFilesActionDiskTarget::FindLive(Main, Source.Panel);
+            if (live && live->GetPanelTabId() == Source.Tab) live->FilesActionInProgress = FALSE;
+        }
+    } busy(main, sourcePanel);
+
+    if (!ConfirmProtectedRead(main->HWindow, IDS_MAKEFILELIST_OUTPUT, IDS_UAC_FILELIST_CREATE_CONFIRM, target))
+        return true;
+    if (!sourcePanel.IsCurrent(main)) return true;
+    const UacF7::Result result = request.Execute(main->HWindow);
+    if (result.unknown || result.error == ERROR_PARTIAL_COPY)
+    {
+        SalMessageBox(main->HWindow, LoadStr(IDS_UAC_DISK_RECOVERY_UNKNOWN), LoadStr(IDS_MAKEFILELIST_OUTPUT),
+                      MB_OK | MB_ICONEXCLAMATION);
+        return true;
+    }
+    if (result.error == ERROR_CANCELLED) return true;
+    if (result.error)
+    {
+        const std::string message = std::string(fileName) + "\n\n" + GetErrorText(result.error);
+        SalMessageBox(main->HWindow, message.c_str(), LoadStr(IDS_MAKEFILELIST_OUTPUT),
+                      MB_OK | MB_ICONEXCLAMATION);
+        return true;
+    }
+    // A user can change selection while Windows consent is open. The panel
+    // snapshot proves the tab and path, not the identity of that selection.
+    std::string parent(fileName);
+    std::vector<char> path(parent.begin(), parent.end());
+    path.push_back(0);
+    CutDirectory(path.data());
+    main->PostChangeOnPathNotification(path.data(), FALSE);
+    return true;
+}
+catch (const std::bad_alloc&)
+{
+    SalMessageBox(main->HWindow, GetErrorText(ERROR_NOT_ENOUGH_MEMORY), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+    return true;
+}
+
 void CMainWindow::MakeFileList()
 {
     CALL_STACK_MESSAGE1("CMainWindow::MakeFileList()");
@@ -738,9 +871,13 @@ void CMainWindow::MakeFileList()
             else
             {
                 DWORD err = GetLastError();
-                char message[MAX_PATH + 100];
-                sprintf(message, LoadStr(IDS_FILEERRORFORMAT), fileName, GetErrorText(err));
-                SalMessageBox(HWindow, message, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                if (err != ERROR_ACCESS_DENIED || append || Configuration.FileListDestination != 2 ||
+                    !CreateProtectedFileList(this, panel, fileName,
+                                             diskDirPlugin != NULL && Configuration.FileListRecursive))
+                {
+                    const std::string message = FormatTwoStrings(LoadStr(IDS_FILEERRORFORMAT), fileName, GetErrorText(err));
+                    SalMessageBox(HWindow, message.c_str(), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                }
             }
         }
     }

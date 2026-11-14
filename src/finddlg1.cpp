@@ -2,6 +2,25 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Retain protected Find provenance through viewing and refinement. | Refuse pathname-only reads when identity cannot be preserved. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Display each incomplete Find reason without losing its origin. | Keep bounded logs and carried results truthful. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Preserve typed incomplete Find reasons across searches. | Keep different omissions distinct without changing current reports. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Report an incomplete protected Find separately from Stop. | Do not present a capacity-limited search as complete. | #731 | GPT-6.1 Terra |
+// | 2026-11-10 | Keep long Find results exact across file actions. | Avoid truncated targets and retain inaccessible results. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Show editor consent and launch from the Find window thread. | Keep Find responsive while the user decides. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Use the exact wide Find result for F4. | Preserve long paths and the Find window when asking for elevation. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Carry the Find result attributes with F3. | Check viewer eligibility against the selected row. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Open the full Unicode Find result with F3. | Preserve the result identity and parent the UAC dialog to Find. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Retain the exact protected root for Find. | Keep the identity alive through search, Stop and restart. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Handle UAC foreground return on the owner thread. | Avoid activating a dialog directly from the broker worker. | #731 | GPT-6 (Codex) |
+// | 2026-11-10 | Cancel protected reads through the upstream asynchronous Stop flow | Integrate UAC with current upstream behavior. | #731 | Codex |
+// | 2026-11-09 | Create the Find stop event through the tracked wrapper. | Build Debug and Release with the same unnamed event. | | Codex |
+// | 2026-11-09 | Cancel the protected Find broker handshake on Stop. | Release the read-only pipe while preserving the transfer cancellation contract. | | Codex |
+// | 2026-11-09 | Bind queued Find notifications to the originating search. | Ignore old refresh and completion messages after a restart. | | Codex |
+// | 2026-11-08 | Show a single-file Find consent prompt. | Distinguish the named file from a folder-wide grant. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Distinguish content-search consent from metadata consent. | Show the access required by the active Find options. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Use the common protected read confirmation. | Share the same prompt with the internal viewer. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Show a protected subtree consent prompt from Find. | Let the ordinary Find worker continue independently. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-12 | Read and paint Find headers as Unicode. | Avoid ANSI common-control conversions corrupting localized UTF-8 column names. | | openai/gpt-6-luna-pro |
 // | 2026-11-07 | Indicate background Find work with the system app-starting cursor. | Show active searches and sorts while retaining native interaction cursors. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Publish only the visible Find viewport to UI Automation. | Preserve native rendering, keyboard interaction, and legacy accessibility. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
@@ -33,6 +52,7 @@
 #include "shellib.h"
 #include "find.h"
 #include "finduia.h"
+#include "dialogs.h"
 #include "gui.h"
 #include "plugins/shared/listview_sort_header.h"
 #include "usermenu.h"
@@ -406,6 +426,13 @@ std::wstring CFoundFilesData::GetFullNameW() const
     return ret;
 }
 
+bool CFoundFilesData::CanUseLegacyShellPath() const
+{
+    const size_t pathLength = strlen(Path);
+    return pathLength && pathLength + strlen(Name) + (Path[pathLength - 1] == '\\' ? 0 : 1) < MAX_PATH &&
+           SalMultiByteToWidePath(Path, GetACP()) == PathW && SalMultiByteToWidePath(Name, GetACP()) == NameW;
+}
+
 char* CFoundFilesData::GetText(int i, char* text, int fileNameFormat)
 {
     // several FIND windows may run in parallel, which could overwrite this static buffer
@@ -414,6 +441,8 @@ char* CFoundFilesData::GetText(int i, char* text, int fileNameFormat)
     {
     case 0:
     {
+        if (strlen(Name) >= MAX_PATH)
+            return Name;
         AlterFileName(text, Name, -1, fileNameFormat, 0, IsDir);
         return text;
     }
@@ -814,16 +843,12 @@ void CFoundFilesListView::CheckAndRemoveSelectedItems(BOOL forceRemove, int last
             BOOL remove = forceRemove;
             if (!forceRemove)
             {
-                char fullPath[MAX_PATH];
-                int pathLen = lstrlen(ptr->Path);
-                memmove(fullPath, ptr->Path, pathLen + 1);
-                if (ptr->Path[pathLen - 1] != '\\')
+                const auto path = SalPathAddExtendedPrefixW(ptr->GetFullNameW().c_str());
+                if (GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES)
                 {
-                    fullPath[pathLen] = '\\';
-                    fullPath[pathLen + 1] = '\0';
+                    const DWORD error = GetLastError();
+                    remove = error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND;
                 }
-                lstrcat(fullPath, ptr->Name);
-                remove = (SalGetFileAttributes(fullPath) == -1);
             }
             if (remove)
             {
@@ -1348,9 +1373,12 @@ BOOL GetNextItemFromFind(int index, char* path, char* name, void* param)
     if (index >= 0 && index < data->Count)
     {
         CFoundFilesData* file = listView->At(data->Index[index]);
-        strcpy(path, file->Path);
-        strcpy(name, file->Name);
-        return TRUE;
+        if (file->CanUseLegacyShellPath())
+        {
+            strcpy(path, file->Path);
+            strcpy(name, file->Name);
+            return TRUE;
+        }
     }
     if (data->Index != NULL)
     {
@@ -1813,10 +1841,12 @@ BOOL CFoundFilesListView::InitColumns()
 // CFindDialog
 //
 
-CFindDialog::CFindDialog(HWND hCenterAgainst, const char* initPath)
+CFindDialog::CFindDialog(HWND hCenterAgainst, const char* initPath,
+                         std::shared_ptr<const UacF7::FindRootIdentity> protectedRoot)
     : CCommonDialog(HLanguage, IDD_FIND, NULL, ooStandard, hCenterAgainst),
       SearchForData(50, 10)
 {
+    GrepData.ProtectedRoot = std::move(protectedRoot);
 #ifndef _UNICODE
     UnicodeWnd = TRUE;
 #endif // _UNICODE
@@ -1993,6 +2023,8 @@ int GetFindActivityStringID(CFindActivity activity)
         return IDS_STOPPED;
     case CFindActivity::Finished:
         return IDS_FIND_ACTIVITY_FINISHED;
+    case CFindActivity::Incomplete:
+        return IDS_FIND_ACTIVITY_INCOMPLETE;
     default:
         return IDS_FIND_ACTIVITY_IDLE;
     }
@@ -2046,7 +2078,8 @@ void CFindDialog::SetFindActivity(CFindActivity activity)
 void CFindDialog::UpdateFindActivityPart(BOOL initialize)
 {
     WCHAR text[64] = {};
-    const int length = LoadStringW(HLanguage, GetFindActivityStringID(Activity), text, _countof(text));
+    const int stringID = Activity == CFindActivity::Incomplete ? FindIncompleteStatusStringID(GrepData.IncompleteReasons) : GetFindActivityStringID(Activity);
+    const int length = LoadStringW(HLanguage, stringID, text, _countof(text));
     SIZE size = {};
     HDC dc = HANDLES(GetDC(HStatusBar));
     if (dc != NULL)
@@ -2450,9 +2483,8 @@ void CFindDialog::BuildSerchForData()
 
     SearchForData.DestroyMembers();
 
-    char path[MAX_PATH];
-    lstrcpy(path, Data.LookInText);
-    begin = path;
+    std::string searchPaths(Data.LookInText);
+    begin = searchPaths.data();
     do
     {
         end = begin;
@@ -2514,6 +2546,11 @@ void CFindDialog::BuildSerchForData()
     } while (*end != 0);
 }
 
+static unsigned RetainFindIncomplete(WORD command, unsigned reasons)
+{
+    return command == CM_FIND_APPEND || command == CM_FIND_INTERSECT || command == CM_FIND_SUBTRACT ? reasons : FindIncompleteNone;
+}
+
 void CFindDialog::StartSearch(WORD command)
 {
     CALL_STACK_MESSAGE1("CFindDialog::StartSearch()");
@@ -2545,8 +2582,22 @@ void CFindDialog::StartSearch(WORD command)
     ListView_SetItemCount(FoundFilesListView->HWindow, 0);
     UpdateWindow(FoundFilesListView->HWindow);
 
-    // release any errors held from the previous search
+    const unsigned previousIncomplete = GrepData.IncompleteReasons;
+    const unsigned retainIncomplete = RetainFindIncomplete(command, previousIncomplete);
+    const auto restoreIncompleteLog = [&] {
+        if (previousIncomplete & FindIncompleteScopeCapacity)
+        {
+            char reason[1024];
+            FindProtectedScopeLimitText(true, reason, sizeof(reason));
+            Log.Add(FLI_ERROR, reason, nullptr);
+        }
+        const int errors = Log.GetErrorCount();
+        TBHeader->SetErrorsInfosCount(errors ? errors : 1, Log.GetInfoCount());
+    };
+    // Keep the reason available even if preparing this search fails.
     Log.Clean();
+    if (previousIncomplete)
+        restoreIncompleteLog();
 
     GrepData.FindDuplicates = FALSE;
     GrepData.FindDupFlags = 0;
@@ -2684,10 +2735,24 @@ void CFindDialog::StartSearch(WORD command)
     const CFindActivity previousActivity = GetFindActivity();
     SetFindActivity(CFindActivity::Searching);
     UpdateFindWatchdogResultCount(Watchdog.get(), static_cast<unsigned>(GrepData.FoundVisibleCount));
+    GrepData.ConsentWindow = HWindow;
+    GrepData.StopEvent = HANDLES(CreateEvent(nullptr, TRUE, FALSE, nullptr));
+    if (!retainIncomplete)
+    {
+        Log.Clean();
+        TBHeader->SetErrorsInfosCount(0, 0);
+    }
+    GrepData.IncompleteReasons = retainIncomplete;
     DWORD threadId;
     GrepThread = HANDLES(CreateThread(NULL, 0, GrepThreadF, &GrepData, 0, &threadId));
     if (GrepThread == NULL)
     {
+        GrepData.IncompleteReasons = previousIncomplete;
+        if (previousIncomplete && !retainIncomplete)
+            restoreIncompleteLog();
+        if (GrepData.StopEvent)
+            HANDLES(CloseHandle(GrepData.StopEvent));
+        GrepData.StopEvent = nullptr;
         TRACE_E("Unable to start GrepThread thread.");
         KillTimer(HWindow, IDT_REPAINT);
         SetFindActivity(previousActivity);
@@ -2725,6 +2790,8 @@ void CFindDialog::StopSearch()
 
     SearchStopRequested = true;
     GrepData.StopSearch = true;
+    if (GrepData.StopEvent)
+        SetEvent(GrepData.StopEvent);
     SetFindActivity(CFindActivity::Stopping);
     TBHeader->EnableItem(IDC_FIND_STOP, FALSE, FALSE);
 }
@@ -2740,6 +2807,9 @@ void CFindDialog::FinishSearch()
     HANDLES(CloseHandle(GrepThread));
     GrepThread = NULL;
     InterlockedExchange(&GrepData.RefreshPending, FALSE);
+    if (GrepData.StopEvent)
+        HANDLES(CloseHandle(GrepData.StopEvent));
+    GrepData.StopEvent = nullptr;
 
     SearchInProgress = FALSE;
     if (OKButton != NULL) // trigger the drop-down arrow
@@ -2764,10 +2834,12 @@ void CFindDialog::FinishSearch()
     UpdateStatusBar = FALSE;
     // Publish everything after the worker exits, before an automatic log dialog can open.
     UpdateListViewItems();
-    if (!GrepData.SearchStopped)
+    if (!GrepData.SearchStopped && !SearchStopRequested)
     {
         DWORD items = FoundFilesListView->GetCount();
-        if (items == 0)
+        if (items == 0 && GrepData.IncompleteReasons)
+            SendMessage(HStatusBar, SB_SETTEXT, 1 | SBT_NOBORDERS, (LPARAM)LoadStr(FindIncompleteStatusStringID(GrepData.IncompleteReasons)));
+        else if (items == 0)
         {
             int msgID = GrepData.FindDuplicates ? IDS_FIND_NO_DUPS_FOUND : IDS_FIND_NO_FILES_FOUND;
             SendMessage(HStatusBar, SB_SETTEXT, 1 | SBT_NOBORDERS, (LPARAM)LoadStr(msgID));
@@ -2800,7 +2872,7 @@ void CFindDialog::OnFindWorkIdle()
         return;
 
     if (Activity == CFindActivity::Finishing)
-        SetFindActivity(GrepData.SearchStopped ? CFindActivity::Stopped : CFindActivity::Finished);
+        SetFindActivity(FindFinalActivity(GrepData.SearchStopped || SearchStopRequested, GrepData.IncompleteReasons));
 
     if (FindCloseQueryPending)
     {
@@ -2983,7 +3055,10 @@ void CFindDialog::UpdateListViewItems()
             TBHeader->SetFoundCount(count);
             GrepData.FoundVisibleCount = count;
         }
-        TBHeader->SetErrorsInfosCount(Log.GetErrorCount(), Log.GetInfoCount());
+        const int errors = Log.GetErrorCount();
+        // The worker owns this mask until it exits; summaries must remain reachable even if the bounded log is full.
+        const bool hasSummary = GrepThread == NULL && GrepData.IncompleteReasons != FindIncompleteNone;
+        TBHeader->SetErrorsInfosCount(errors ? errors : hasSummary ? 1 : 0, Log.GetInfoCount());
 
         // when minimized, display the item count in the title
         if (countChanged && IsIconic(HWindow))
@@ -3021,31 +3096,29 @@ void CFindDialog::OnFocusFile()
             return;
         }
     }
-    CFoundFilesData* data = FoundFilesListView->At(index);
-    SendMessage(MainWindow->GetActivePanel()->HWindow, WM_USER_FOCUSFILE, (WPARAM)data->Name, (LPARAM)data->Path);
+    const auto* data = FoundFilesListView->At(index);
+    const auto name = SalWideToMultiBytePath(data->NameW.c_str(), CP_UTF8);
+    const auto path = SalWideToMultiBytePath(data->PathW.c_str(), CP_UTF8);
+    if (name.size() >= MAX_PATH || path.size() >= SAL_MAX_PATH)
+    {
+        SalMessageBox(HWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+        return;
+    }
+    SendMessage(MainWindow->GetActivePanel()->HWindow, WM_USER_FOCUSFILE,
+                reinterpret_cast<WPARAM>(name.c_str()), reinterpret_cast<LPARAM>(path.c_str()));
 }
 
-BOOL CFindDialog::GetFocusedFile(char* buffer, int bufferLen, int* viewedIndex)
+std::string CFindDialog::GetFocusedFile(int* viewedIndex)
 {
-    int index = ListView_GetNextItem(FoundFilesListView->HWindow, -1, LVNI_FOCUSED);
+    const int index = ListView_GetNextItem(FoundFilesListView->HWindow, -1, LVNI_FOCUSED);
     if (index < 0)
-        return FALSE;
-
-    if (viewedIndex != NULL)
+        return {};
+    const auto* file = FoundFilesListView->At(index);
+    if (file->IsDir)
+        return {};
+    if (viewedIndex)
         *viewedIndex = index;
-
-    CFoundFilesData* data = FoundFilesListView->At(index);
-    if (data->IsDir)
-        return FALSE;
-    char longName[MAX_PATH];
-    int len = (int)strlen(data->Path);
-    memmove(longName, data->Path, len);
-    if (data->Path[len - 1] != '\\')
-        longName[len++] = '\\';
-    strcpy(longName + len, data->Name);
-
-    lstrcpyn(buffer, longName, bufferLen);
-    return TRUE;
+    return SalWideToMultiBytePath(file->GetFullNameW().c_str(), CP_UTF8);
 }
 
 BOOL CFindDialog::UpdateInternalViewerData()
@@ -3080,10 +3153,23 @@ BOOL CFindDialog::UpdateInternalViewerData()
 void CFindDialog::OnViewFile(BOOL alternate)
 {
     CALL_STACK_MESSAGE2("CFindDialog::OnViewFile(%d)", alternate);
-    char longName[MAX_PATH];
-    int viewedIndex = 0;
-    if (!GetFocusedFile(longName, MAX_PATH, &viewedIndex))
+    const int viewedIndex = ListView_GetNextItem(FoundFilesListView->HWindow, -1, LVNI_FOCUSED);
+    if (viewedIndex < 0)
         return;
+    const CFoundFilesData* result = FoundFilesListView->At(viewedIndex);
+    if (result->IsDir)
+        return;
+    if (result->ProtectedOrigin && !result->FoundView)
+    {
+        SalMessageBox(HWindow, LoadStr(IDS_UAC_FIND_VIEW_IDENTITY_UNAVAILABLE), LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
+        return;
+    }
+    const std::wstring path = result->GetFullNameW();
+    std::string longName = SalWideToMultiBytePath(path.c_str(), CP_UTF8);
+    if (longName.empty())
+        return;
+    const auto foundView = result->FoundView;
+    const DWORD resultAttributes = result->Attr;
 
     if (SalamanderBusy)
     {
@@ -3097,10 +3183,8 @@ void CFindDialog::OnViewFile(BOOL alternate)
         }
     }
     BOOL passFindText = UpdateInternalViewerData();
-    COpenViewerData openData;
-    openData.FileName = longName;
-    openData.EnumFileNamesSourceUID = FoundFilesListView->EnumFileNamesSourceUID;
-    openData.EnumFileNamesLastFileIndex = viewedIndex;
+    COpenViewerData openData{longName.data(), FoundFilesListView->EnumFileNamesSourceUID,
+                             viewedIndex, HWindow, resultAttributes, foundView.get()};
     PassFindTextToPluginViewer = passFindText;
     SendMessage(MainWindow->GetActivePanel()->HWindow, WM_USER_VIEWFILE, (WPARAM)(&openData), (LPARAM)alternate);
     PassFindTextToPluginViewer = FALSE;
@@ -3109,9 +3193,18 @@ void CFindDialog::OnViewFile(BOOL alternate)
 void CFindDialog::OnEditFile()
 {
     CALL_STACK_MESSAGE1("CFindDialog::OnEditFile()");
-    char longName[MAX_PATH];
-    if (!GetFocusedFile(longName, MAX_PATH, NULL))
+    const int index = ListView_GetNextItem(FoundFilesListView->HWindow, -1, LVNI_FOCUSED);
+    if (index < 0)
         return;
+    const auto& result = *FoundFilesListView->At(index);
+    if (result.IsDir)
+        return;
+    const std::wstring path = result.GetFullNameW();
+    std::string longName = SalWideToMultiBytePath(path.c_str(), CP_UTF8);
+    if (longName.empty())
+        return;
+    UacF7::ElevatedEditor editor;
+    COpenEditorData openData{longName.data(), result.Attr, editor};
 
     if (SalamanderBusy)
     {
@@ -3124,16 +3217,34 @@ void CFindDialog::OnEditFile()
             return;
         }
     }
-    SendMessage(MainWindow->GetActivePanel()->HWindow, WM_USER_EDITFILE, (WPARAM)longName, 0);
+    SendMessage(MainWindow->GetActivePanel()->HWindow, WM_USER_EDITFILE, reinterpret_cast<WPARAM>(&openData), 0);
+    if (openData.DirectoryError != ERROR_SUCCESS)
+        SalMessageBox(HWindow, GetErrorText(openData.DirectoryError), LoadStr(IDS_ERRORCHANGINGDIR),
+                      MB_OK | MB_ICONEXCLAMATION);
+    else if (openData.UntrustedEditor)
+        SalMessageBox(HWindow, LoadStr(IDS_UAC_EDIT_ADMIN_UNTRUSTED), LoadStr(IDS_UAC_EDIT_ADMIN_TITLE),
+                      MB_OK | MB_ICONEXCLAMATION);
+    else if (openData.NeedsConsent)
+    {
+        const auto document = SalPathRemoveExtendedPrefixW(path.c_str());
+        if (ConfirmElevatedFileEdit(HWindow, document, editor))
+            LaunchElevatedFileEdit(HWindow, document, editor);
+    }
 }
 
 void CFindDialog::OnViewFileWith()
 {
     CALL_STACK_MESSAGE1("CFindDialog::OnViewFileWith()");
-    char longName[MAX_PATH];
-    int viewedIndex = 0;
-    if (!GetFocusedFile(longName, MAX_PATH, &viewedIndex))
+    int viewedIndex;
+    std::string fullName = GetFocusedFile(&viewedIndex);
+    char* longName = fullName.data();
+    if (fullName.empty())
         return;
+    if (FoundFilesListView->At(viewedIndex)->ProtectedOrigin)
+    {
+        SalMessageBox(HWindow, LoadStr(IDS_UAC_FIND_VIEW_WITH_UNAVAILABLE), LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
+        return;
+    }
 
     if (SalamanderBusy)
     {
@@ -3181,8 +3292,9 @@ void CFindDialog::OnViewFileWith()
 void CFindDialog::OnEditFileWith()
 {
     CALL_STACK_MESSAGE1("CFindDialog::OnEditFileWith()");
-    char longName[MAX_PATH];
-    if (!GetFocusedFile(longName, MAX_PATH, NULL))
+    std::string fullName = GetFocusedFile();
+    char* longName = fullName.data();
+    if (fullName.empty())
         return;
 
     if (SalamanderBusy)
@@ -3241,6 +3353,16 @@ void CFindDialog::OnUserMenu()
 
     if (cmd != 0)
     {
+        const HWND resultList = FoundFilesListView->HWindow;
+        for (int index = -1; (index = ListView_GetNextItem(resultList, index, LVNI_SELECTED)) != -1;)
+        {
+            if (!FoundFilesListView->At(index)->CanUseLegacyShellPath())
+            {
+                SalMessageBox(HWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                return;
+            }
+        }
+
         CUserMenuAdvancedData userMenuAdvancedData;
 
         char* list = userMenuAdvancedData.ListOfSelNames;
@@ -3383,6 +3505,11 @@ void CFindDialog::OnCopyNameToClipboard(CCopyNameToClipboardModeEnum mode)
             CopyTextToClipboardW(textW.c_str());
             return;
         }
+    }
+    if (!data->CanUseLegacyShellPath())
+    {
+        SalMessageBox(HWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+        return;
     }
     char buff[2 * MAX_PATH];
     buff[0] = 0;
@@ -5107,6 +5234,22 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
         break;
     }
 
+    case UacF7::restoreConsentForegroundMessage:
+        UacF7::RestoreConsentForeground(HWindow, reinterpret_cast<HWND>(wParam), static_cast<DWORD>(lParam));
+        return TRUE;
+
+    case WM_USER_FIND_PROTECTED_CONSENT:
+    {
+        const auto scope = static_cast<FindConsentScope>(lParam);
+        const int prompt = scope == FindConsentScope::File ? IDS_UAC_FIND_FILE_CONFIRM :
+                           scope == FindConsentScope::Content ? IDS_UAC_FIND_CONTENT_CONFIRM : IDS_UAC_FIND_CONFIRM;
+        const bool approved = !GrepData.StopSearch &&
+                              ConfirmProtectedRead(HWindow, IDS_FINDTITLE, prompt,
+                                                            *reinterpret_cast<const std::wstring*>(wParam));
+        SetWindowLongPtr(HWindow, DWLP_MSGRESULT, approved);
+        return TRUE;
+    }
+
     case WM_USER_BUTTONS:
     {
         EnableControls(wParam != NULL);
@@ -5158,9 +5301,14 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
         if (GrepThread != NULL)
         {
             GrepData.StopSearch = true;
+            if (GrepData.StopEvent)
+                SetEvent(GrepData.StopEvent);
             WaitForSingleObject(GrepThread, INFINITE);
             HANDLES(CloseHandle(GrepThread));
             GrepThread = NULL;
+            if (GrepData.StopEvent)
+                HANDLES(CloseHandle(GrepData.StopEvent));
+            GrepData.StopEvent = nullptr;
         }
 
         if (!DlgFailed)

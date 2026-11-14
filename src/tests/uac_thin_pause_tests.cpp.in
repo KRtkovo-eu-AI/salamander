@@ -1,0 +1,211 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Exercise thin elevation pause and cancellation waits. | Preserve native pause behavior before prompts and broker calls. | #731 | GPT-6 |
+#include <windows.h>
+#include <cstdio>
+#include <initializer_list>
+
+struct TestDialog
+{
+    BOOL* CancelWorker;
+    HANDLE CancelWorkerEvent;
+    HANDLE WorkerNotSuspended;
+};
+struct CThinCopyWorker
+{
+    TestDialog dialog;
+    bool terminal = false;
+    bool CancelBeforeElevation();
+    bool WaitBeforeElevation();
+};
+
+@@WAIT_METHODS@@
+
+static DWORD expectedWaitError = ERROR_CANCELLED;
+struct FakeSessions
+{
+    void erase(int) { SetLastError(ERROR_SHARING_VIOLATION); }
+};
+struct TestPendingSession
+{
+    FakeSessions sessions;
+    int it = 0;
+    bool WaitBeforeElevation() { SetLastError(expectedWaitError); return false; }
+    HANDLE Run();
+};
+HANDLE TestPendingSession::Run()
+{
+    // This block is extracted directly from the real Open() prompt branch.
+    @@ERASE_BLOCK@@
+    return nullptr;
+}
+
+static int failures = 0;
+static void Check(bool ok, const char* name)
+{
+    std::printf("%s %s\n", ok ? "PASS" : "FAIL", name);
+    if (!ok) ++failures;
+}
+
+struct Invocation
+{
+    CThinCopyWorker* worker;
+    HANDLE started;
+    HANDLE finished;
+    HANDLE prompt;
+    HANDLE returnPrompt;
+    bool existingSession;
+    bool result = false;
+    DWORD error = ERROR_SUCCESS;
+    volatile LONG prompts = 0;
+    volatile LONG brokers = 0;
+};
+
+// This narrow test seam models the placement of the actual waits, but does
+// not replace or run Open(), its real dialog, its broker, or DoCopyFile.
+static DWORD WINAPI Invoke(void* raw)
+{
+    auto& call = *static_cast<Invocation*>(raw);
+    SetLastError(ERROR_SHARING_VIOLATION);
+    SetEvent(call.started);
+    if (!call.worker->WaitBeforeElevation()) goto done;
+    if (!call.existingSession)
+    {
+        if (!call.worker->WaitBeforeElevation()) goto done;
+        InterlockedIncrement(&call.prompts);
+        SetEvent(call.prompt);
+        if (WaitForSingleObject(call.returnPrompt, 3000) != WAIT_OBJECT_0)
+        {
+            SetLastError(ERROR_TIMEOUT);
+            goto done;
+        }
+    }
+    if (!call.worker->WaitBeforeElevation()) goto done;
+    InterlockedIncrement(&call.brokers);
+    call.result = true;
+done:
+    call.error = GetLastError();
+    SetEvent(call.finished);
+    return 0;
+}
+
+static void TestPaused(bool cancel, bool existingSession)
+{
+    BOOL cancelled = FALSE;
+    HANDLE cancelEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    HANDLE resume = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    HANDLE started = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    HANDLE finished = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    HANDLE prompt = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    HANDLE returnPrompt = CreateEventW(nullptr, TRUE, TRUE, nullptr);
+    if (!cancelEvent || !resume || !started || !finished || !prompt || !returnPrompt)
+    {
+        Check(false, "create test events");
+        return;
+    }
+    CThinCopyWorker worker{{&cancelled, cancelEvent, resume}};
+    Invocation call{&worker, started, finished, prompt, returnPrompt, existingSession};
+    HANDLE thread = CreateThread(nullptr, 0, Invoke, &call, 0, nullptr);
+    if (!thread)
+    {
+        Check(false, "create test thread");
+    }
+    else
+    {
+        const bool began = WaitForSingleObject(started, 3000) == WAIT_OBJECT_0;
+        const bool blocked = WaitForSingleObject(finished, 150) == WAIT_TIMEOUT;
+        Check(began && blocked && InterlockedCompareExchange(&call.prompts, 0, 0) == 0 &&
+              InterlockedCompareExchange(&call.brokers, 0, 0) == 0,
+              existingSession ? "paused approved session starts no broker request" : "paused job starts no prompt or broker request");
+        SetEvent(cancel ? cancelEvent : resume);
+        const bool done = WaitForSingleObject(finished, 3000) == WAIT_OBJECT_0;
+        if (!done) { SetEvent(cancelEvent); SetEvent(resume); SetEvent(returnPrompt); }
+        const bool joined = WaitForSingleObject(thread, 3000) == WAIT_OBJECT_0;
+        Check(done && joined && (cancel ? (!call.result && call.error == ERROR_CANCELLED && worker.terminal &&
+                                           call.prompts == 0 && call.brokers == 0)
+                                        : (call.result && call.error == ERROR_SHARING_VIOLATION &&
+                                           call.prompts == (existingSession ? 0 : 1) && call.brokers == 1)),
+              cancel ? "cancelling a paused job wakes without elevation" : "resume continues without changing last error");
+        if (!joined) { std::fflush(stdout); ExitProcess(3); }
+        CloseHandle(thread);
+    }
+    CloseHandle(returnPrompt); CloseHandle(prompt); CloseHandle(finished);
+    CloseHandle(started); CloseHandle(resume); CloseHandle(cancelEvent);
+}
+
+static void TestPauseDuringPrompt(bool cancel)
+{
+    BOOL cancelled = FALSE;
+    HANDLE cancelEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    HANDLE resume = CreateEventW(nullptr, TRUE, TRUE, nullptr);
+    HANDLE started = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    HANDLE finished = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    HANDLE prompt = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    HANDLE returnPrompt = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (!cancelEvent || !resume || !started || !finished || !prompt || !returnPrompt)
+    {
+        Check(false, "create prompt test events");
+        return;
+    }
+    CThinCopyWorker worker{{&cancelled, cancelEvent, resume}};
+    Invocation call{&worker, started, finished, prompt, returnPrompt, false};
+    HANDLE thread = CreateThread(nullptr, 0, Invoke, &call, 0, nullptr);
+    if (!thread) { Check(false, "create prompt test thread"); return; }
+    const bool showed = WaitForSingleObject(prompt, 3000) == WAIT_OBJECT_0;
+    ResetEvent(resume);
+    SetEvent(returnPrompt);
+    const bool blocked = WaitForSingleObject(finished, 150) == WAIT_TIMEOUT;
+    Check(showed && blocked && InterlockedCompareExchange(&call.brokers, 0, 0) == 0,
+          "pause after prompt holds broker request");
+    SetEvent(cancel ? cancelEvent : resume);
+    const bool done = WaitForSingleObject(finished, 3000) == WAIT_OBJECT_0;
+    if (!done) { SetEvent(cancelEvent); SetEvent(resume); }
+    const bool joined = WaitForSingleObject(thread, 3000) == WAIT_OBJECT_0;
+    Check(done && joined && (cancel ? (!call.result && call.error == ERROR_CANCELLED && call.brokers == 0)
+                                    : (call.result && call.brokers == 1)),
+          cancel ? "cancel after prompt prevents broker request" : "resume after prompt permits broker request");
+    if (!joined) { std::fflush(stdout); ExitProcess(3); }
+    CloseHandle(thread); CloseHandle(returnPrompt); CloseHandle(prompt); CloseHandle(finished);
+    CloseHandle(started); CloseHandle(resume); CloseHandle(cancelEvent);
+}
+
+int main()
+{
+    for (DWORD error : {ERROR_CANCELLED, ERROR_INVALID_HANDLE})
+    {
+        expectedWaitError = error;
+        TestPendingSession pending;
+        Check(pending.Run() == INVALID_HANDLE_VALUE && GetLastError() == error,
+              "erasing a pending session preserves the wait error");
+    }
+    BOOL cancelled = FALSE;
+    HANDLE cancelEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    HANDLE resume = CreateEventW(nullptr, TRUE, TRUE, nullptr);
+    if (!cancelEvent || !resume) return 2;
+    CThinCopyWorker immediate{{&cancelled, cancelEvent, resume}};
+    SetLastError(ERROR_ACCESS_DENIED);
+    Check(immediate.WaitBeforeElevation() && GetLastError() == ERROR_ACCESS_DENIED && !immediate.terminal,
+          "running worker preserves last error");
+    CThinCopyWorker missing{{&cancelled, nullptr, resume}};
+    Check(!missing.WaitBeforeElevation() && GetLastError() == ERROR_INVALID_HANDLE,
+          "missing cancel event fails closed");
+    CThinCopyWorker missingResume{{&cancelled, cancelEvent, nullptr}};
+    Check(!missingResume.WaitBeforeElevation() && GetLastError() == ERROR_INVALID_HANDLE,
+          "missing resume event fails closed");
+    CThinCopyWorker invalid{{&cancelled, cancelEvent, reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(0x1234))}};
+    Check(!invalid.WaitBeforeElevation() && GetLastError() == ERROR_INVALID_HANDLE,
+          "failed wait reports the system error");
+    SetEvent(cancelEvent);
+    CThinCopyWorker both{{&cancelled, cancelEvent, resume}};
+    Check(!both.WaitBeforeElevation() && GetLastError() == ERROR_CANCELLED && both.terminal,
+          "cancellation wins when resume and cancel are both signalled");
+    CloseHandle(cancelEvent); CloseHandle(resume);
+    TestPaused(false, false);
+    TestPaused(true, false);
+    TestPaused(false, true);
+    TestPaused(true, true);
+    TestPauseDuringPrompt(false);
+    TestPauseDuringPrompt(true);
+    return failures ? 1 : 0;
+}

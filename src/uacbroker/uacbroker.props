@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Compile the protocol marker into both UAC tools. | Match the application handshake version in the distributable images. | | GPT-6.1 Sol (Codex) |
+| 2026-11-07 | Configure the isolated UAC targets. | Build architecture-matched binaries with a system-only import lookup. | | GPT-6.1 Sol (Codex) |
+| 2026-11-07 | Link the NTFS relative create primitive. | Enable the single-directory broker pilot. | | GPT-6.1 Sol (Codex) |
+-->
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <UacOutputRoot Condition="'$(OPENSAL_BUILD_DIR)' != ''">$([MSBuild]::EnsureTrailingSlash($(OPENSAL_BUILD_DIR)))</UacOutputRoot>
+    <UacOutputRoot Condition="'$(UacOutputRoot)' == ''">$(MSBuildThisFileDirectory)..\..\output\</UacOutputRoot>
+    <OutDir>$(UacOutputRoot)uac\$(Configuration)_$(Platform)\</OutDir>
+    <IntDir>$(OutDir)$(MSBuildProjectName)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <WarningLevel>Level4</WarningLevel>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <UACUIAccess>false</UACUIAccess>
+      <AdditionalDependencies>advapi32.lib;ole32.lib;shell32.lib;uuid.lib;ntdll.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/DEPENDENTLOADFLAG:0x800 %(AdditionalOptions)</AdditionalOptions>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="uacbroker.cpp" />
+    <ResourceCompile Include="uacprotocol.rc" />
+  </ItemGroup>
+</Project>

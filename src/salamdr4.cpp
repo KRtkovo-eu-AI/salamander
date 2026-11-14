@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Render the private disk size marker in the size column. | Preserve the released shared file data. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Show partial directory sizes as lower bounds. | Distinguish incomplete totals from complete sizes in the panel. | #731 | GPT-6.1 Sol |
+// | 2026-11-08 | Read file keywords through a stream-capable Windows property handler. | Keep the same tag semantics for the protected and ordinary paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-12 | Keep panels visible during history launches. | Parent the transparent shell helper beside the owner-drawn list instead of over it. | | openai/gpt-6-luna-pro |
 // CommentsTranslationProject: TRANSLATED
 
@@ -2365,7 +2368,10 @@ void WINAPI InternalGetDosName()
 
 void WINAPI InternalGetSize()
 {
-    if (TransferIsDir && !TransferFileData->SizeValid) // only directories without a known size
+    const bool partial = TransferIsDir == 1 && !TransferFileData->SizeValid &&
+                         TransferPanelWindow && TransferPanelWindow->Is(ptDisk) &&
+                         TransferFileData->PluginData == DiskDirectoryPartialSizeMarker;
+    if (TransferIsDir && !TransferFileData->SizeValid && !partial)
     {
         memmove(TransferBuffer, DirColumnStr, DirColumnStrLen);
         TransferLen = DirColumnStrLen;
@@ -2393,6 +2399,12 @@ void WINAPI InternalGetSize()
             TransferLen = (int)strlen(TransferBuffer);
             break;
         }
+        }
+        if (partial)
+        {
+            memmove(TransferBuffer + 3, TransferBuffer, TransferLen + 1);
+            memcpy(TransferBuffer, ">= ", 3);
+            TransferLen += 3;
         }
     }
 }
@@ -2743,21 +2755,11 @@ std::wstring FormatFileTagsW(const std::vector<std::wstring>& tags)
     return result;
 }
 
-HRESULT ReadFileTagsW(const wchar_t* path, std::vector<std::wstring>& tags)
+static HRESULT ReadPropertyStoreTagsW(IPropertyStore* store, std::vector<std::wstring>& tags)
 {
-    tags.clear();
-    if (path == NULL || path[0] == 0)
-        return E_INVALIDARG;
-
-    IPropertyStore* store = NULL;
-    HRESULT hr = SHGetPropertyStoreFromParsingName(path, NULL, GPS_DEFAULT,
-                                                    IID_IPropertyStore, (void**)&store);
-    if (FAILED(hr) || store == NULL)
-        return hr;
-
     PROPVARIANT value;
     PropVariantInit(&value);
-    hr = store->GetValue(PKEY_Keywords, &value);
+    HRESULT hr = store->GetValue(PKEY_Keywords, &value);
     if (SUCCEEDED(hr) && value.vt != VT_EMPTY && value.vt != VT_NULL)
     {
         PWSTR* values = NULL;
@@ -2780,7 +2782,50 @@ HRESULT ReadFileTagsW(const wchar_t* path, std::vector<std::wstring>& tags)
         hr = S_OK;
 
     PropVariantClear(&value);
-    store->Release();
+    return hr;
+}
+
+HRESULT ReadFileTagsW(const wchar_t* path, std::vector<std::wstring>& tags)
+{
+    tags.clear();
+    if (path == NULL || path[0] == 0)
+        return E_INVALIDARG;
+    IPropertyStore* store = NULL;
+    HRESULT hr = SHGetPropertyStoreFromParsingName(path, NULL, GPS_DEFAULT, IID_PPV_ARGS(&store));
+    if (SUCCEEDED(hr) && store)
+    {
+        hr = ReadPropertyStoreTagsW(store, tags);
+        store->Release();
+    }
+    return hr;
+}
+
+HRESULT ReadFileTagsFromStreamW(const wchar_t* path, IStream* stream, std::vector<std::wstring>& tags)
+{
+    tags.clear();
+    if (!path || !*path || !stream)
+        return E_INVALIDARG;
+    CLSID handler{};
+    HRESULT hr = PSLookupPropertyHandlerCLSID(path, &handler);
+    if (FAILED(hr))
+        return hr;
+    IInitializeWithStream* initializer = nullptr;
+    hr = CoCreateInstance(handler, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&initializer));
+    if (FAILED(hr))
+        return hr;
+
+    hr = initializer->Initialize(stream, STGM_READ);
+    if (SUCCEEDED(hr))
+    {
+        IPropertyStore* store = nullptr;
+        hr = initializer->QueryInterface(IID_PPV_ARGS(&store));
+        if (SUCCEEDED(hr))
+        {
+            hr = ReadPropertyStoreTagsW(store, tags);
+            store->Release();
+        }
+    }
+    initializer->Release();
     return hr;
 }
 
@@ -2883,7 +2928,14 @@ BOOL FileTagsMatchW(const wchar_t* path, const std::vector<std::wstring>& tags,
     std::vector<std::wstring> fileTags;
     if (FAILED(ReadFileTagsW(path, fileTags)))
         return mode == ftmmNone;
+    return FileTagValuesMatchW(fileTags, tags, mode);
+}
 
+BOOL FileTagValuesMatchW(const std::vector<std::wstring>& fileTags, const std::vector<std::wstring>& tags,
+                         CFileTagsMatchMode mode)
+{
+    if (tags.empty())
+        return TRUE;
     int found = 0;
     for (size_t i = 0; i < tags.size(); i++)
     {

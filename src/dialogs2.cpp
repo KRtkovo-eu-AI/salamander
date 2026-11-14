@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Estimate occupied space only from a complete set of logical file sizes. | Keep estimates correct for empty files and arbitrary cluster sizes. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Keep the same full size results dialog for protected totals. | Preserve the layout and leave unavailable values disabled. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Show protected totals in the compact size dialog. | Use the Ctrl+Q layout for measured values and omit allocation controls. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-14 | Preserve File Associations override ownership in runtime masks. | Keep authoritative per-pattern rows identifiable through array copies and swaps. |  | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-14 | Preserve user-association markers when runtime rows are copied. | Keep explicit per-pattern targets identifiable after staging and commit. |  | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-13 | Populate Manage Configurations languages from embedded packs. | Keep Welcome's language selector working without generated .slg files. | | openrouter/openai/gpt-6-luna-pro |
@@ -487,21 +490,26 @@ void CSizeResultsDlg::UpdateEstimate()
     SendDlgItemMessage(HWindow, IDC_EST_CLUSTER, WM_GETTEXT, 11, (LPARAM)buf);
     int bytesPerCluster = atoi(buf);
 
-    if (Sizes != NULL && Sizes->IsGood() && bytesPerCluster > 0)
+    bool complete = Sizes != NULL && Sizes->IsGood() && Sizes->Count == Files && bytesPerCluster > 0;
+    CQuadWord estimated(0, 0);
+    if (complete)
     {
-        if (Sizes->Count != Files)
-            TRACE_E("Sizes array is not consistent with number of files.");
-
-        CQuadWord estimated(0, 0);
-        CQuadWord s;
-        int i;
-        for (i = 0; i < Sizes->Count; i++)
+        const auto cluster = static_cast<ULONGLONG>(bytesPerCluster);
+        for (int i = 0; i < Sizes->Count; ++i)
         {
-            s = Sizes->At(i);
-            estimated += s - ((s - CQuadWord(1, 0)) % CQuadWord(bytesPerCluster, 0)) +
-                         CQuadWord(bytesPerCluster - 1, 0);
+            const ULONGLONG bytes = Sizes->At(i).Value;
+            const ULONGLONG padding = (cluster - bytes % cluster) % cluster;
+            if (bytes > MAXULONGLONG - estimated.Value || padding > MAXULONGLONG - estimated.Value - bytes)
+            {
+                complete = false;
+                break;
+            }
+            estimated.Value += bytes + padding;
         }
+    }
 
+    if (complete)
+    {
         SetWindowText(GetDlgItem(HWindow, IDC_EST_SIZE), PrintDiskSize(buf, estimated, 1));
 
         if (estimated == CQuadWord(0, 0))
@@ -533,7 +541,7 @@ CSizeResultsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
-        GetDlgItemText(HWindow, IDS_OCCUPIED, UnknownText, 100); // obtain the "unknown" string for later use
+        lstrcpyn(UnknownText, LoadStr(IDS_UAC_SIZE_NOT_AVAILABLE), _countof(UnknownText));
 
         char buf[100];
 
@@ -561,6 +569,8 @@ CSizeResultsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         else
         {
+            SetDlgItemText(HWindow, IDS_OCCUPIED, UnknownText);
+            SetDlgItemText(HWindow, IDS_DISKUTILIZATION, UnknownText);
             EnableWindow(GetDlgItem(HWindow, IDS_OCCUPIED), FALSE);
             EnableWindow(GetDlgItem(HWindow, IDS_DISKUTILIZATION), FALSE);
         }
@@ -582,6 +592,8 @@ CSizeResultsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         else
         {
+            SetDlgItemText(HWindow, IDS_COMPSIZE, UnknownText);
+            SetDlgItemText(HWindow, IDS_COMPRATIO, UnknownText);
             EnableWindow(GetDlgItem(HWindow, IDS_COMPSIZE), FALSE);
             EnableWindow(GetDlgItem(HWindow, IDS_COMPRATIO), FALSE);
         }
@@ -624,7 +636,7 @@ CSizeResultsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             SendMessage(hCombo, WM_SETTEXT, 0, (LPARAM)buf);
         }
 
-        if (Sizes == NULL || !Sizes->IsGood())
+        if (Sizes == NULL || !Sizes->IsGood() || Sizes->Count != Files)
             EnableWindow(hCombo, FALSE);
 
         CheckDlgButton(HWindow, IDC_STAYONFILESYSTEM, Configuration.CountSizeStayOnFileSystem ? BST_CHECKED : BST_UNCHECKED);

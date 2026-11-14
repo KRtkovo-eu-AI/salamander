@@ -1,0 +1,36 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Isolated test context; the injected cleanup function is the actual worker code.
+#include <windows.h>
+#include <cstdio>
+#include <string>
+#define HANDLES(value) (value)
+struct CProgressDlgData { BOOL ConflictTargetChanged = FALSE; };
+@@HELPER@@
+
+int wmain(int argc, wchar_t** argv)
+{
+    if (argc != 2) return 2;
+    const std::wstring path = std::wstring(argv[1]) + L"\\source-東.txt";
+    HANDLE source = CreateFileW(path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, CREATE_NEW, 0, nullptr);
+    HANDLE other = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (source == INVALID_HANDLE_VALUE || !other) return 3;
+    HANDLE old = source;
+    CProgressDlgData data;
+    const BOOL result = ReturnCopyConflictChanged(source, data);
+    DWORD flags = 0;
+    const bool closed = !GetHandleInformation(old, &flags) && GetLastError() == ERROR_INVALID_HANDLE;
+    const bool otherAlive = GetHandleInformation(other, &flags) != FALSE;
+    HANDLE reopened = CreateFileW(path.c_str(), GENERIC_READ, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+    const bool fileAvailable = reopened != INVALID_HANDLE_VALUE;
+    if (fileAvailable) CloseHandle(reopened);
+    CloseHandle(other);
+    if (!DeleteFileW(path.c_str())) return 4;
+    HANDLE empty = nullptr, invalid = INVALID_HANDLE_VALUE;
+    CProgressDlgData emptyData, invalidData;
+    const bool noHandle = ReturnCopyConflictChanged(empty, emptyData) && !empty && emptyData.ConflictTargetChanged &&
+                          ReturnCopyConflictChanged(invalid, invalidData) && !invalid && invalidData.ConflictTargetChanged;
+    const bool ok = result && data.ConflictTargetChanged && !source && closed && otherAlive && fileAvailable && noHandle;
+    std::printf("%s conflict return closes only the source and preserves the decision\n", ok ? "PASS" : "FAIL");
+    return ok ? 0 : 1;
+}

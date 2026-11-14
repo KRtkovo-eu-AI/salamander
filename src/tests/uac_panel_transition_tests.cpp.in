@@ -1,0 +1,175 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-11 | Simulate authorization and panel-session handoff. | Test actual transition code without elevating or modifying files. | #731 | GPT-6.1 Terra |
+#include <string>
+#include <vector>
+#include <memory>
+#include <cstdio>
+
+using DWORD = unsigned long;
+using BOOL = int;
+using HANDLE = void*;
+constexpr BOOL TRUE = 1, FALSE = 0;
+constexpr DWORD ERROR_SUCCESS = 0, ERROR_ACCESS_DENIED = 5, ERROR_CANCELLED = 1223;
+constexpr DWORD FILE_LIST_DIRECTORY = 1, FILE_SHARE_READ = 1, FILE_SHARE_WRITE = 2, FILE_SHARE_DELETE = 4;
+constexpr DWORD OPEN_EXISTING = 3, FILE_FLAG_BACKUP_SEMANTICS = 0x02000000, DRIVE_FIXED = 3;
+constexpr int CP_UTF8 = 65001, CP_ACP = 0, IDOK = 1, IDCANCEL = 2;
+constexpr int IDS_UAC_LIST_CONFIRM = 1, IDS_AS_ADMIN_TITLE = 2, IDS_ERRORCHANGINGDIR = 3;
+constexpr int MSGBOXEX_OKCANCEL = 1, MSGBOXEX_ICONQUESTION = 2, MSGBOXEX_SHIELDONDEFBTN = 4;
+constexpr int MB_OK = 0, MB_ICONEXCLAMATION = 0;
+constexpr int CHPPFR_INVALIDPATH = 1;
+#define INVALID_HANDLE_VALUE reinterpret_cast<HANDLE>(-1)
+#define NULL 0
+struct WIN32_FIND_DATAW { int marker; };
+struct MSGBOXEX_PARAMS { int HParent{}; const char* Text{}; const char* Caption{}; int Flags{}; const char* AliasBtnNames{}; };
+enum PanelType { ptDisk, ptZIPArchive, ptPluginFS };
+struct Scenario {
+    bool denied = true, prepare = true, allow = true, driveFixed = true;
+    DWORD start = 0, list = 0;
+    int prompts = 0, starts = 0, errors = 0, closeCancel = 0, closeCommit = 0;
+    int entriesAtCommit = -1;
+} scenario;
+bool IsValidPathUtf8Text(const char*) { return true; }
+std::wstring SalMultiByteToWidePath(const char* value, int) { return std::wstring(value, value + std::char_traits<char>::length(value)); }
+std::wstring SalPathAddExtendedPrefixW(const wchar_t* value) { return value; }
+std::string SalWideToMultiBytePath(const wchar_t* value, int) { std::string result; while (*value) result.push_back(static_cast<char>(*value++)); return result; }
+DWORD GetDriveTypeW(const wchar_t*) { return scenario.driveFixed ? DRIVE_FIXED : 4; }
+HANDLE CreateFileW(const wchar_t*, DWORD, DWORD, void*, DWORD, DWORD, void*) { return scenario.denied ? INVALID_HANDLE_VALUE : reinterpret_cast<HANDLE>(1); }
+BOOL CloseHandle(HANDLE) { return TRUE; }
+DWORD GetLastError() { return ERROR_ACCESS_DENIED; }
+const char* LoadStr(int) { return "test"; }
+const char* GetErrorText(DWORD) { return "error"; }
+int SalMessageBoxEx(MSGBOXEX_PARAMS*) { ++scenario.prompts; return scenario.allow ? IDOK : IDCANCEL; }
+int SalMessageBox(int, const char*, const char*, int) { ++scenario.errors; return IDOK; }
+void SetCursor(int) {}
+
+namespace UacF7 {
+struct ListingSession {
+    std::wstring root;
+    bool open = false;
+    bool Prepare(const std::wstring& path) { root = path; return scenario.prepare; }
+    DWORD Start(int) { ++scenario.starts; open = !scenario.start; return scenario.start; }
+    DWORD List(const std::wstring&, std::vector<WIN32_FIND_DATAW>& entries) {
+        entries = {{root == L"C:\\old" ? 1 : 2}};
+        return scenario.list;
+    }
+    bool Contains(const std::wstring& path) const { return path == root || (path.size() > root.size() && path.compare(0, root.size(), root) == 0 && path[root.size()] == L'\\'); }
+    bool IsOpen() const { return open; }
+};
+}
+
+struct Panel {
+    std::unique_ptr<UacF7::ListingSession> ProtectedListing;
+    std::vector<WIN32_FIND_DATAW> ProtectedListingEntries;
+    PanelType type = ptDisk;
+    bool branch = false;
+    int failureReason = -1;
+    bool KeepProtectedListing = false;
+    bool Is(PanelType value) const { return type == value; }
+    bool IsBranchView() const { return branch; }
+    void EndStopRefresh() {}
+    void CloseCurrentPath(int, BOOL cancel, BOOL, BOOL, BOOL, BOOL) {
+        if (cancel) ++scenario.closeCancel;
+        else { ++scenario.closeCommit; scenario.entriesAtCommit = ProtectedListingEntries.empty() ? -1 : ProtectedListingEntries[0].marker;
+               branch = false; if (!KeepProtectedListing) { ProtectedListing.reset(); ProtectedListingEntries.clear(); } }
+    }
+    int Change(const char* changedPath, BOOL isRefresh = FALSE, BOOL closeCalled = FALSE) {
+        int parent = 0, detachFS = 0, setWait = 0, oldCur = 0, samePath = 0;
+        int* failReason = &failureReason;
+@@LISTING@@
+        if (!protectedPath) return 2;
+@@COMMIT@@
+        return 1;
+    }
+    void Old() {
+        ProtectedListing = std::make_unique<UacF7::ListingSession>();
+        ProtectedListing->root = L"C:\\old";
+        ProtectedListing->open = true;
+        ProtectedListingEntries = {{7}};
+    }
+};
+
+int checks = 0;
+void Check(bool ok, const char* description) {
+    ++checks;
+    if (!ok) { std::fprintf(stderr, "FAIL: %s\n", description); std::exit(1); }
+}
+bool OldIntact(const Panel& p) { return p.ProtectedListing && p.ProtectedListing->root == L"C:\\old" && p.ProtectedListing->open && p.ProtectedListingEntries.size() == 1 && p.ProtectedListingEntries[0].marker == 7; }
+int main() {
+    {
+        Panel p; p.Old(); scenario = {}; scenario.allow = false;
+        Check(p.Change("C:\\new") == FALSE, "declined change");
+        Check(OldIntact(p), "decline preserves old session and entries");
+        Check(scenario.prompts == 1 && scenario.starts == 0 && scenario.closeCancel == 1, "decline does not start broker");
+        Check(p.failureReason == CHPPFR_INVALIDPATH, "decline reports failed path change");
+    }
+    for (int failure = 0; failure != 2; ++failure) {
+        Panel p; p.Old(); scenario = {}; if (failure == 0) scenario.start = ERROR_ACCESS_DENIED; else scenario.list = ERROR_ACCESS_DENIED;
+        Check(p.Change("C:\\new") == FALSE, "new session failure");
+        Check(OldIntact(p), "new session failure preserves old panel");
+        Check(scenario.errors == 1 && scenario.closeCommit == 0, "failure reported without committing");
+        Check(p.failureReason == CHPPFR_INVALIDPATH, "new session failure reports failed path change");
+    }
+    {
+        Panel p; p.Old(); scenario = {};
+        Check(p.Change("C:\\new") == 1, "new protected root opened");
+        Check(p.ProtectedListing && p.ProtectedListing->root == L"C:\\new" && p.ProtectedListingEntries[0].marker == 2, "new verified session and entries installed");
+        Check(scenario.prompts == 1 && scenario.starts == 1 && scenario.closeCommit == 1, "new scope obtains exactly one consent");
+    }
+    {
+        Panel p; p.Old(); scenario = {};
+        Check(p.Change("C:\\old\\child") == 1, "inside approved subtree");
+        Check(p.ProtectedListing && p.ProtectedListing->root == L"C:\\old" && p.ProtectedListingEntries[0].marker == 1, "old session reused");
+        Check(scenario.prompts == 0 && scenario.starts == 0, "no extra consent within root");
+        Check(scenario.entriesAtCommit == 7, "old entries remain untouched until successful same-session handoff");
+    }
+    {
+        Panel p; p.Old(); scenario = {}; scenario.list = ERROR_ACCESS_DENIED;
+        Check(p.Change("C:\\old\\child") == FALSE && OldIntact(p), "failure within existing scope keeps current panel");
+        Check(p.failureReason == CHPPFR_INVALIDPATH && scenario.errors == 1, "existing listing failure reports failed path change");
+    }
+    {
+        Panel p; p.Old(); scenario = {}; scenario.prepare = false;
+        Check(p.Change("C:\\new") == FALSE && OldIntact(p) && scenario.prompts == 0, "unverifiable target preserves existing protected panel");
+        Check(scenario.errors == 1 && scenario.closeCancel == 1, "unverifiable target fails without path shortening");
+        Check(p.failureReason == CHPPFR_INVALIDPATH, "failed preparation reports failed path change");
+    }
+    {
+        Panel p; scenario = {}; scenario.prepare = false;
+        Check(p.Change("C:\\new") == 2 && scenario.prompts == 0, "ordinary panel retains original path fallback");
+    }
+    {
+        Panel p; p.Old(); scenario = {};
+        Check(p.Change("C:\\new", TRUE) == 2 && OldIntact(p) && scenario.prompts == 0, "refresh never prompts");
+    }
+    {
+        Panel p; p.type = ptZIPArchive; scenario = {};
+        Check(p.Change("C:\\new") == 1 && scenario.prompts == 1, "archive can transition to new protected disk root");
+    }
+    for (int fail = 0; fail != 2; ++fail) {
+        Panel p; p.type = ptZIPArchive; scenario = {}; if (fail == 0) scenario.allow = false; else scenario.prepare = false;
+        Check(p.Change("C:\\new") == FALSE && p.type == ptZIPArchive && scenario.closeCommit == 0, "archive survives denial or failed preparation");
+    }
+    for (int fail = 0; fail != 2; ++fail) {
+        Panel p; p.branch = true; p.Old(); scenario = {}; if (fail == 0) scenario.allow = false; else scenario.prepare = false;
+        Check(p.Change("C:\\new") == FALSE && p.branch && OldIntact(p) && scenario.closeCommit == 0, "Branch View survives denial or failed preparation");
+    }
+    {
+        Panel p; p.Old(); scenario = {};
+        const std::string path = "C:\\" + std::string(300, 'a') + "\\東\\žluťoučký";
+        Check(p.Change(path.c_str()) == 1 && p.ProtectedListing->root == SalMultiByteToWidePath(path.c_str(), CP_UTF8), "long Unicode path remains the requested target");
+    }
+    {
+        Panel p; p.Old(); scenario = {}; scenario.denied = false;
+        Check(p.Change("C:\\new") == 2 && OldIntact(p) && scenario.prompts == 0, "ordinary path uses ordinary flow");
+    }
+    {
+        Panel p; p.Old(); scenario = {}; scenario.driveFixed = false;
+        Check(p.Change("C:\\new") == 2 && OldIntact(p) && scenario.prompts == 0, "unsupported drive stays ordinary");
+    }
+    {
+        Panel p; p.Old(); p.type = ptPluginFS; scenario = {};
+        Check(p.Change("C:\\new") == 2 && OldIntact(p) && scenario.prompts == 0, "plugin filesystem stays ordinary");
+    }
+    std::printf("PASS: %d protected panel transition checks\n", checks);
+}

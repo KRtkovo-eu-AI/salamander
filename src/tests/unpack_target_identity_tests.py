@@ -15,7 +15,7 @@ def controller_contract():
  assert fallback<live<first<capture<update
  assert c.count('target = MainWindow->GetOtherPanel(this);')==1
  assert c[update:c.index('BeginStopRefresh();')].count('validateDiskTarget()')==1
- dialog=c.index('(int)dlg.Execute()');classify=c.index('const bool useDefaultDiskTarget =');normalize=c.index('SlashesToBackslashesAndRemoveDups(path)');parse=c.index('const BOOL parsed = ParsePath(');preflight=c.index('!diskTarget.MatchesParsedDirectoryDefault(');confirm=c.index('SalMessageBoxEx(&params)');create=c.index('SalCreateDirectoryExW(');backend=c.index('const BOOL unpacked = PackUncompress(');post=c.index('const bool targetCurrent = validateDiskTarget();');clear=c.index('if (unpacked && targetCurrent)')
+ dialog=c.index('(int)dlg.Execute()');classify=c.index('const bool useDefaultDiskTarget =');normalize=c.index('SlashesToBackslashesAndRemoveDups(path)');parse=c.index('const BOOL parsed = ParsePath(');preflight=c.index('!diskTarget.MatchesParsedDirectoryDefault(');confirm=c.index('SalMessageBoxEx(&params)');create=c.index('SalCreateDirectoryExW(');backend=c.index('const BOOL unpacked = protectedZip');post=c.index('const bool targetCurrent = validateDiskTarget();');clear=c.index('if (unpacked && targetCurrent)')
  assert dialog<classify<normalize<parse<preflight<confirm<create<backend<post<clear
  assert 'tgtPath == NULL' in c[classify:normalize]
  for start,end in ((dialog,classify),(classify,normalize),(parse,preflight),(confirm,create),(create,backend)):
@@ -23,7 +23,10 @@ def controller_contract():
  loop=c.index('while (1)',confirm);assert loop<c.index('if (!validateDiskTarget())',loop)<create
  assert 'createdAny = true;' in c[create:backend]
  assert 'ReadUnpackDiskDestination(diskTarget.Root.c_str()' in c
- assert 'watchDiskTarget ? &diskTarget : NULL' in c[backend:post]
+ protected=c.index('? UnpackProtectedZipSelection(',backend)
+ ordinary=c.index(': PackUncompress(',protected)
+ assert backend<protected<ordinary<post
+ assert 'watchDiskTarget ? &diskTarget : NULL' in c[ordinary:post]
  assert 'else if (!unpacked)' in c[clear:]
  assert 'PackGetVerifiedBranchUnpacker(this, GetZIPArchive(), PluginData.GetInterface()) == NULL' in c
  assert '(deleteOp || !target->Is(ptDisk) ||' in c

@@ -1,0 +1,49 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Exercise thin duplication error handling. | Check host liveness and duplicate failures cannot become false success. | #731 | GPT-6 |
+#include <windows.h>
+#include <cstdio>
+
+struct Handle { HANDLE value; explicit operator bool() const { return value != nullptr; } HANDLE get() const { return value; } };
+static bool allowOpen, live, duplicateOk;
+static DWORD duplicateError, capturedAccess;
+static int calls;
+static Handle OpenThinHostForDup(HANDLE, DWORD) { return {allowOpen ? reinterpret_cast<HANDLE>(1) : nullptr}; }
+static bool LiveInSession(HANDLE, DWORD) { return live; }
+static BOOL FakeDuplicate(HANDLE, HANDLE, HANDLE, LPHANDLE out, DWORD access, BOOL inherit, DWORD options)
+{
+    ++calls;
+    capturedAccess = access;
+    if (inherit || options) return FALSE;
+    if (!duplicateOk) { SetLastError(duplicateError); return FALSE; }
+    *out = reinterpret_cast<HANDLE>(123);
+    return TRUE;
+}
+#define DuplicateHandle FakeDuplicate
+@@METHOD@@
+#undef DuplicateHandle
+
+int main()
+{
+    unsigned failures = 0;
+    const auto run = [&](bool open, bool isLive, bool ok, DWORD err, DWORD expected, int expectedCalls)
+    {
+        allowOpen = open; live = isLive; duplicateOk = ok; duplicateError = err;
+        calls = 0; capturedAccess = 0;
+        SetLastError(err);
+        HANDLE remote = reinterpret_cast<HANDLE>(99);
+        const DWORD result = DuplicateThinToHost(reinterpret_cast<HANDLE>(2), 17, reinterpret_cast<HANDLE>(3), 0x1234, remote);
+        if (result != expected || calls != expectedCalls ||
+            (expected == ERROR_SUCCESS ? remote != reinterpret_cast<HANDLE>(123) || capturedAccess != 0x1234 : remote != nullptr))
+            ++failures;
+    };
+    run(false, true, true, 0, ERROR_ACCESS_DENIED, 0);
+    run(true, false, true, 0, ERROR_OPERATION_ABORTED, 0);
+    run(true, false, true, ERROR_ACCESS_DENIED, ERROR_OPERATION_ABORTED, 0);
+    run(true, true, false, ERROR_ACCESS_DENIED, ERROR_ACCESS_DENIED, 1);
+    run(true, true, false, ERROR_SUCCESS, ERROR_GEN_FAILURE, 1);
+    run(true, true, true, 0, ERROR_SUCCESS, 1);
+    std::printf("Thin transfer error paths: %u failures / 6 cases\n", failures);
+    return failures ? 1 : 0;
+}

@@ -1,7 +1,11 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Expose strict private ZIP stage editing. | Publish only a completed ZIP update and never move the ordinary source files. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Export the ZIP entry reader privately. | Keep the public plugin ABI and ordinary unpacking intact. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Export the standard protected ZIP panel listing. | Return normal plugin-owned metadata and discard partial failures. | | GPT-6.1 Sol (Codex) |
 
 #include "precomp.h"
+#include "../../common/zipread.h"
 #include <tchar.h>
 #include <crtdbg.h>
 #include <ostream>
@@ -1021,6 +1025,59 @@ void CPluginDataInterface::ColumnWidthWasChanged(BOOL leftPanel, const CColumn* 
 // CPluginInterfaceForArchiver
 //
 
+DWORD WINAPI SalamanderListZipPanelV1(const SalZipReadSourceV1* source, CSalamanderDirectoryAbstract* dir,
+                                      CPluginDataInterfaceAbstract** pluginData)
+{
+    if (!source || !source->Read || !dir || !pluginData)
+        return ERROR_INVALID_PARAMETER;
+    *pluginData = nullptr;
+    CPluginDataInterface* data = nullptr;
+    DWORD error = ERROR_NOT_ENOUGH_MEMORY;
+    try
+    {
+        CZipList list("", nullptr);
+        error = list.OpenReadSource(*source);
+        if (error)
+            return error;
+        data = new CPluginDataInterface();
+        if (!data)
+            return ERROR_NOT_ENOUGH_MEMORY;
+        BOOL haveFiles = FALSE;
+        if (list.List(dir, haveFiles, data) == 0)
+        {
+            *pluginData = data;
+            return ERROR_SUCCESS;
+        }
+        error = list.RangeError ? list.RangeError : ERROR_INVALID_DATA;
+    }
+    catch (const std::bad_alloc&)
+    {
+        error = ERROR_NOT_ENOUGH_MEMORY;
+    }
+    if (data)
+    {
+        dir->Clear(data);
+        delete data;
+    }
+    return error;
+}
+
+DWORD WINAPI SalamanderReadZipEntryV1(const SalZipReadSourceV1* source, const char* name, const CFileData* file,
+                                      ULONGLONG maxBytes, SalZipWrite write, void* context)
+{
+    if (!source || !source->Read || !name || !file || !write)
+        return ERROR_INVALID_PARAMETER;
+    try
+    {
+        CZipUnpack unpack("", "", nullptr, nullptr);
+        return unpack.ReadSourceEntry(*source, name, *file, maxBytes, write, context);
+    }
+    catch (const std::bad_alloc&)
+    {
+        return ERROR_NOT_ENOUGH_MEMORY;
+    }
+}
+
 BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* salamander,
                                               const char* fileName,
                                               CSalamanderDirectoryAbstract* dir,
@@ -1129,6 +1186,34 @@ BOOL CPluginInterfaceForArchiver::UnpackOneFile(CSalamanderForOperationsAbstract
     CRT_MEM_DUMP_ALL_OBJECTS_SINCE
 
     return TRUE;
+}
+
+DWORD WINAPI SalamanderEditZipStageV1(CSalamanderForOperationsAbstract* salamander, const char* stage,
+                                      const char* archiveRoot, const char* sourcePath,
+                                      SalEnumSelection2 add, SalEnumSelection remove, void* context)
+{
+    if (!salamander || !stage || !*stage || !archiveRoot ||
+        (add != nullptr) == (remove != nullptr) || (add && (!sourcePath || !*sourcePath)))
+        return ERROR_INVALID_PARAMETER;
+    try
+    {
+        if (*archiveRoot == '\\')
+            ++archiveRoot;
+        CZipPack pack(stage, archiveRoot, salamander, true);
+        int error = pack.ErrorID;
+        if (!error)
+            error = add ? pack.PackToArchive(FALSE, sourcePath, add, context)
+                        : pack.DeleteFromArchive(remove, context);
+        if (error && error != IDS_NODISPLAY)
+            SalamanderGeneral->ShowMessageBox(LoadStr(error), LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
+        if (pack.UserBreak || pack.NothingToDo)
+            return ERROR_CANCELLED;
+        return error || pack.Fatal || !pack.RecoverOK ? ERROR_INVALID_DATA : ERROR_SUCCESS;
+    }
+    catch (const std::bad_alloc&)
+    {
+        return ERROR_NOT_ENOUGH_MEMORY;
+    }
 }
 
 BOOL CPluginInterfaceForArchiver::PackToArchive(CSalamanderForOperationsAbstract* salamander, const char* fileName,

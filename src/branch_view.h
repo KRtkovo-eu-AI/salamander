@@ -3,11 +3,16 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 //
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Model identity-bound partial listing merges. | Prevent duplicate rows and detect replacements without assuming atomic snapshots. | #731 | GPT-6.1 Terra |
+// | 2026-11-12 | Retry denied Branch listings after scoped consent. | Keep partial results and verify listed directory identities. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Track an explicitly stopped initial scan until its partial snapshot is published. | Preserve discovered results without affecting replacement and refresh cancellation. | #731 | GPT-6.1 Terra |
+// | 2026-11-10 | Keep approved Branch scans on the listing owner thread. | Share traversal and publication while preserving the ordinary background scanner. | #731 | GPT-6.1 Sol |
 // | 2026-11-07 | Skip hidden and system files in Branch scans, except cloud placeholders. | Match the ordinary panel hide option. | https://github.com/KRtkovo-eu-AI/salamander/pull/818 | Grok 4.7 |
 #pragma once
 
 #include <windows.h>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <map>
 #include <unordered_map>
@@ -33,11 +38,78 @@ struct Progress
 {
     bool Running = false;
     bool Cancelled = false;
+    bool LimitExceeded = false;
+    bool UncertainMerge = false;
+    bool IdentityUnavailable = false;
     unsigned Errors = 0;
     unsigned SkippedLinks = 0;
     ULONGLONG Directories = 0;
     ULONGLONG Files = 0;
     DWORD LastError = ERROR_SUCCESS;
+};
+
+// Captured before consent. A failed capture must never be retried by name.
+class PartialDirectoryRows;
+struct DeniedDirectory
+{
+    std::wstring Path;
+    std::wstring Relative;
+    ULONGLONG Volume = 0;
+    BYTE FileId[16] = {};
+    bool Verified = false;
+    // Retain the exact ordinary directory handle across consent and retry;
+    // an ID alone can be recycled after the original object is closed.
+    std::shared_ptr<void> Anchor;
+    std::shared_ptr<PartialDirectoryRows> Partial;
+};
+
+struct IdentifiedPageRow
+{
+    WIN32_FIND_DATAW Data{};
+    BYTE FileId[16]{};
+};
+struct DirectoryPager
+{
+    using OpenFn = DWORD (*)(void* owner, const std::wstring& path, const DeniedDirectory* expected,
+                             DeniedDirectory& actual, void*& cursor);
+    using NextFn = DWORD (*)(void* owner, void* cursor, std::vector<IdentifiedPageRow>& rows, bool& done);
+    using CloseFn = void (*)(void* owner, void* cursor);
+    OpenFn Open = nullptr;
+    NextFn Next = nullptr;
+    CloseFn Close = nullptr;
+    bool Valid() const { return Open && Next && Close; }
+};
+
+// A retry can merge only rows originally read from the same verified parent
+// handle. Exact UTF-16 names distinguish case-sensitive entries and hard links.
+enum class RetryRowDecision { KeepOriginal, Add, Conflict };
+class PartialDirectoryRows
+{
+    struct Row
+    {
+        BYTE FileId[16]{};
+        DWORD Attributes = 0, ReparseTag = 0, SizeHigh = 0, SizeLow = 0;
+        FILETIME Created{}, Written{};
+        WCHAR AlternateName[14]{};
+        size_t NameOffset = 0, NameLength = 0;
+        bool Retried = false;
+    };
+    ULONGLONG Volume = 0;
+    BYTE ParentId[16]{};
+    bool ParentVerified = false, Started = false, Changed = false;
+    std::vector<Row> Rows;
+    std::vector<WCHAR> Names;
+    std::vector<size_t> Index; // allocated and sorted only for a partial retry
+    std::map<std::wstring, Row> Added; // retry-only names, never present in the original page sequence
+    std::wstring_view Name(const Row& row) const { return std::wstring_view(Names.data() + row.NameOffset, row.NameLength); }
+    static Row MakeRow(const WIN32_FIND_DATAW& data, const BYTE fileId[16]);
+    static bool SameRow(const Row& a, const Row& b);
+public:
+    explicit PartialDirectoryRows(const DeniedDirectory& parent);
+    bool ObserveOriginal(const WIN32_FIND_DATAW& data, const BYTE fileId[16]);
+    bool BeginRetry(ULONGLONG volume, const BYTE parentId[16]);
+    RetryRowDecision ObserveRetry(const WIN32_FIND_DATAW& data, const BYTE fileId[16]);
+    bool Complete() const;
 };
 
 // Automatic notifications never interrupt an active scan. Keep a completed
@@ -75,6 +147,7 @@ public:
     {
         Active = true; Pending = false; Manual = false; StartedAt = now;
     }
+    void Continue(ULONGLONG now) { Active = true; StartedAt = now; }
     void Finished(ULONGLONG now)
     {
         Active = false;
@@ -156,12 +229,30 @@ class Scan
     std::shared_ptr<State> Shared;
     HANDLE Thread;
     static DWORD WINAPI Run(void* context);
+    static DWORD WINAPI RunProtected(void* context);
+    static DWORD WINAPI RunProtectedPaged(void* context);
+    DirectoryPager LocalPager;
+    using CaptureDenied = bool (*)(const std::wstring&, DeniedDirectory&);
+    CaptureDenied Capture = nullptr;
 public:
     Scan();
     ~Scan();
-    bool Start(const std::wstring& root, bool hideHiddenSystem);
+    using ListDirectory = DWORD (*)(void* context, const std::wstring& directory, std::vector<WIN32_FIND_DATAW>& entries);
+    void SetCaptureDenied(CaptureDenied capture) { Capture = capture; }
+    void SetLocalPager(const DirectoryPager& pager) { LocalPager = pager; }
+    bool Start(const std::wstring& root, bool hideHiddenSystem, bool incremental = false);
+    bool StartProtected(const std::vector<DeniedDirectory>& denied, const Progress& initial,
+                        ListDirectory list, std::shared_ptr<void> context, HANDLE stop);
+    bool StartProtectedPaged(const std::vector<DeniedDirectory>& denied, const Progress& initial,
+                             const DirectoryPager& pager, std::shared_ptr<void> context, HANDLE stop);
+    void DrainDenied(std::vector<DeniedDirectory>& denied);
+    void DrainFailure(std::wstring& path, DWORD& error);
+    void Advance(ListDirectory list, void* context);
     void Cancel();
     void Drain(std::vector<Entry>& entries, Progress& progress);
+#ifdef BRANCH_VIEW_TEST
+    bool WaitForTest(DWORD timeout) const { return Thread && WaitForSingleObject(Thread, timeout) == WAIT_OBJECT_0; }
+#endif
     Scan(const Scan&) = delete;
     Scan& operator=(const Scan&) = delete;
 };
@@ -196,9 +287,14 @@ public:
     bool Applying = false;
     bool Dirty = false;
     bool PreserveListing = false;
+    bool HasCompletedSnapshot = false;
     bool ForcePublish = false;
     bool Preparing = false;
     bool CompletionPending = false;
+    bool StoppingInitial = false;
+    bool UseProtectedListing = false;
+    bool PanelScopePending = false;
+    bool RetryingProtected = false;
     std::shared_ptr<Salamander::BranchView::PreparationSession> Preparation;
     std::shared_ptr<Salamander::BranchView::PreparationLifetime> PreparationLifetime;
     ULONGLONG Generation = 0;
@@ -220,6 +316,8 @@ public:
     Salamander::BranchView::Progress Status;
     std::vector<Salamander::BranchView::Entry> Entries;
     std::vector<Salamander::BranchView::Entry> IncomingEntries;
+    std::vector<Salamander::BranchView::Entry> StoppedBatch;
+    size_t StoppedBatchNext = 0;
     // Name allocations stay stable across shallow CFilesArray sorts. Entries
     // for the old listing remain until refresh has released that listing.
     std::unordered_map<std::string, const CFileData*> CacheFiles;

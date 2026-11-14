@@ -1,0 +1,526 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Check cursor leases across sessions. | Keep one session from addressing another session's cursor. | #731 | GPT-6.1 Terra |
+// | 2026-11-12 | Test concurrent paged listing client calls. | Bind response frames to leases and cancellation. | #731 | GPT-6 (Codex) |
+#include <windows.h>
+#include <algorithm>
+#include <atomic>
+#include <cstdio>
+#include <cstring>
+#include <memory>
+#include <mutex>
+#include <new>
+#include <string>
+#include <string_view>
+#include <thread>
+#include <vector>
+
+// The authentication boundary is covered separately. This seam attaches a
+// prepared production client session to a controlled local pipe peer.
+#define private public
+#include "@@BROKER_DIR@@/f7pilot.h"
+#undef private
+#include "@@BROKER_DIR@@/listing.h"
+
+struct CloseHandleDeleter { void operator()(void* handle) const { CloseHandle(handle); } };
+using Handle = std::unique_ptr<void, CloseHandleDeleter>;
+Handle Adopt(HANDLE handle) { return Handle(handle != INVALID_HANDLE_VALUE ? handle : nullptr); }
+constexpr DWORD timeoutMs = 5000;
+constexpr DWORD copyTimeoutMs = 30000;
+struct ListingReply { DWORD error; DWORD count; };
+
+@@GLOBAL_METHODS@@
+
+namespace UacF7
+{
+@@MEMBER_METHODS@@
+}
+
+namespace
+{
+int failures = 0;
+void Check(bool ok, const char* label)
+{
+    std::printf("%s: %s\n", ok ? "PASS" : "FAIL", label);
+    if (!ok) ++failures;
+}
+bool Wait(HANDLE event, DWORD ms = 3000)
+{
+    return WaitForSingleObject(event, ms) == WAIT_OBJECT_0;
+}
+struct Pair
+{
+    Handle server, peer;
+    bool Open(unsigned id)
+    {
+        const std::wstring name = L"\\\\.\\pipe\\SamandarinPagedClientTest-" +
+                                  std::to_wstring(GetCurrentProcessId()) + L"-" + std::to_wstring(id);
+        server = Adopt(CreateNamedPipeW(name.c_str(), PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
+            PIPE_TYPE_MESSAGE | PIPE_READMODE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
+            1, 4096, 4096, 0, nullptr));
+        if (!server) return false;
+        peer = Adopt(CreateFileW(name.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr,
+                                 OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr));
+        return peer != nullptr;
+    }
+};
+bool Read(HANDLE pipe, void* data, DWORD size)
+{
+    return TransferRequest(pipe, data, size, false, GetTickCount64() + timeoutMs) == ERROR_SUCCESS;
+}
+bool Write(HANDLE pipe, const void* data, DWORD size)
+{
+    return TransferRequest(pipe, const_cast<void*>(data), size, true, GetTickCount64() + timeoutMs) == ERROR_SUCCESS;
+}
+bool Prefix(HANDLE pipe, DWORD expected)
+{
+    DWORD value = MAXDWORD;
+    return Read(pipe, &value, sizeof(value)) && value == expected;
+}
+bool Request(HANDLE pipe, UacListing::PagedListingOp op, UacF7::MoveFileIdentity* identity = nullptr)
+{
+    UacListing::PagedListingFrame frame{};
+    if (!Prefix(pipe, UacListing::pagedListingRequest) || !Read(pipe, &frame, sizeof(frame)) ||
+        frame.operation != op || frame.reserved) return false;
+    return !identity || Read(pipe, identity, sizeof(*identity));
+}
+UacF7::MoveFileIdentity Identity(BYTE id)
+{
+    UacF7::MoveFileIdentity result{};
+    result.serial = 0x12345678;
+    result.id[0] = id;
+    return result;
+}
+bool OpenReply(HANDLE peer, const UacF7::MoveFileIdentity& identity)
+{
+    UacListing::PagedListingReply reply{};
+    reply.identity = identity;
+    return Write(peer, &reply, sizeof(reply));
+}
+bool CloseReply(HANDLE peer)
+{
+    UacListing::PagedListingReply reply{};
+    return Write(peer, &reply, sizeof(reply));
+}
+bool ListReply(HANDLE peer)
+{
+    const ListingReply reply{ERROR_SUCCESS, 0};
+    return Write(peer, &reply, sizeof(reply));
+}
+bool PageReply(HANDLE peer, wchar_t name, BYTE id)
+{
+    UacListing::PagedListingReply reply{};
+    reply.count = 1;
+    UacF7::PagedListingEntry entry{};
+    entry.data.dwFileAttributes = FILE_ATTRIBUTE_ARCHIVE;
+    entry.data.cFileName[0] = name;
+    entry.id[0] = id;
+    return Write(peer, &reply, sizeof(reply)) && Write(peer, &entry, sizeof(entry));
+}
+std::shared_ptr<UacF7::ListingSession> Session(Pair& pair)
+{
+    auto session = std::make_shared<UacF7::ListingSession>();
+    session->root = L"C:\\owned-fixture";
+    session->prepared.operation = UacF7::Operation::CompareList;
+    session->prepared.serial = 0x12345678;
+    session->pipe = pair.server.release();
+    session->publishedOpen.store(true);
+    return session;
+}
+bool NoBytes(HANDLE peer)
+{
+    DWORD available = MAXDWORD;
+    return PeekNamedPipe(peer, nullptr, 0, nullptr, &available, nullptr) && available == 0;
+}
+
+// A suspended OPEN monopolizes the transaction lock. A cancelled caller must
+// not close the live session, and read-only UI scope checks must remain fast.
+void SerializedAndCancelledWaiter()
+{
+    Pair pair, independent;
+    const auto arrived = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    const auto release = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    const auto started = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    const auto cancelled = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    const auto scopeDone = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    const auto stop = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    if (!pair.Open(1) || !independent.Open(2) || !arrived || !release || !started || !cancelled || !scopeDone || !stop)
+    { Check(false, "prepare concurrent OPEN fixture"); return; }
+    auto session = Session(pair), other = Session(independent);
+    const auto expected = Identity(4);
+    std::atomic<bool> peerOk{false}, scopeOk{false}, otherOk{false};
+    UacF7::MoveFileIdentity actual{};
+    ULONGLONG lease = 0;
+    DWORD openError = MAXDWORD, cancelError = MAXDWORD, listError = MAXDWORD, closeError = MAXDWORD;
+    std::vector<UacF7::PagedListingEntry> ignored;
+    std::vector<WIN32_FIND_DATAW> listed;
+    bool done = true;
+    std::thread peer([&] {
+        UacF7::MoveFileIdentity request{};
+        bool ok = Request(pair.peer.get(), UacListing::PagedListingOp::Open, &request) &&
+                  request.serial == expected.serial && !std::memcmp(request.id, expected.id, sizeof(request.id));
+        SetEvent(arrived.get());
+        ok = Wait(release.get()) && ok && OpenReply(pair.peer.get(), expected);
+        ok = ok && Prefix(pair.peer.get(), 0) && ListReply(pair.peer.get());
+        ok = ok && Request(pair.peer.get(), UacListing::PagedListingOp::Close) && CloseReply(pair.peer.get());
+        peerOk = ok;
+    });
+    std::thread opener([&] { openError = session->OpenDirectoryCursor(L"C:\\owned-fixture", expected, actual, lease); });
+    const bool entered = Wait(arrived.get());
+    std::thread waiter([&] {
+        SetEvent(started.get());
+        cancelError = session->NextDirectoryPage(99, ignored, done, stop.get());
+        SetEvent(cancelled.get());
+    });
+    const bool waiterStarted = Wait(started.get());
+    SetEvent(stop.get());
+    const bool cancelledBeforeRelease = Wait(cancelled.get(), 1000);
+    std::thread scope([&] {
+        scopeOk = session->IsOpen() && session->Contains(L"C:\\owned-fixture\\child");
+        SetEvent(scopeDone.get());
+    });
+    const bool scopeBeforeRelease = Wait(scopeDone.get(), 250);
+    std::thread otherPeer([&] { otherOk = Prefix(independent.peer.get(), 0) && ListReply(independent.peer.get()); });
+    std::vector<WIN32_FIND_DATAW> independentRows;
+    const DWORD otherError = other->List(L"C:\\owned-fixture", independentRows);
+    otherPeer.join();
+    std::atomic<bool> listDone{false};
+    std::thread list([&] { listError = session->List(L"C:\\owned-fixture", listed); listDone = true; });
+    const bool before = NoBytes(pair.peer.get()) && !listDone && session->IsOpen();
+    SetEvent(release.get());
+    opener.join(); waiter.join(); scope.join(); list.join();
+    if (lease) closeError = session->CloseDirectoryCursor(lease);
+    peer.join();
+    Check(entered && waiterStarted && cancelledBeforeRelease && cancelError == ERROR_CANCELLED && before,
+          "stop while waiting for a busy transaction emits no frame and keeps the session open");
+    Check(scopeBeforeRelease && scopeOk, "Contains and IsOpen do not wait for an outstanding pipe transaction");
+    Check(otherOk && otherError == ERROR_SUCCESS && independentRows.empty(), "an independent session remains usable");
+    Check(peerOk && openError == ERROR_SUCCESS && listError == ERROR_SUCCESS && closeError == ERROR_SUCCESS && lease,
+          "OPEN, ordinary List and CLOSE frames are serialized and acknowledged");
+}
+
+void StaleLease()
+{
+    Pair pair;
+    if (!pair.Open(3)) { Check(false, "prepare lease fixture"); return; }
+    auto session = Session(pair);
+    const auto expected = Identity(7);
+    std::atomic<bool> peerOk{false};
+    std::thread peer([&] {
+        UacF7::MoveFileIdentity request{};
+        bool ok = Request(pair.peer.get(), UacListing::PagedListingOp::Open, &request) && OpenReply(pair.peer.get(), expected);
+        ok = ok && Request(pair.peer.get(), UacListing::PagedListingOp::Close) && CloseReply(pair.peer.get());
+        ok = ok && Request(pair.peer.get(), UacListing::PagedListingOp::Open, &request) && OpenReply(pair.peer.get(), expected);
+        ok = ok && Request(pair.peer.get(), UacListing::PagedListingOp::Next) && PageReply(pair.peer.get(), L'東', 8);
+        ok = ok && Request(pair.peer.get(), UacListing::PagedListingOp::Close) && CloseReply(pair.peer.get());
+        peerOk = ok;
+    });
+    UacF7::MoveFileIdentity actual{};
+    ULONGLONG oldLease = 0, newLease = 0;
+    const DWORD oldOpen = session->OpenDirectoryCursor(L"C:\\owned-fixture", expected, actual, oldLease);
+    const DWORD oldClose = oldOpen ? oldOpen : session->CloseDirectoryCursor(oldLease);
+    const DWORD newOpen = oldClose ? oldClose : session->OpenDirectoryCursor(L"C:\\owned-fixture", expected, actual, newLease);
+    std::vector<UacF7::PagedListingEntry> rows;
+    bool done = true;
+    const DWORD staleNext = session->NextDirectoryPage(oldLease, rows, done);
+    const DWORD staleClose = session->CloseDirectoryCursor(oldLease);
+    const bool noStaleBytes = NoBytes(pair.peer.get());
+    const DWORD newNext = session->NextDirectoryPage(newLease, rows, done);
+    const bool pageOk = newNext == ERROR_SUCCESS && !done && rows.size() == 1 && rows[0].id[0] == 8 &&
+                        rows[0].data.cFileName[0] == L'東';
+    const DWORD newClose = session->CloseDirectoryCursor(newLease);
+    peer.join();
+    Check(!oldOpen && !oldClose && !newOpen && oldLease && newLease && oldLease != newLease,
+          "successive successful opens receive distinct cursor leases");
+    Check(staleNext == ERROR_INVALID_HANDLE && staleClose == ERROR_INVALID_HANDLE && noStaleBytes,
+          "stale Next and Close cannot send bytes to the new cursor");
+    Check(peerOk && pageOk && newClose == ERROR_SUCCESS, "new cursor still reads and closes normally");
+}
+
+void CrossSessionLease()
+{
+    Pair first, second;
+    if (!first.Open(10) || !second.Open(11)) { Check(false, "prepare independent lease fixture"); return; }
+    auto a = Session(first), b = Session(second);
+    const auto expected = Identity(15);
+    std::atomic<bool> peerA{false}, peerB{false};
+    auto serve = [&](Pair& pair, std::atomic<bool>& ok) {
+        UacF7::MoveFileIdentity request{};
+        ok = Request(pair.peer.get(), UacListing::PagedListingOp::Open, &request) && OpenReply(pair.peer.get(), expected) &&
+             Request(pair.peer.get(), UacListing::PagedListingOp::Close) && CloseReply(pair.peer.get());
+    };
+    std::thread pa(serve, std::ref(first), std::ref(peerA)), pb(serve, std::ref(second), std::ref(peerB));
+    UacF7::MoveFileIdentity actual{}; ULONGLONG leaseA = 0, leaseB = 0;
+    const DWORD openA = a->OpenDirectoryCursor(L"C:\\owned-fixture", expected, actual, leaseA);
+    const DWORD openB = b->OpenDirectoryCursor(L"C:\\owned-fixture", expected, actual, leaseB);
+    std::vector<UacF7::PagedListingEntry> rows; bool done = false;
+    const DWORD foreignNext = a->NextDirectoryPage(leaseB, rows, done);
+    const DWORD foreignClose = b->CloseDirectoryCursor(leaseA);
+    const bool quiet = NoBytes(first.peer.get()) && NoBytes(second.peer.get());
+    const DWORD closeA = a->CloseDirectoryCursor(leaseA), closeB = b->CloseDirectoryCursor(leaseB);
+    pa.join(); pb.join();
+    Check(!openA && !openB && leaseA && leaseB && leaseA != leaseB &&
+          foreignNext == ERROR_INVALID_HANDLE && foreignClose == ERROR_INVALID_HANDLE && quiet &&
+          !closeA && !closeB && peerA && peerB,
+          "leases from separate sessions cannot address or close one another's cursor");
+}
+
+void StopDuringContentWithCursor()
+{
+    Pair pair;
+    const auto arrived = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    const auto release = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    const auto stop = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    if (!pair.Open(12) || !arrived || !release || !stop) { Check(false, "prepare content Stop fixture"); return; }
+    auto session = Session(pair);
+    session->prepared.operation = UacF7::Operation::FindContent;
+    session->stopEvent = stop.get();
+    const auto expected = Identity(19);
+    std::atomic<bool> peerOk{false};
+    std::thread peer([&] {
+        UacF7::MoveFileIdentity request{};
+        bool ok = true;
+        for (size_t i = 0; i < UacF7::maxPagedDirectoryCursors && ok; ++i)
+            ok = Request(pair.peer.get(), UacListing::PagedListingOp::Open, &request) && OpenReply(pair.peer.get(), expected);
+        DWORD length = 0; std::wstring relative;
+        ok = ok && Read(pair.peer.get(), &length, sizeof(length)) && (length & UacListing::contentRequest);
+        length &= ~UacListing::contentRequest;
+        relative.resize(length);
+        ok = ok && Read(pair.peer.get(), relative.data(), length * sizeof(wchar_t)) && relative == L"file.txt";
+        DWORD status = 0; UacF7::ArchiveRevision revision{}; revision.size = 1;
+        ok = ok && Write(pair.peer.get(), &status, sizeof(status)) && Write(pair.peer.get(), &revision, sizeof(revision));
+        UacF7::ArchiveReadRange range{};
+        ok = ok && Read(pair.peer.get(), &range, sizeof(range)) && range.size == 1;
+        SetEvent(arrived.get());
+        ok = ok && Wait(release.get());
+        peerOk = ok;
+    });
+    UacF7::MoveFileIdentity actual{}; ULONGLONG size = 0; FILETIME modified{};
+    std::array<ULONGLONG, UacF7::maxPagedDirectoryCursors> leases{};
+    UacF7::ArchiveRevision revision{};
+    bool opened = true;
+    for (auto& lease : leases)
+        opened = opened && !session->OpenDirectoryCursor(L"C:\\owned-fixture", expected, actual, lease);
+    const DWORD content = session->OpenContent(L"C:\\owned-fixture\\file.txt", size, modified, revision);
+    BYTE byte = 0; DWORD readError = MAXDWORD;
+    std::thread reader([&] { readError = session->ReadContent(0, &byte, 1); });
+    const bool active = Wait(arrived.get());
+    SetEvent(stop.get());
+    reader.join();
+    bool closed = !session->IsOpen();
+    for (auto lease : leases) closed = closed && session->CloseDirectoryCursor(lease) == ERROR_INVALID_STATE;
+    SetEvent(release.get()); peer.join();
+    Check(opened && !content && active && readError == ERROR_CANCELLED && closed && peerOk,
+          "Stop during content read closes the pipe and all 33 active cursor leases");
+}
+
+void ForegroundBeforeLaterPage()
+{
+    Pair pair;
+    const auto arrived = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    const auto release = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    const auto secondStarted = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    if (!pair.Open(7) || !arrived || !release || !secondStarted)
+    { Check(false, "prepare foreground-priority fixture"); return; }
+    auto session = Session(pair);
+    const auto expected = Identity(12);
+    std::atomic<bool> peerOk{false};
+    std::thread peer([&] {
+        UacF7::MoveFileIdentity request{};
+        bool ok = Request(pair.peer.get(), UacListing::PagedListingOp::Open, &request) && OpenReply(pair.peer.get(), expected);
+        ok = ok && Request(pair.peer.get(), UacListing::PagedListingOp::Next);
+        SetEvent(arrived.get());
+        ok = ok && Wait(release.get()) && PageReply(pair.peer.get(), L'a', 1);
+        // The peer rejects a later NEXT ahead of the already waiting List.
+        ok = ok && Prefix(pair.peer.get(), 0) && ListReply(pair.peer.get());
+        ok = ok && Request(pair.peer.get(), UacListing::PagedListingOp::Next) && PageReply(pair.peer.get(), L'b', 2);
+        ok = ok && Request(pair.peer.get(), UacListing::PagedListingOp::Close) && CloseReply(pair.peer.get());
+        peerOk = ok;
+    });
+    UacF7::MoveFileIdentity actual{};
+    ULONGLONG lease = 0;
+    const DWORD opened = session->OpenDirectoryCursor(L"C:\\owned-fixture", expected, actual, lease);
+    std::vector<UacF7::PagedListingEntry> firstRows, secondRows;
+    std::vector<WIN32_FIND_DATAW> listRows;
+    DWORD firstError = MAXDWORD, listError = MAXDWORD, secondError = MAXDWORD;
+    bool firstDone = true, secondDone = true;
+    std::thread first([&] { firstError = session->NextDirectoryPage(lease, firstRows, firstDone); });
+    const bool firstArrived = Wait(arrived.get());
+    std::thread foreground([&] { listError = session->List(L"C:\\owned-fixture", listRows); });
+    const ULONGLONG deadline = GetTickCount64() + 1000;
+    while (!session->foregroundWaiters.load() && GetTickCount64() < deadline) Sleep(1);
+    const bool foregroundWaiting = session->foregroundWaiters.load() != 0;
+    std::thread second([&] {
+        SetEvent(secondStarted.get());
+        secondError = session->NextDirectoryPage(lease, secondRows, secondDone);
+    });
+    const bool laterStarted = Wait(secondStarted.get());
+    SetEvent(release.get());
+    first.join(); foreground.join(); second.join();
+    const DWORD closed = session->CloseDirectoryCursor(lease);
+    peer.join();
+    Check(!opened && firstArrived && foregroundWaiting && laterStarted && peerOk && !firstError && !listError &&
+          !secondError && !closed && firstRows.size() == 1 && secondRows.size() == 1 &&
+          firstRows[0].id[0] == 1 && secondRows[0].id[0] == 2,
+          "a foreground List already waiting is served before a later paged Next");
+}
+
+void PartialReplyAndCancellation()
+{
+    Pair partial;
+    const auto partialDone = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    if (!partial.Open(4) || !partialDone) { Check(false, "prepare partial reply fixture"); return; }
+    auto session = Session(partial);
+    const auto expected = Identity(9);
+    std::atomic<bool> peerOk{false};
+    std::thread peer([&] {
+        UacF7::MoveFileIdentity request{};
+        UacListing::PagedListingReply reply{};
+        reply.identity = expected;
+        peerOk = Request(partial.peer.get(), UacListing::PagedListingOp::Open, &request) &&
+                 Write(partial.peer.get(), &reply, sizeof(reply) / 2) && Wait(partialDone.get());
+        partial.peer.reset();
+    });
+    UacF7::MoveFileIdentity actual = Identity(99);
+    ULONGLONG lease = 99;
+    const DWORD error = session->OpenDirectoryCursor(L"C:\\owned-fixture", expected, actual, lease);
+    SetEvent(partialDone.get());
+    peer.join();
+    Check(peerOk && error != ERROR_SUCCESS && !lease && !actual.serial && !session->IsOpen(),
+          "partial OPEN reply publishes no identity or lease and closes the session");
+
+    Pair stopped;
+    const auto arrived = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    const auto stop = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    const auto release = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    if (!stopped.Open(5) || !arrived || !stop || !release) { Check(false, "prepare active stop fixture"); return; }
+    auto stoppedSession = Session(stopped);
+    std::thread stoppedPeer([&] {
+        UacF7::MoveFileIdentity request{};
+        const bool got = Request(stopped.peer.get(), UacListing::PagedListingOp::Open, &request);
+        if (got) SetEvent(arrived.get());
+        Wait(release.get());
+    });
+    actual = Identity(99); lease = 99;
+    DWORD stoppedError = MAXDWORD;
+    std::thread opener([&] { stoppedError = stoppedSession->OpenDirectoryCursor(L"C:\\owned-fixture", expected, actual, lease, stop.get()); });
+    const bool begun = Wait(arrived.get());
+    SetEvent(stop.get());
+    opener.join();
+    const bool closed = !stoppedSession->IsOpen();
+    SetEvent(release.get());
+    stoppedPeer.join();
+    Check(begun && stoppedError == ERROR_CANCELLED && !lease && !actual.serial && closed,
+          "stop inside a sent transaction closes the session and publishes no OPEN result");
+}
+
+void PartialPage()
+{
+    Pair pair;
+    const auto clientDone = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    if (!pair.Open(8) || !clientDone) { Check(false, "prepare partial page fixture"); return; }
+    auto session = Session(pair);
+    const auto expected = Identity(13);
+    std::atomic<bool> peerOk{false};
+    std::thread peer([&] {
+        UacF7::MoveFileIdentity request{};
+        UacListing::PagedListingReply reply{};
+        reply.count = 2;
+        UacF7::PagedListingEntry partial{};
+        partial.data.dwFileAttributes = FILE_ATTRIBUTE_ARCHIVE;
+        partial.data.cFileName[0] = L'a';
+        partial.id[0] = 1;
+        peerOk = Request(pair.peer.get(), UacListing::PagedListingOp::Open, &request) &&
+                 OpenReply(pair.peer.get(), expected) &&
+                 Request(pair.peer.get(), UacListing::PagedListingOp::Next) &&
+                 Write(pair.peer.get(), &reply, sizeof(reply)) && Write(pair.peer.get(), &partial, sizeof(partial)) &&
+                 Wait(clientDone.get());
+    });
+    UacF7::MoveFileIdentity actual{};
+    ULONGLONG lease = 0;
+    const DWORD opened = session->OpenDirectoryCursor(L"C:\\owned-fixture", expected, actual, lease);
+    std::vector<UacF7::PagedListingEntry> rows(1);
+    bool done = true;
+    const DWORD error = opened ? opened : session->NextDirectoryPage(lease, rows, done);
+    SetEvent(clientDone.get());
+    peer.join();
+    Check(!opened && peerOk && error != ERROR_SUCCESS && rows.empty() && !done && !session->IsOpen(),
+          "a partially delivered page publishes no rows and closes the session");
+}
+
+void CloseWaitsForPage()
+{
+    Pair pair;
+    const auto arrived = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    const auto release = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    const auto closeStarted = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    if (!pair.Open(9) || !arrived || !release || !closeStarted)
+    { Check(false, "prepare concurrent Close fixture"); return; }
+    auto session = Session(pair);
+    const auto expected = Identity(14);
+    std::atomic<bool> peerOk{false}, closeDone{false};
+    std::thread peer([&] {
+        UacF7::MoveFileIdentity request{};
+        bool ok = Request(pair.peer.get(), UacListing::PagedListingOp::Open, &request) && OpenReply(pair.peer.get(), expected);
+        ok = ok && Request(pair.peer.get(), UacListing::PagedListingOp::Next);
+        SetEvent(arrived.get());
+        ok = ok && Wait(release.get()) && PageReply(pair.peer.get(), L'a', 1);
+        ok = ok && Request(pair.peer.get(), UacListing::PagedListingOp::Close) && CloseReply(pair.peer.get());
+        peerOk = ok;
+    });
+    UacF7::MoveFileIdentity actual{};
+    ULONGLONG lease = 0;
+    const DWORD opened = session->OpenDirectoryCursor(L"C:\\owned-fixture", expected, actual, lease);
+    std::vector<UacF7::PagedListingEntry> rows;
+    bool done = true;
+    DWORD readError = MAXDWORD, closeError = MAXDWORD;
+    std::thread reader([&] { readError = session->NextDirectoryPage(lease, rows, done); });
+    const bool entered = Wait(arrived.get());
+    std::thread closer([&] {
+        SetEvent(closeStarted.get());
+        closeError = session->CloseDirectoryCursor(lease);
+        closeDone = true;
+    });
+    const bool started = Wait(closeStarted.get());
+    const bool noInterleave = NoBytes(pair.peer.get()) && !closeDone;
+    SetEvent(release.get());
+    reader.join(); closer.join(); peer.join();
+    Check(!opened && entered && started && noInterleave && peerOk && !readError && !closeError && rows.size() == 1,
+          "concurrent Close waits for the complete page transaction before emitting its frame");
+}
+
+void RetainedLifetime()
+{
+    Pair pair;
+    if (!pair.Open(6)) { Check(false, "prepare shared lifetime fixture"); return; }
+    auto panel = Session(pair);
+    auto worker = panel;
+    std::weak_ptr<UacF7::ListingSession> weak = panel;
+    panel.reset();
+    std::atomic<bool> peerOk{false};
+    std::thread peer([&] { peerOk = Prefix(pair.peer.get(), 0) && ListReply(pair.peer.get()); });
+    std::vector<WIN32_FIND_DATAW> rows;
+    const DWORD error = worker->List(L"C:\\owned-fixture", rows);
+    peer.join();
+    const bool alive = !weak.expired() && worker->IsOpen();
+    worker.reset();
+    Check(alive && weak.expired() && peerOk && error == ERROR_SUCCESS,
+          "worker ownership retains the session after the simulated panel releases it");
+}
+}
+
+int main()
+{
+    SerializedAndCancelledWaiter();
+    StaleLease();
+    CrossSessionLease();
+    StopDuringContentWithCursor();
+    ForegroundBeforeLaterPage();
+    PartialReplyAndCancellation();
+    PartialPage();
+    CloseWaitsForPage();
+    RetainedLifetime();
+    std::printf("Failures=%d\n", failures);
+    return failures ? 1 : 0;
+}

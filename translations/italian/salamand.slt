@@ -4369,9 +4369,123 @@ SLGINCOMPLETE,""
 14611,1,"Non è stato possibile terminare alcun processo che utilizza questo file."
 
 [STRINGTABLE 193]
-14991,1,"Lettura associazioni dall'archiviazione file, attendere..."
+14624,1,"Accesso negato. Creare questa cartella come amministratore?"
+14625,1,"La connessione al processo ausiliario si è interrotta prima della conferma del risultato. Controllare la destinazione prima di riprovare."
+14626,1,"Accesso negato. Rinominare questo file come amministratore? Il percorso attuale è indicato per primo, seguito da quello nuovo."
+14627,1,"Accesso negato. Applicare gli attributi e le date richiesti a questo file come amministratore?"
+14628,1,"La connessione con il processo ausiliario si è interrotta prima della conferma del risultato. Controllare gli attributi e le date del file prima di riprovare."
+14629,1,"Accesso negato. Eliminare definitivamente questo file come amministratore?"
+14630,1,"La connessione con il processo ausiliario si è interrotta prima della conferma dell’eliminazione. Verificare se il file esiste ancora prima di riprovare."
+14631,1,"Accesso negato. Elencare questa cartella e le sottocartelle come amministratore?"
+14632,1,"Elenco amministratore"
+14633,1,"Accesso negato. Copiare questo file e i relativi flussi di dati alternativi come amministratore?"
+14634,1,"Non è stato possibile confermare il completamento della copia. Controllare la destinazione prima di riprovare."
+14635,1,"Accesso negato. Spostare questo file come amministratore?"
+14636,1,"Non è stato possibile confermare il completamento dello spostamento. Controllare l’origine e la destinazione prima di riprovare."
+14637,1,"Inventario del sottoalbero protetto"
+14639,1,"Durante il calcolo delle dimensioni non è stato possibile esaminare tutto l’albero delle cartelle."
 
 [STRINGTABLE 194]
+14640,1,"File: "
+14641,1,"Sottocartelle: "
+14642,1,"Dimensione logica (byte): "
+14643,1,"Copiare questa cartella e il suo contenuto come amministratore?"
+14644,1,"Impossibile confermare la copia della cartella o la pulizia. Controllare la destinazione prima di riprovare."
+14645,1,"Accesso negato. Impostare le date e le ore richieste per questa cartella come amministratore?"
+14646,1,"La connessione al processo ausiliario si è interrotta prima della conferma del risultato. Controllare le date e le ore della cartella prima di riprovare."
+14647,1,"Accesso negato. Applicare a questa cartella gli attributi richiesti e le eventuali date e ore selezionate come amministratore?"
+14648,1,"La connessione al processo ausiliario si è interrotta prima della conferma del risultato. Controllare gli attributi, le date e le ore della cartella prima di riprovare."
+14649,1,"Accesso negato. Copiare questo file senza i relativi flussi di dati alternativi come amministratore?"
+14650,1,"Accesso negato. Copiare questo file come amministratore mantenendo la compressione NTFS?"
+14651,1,"Accesso negato. Rinominare questo collegamento simbolico come amministratore?"
+14652,1,"Accesso negato. Rinominare questa giunzione di directory come amministratore?"
+14653,1,"Accesso negato. Eliminare definitivamente questo collegamento simbolico come amministratore? Il file di destinazione sarà conservato."
+14654,1,"Accesso negato. Eliminare definitivamente questo collegamento simbolico a una cartella come amministratore? La cartella di destinazione sarà conservata."
+14655,1,"Accesso negato. Eliminare definitivamente questa giunzione di directory come amministratore? La cartella di destinazione sarà conservata."
+
+[STRINGTABLE 195]
+14656,1,"Accesso negato. Copiare questo file come amministratore mantenendo il proprietario, il gruppo e le autorizzazioni NTFS esplicite?"
+14657,1,"Non è stato possibile completare la copia di questo file crittografato con EFS. La modalità amministratore non può mantenere la crittografia EFS per questa operazione."
+14658,1,"Windows non ha confermato lo spostamento di tutti gli elementi nel Cestino. Controllare la posizione originale e il Cestino prima di riprovare."
+14659,1,"Accesso negato. Calcolare le dimensioni di questa cartella e delle relative sottocartelle come amministratore?"
+14660,1,"Accesso negato. Cercare per nome e metadati in questa cartella come amministratore? La ricerca continua nelle cartelle accessibili mentre si decide."
+14661,1,"In attesa dell’autorizzazione di amministratore per accedere a una cartella protetta…"
+14662,1,"Ricerca nella cartella autorizzata con diritti di amministratore."
+14663,1,"Non disponibile"
+14664,1,"Accesso negato. Aprire una copia di sola lettura di questo file nel visualizzatore interno come amministratore? La copia è limitata a 16 MB."
+14665,1,"Copia aperta con diritti di amministratore"
+14666,1,"Questa copia è di sola lettura. Tornare al pannello per richiedere una nuova copia."
+14667,1,"Impossibile aprire il file protetto nel visualizzatore interno."
+14668,1,"Modifica come amministratore"
+14669,1,"Accesso negato. Aprire il file originale con l’editor configurato come amministratore? Windows chiederà l’autorizzazione per l’editor indicato di seguito."
+14670,1,"La modalità amministratore richiede che l’eseguibile dell’editor si trovi in una cartella protetta di Windows o Program Files."
+14671,1,"Contenuto di un archivio ZIP protetto"
+
+[STRINGTABLE 196]
+14672,1,"Accesso negato. Leggere il contenuto di questo archivio ZIP come amministratore? L’archivio verrà aperto in sola lettura."
+14673,1,"Premere F3 per visualizzare un file o F5 per estrarlo. L’apertura in un’applicazione esterna non è disponibile."
+14674,1,"Accesso negato. Estrarre come amministratore i file e le cartelle selezionati dallo ZIP nella destinazione indicata?"
+14675,1,"Selezionare una cartella di destinazione locale esistente per gli elementi selezionati nello ZIP protetto."
+14676,1,"L’estrazione si è interrotta dopo la creazione di una parte degli elementi ZIP selezionati. Controllare la destinazione prima di riprovare."
+14677,1,"Aggiornamento di un archivio ZIP protetto"
+14678,1,"Salvare come amministratore le modifiche preparate per questo archivio ZIP?"
+14679,1,"Windows non ha confermato il completamento dell’aggiornamento dello ZIP. Controllare l’archivio e l’eventuale copia di backup nella sua cartella prima di riprovare."
+14680,1,"L’archivio ZIP è stato aggiornato. Aggiornare il pannello dell’archivio per mostrare il nuovo contenuto."
+14681,1,"Accesso negato. Sostituire questo file esistente come amministratore mantenendo le autorizzazioni della destinazione?"
+14682,1,"Il consenso si applica a questo elemento. L’annullamento interrompe l’elaborazione degli elementi rimanenti. Le modifiche completate saranno conservate."
+14683,1,"Accesso negato. Leggere come amministratore il contenuto dei file di questa cartella per la ricerca corrente? La ricerca continua nelle cartelle accessibili mentre si decide."
+14684,1,"Accesso negato. Leggere questo file come amministratore per la ricerca corrente?"
+14685,1,"Accesso negato. Copiare questo file come amministratore mantenendo la crittografia EFS?"
+14686,1,"Il consenso si applica anche agli altri file idonei per questa operazione nelle cartelle elencate di seguito, fino al termine dell’operazione."
+14687,1,"Il consenso si applica anche agli altri elementi idonei per questa operazione nella cartella elencata di seguito, fino al termine dell’operazione."
+
+[STRINGTABLE 197]
+14688,1,"Accesso negato. Spostare questo file nel proprio Cestino come amministratore?"
+14689,1,"Accesso negato. Copiare questo file come amministratore mantenendo la compressione NTFS, il proprietario, il gruppo e le autorizzazioni esplicite?"
+14694,1,"Questa autorizzazione si applica anche alle cartelle protette in:"
+14695,1,"Accesso negato. Leggere come amministratore il contenuto dei file in questo percorso per questo confronto?"
+14696,1,"Questo collegamento di compatibilità di Windows è stato ignorato. Contribuisce al totale con 0 byte."
+
+14698,1,"Non è stato possibile confermare il completamento dell’operazione. Potrebbero rimanere un backup di lavoro o un registro. Controllare la sorgente, la destinazione e gli eventuali backup prima di riprovare."
+
+14699,1,"Accesso negato. Sostituire questo file come amministratore mantenendo le autorizzazioni di destinazione? Il file sostitutivo non conterrà flussi di dati alternativi."
+
+14700,1,"Limite di accesso amministratore raggiunto (%s elementi protetti). Questo elemento non è stato esaminato; i risultati potrebbero essere incompleti."
+14701,1,"Incompleto (limite admin)"
+
+14702,1,"Una ricerca precedente in questi risultati ha raggiunto il limite di accesso amministratore (%s elementi protetti). Alcuni elementi non sono stati esaminati."
+
+14703,1,"Lo spostamento di una cartella protetta nel Cestino con privilegi di amministratore non è ancora supportato."
+
+[STRINGTABLE 198]
+14704,1,"Incompleto (vedi registro)"
+14705,1,"Un elenco di directory ha superato la propria capacità. Alcuni elementi non sono stati esaminati."
+14706,1,"Un sottoalbero protetto ha superato il limite di elementi. Alcuni elementi non sono stati esaminati."
+14707,1,"Un sottoalbero protetto ha superato il limite di profondità. Alcuni elementi non sono stati esaminati."
+14708,1,"Alcune destinazioni dei collegamenti non sono state esaminate."
+14709,1,"L’accesso a una parte di un albero protetto non è stato approvato o non è riuscito. Alcuni elementi non sono stati esaminati."
+
+14710,1,"Il visualizzatore selezionato non può ancora aprire in sicurezza questo risultato verificato. Usare il visualizzatore interno."
+14711,1,"Questo risultato è associato a un’identità verificata in precedenza. Aprire un’istantanea di sola lettura nel visualizzatore interno come amministratore? L’istantanea è limitata a 16 MB."
+
+14712,1,"L’identità verificata di questo risultato protetto non è disponibile. Il file non può essere aperto in sicurezza; provare a ripetere la ricerca."
+14713,1,"View With non può ancora preservare in sicurezza l’identità verificata di questo risultato protetto. Usare invece F3."
+
+14714,1,"Il contenuto e le etichette di questo risultato protetto non possono essere letti in sicurezza durante il perfezionamento usando l’identità verificata in precedenza. Questo elemento non è stato verificato."
+14715,1,"Accesso negato. Creare questo elenco di file come amministratore?"
+
+14716,1,"Impossibile verificare l’identità di alcune cartelle protette. Non sono state aperte; l’elenco è incompleto. Prima cartella:"
+14717,1,"Una cartella protetta contiene più di 4096 elementi. Il suo elenco è incompleto."
+
+14719,1,"Branch View - %I64u file; il risultato potrebbe essere incompleto"
+14720,1,"L’elenco della cartella è stato interrotto e ripreso. I file potrebbero essere cambiati; l’elenco potrebbe essere incompleto. Aggiornarlo per verificare."
+
+14721,1,"Accesso negato. Copiare questo file come amministratore? In questa modalità non sono supportati i file con flussi di dati alternativi."
+
+[STRINGTABLE 199]
+14991,1,"Lettura associazioni dall'archiviazione file, attendere..."
+
+[STRINGTABLE 200]
 14992,1,"Salvataggio configurazione nell'archiviazione file, attendere..."
 14993,1,"Eliminazione vecchia configurazione dall'archiviazione file, attendere..."
 14994,1,"Lettura associazioni dall'archiviazione file..."

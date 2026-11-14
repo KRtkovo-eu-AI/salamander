@@ -1,7 +1,11 @@
 # SPDX-FileCopyrightText: 2026 Open Salamander Authors
+# | 2026-11-07 | Run the handle-relative directory creation fixture. | Verify parent substitution, reparse rejection and long paths in CI. | | GPT-6.1 Sol (Codex) |
+# | 2026-11-07 | Run the UAC broker transport fixture. | Exercise real peer rejection and disconnect in CI. | | GPT-6.1 Sol (Codex) |
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Run native overwrite transactions and worker conflict regressions. | Verify replacement recovery, read-only moves and original UI decisions. | #731 | GPT-6.1 Sol |
+# | 2026-11-11 | Run shared native copy and delete regressions. | Cover large copies, attribute-aware unlink and host delete confirmations. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Print captured output for failed native and contract test groups. | Surface compiler diagnostics in Actions logs as well as the JUnit artifact. | https://github.com/KRtkovo-eu-AI/salamander/pull/844 | GPT-6 |
 # | 2026-11-10 | Run the file-association model and Apply contract test. | Catch regressions in selected pattern fallback, user-override persistence, and canonical table refresh. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 # | 2026-11-07 | Run the native Find log ownership fixture. | Verify real worker log storage and snapshots without a dialog. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
@@ -654,6 +658,46 @@ try {
             Name = 'branch_rename_fallback_tests'
             ClassName = 'native-generated'
             Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_rename_fallback_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'uac_directory_leaf_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\uac_directory_leaf_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'uacbroker_transport_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\uacbroker_transport_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'uac_native_copy_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\uac_native_copy_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'uac_disk_overwrite_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\uac_disk_overwrite_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'uac_move_overwrite_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\uac_move_overwrite_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'uac_overwrite_worker_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\uac_overwrite_worker_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'uac_delete_attributes_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\uac_delete_attributes_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'uac_delete_confirmation_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\uac_delete_confirmation_tests.py'), '--configuration', $Configuration)
         },
         @{
             Name = 'create_directory_wrapper_tests'

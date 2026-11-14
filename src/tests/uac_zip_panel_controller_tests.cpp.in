@@ -1,0 +1,106 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-11 | Test protected ZIP session setup with controlled consent. | Preserve explicit consent and existing session reuse. | #731 | GPT-6.1 Terra |
+#include <windows.h>
+#include <memory>
+#include <string>
+#include <cstdio>
+#include <cstdlib>
+
+constexpr int IDS_UAC_ZIP_TITLE = 1, IDS_UAC_ZIP_CONFIRM = 2;
+struct CSalamanderDirectory {};
+struct CPluginDataInterfaceAbstract {};
+struct CQuadWord {};
+using SalListZipPanelV1 = void (*)();
+struct CPluginData {
+    bool InitDLL(HWND, BOOL) { return true; }
+    HMODULE GetPluginDLL() { return nullptr; }
+};
+struct PluginCollection {
+    CPluginData plugin;
+    CPluginData* GetPluginDataFromSuffix(const char*) { return &plugin; }
+} Plugins;
+FARPROC StubGetProcAddress(HMODULE, const char*) { return reinterpret_cast<FARPROC>(1); }
+#define GetProcAddress StubGetProcAddress
+std::wstring SalMultiByteToWidePath(const char* source, UINT) {
+    if (!source || !*source) return {};
+    const int needed = MultiByteToWideChar(CP_UTF8, 0, source, -1, nullptr, 0);
+    std::wstring result(static_cast<size_t>(needed), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, source, -1, result.data(), needed);
+    result.pop_back();
+    return result;
+}
+bool IsValidPathUtf8Text(const char*) { return true; }
+std::wstring SalPathRemoveExtendedPrefixW(const wchar_t* source) { return source; }
+struct Scenario {
+    bool prepare = true, consent = true;
+    DWORD start = ERROR_SUCCESS;
+    int prepareCalls = 0, consentCalls = 0, startCalls = 0;
+    std::wstring path;
+} scenario;
+bool ConfirmProtectedRead(HWND, int, int, const std::wstring& path) {
+    ++scenario.consentCalls; scenario.path = path; return scenario.consent;
+}
+namespace UacF7 {
+class ArchiveReadSession {
+    bool opened = false;
+public:
+    bool Prepare(const std::wstring& path) { ++scenario.prepareCalls; scenario.path = path; return scenario.prepare; }
+    DWORD Start(HWND) { ++scenario.startCalls; opened = scenario.start == ERROR_SUCCESS; return scenario.start; }
+    bool IsOpen() const { return opened; }
+};
+}
+@@SETUP@@
+int checks = 0;
+void Check(bool ok, const char* message) {
+    ++checks;
+    if (!ok) { std::fprintf(stderr, "FAIL: %s\n", message); std::exit(1); }
+}
+DWORD Setup(const char* path, UacF7::ArchiveReadSession* existing,
+            std::unique_ptr<UacF7::ArchiveReadSession>& created) {
+    CSalamanderDirectory directory; CPluginData* plugin = nullptr; CPluginDataInterfaceAbstract* data = nullptr;
+    CQuadWord size; FILETIME time{};
+    const auto error = ReadProtectedZip(nullptr, path, directory, plugin, data, size, time, existing, created);
+    (void)directory; (void)data; (void)size; (void)time;
+    return error;
+}
+int main() {
+    {
+        scenario = {}; std::unique_ptr<UacF7::ArchiveReadSession> created;
+        Check(Setup("C:\\ordinary.zip", nullptr, created) == ERROR_SUCCESS, "new protected archive opens");
+        Check(created && created->IsOpen() && scenario.prepareCalls == 1 && scenario.consentCalls == 1 && scenario.startCalls == 1, "one preparation, consent and launch");
+    }
+    {
+        scenario = {}; scenario.consent = false; std::unique_ptr<UacF7::ArchiveReadSession> created;
+        Check(Setup("C:\\cancel.zip", nullptr, created) == ERROR_CANCELLED, "declined consent returns cancellation");
+        Check(created && !created->IsOpen() && scenario.startCalls == 0, "decline does not launch broker");
+    }
+    {
+        scenario = {}; scenario.start = ERROR_ACCESS_DENIED; std::unique_ptr<UacF7::ArchiveReadSession> created;
+        Check(Setup("C:\\failed.zip", nullptr, created) == ERROR_ACCESS_DENIED, "launch failure propagated");
+        Check(created && !created->IsOpen(), "failed launch does not expose an open session");
+    }
+    {
+        scenario = {}; scenario.prepare = false; std::unique_ptr<UacF7::ArchiveReadSession> created;
+        Check(Setup("C:\\failed.zip", nullptr, created) == ERROR_ACCESS_DENIED, "failed identity preparation rejected");
+        Check(scenario.consentCalls == 0 && scenario.startCalls == 0, "failed preparation does not offer or start elevation");
+    }
+    {
+        scenario = {}; UacF7::ArchiveReadSession existing; Check(existing.Prepare(L"C:\\existing.zip") && !existing.Start(nullptr), "prepare existing session");
+        scenario = {}; std::unique_ptr<UacF7::ArchiveReadSession> created;
+        Check(Setup("C:\\existing.zip", &existing, created) == ERROR_SUCCESS && !created, "existing archive session reused");
+        Check(scenario.prepareCalls == 0 && scenario.consentCalls == 0 && scenario.startCalls == 0, "refresh does not reauthorize");
+    }
+    {
+        scenario = {}; std::unique_ptr<UacF7::ArchiveReadSession> created;
+        Check(Setup("C:\\not-zip.7z", nullptr, created) == ERROR_NOT_SUPPORTED, "other formats remain unsupported");
+        Check(scenario.prepareCalls == 0 && scenario.consentCalls == 0, "other formats never enter elevation");
+    }
+    {
+        scenario = {}; std::unique_ptr<UacF7::ArchiveReadSession> created;
+        const std::string path = "C:\\" + std::string(300, 'x') + "\\žluťoučký-東.zip";
+        Check(Setup(path.c_str(), nullptr, created) == ERROR_SUCCESS, "long Unicode ZIP path accepted");
+        Check(scenario.path == SalMultiByteToWidePath(path.c_str(), CP_UTF8), "exact path reaches preparation and consent");
+    }
+    std::printf("PASS: %d protected ZIP session setup checks\n", checks);
+}

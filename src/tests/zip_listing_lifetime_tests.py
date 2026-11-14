@@ -15,6 +15,8 @@ def main():
     parser.add_argument('--source-ref', help='Production revision for a negative control')
     args = parser.parse_args()
     listing = native.read('src/plugins/zip/list.cpp', args.source_ref)
+    list_header = native.read('src/plugins/zip/list.h', args.source_ref)
+    list_declaration = list_header.index('int List(')
     common = native.read('src/plugins/zip/common.h', args.source_ref)
     sdk = native.read('src/plugins/shared/spl_com.h')
     host = native.read('src/zip.cpp')
@@ -23,6 +25,8 @@ def main():
         'PLUGIN_DATA': native.block(common, 'class CZIPFileData', ';'),
         'FILE_INFO': native.block(native.read('src/plugins/zip/typecons.h'), 'struct CFileInfo', ';'),
         'DUP_NAME': native.block(listing, 'static wchar_t* DupZipUtf8NameW('),
+        'LIST_DECL': list_header[list_declaration:list_header.index(';', list_declaration) + 1],
+        'SAFE_NAME': native.block(listing, 'static bool SafeZipPanelName(') if 'static bool SafeZipPanelName(' in listing else '',
         'LIST': native.block(listing, 'int CZipList::List('),
         'PACK_UNCOMPRESS': native.block(native.read('src/pack1.cpp', args.source_ref), '\nBOOL PackUncompress(HWND'),
         'PACK_OWNER_LOOKUP': native.block(native.read('src/pack1.cpp', args.source_ref), 'CPluginData* PackGetPluginForArchiveFile('),

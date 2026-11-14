@@ -2,6 +2,22 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Guard thin F5 completion against reentrant handoff. | Avoid duplicate queue completion. | #731 | GPT-6 |
+// | 2026-11-12 | Track scoped thin F5 foreground return. | Avoid restoring focus after later user input. | #731 | GPT-6 |
+// | 2026-11-12 | Track validity of a worker-owned overwrite prompt. | Keep this UAC slice reviewable and fail closed. | #731 | GPT-6 (Codex) |
+// | 2026-11-11 | Track typed overwrite prompt lifetime. | Prevent premature worker completion during a modal prompt. | #731 | GPT-6 (Codex) |
+// | 2026-11-11 | Expose whether attribute controls were edited. | Keep special-file time-only consent separate from attribute changes. | #731 | GPT-6.1 Terra |
+// | 2026-11-10 | Keep declined deletion scopes for the progress dialog lifetime. | Limit cancellation reuse to the current delete job. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Add the destination shield to the native Copy/Move dialog. | Use the live destination text for the preview. | #731 | GPT-6 (Codex) |
+// | 2026-11-10 | Remember whether metadata was submitted with a shield. | Carry the existing confirmation to the verified metadata request. | #731 | GPT-6.1 Sol (Codex) |
+// | 2026-11-10 | Expose the shield state of the accepted operation dialog. | Let the same confirmed operation proceed to system UAC on access denial. | #731 | Codex |
+// | 2026-11-10 | Allow an opt-in UAC shield on Change Attributes. | Preview the requested basic metadata changes on OK. | #731 | GPT-6 (Codex) |
+// | 2026-11-10 | Allow an opt-in UAC shield on file name dialog OK. | Keep all other uses of the shared dialog unchanged. | #731 | GPT-6 (Codex) |
+// | 2026-11-09 | Own the progress caption shield. | Keep the icon and its previous value local to one dialog. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Keep transfer authorizations with the progress dialog. | Close every scope when its job ends. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Share the protected read consent prompt with F3. | Keep the scope and shield consistent. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Declare the protected read consent prompt. | Use the same shield and default Cancel for size and Find. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-07 | Allow a shield on OK independently of the default action. | Keep destructive UAC confirmations safe by default. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Add lock-process context to file error dialogs. | Display detected holders and expose core operation recovery. | https://github.com/KRtkovo-eu-AI/salamander/issues/836 | GPT-6 (Codex) |
 // | 2026-11-04 | Document language selector sources for langpack.dll. | Official languages come from the pack, not only lang\*.slg. | | Composer |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
@@ -12,11 +28,13 @@
 
 #pragma once
 
+#include <list>
 #include <string>
 #include <vector>
 #include "filelock.h"
 
 #include "plugins/salamatrix/salamatrix_extensions.h"
+#include "uacbroker/f7pilot.h"
 
 // Shows one dialog for extensions whose Salamatrix runtime provider or
 // interpreter is missing. A NULL extension id reports every such extension.
@@ -62,6 +80,12 @@ protected:
     BOOL NameAutoCompleteMode;
     int SelectionEnd;
     int SelectionEndChars;
+    bool ElevationShield = false;
+    bool ElevationShieldShown = false;
+    bool (*ElevationShieldProbe)(const wchar_t*, void*) = nullptr;
+    void* ElevationShieldContext = nullptr;
+
+    void UpdateElevationShield();
 
 public:
     // 'history' determines whether the dialog will contain a combobox (TRUE) or an editline (FALSE)
@@ -73,6 +97,13 @@ public:
                     BOOL allowChangeTarget = FALSE);
 
     void SetSelectionEnd(int selectionEnd);
+    void SetElevationShield(bool required) { ElevationShield = required; }
+    bool WasElevationShieldShown() const { return ElevationShieldShown; }
+    void SetElevationShieldProbe(bool (*probe)(const wchar_t*, void*), void* context)
+    {
+        ElevationShieldProbe = probe;
+        ElevationShieldContext = context;
+    }
     virtual void Transfer(CTransferInfo& ti);
 
 protected:
@@ -123,6 +154,10 @@ protected:
     BOOL Expanded;        // is the dialog currently expanded?
 
     CButton* MoreButton;
+    bool (*ElevationShieldProbe)(const wchar_t*, void*) = nullptr;
+    void* ElevationShieldContext = nullptr;
+    bool ElevationShieldShown = false;
+    void UpdateElevationShield();
 
 public:
     // 'history' determines whether the dialog will contain a combobox (TRUE) or an editline (FALSE)
@@ -135,6 +170,12 @@ public:
                         const std::vector<std::string>* targetPaths = NULL,
                         BOOL allowChangeTarget = FALSE, BOOL* keepBranchPathsInOut = NULL);
     ~CCopyMoveMoreDialog();
+    void SetElevationShieldProbe(bool (*probe)(const wchar_t*, void*), void* context)
+    {
+        ElevationShieldProbe = probe;
+        ElevationShieldContext = context;
+    }
+    bool WasElevationShieldShown() const { return ElevationShieldShown; }
 
     virtual void Validate(CTransferInfo& ti);
     virtual void Transfer(CTransferInfo& ti);
@@ -155,6 +196,10 @@ protected:
 // ****************************************************************************
 
 #define MESSAGEBOX_MAXBUTTONS 4 // maximum number of buttons
+
+// Internal flag for the host; the public MSGBOXEX_PARAMS layout stays unchanged.
+constexpr DWORD MSGBOXEX_SHIELDONOKBTN = 0x04000000;
+bool ConfirmProtectedRead(HWND owner, int caption, int description, const std::wstring& path);
 
 class CMessageBox : public CCommonDialog
 {
@@ -224,6 +269,13 @@ private:
     BOOL CompressedDirty;
     BOOL EncryptedDirty;
 
+    bool (*ElevationShieldProbe)(DWORD, DWORD, const UacF7::MetadataChange&, void*) = nullptr;
+    void* ElevationShieldContext = nullptr;
+    bool ElevationShieldShown = false;
+    bool ElevationShieldAccepted = false;
+
+    void UpdateElevationShield();
+
 public:
     int Archive,
         ReadOnly,
@@ -247,6 +299,19 @@ public:
                       const SYSTEMTIME* timeCreated,
                       const SYSTEMTIME* timeAccessed);
 
+    bool AcceptedShieldedOk() const { return ElevationShieldAccepted; }
+    bool AnyAttributeEdited() const
+    {
+        return ArchiveDirty || ReadOnlyDirty || HiddenDirty || SystemDirty || CompressedDirty || EncryptedDirty;
+    }
+
+    // Indeterminate attributes are absent from both masks. The change carries only selected timestamps.
+    void SetElevationShieldProbe(bool (*probe)(DWORD set, DWORD clear, const UacF7::MetadataChange& times, void*),
+                                 void* context)
+    {
+        ElevationShieldProbe = probe;
+        ElevationShieldContext = context;
+    }
     virtual void Transfer(CTransferInfo& ti);
 
     void EnableWindows();
@@ -347,6 +412,8 @@ BOOL StartProgressDialog(COperations* script, const char* caption,
 class CProgressDialog : public CCommonDialog
 {
     friend class CConflictPromptPresentationGuard;
+    std::list<UacF7::TransferJobSession> TransferJobs;
+    std::vector<UacF7::TransferJobScope> DeclinedDeleteScopes;
 
 public:
     CProgressDialog(HWND parent, COperations* script, const char* caption,
@@ -361,6 +428,7 @@ protected:
 
     void SetDlgTitle(BOOL minimized);
     void SetWindowIcon();
+    void SetBrokerActive(bool active);
     std::string GetProgressCaption() const;
     void SetParallelProgress(const CParallelProgressData* data, BOOL repaint = TRUE, BOOL layout = TRUE);
     void LayoutActiveProgressStreams(int count, BOOL repaint = TRUE);
@@ -404,6 +472,9 @@ protected:
     COperations* Script;
     std::string Caption;
     std::string SchedulingTitleSuffix;
+    HICON BrokerShieldIcon = NULL;
+    HICON PreviousSmallIcon = NULL;
+    bool BrokerShieldVisible = false;
     CChangeAttrsData* AttrsData;
     CConvertData* ConvertData;
     BOOL AcceptCommands;
@@ -417,6 +488,10 @@ protected:
     BOOL FirstUserSetDialog; // TRUE = WM_USER_SETDIALOG message isn't processed yet (the first call forces a repaint so the user sees the dialog at least flash)
 
     HWND NextForegroundWindow; // window that should be foreground after closing this dialog (on XP with service pack 1 and with a top-most window opened the activation may fail after closing the dialog - focus sometimes went to the top-most window instead of Salamander)
+#ifdef SAM_UAC_THIN_COPY_TEST
+    bool ThinConsentReturned = false;
+    bool ThinHandoffInProgress = false;
+#endif
 
     BOOL DoNotBeepOnClose; // TRUE = operation cancels because Salamander is exiting; beeping makes no sense
 
@@ -459,6 +534,8 @@ protected:
     int ConflictPromptIndex;
     int ConflictSelectionRowAfterRemoval;
     BOOL ConflictPromptActive;
+    BOOL WorkerOverwriteProbePromptActive = FALSE;
+    BOOL WorkerOverwriteProbePromptInvalidated = FALSE;
     CParallelProgressData* DeferredParallelProgress;
     enum CDeferredProgressKind
     {

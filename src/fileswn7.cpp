@@ -1,7 +1,16 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Prevent copying and deleting from the protected archive pilot. | Keep the archive listing read-only. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Compare the portable file-list exclusion identity. | Keep both the volume serial and all 128 identity bits. | #731 | GPT-6.1 Sol |
+// | 2026-11-11 | Exclude a pinned workspace by its exact directory identity. | Prevent recursive file lists from including their own private staging tree. | #731 | GPT-6.1 Sol |
+// | 2026-11-08 | Remove the standalone ZIP recovery action. | Keep recovery mechanics internal to archive publication. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Recover the recorded ZIP update in the selected disk folder. | Revalidate the panel after consent and refresh on success. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Apply ZIP edits to the requested archive subdirectory. | Reject invalid internal path components before staging. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Connect protected ZIP deletion to the ordinary archive selection. | Edit a private copy, validate it and request consent to publish. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Expand a protected ZIP selection into a bounded output manifest. | Preserve nested folders and report incomplete extraction. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Connect protected ZIP extraction to the existing F5 dialog. | Use the open source authorization and ask separately only for a denied target write. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-06 | Capture implicit archive destinations before callbacks and validation. | Preserve upstream fixes and Branch View path and lifetime contracts. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
@@ -17,11 +26,14 @@
 #include "zip.h"
 #include "pack.h"
 #include "common/widepath.h"
+#include <algorithm>
 #include "common/localizedtext.h"
 #include "fileactiondisktarget.h"
 #include "fileactionarchivesource.h"
 #include "fileactionpackcontext.h"
 #include "unpackvolumes.h"
+#include <sddl.h>
+#include <shlobj.h>
 
 //
 // ****************************************************************************
@@ -431,6 +443,7 @@ struct CDiskDirEnumData
     std::vector<int> Indexes;
     std::vector<CDiskDirEnumEntry> Entries;
     std::wstring OutputPath;
+    const CFileListExclusion* Exclusion;
 };
 
 static std::wstring DiskDirFileNameW(const CFileData* file)
@@ -496,6 +509,32 @@ static bool DiskDirReportEnumerationError(HWND parent,
     return false;
 }
 
+// Only compare a potential match. A failure to prove its identity aborts the
+// output instead of silently omitting a possibly unrelated user directory.
+static bool DiskDirExcludeWorkspace(HWND parent, const std::wstring& path,
+                                    CDiskDirEnumData* data, bool candidate, bool& excluded)
+{
+    excluded = false;
+    if (!data->Exclusion || !candidate) return true;
+    const std::wstring io = SalPathAddExtendedPrefixW(path.c_str());
+    HANDLE directory = HANDLES_Q(CreateFileW(io.c_str(), FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    if (directory == INVALID_HANDLE_VALUE)
+        return DiskDirReportEnumerationError(parent, path, GetLastError());
+    UacF7::MoveFileIdentity identity{};
+    FILE_ATTRIBUTE_TAG_INFO attributes{};
+    const bool read = UacF7::CaptureMoveFileIdentity(directory, identity) &&
+        GetFileInformationByHandleEx(directory, FileAttributeTagInfo, &attributes, sizeof(attributes));
+    const DWORD error = read ? ERROR_SUCCESS : GetLastError();
+    HANDLES(CloseHandle(directory));
+    if (!read) return DiskDirReportEnumerationError(parent, path, error);
+    excluded = (attributes.FileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)) == FILE_ATTRIBUTE_DIRECTORY &&
+        identity.serial == data->Exclusion->Identity.serial &&
+        std::equal(identity.id, identity.id + sizeof(identity.id), data->Exclusion->Identity.id);
+    return true;
+}
+
 static bool DiskDirEnumDirectory(HWND parent, const std::wstring& fullPath,
                                  const std::wstring& relativePath,
                                  CDiskDirEnumData* data)
@@ -538,6 +577,13 @@ static bool DiskDirEnumDirectory(HWND parent, const std::wstring& fullPath,
 
         BOOL isDirectory =
             (found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+        bool excluded = false;
+        const bool workspaceName = data->Exclusion && isDirectory &&
+            (DiskDirSamePath(found.cFileName, data->Exclusion->Name) ||
+             DiskDirSamePath(found.cAlternateFileName, data->Exclusion->Name));
+        if (!DiskDirExcludeWorkspace(parent, childFull, data, workspaceName, excluded))
+        { result = false; break; }
+        if (excluded) continue;
         CQuadWord size(isDirectory ? 0 : found.nFileSizeLow,
                        isDirectory ? 0 : found.nFileSizeHigh);
         if (!DiskDirAddEnumEntry(data, childRelative,
@@ -595,6 +641,13 @@ static bool DiskDirBuildEnumeration(HWND parent, int enumFiles,
         if (DiskDirSamePath(fullPath, data->OutputPath))
             continue;
 
+        bool excluded = false;
+        // A panel row can use an 8.3 name; compare every selected directory
+        // by identity rather than relying on its displayed spelling.
+        if (!DiskDirExcludeWorkspace(parent, fullPath, data, isDirectory != FALSE, excluded))
+            return false;
+        if (excluded) continue;
+
         std::wstring dosName;
         if (file->DosName != NULL)
             dosName = SalMultiByteToWidePath(file->DosName, CP_ACP);
@@ -648,7 +701,8 @@ static void DiskDirPrepareFileListEntry(const CDiskDirEnumEntry& entry,
 }
 
 BOOL CFilesWindow::MakeFileListRecursive(HANDLE hFile,
-                                         const char* outputFileName)
+                                         const char* outputFileName,
+                                         const CFileListExclusion* exclusion)
 {
     CALL_STACK_MESSAGE2("CFilesWindow::MakeFileListRecursive(, %s)",
                         outputFileName);
@@ -656,6 +710,7 @@ BOOL CFilesWindow::MakeFileListRecursive(HANDLE hFile,
         return FALSE;
 
     CDiskDirEnumData data = {};
+    data.Exclusion = exclusion;
     data.Panel = this;
     data.OutputPath = SalMultiByteToWidePath(outputFileName, CP_UTF8);
     if (data.OutputPath.empty())
@@ -816,9 +871,382 @@ static void RemoveEmptyUnpackDirectoriesW(const std::wstring& root)
     }
 }
 
+namespace
+{
+class ProtectedZipSelection
+{
+public:
+    explicit ProtectedZipSelection(CFilesWindow& panel) : panel(panel) {}
+
+    DWORD Add(const CFileData& file, bool directory, const std::string& root,
+              DWORD parent = UacF7::zipSelectionRoot, DWORD depth = 1)
+    {
+        if (count == UacF7::maxZipSelectionEntries || depth > UacF7::maxZipSelectionDepth)
+            return ERROR_FILE_TOO_LARGE;
+        const auto name = DiskDirFileNameW(&file);
+        if (name.empty() || name.size() > 255)
+            return ERROR_INVALID_NAME;
+        std::string path = root;
+        if (!path.empty())
+            path += '\\';
+        path += file.Name;
+
+        const ULONGLONG size = directory ? 0 : file.Size.Value;
+        if (size > UacF7::maxPilotCopyBytes ||
+            sizeof(UacF7::ZipSelectionEntry) + name.size() * sizeof(wchar_t) + size >
+                UacF7::maxZipSelectionBytes - wire.size())
+            return ERROR_FILE_TOO_LARGE;
+        std::vector<BYTE> data;
+        if (!directory)
+        {
+            const DWORD error = panel.ReadProtectedZipEntry(file, path, data);
+            if (error)
+                return error;
+            if (data.size() != size)
+                return ERROR_INVALID_DATA;
+        }
+
+        const DWORD index = count++;
+        const UacF7::ZipSelectionEntry header{
+            parent, static_cast<DWORD>(name.size()), static_cast<DWORD>(size), directory ? 1UL : 0UL, file.LastWrite
+        };
+        Append(&header, sizeof(header));
+        Append(name.data(), name.size() * sizeof(wchar_t));
+        if (!data.empty())
+            Append(data.data(), data.size());
+        if (!directory)
+            return ERROR_SUCCESS;
+
+        auto* tree = panel.GetArchiveDir();
+        auto* dirs = tree->GetDirs(path.c_str());
+        auto* files = tree->GetFiles(path.c_str());
+        if (!dirs || !files)
+            return ERROR_INVALID_DATA;
+        for (int i = 0; i < dirs->Count; ++i)
+        {
+            const DWORD error = Add(dirs->At(i), true, path, index, depth + 1);
+            if (error)
+                return error;
+        }
+        for (int i = 0; i < files->Count; ++i)
+        {
+            const DWORD error = Add(files->At(i), false, path, index, depth + 1);
+            if (error)
+                return error;
+        }
+        return ERROR_SUCCESS;
+    }
+
+    std::vector<BYTE> wire;
+
+private:
+    void Append(const void* data, size_t size)
+    {
+        const auto* bytes = static_cast<const BYTE*>(data);
+        wire.insert(wire.end(), bytes, bytes + size);
+    }
+
+    CFilesWindow& panel;
+    DWORD count = 0;
+};
+}
+
+static BOOL UnpackProtectedZipSelection(CFilesWindow* panel, const CPanelTmpEnumData& data,
+                                       const char* archiveRoot, const char* directory)
+{
+    DWORD error = ERROR_NOT_ENOUGH_MEMORY;
+    bool unknown = false;
+    try
+    {
+        std::string displaySource = panel->GetZIPArchive();
+        if (*archiveRoot)
+        {
+            displaySource += '\\';
+            displaySource += archiveRoot;
+        }
+        const auto target = SalMultiByteToWidePath(directory, IsValidPathUtf8Text(directory) ? CP_UTF8 : CP_ACP);
+        UacF7::PreparedLeaf request;
+        if (target.empty() || !request.PrepareZipSelection(target))
+            error = ERROR_NOT_SUPPORTED;
+        else
+        {
+            ProtectedZipSelection selection(*panel);
+            error = ERROR_SUCCESS;
+            for (int i = 0; i < data.IndexesCount && !error; ++i)
+            {
+                const int index = data.Indexes[i];
+                if (index < 0 || index >= data.Dirs->Count + data.Files->Count)
+                {
+                    error = ERROR_INVALID_DATA;
+                    break;
+                }
+                const bool isDir = index < data.Dirs->Count;
+                const auto& file = isDir ? data.Dirs->At(index) : data.Files->At(index - data.Dirs->Count);
+                error = selection.Add(file, isDir, archiveRoot);
+            }
+            if (!error)
+            {
+                error = request.WriteZipSelectionLocal(selection.wire);
+                if (error == ERROR_ACCESS_DENIED)
+                {
+                    if (!ConfirmProtectedRead(panel->HWindow, IDS_UNPACKCOPY, IDS_UAC_ZIP_WRITE_CONFIRM,
+                                              SalMultiByteToWidePath(displaySource.c_str(), CP_UTF8) + L"\n\n" +
+                                              SalPathRemoveExtendedPrefixW(target.c_str())))
+                        return FALSE;
+                    const UacF7::Result result = request.WriteZipSelection(panel->HWindow, selection.wire);
+                    error = result.error;
+                    unknown = result.unknown;
+                }
+            }
+        }
+    }
+    catch (const std::bad_alloc&)
+    {
+        error = ERROR_NOT_ENOUGH_MEMORY;
+    }
+    if (unknown || (error && error != ERROR_CANCELLED))
+        SalMessageBox(panel->HWindow, unknown ? LoadStr(IDS_UAC_COPY_UNKNOWN) :
+                      error == ERROR_PARTIAL_COPY ? LoadStr(IDS_UAC_ZIP_EXTRACT_PARTIAL) : GetErrorText(error),
+                      LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+    return !unknown && error == ERROR_SUCCESS;
+}
+
+namespace
+{
+struct ZipEditHandleDeleter
+{
+    void operator()(HANDLE handle) const { CloseHandle(handle); }
+};
+using ZipEditHandle = std::unique_ptr<void, ZipEditHandleDeleter>;
+using ZipEditEntry = DWORD(WINAPI*)(CSalamanderForOperationsAbstract*, const char*, const char*, const char*,
+                                   SalEnumSelection2, SalEnumSelection, void*);
+
+class ZipEditWorkspace
+{
+public:
+    ~ZipEditWorkspace()
+    {
+        if (pin && !file.empty())
+            DeleteFileW(file.c_str());
+        pin.reset();
+        if (created)
+            RemoveDirectoryW(directory.c_str());
+    }
+
+    DWORD Create()
+    {
+        PWSTR rawFolder = nullptr;
+        const HRESULT found = SHGetKnownFolderPath(FOLDERID_LocalAppData, KF_FLAG_DEFAULT_PATH, nullptr, &rawFolder);
+        const std::unique_ptr<void, decltype(&CoTaskMemFree)> folder(rawFolder, CoTaskMemFree);
+        if (FAILED(found))
+            return HRESULT_CODE(found);
+        GUID id{};
+        wchar_t name[39]{};
+        if (FAILED(CoCreateGuid(&id)) || !StringFromGUID2(id, name, ARRAYSIZE(name)))
+            return ERROR_GEN_FAILURE;
+
+        HANDLE rawToken = nullptr;
+        if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &rawToken))
+            return GetLastError();
+        const ZipEditHandle token(rawToken);
+        alignas(TOKEN_USER) BYTE tokenUser[sizeof(TOKEN_USER) + SECURITY_MAX_SID_SIZE]{};
+        DWORD used = 0;
+        if (!GetTokenInformation(token.get(), TokenUser, tokenUser, sizeof(tokenUser), &used))
+            return GetLastError();
+        LPWSTR rawSid = nullptr;
+        if (!ConvertSidToStringSidW(reinterpret_cast<const TOKEN_USER*>(tokenUser)->User.Sid, &rawSid))
+            return GetLastError();
+        const std::unique_ptr<void, decltype(&LocalFree)> sid(rawSid, LocalFree);
+        const std::wstring sddl = std::wstring(L"D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;") + rawSid + L")";
+        PSECURITY_DESCRIPTOR rawSecurity = nullptr;
+        if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl.c_str(), SDDL_REVISION_1, &rawSecurity, nullptr))
+            return GetLastError();
+        const std::unique_ptr<void, decltype(&LocalFree)> security(rawSecurity, LocalFree);
+        SECURITY_ATTRIBUTES attributes{sizeof(attributes), rawSecurity, FALSE};
+        const std::wstring location = std::wstring(rawFolder) + L"\\Samandarin-ZIP-" + name;
+        directory = SalPathAddExtendedPrefixW(location.c_str());
+        file = directory + L"\\archive.zip";
+        nameUtf8 = SalWideToMultiBytePath((location + L"\\archive.zip").c_str(), CP_UTF8);
+        if (nameUtf8.empty() || nameUtf8.size() >= SAL_MAX_PATH)
+            return ERROR_FILENAME_EXCED_RANGE;
+        if (!CreateDirectoryW(directory.c_str(), &attributes))
+            return GetLastError();
+        created = true;
+        const HANDLE raw = CreateFileW(directory.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                       nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+        if (raw == INVALID_HANDLE_VALUE)
+            return GetLastError();
+        FILE_ATTRIBUTE_TAG_INFO info{};
+        ZipEditHandle opened(raw);
+        if (!GetFileInformationByHandleEx(opened.get(), FileAttributeTagInfo, &info, sizeof(info)))
+            return GetLastError();
+        if (!(info.FileAttributes & FILE_ATTRIBUTE_DIRECTORY) || (info.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT))
+            return ERROR_FILE_INVALID;
+        // Use the verified handle to pin the directory until the plugin closes the copy.
+        pin = std::move(opened);
+        return ERROR_SUCCESS;
+    }
+
+    DWORD Open(DWORD access, DWORD disposition, ZipEditHandle& result) const
+    {
+        const HANDLE raw = CreateFileW(file.c_str(), access, FILE_SHARE_READ, nullptr, disposition,
+                                       FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+        if (raw == INVALID_HANDLE_VALUE)
+            return GetLastError();
+        result.reset(raw);
+        FILE_ATTRIBUTE_TAG_INFO info{};
+        if (!GetFileInformationByHandleEx(result.get(), FileAttributeTagInfo, &info, sizeof(info)))
+            return GetLastError();
+        return (info.FileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT))
+            ? ERROR_FILE_INVALID : ERROR_SUCCESS;
+    }
+
+    const char* Path() const { return nameUtf8.c_str(); }
+
+private:
+    std::wstring directory, file;
+    std::string nameUtf8;
+    ZipEditHandle pin;
+    bool created = false;
+};
+
+DWORD WINAPI ReadZipEditStage(void* context, ULONGLONG offset, void* bytes, DWORD count)
+{
+    LARGE_INTEGER position{};
+    position.QuadPart = static_cast<LONGLONG>(offset);
+    DWORD read = 0;
+    if (!SetFilePointerEx(static_cast<HANDLE>(context), position, nullptr, FILE_BEGIN) ||
+        !ReadFile(static_cast<HANDLE>(context), bytes, count, &read, nullptr))
+        return GetLastError();
+    return read == count ? ERROR_SUCCESS : ERROR_HANDLE_EOF;
+}
+
+DWORD WINAPI ValidateZipEditName(void*, const char*, DWORD)
+{
+    return ERROR_SUCCESS;
+}
+}
+
+bool CFilesWindow::CanEditProtectedZip()
+{
+    if (!IsProtectedZip() || !ProtectedZipSession || !ProtectedZipSession->IsOpen())
+        return false;
+    const auto* path = GetZIPArchive();
+    const size_t length = std::strlen(path);
+    if (length < 5 || StrICmp(path + length - 4, ".zip"))
+        return false;
+    CPluginData* plugin = GetPluginDataForPluginIface();
+    return plugin && plugin->GetPluginDLL() && GetProcAddress(plugin->GetPluginDLL(), "SalamanderEditZipStageV1");
+}
+
+bool CFilesWindow::EditProtectedZip(const char* sourcePath, SalEnumSelection2 add, SalEnumSelection remove, void* context,
+                                    const char* archiveRoot)
+try
+{
+    CFilesActionArchiveSource snapshot;
+    if (!CanEditProtectedZip() || !snapshot.Capture(MainWindow, this) || !snapshot.Owner)
+        return false;
+    const auto edit = reinterpret_cast<ZipEditEntry>(GetProcAddress(snapshot.Owner->GetPluginDLL(), "SalamanderEditZipStageV1"));
+    const auto validate = reinterpret_cast<SalListZipSourceV1>(GetProcAddress(snapshot.Owner->GetPluginDLL(), "SalamanderListZipSourceV1"));
+    if (!edit || !validate)
+        return false;
+    const std::wstring path = SalMultiByteToWidePath(snapshot.ArchiveFile.c_str(),
+        IsValidPathUtf8Text(snapshot.ArchiveFile.c_str()) ? CP_UTF8 : CP_ACP);
+    if (path.empty())
+        return false;
+
+    const auto report = [&](DWORD error) {
+        if (error && error != ERROR_CANCELLED)
+            DialogError(HWindow, BUTTONS_OK, snapshot.ArchiveFile.c_str(), GetErrorText(error), LoadStr(IDS_UAC_ZIP_EDIT_TITLE));
+        return false;
+    };
+    std::string root = archiveRoot ? archiveRoot : snapshot.ArchiveRoot;
+    if (!root.empty() && root.front() == '\\')
+        root.erase(0, 1);
+    for (std::string_view remaining(root); !remaining.empty();)
+    {
+        const size_t split = remaining.find('\\');
+        const auto component = remaining.substr(0, split);
+        if (component.empty() || component == "." || component == ".." ||
+            component.find_first_of("/:*?") != std::string_view::npos)
+            return report(ERROR_INVALID_NAME);
+        if (split == std::string_view::npos)
+            break;
+        remaining.remove_prefix(split + 1);
+    }
+    struct Busy
+    {
+        BOOL& flag;
+        BOOL previous;
+        explicit Busy(BOOL& value) : flag(value), previous(value) { flag = TRUE; }
+        ~Busy() { flag = previous; }
+    } busy(FilesActionInProgress);
+    ZipEditWorkspace workspace;
+    ZipEditHandle stage;
+    DWORD error = workspace.Create();
+    if (!error)
+        error = workspace.Open(GENERIC_WRITE, CREATE_NEW, stage);
+    if (!error)
+        error = ProtectedZipSession->CopyTo(stage.get());
+    stage.reset();
+    if (error)
+        return report(error);
+
+    {
+        CSalamanderForOperations operations(this);
+        EnterPlugin();
+        error = edit(&operations, workspace.Path(), root.c_str(), sourcePath, add, remove, context);
+        LeavePlugin();
+    }
+    if (error)
+        return report(error);
+    if (!snapshot.IsCurrent(MainWindow))
+        return report(ERROR_RETRY);
+    error = workspace.Open(GENERIC_READ, OPEN_EXISTING, stage);
+    LARGE_INTEGER size{};
+    if (!error && !GetFileSizeEx(stage.get(), &size))
+        error = GetLastError();
+    if (!error)
+    {
+        const SalZipReadSourceV1 archive{static_cast<ULONGLONG>(size.QuadPart), stage.get(),
+                                        ReadZipEditStage, ValidateZipEditName};
+        EnterPlugin();
+        error = validate(&archive);
+        LeavePlugin();
+    }
+    if (error)
+        return report(error);
+    if (!ConfirmProtectedRead(HWindow, IDS_UAC_ZIP_EDIT_TITLE, IDS_UAC_ZIP_EDIT_CONFIRM, path))
+        return false;
+    if (!snapshot.IsCurrent(MainWindow) || !ProtectedZipSession || !ProtectedZipSession->IsOpen())
+        return report(ERROR_RETRY);
+    const auto result = ProtectedZipSession->Replace(HWindow, stage.get());
+    if (result.unknown)
+    {
+        SalMessageBox(HWindow, LoadStr(IDS_UAC_ZIP_EDIT_UNKNOWN), LoadStr(IDS_UAC_ZIP_EDIT_TITLE), MB_OK | MB_ICONEXCLAMATION);
+        return false;
+    }
+    if (result.error)
+        return report(result.error);
+    MainWindow->PostChangeOnPathNotification(snapshot.Directory.c_str(), FALSE);
+    if (snapshot.IsCurrent(MainWindow) && ProtectedZipSession->IsOpen())
+        RefreshDirectory(FALSE, FALSE, FALSE, true);
+    else
+        SalMessageBox(HWindow, LoadStr(IDS_UAC_ZIP_EDIT_REFRESH), LoadStr(IDS_UAC_ZIP_EDIT_TITLE), MB_OK | MB_ICONINFORMATION);
+    return true;
+}
+catch (const std::bad_alloc&)
+{
+    DialogError(HWindow, BUTTONS_OK, GetZIPArchive(), GetErrorText(ERROR_NOT_ENOUGH_MEMORY), LoadStr(IDS_UAC_ZIP_EDIT_TITLE));
+    return false;
+}
+
 void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const char* tgtPath,
                                     BOOL* changeTargetRequested)
 {
+    const bool protectedZip = IsProtectedZip();
+    if (protectedZip && deleteOp && !CanEditProtectedZip())
+        return;
     // Resolve the implicit destination before any Branch capability or lifetime snapshot checks.
     if (!deleteOp && target == NULL && tgtPath == NULL)
         target = MainWindow->GetOtherPanel(this);
@@ -1159,6 +1587,13 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                     EndStopRefresh();
                     return;
                 }
+                if (protectedZip && (pathType != PATH_TYPE_WINDOWS || !pathIsDir || *secondPart))
+                {
+                    SalMessageBox(HWindow, LoadStr(IDS_UAC_ZIP_EXTRACT_TARGET), LoadStr(IDS_UNPACKCOPY), MB_OK | MB_ICONINFORMATION);
+                    delete[] data.Indexes;
+                    EndStopRefresh();
+                    return;
+                }
                 // instead of a 'switch', use 'if' so that 'break' and 'continue' work correctly
                 if (pathType == PATH_TYPE_WINDOWS) // Windows path (disk + UNC)
                 {
@@ -1327,9 +1762,11 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                         return;
                     }
                     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
-                    const BOOL unpacked = PackUncompress(MainWindow->HWindow, this, archiveSource.ArchiveFile.c_str(), archiveSource.PluginData,
-                                       path, archiveSource.ArchiveRoot.c_str(), PanelSalEnumSelection, &data,
-                                       watchDiskTarget ? &diskTarget : NULL, data.ContextIsCurrent, data.Context);
+                    const BOOL unpacked = protectedZip
+                        ? UnpackProtectedZipSelection(this, data, archiveSource.ArchiveRoot.c_str(), path)
+                        : PackUncompress(MainWindow->HWindow, this, archiveSource.ArchiveFile.c_str(), archiveSource.PluginData,
+                                         path, archiveSource.ArchiveRoot.c_str(), PanelSalEnumSelection, &data,
+                                         watchDiskTarget ? &diskTarget : NULL, data.ContextIsCurrent, data.Context);
                     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
                     const bool targetCurrent = validateDiskTarget();
                     if (unpacked && targetCurrent)
@@ -1481,8 +1918,11 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
             if (!cancel)
             {
                 SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
-                if (PackDelFromArc(MainWindow->HWindow, this, GetZIPArchive(), PluginData.GetInterface(),
-                                   GetZIPPath(), PanelSalEnumSelection, &data))
+                const bool deleted = protectedZip
+                    ? EditProtectedZip(nullptr, nullptr, PanelSalEnumSelection, &data)
+                    : PackDelFromArc(MainWindow->HWindow, this, GetZIPArchive(), PluginData.GetInterface(),
+                                     GetZIPPath(), PanelSalEnumSelection, &data) != FALSE;
+                if (deleted)
                 {                                                   // deletion succeeded
                     SetSel(FALSE, -1, TRUE);                        // explicit redraw
                     PostMessage(HWindow, WM_USER_SELCHANGED, 0, 0); // sel-change notify

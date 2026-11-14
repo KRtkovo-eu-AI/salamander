@@ -1,0 +1,398 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Exercise bounded paged Find traversal. | Preserve Stop, errors and DFS while removing the wide-directory cap. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Exercise independently bounded protected Find listings. | Preserve wide tree coverage and depth, session and cancellation limits. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Test actual protected scan and consent-result handling. | Preserve explicit Stop and report omitted branches. | #731 | GPT-6.1 Terra |
+#define _CRT_SECURE_NO_WARNINGS
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <psapi.h>
+#include <algorithm>
+#include <atomic>
+#include <cstdio>
+#include <cstring>
+#include <cctype>
+#include <map>
+#include <memory>
+#include <optional>
+#include <string>
+#include <vector>
+@@REASONS@@
+constexpr int IDS_UAC_FIND_WAIT = 1, IDS_UAC_FIND_SCOPE = 2;
+struct CDuplicateCandidates {};
+struct Text { void Set(const char*) {} };
+struct CGrepData {
+    std::atomic_bool StopSearch{false}; unsigned IncompleteReasons = 0;
+    int Refine = 0; Text text; Text* SearchingText = &text; HANDLE StopEvent = nullptr;
+};
+@@IGNORE_TYPE@@
+struct CFindIgnoreItem {
+    BOOL Enabled = TRUE; std::string Storage; const char* Path = nullptr; CFindIgnoreItemType Type = fiitUnknow; int Len = 0;
+    CFindIgnoreItem(BOOL enabled, const char* path) : Enabled(enabled), Storage(path), Path(Storage.c_str()) {}
+};
+struct IgnoreItems {
+    std::vector<std::unique_ptr<CFindIgnoreItem>> rows; int Count = 0;
+    CFindIgnoreItem* operator[](int i) { return rows.at(static_cast<size_t>(i)).get(); }
+    void DestroyMembers() { rows.clear(); Count = 0; }
+};
+class CFindIgnore {
+public:
+    IgnoreItems Items;
+    CFindIgnoreItem* At(int i) { return Items[i]; }
+    BOOL Add(BOOL enabled, const char* path) { Items.rows.push_back(std::make_unique<CFindIgnoreItem>(enabled, path)); ++Items.Count; return TRUE; }
+    BOOL Prepare(CFindIgnore* source);
+    BOOL Contains(const char* path, int startPathLen);
+};
+static unsigned char LowerCase[256];
+static int StrNICmp(const char* a, const char* b, int count) { return _strnicmp(a, b, static_cast<size_t>(count)); }
+static const char* StrIStr(const char* text, const char* needle) {
+    const size_t length = std::strlen(needle);
+    for (; *text; ++text) if (!_strnicmp(text, needle, length)) return text;
+    return nullptr;
+}
+#define TRACE_E(message) do {} while (0)
+@@IGNORE_PREPARE@@
+@@IGNORE_SKIP_ROOT@@
+@@IGNORE_CONTAINS@@
+static std::shared_ptr<CFindIgnore> SnapshotIgnore(const char* path) {
+    CFindIgnore user; user.Add(TRUE, path);
+    auto snapshot = std::make_shared<CFindIgnore>();
+    if (!snapshot->Prepare(&user)) return {};
+    user.Items.DestroyMembers(); // the live settings can change after this snapshot
+    return snapshot;
+}
+static size_t liveListingRows = 0, maxLiveListingRows = 0;
+static SIZE_T maxPrivateBytes = 0;
+static SIZE_T PrivateBytes() {
+    PROCESS_MEMORY_COUNTERS_EX counters{};
+    return GetProcessMemoryInfo(GetCurrentProcess(), reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&counters), sizeof(counters))
+        ? counters.PrivateUsage : 0;
+}
+struct TrackRows {
+    size_t rows;
+    explicit TrackRows(size_t count) : rows(count) {
+        liveListingRows += rows;
+        if (liveListingRows > maxLiveListingRows) maxLiveListingRows = liveListingRows;
+        const SIZE_T bytes = PrivateBytes();
+        if (bytes > maxPrivateBytes) maxPrivateBytes = bytes;
+    }
+    ~TrackRows() { liveListingRows -= rows; }
+};
+namespace UacF7 {
+struct MoveFileIdentity { ULONGLONG serial = 0; BYTE id[16]{}; };
+struct PagedListingEntry { WIN32_FIND_DATAW data{}; BYTE id[16]{}; };
+}
+struct FakeSession {
+    CGrepData* data = nullptr; bool open = true, stopOnList = false; int lists = 0;
+    std::map<std::wstring, std::vector<WIN32_FIND_DATAW>> entries;
+    std::map<std::wstring, DWORD> errors;
+    std::map<std::wstring, DWORD> openErrors, firstPageErrors;
+    std::map<std::wstring, DWORD> laterPageErrors;
+    bool legacyExpectedSeen = false, legacyRejectExpected = false;
+    DWORD contentError = ERROR_SUCCESS, closeError = ERROR_SUCCESS; bool stopOnOpen = false;
+    ULONGLONG contentSize = 0;
+    struct Cursor { std::wstring path; size_t next = 0; };
+    std::map<ULONGLONG, Cursor> cursors; ULONGLONG nextCursor = 1;
+    bool IsOpen() const { return open; }
+    bool GetPreparedFindRootIdentity(UacF7::MoveFileIdentity& identity) const { identity.serial = 1; identity.id[0] = 1; return open; }
+    DWORD OpenDirectoryCursor(const std::wstring& path, const UacF7::MoveFileIdentity& expected,
+                              UacF7::MoveFileIdentity& actual, ULONGLONG& lease, HANDLE) {
+        ++lists; auto special = openErrors.find(path); if (special != openErrors.end()) return special->second;
+        auto found = errors.find(path);
+        if (found != errors.end()) return found->second;
+        actual = expected; lease = nextCursor++; cursors.emplace(lease, Cursor{path, 0}); return ERROR_SUCCESS;
+    }
+    DWORD NextDirectoryPage(ULONGLONG lease, std::vector<UacF7::PagedListingEntry>& out, bool& done, HANDLE) {
+        auto it = cursors.find(lease); if (it == cursors.end()) return ERROR_INVALID_HANDLE;
+        auto firstError = firstPageErrors.find(it->second.path);
+        if (!it->second.next && firstError != firstPageErrors.end()) { const DWORD code = firstError->second; cursors.erase(it); return code; }
+        auto laterError = laterPageErrors.find(it->second.path);
+        if (it->second.next && laterError != laterPageErrors.end()) { const DWORD code = laterError->second; cursors.erase(it); return code; }
+        auto& source = entries[it->second.path];
+        const size_t end = (std::min)(it->second.next + 64, source.size());
+        while (it->second.next < end) { UacF7::PagedListingEntry row{}; row.data=source[it->second.next++]; row.id[0]=1; out.push_back(row); }
+        done = end == source.size(); if (done) cursors.erase(it);
+        if (stopOnList) data->StopSearch = true;
+        return ERROR_SUCCESS;
+    }
+    DWORD CloseDirectoryCursor(ULONGLONG lease) { cursors.erase(lease); return ERROR_SUCCESS; }
+    DWORD OpenContent(const std::wstring&, ULONGLONG& size, FILETIME& modified, struct UacRevision&);
+    DWORD CloseContent() { return closeError; }
+    DWORD List(const std::wstring& path, std::vector<WIN32_FIND_DATAW>& out, const UacF7::MoveFileIdentity* expected = nullptr) {
+        if (expected) { legacyExpectedSeen = true; if (legacyRejectExpected) return ERROR_FILE_INVALID; }
+        ++lists; out = entries[path];
+        if (stopOnList) data->StopSearch = true;
+        const auto found = errors.find(path); return found == errors.end() ? ERROR_SUCCESS : found->second;
+    }
+};
+struct UacRevision { ULONGLONG serial=0; BYTE fileId[16]{}; };
+DWORD FakeSession::OpenContent(const std::wstring&, ULONGLONG& size, FILETIME& modified, UacRevision&) {
+    size = contentSize; modified = {}; if (stopOnOpen) data->StopSearch = true; return contentError;
+}
+namespace UacF7 { using ListingSession = FakeSession; using ArchiveRevision = UacRevision; }
+@@IDENTITY_MATCH@@
+struct CQuadWord { ULONGLONG Value = 0; };
+static std::string SalWideToMultiBytePath(const wchar_t* path, unsigned) { std::string result; while (*path) result += static_cast<char>(*path++); return result; }
+static void SalPathAppendW(std::wstring& path, const wchar_t* child) { path += L"\\"; path += child; }
+static const char* LoadStr(int) { return "text"; }
+static bool FindDuplicateContent(const CGrepData&) { return false; }
+static DWORD FakeWait(HANDLE, DWORD) { return WAIT_OBJECT_0; }
+static BOOL FakeClose(HANDLE) { return TRUE; }
+#define WaitForSingleObject FakeWait
+#define CloseHandle FakeClose
+#define HANDLES(x) (x)
+struct Consent { DWORD result = ERROR_SUCCESS; };
+static DWORD predicateError = 0;
+struct Predicates {
+    void Prepare(CGrepData*) {}
+    bool Match(CGrepData*, FakeSession&, const std::wstring&, const std::string&, const CQuadWord&, DWORD& error) {
+        error = predicateError; return !error;
+    }
+};
+struct FindProtectedRequest {
+    CGrepData* data; FakeSession session; std::shared_ptr<CFindIgnore> ignoreSnapshot;
+    int rootLength = 0; bool includeSubDirs = true, singleFile = false, startOk = true; int starts = 0;
+    HANDLE launchThread = nullptr; std::optional<Consent> consent; Predicates predicates;
+    std::wstring path = L"C:\\root"; std::vector<std::pair<std::wstring, DWORD>> logs;
+    std::vector<std::wstring> published; bool stopOnCandidate = false, closeOnCandidate = false, discardCandidates = false; size_t candidateCount = 0;
+    explicit FindProtectedRequest(CGrepData& search) : data(&search) { session.data = data; }
+    bool Start() { ++starts; if (startOk) launchThread = reinterpret_cast<HANDLE>(1); return startOk; }
+    void Log(const std::wstring& name, DWORD error, bool = false) { logs.emplace_back(name, error); }
+    void AddCandidate(const std::wstring& name, const WIN32_FIND_DATAW& entry, CDuplicateCandidates*, const UacF7::MoveFileIdentity* = nullptr) {
+        ++candidateCount;
+        if (!discardCandidates) published.push_back(name + L"\\" + entry.cFileName);
+        if (stopOnCandidate) data->StopSearch = true;
+        if (closeOnCandidate) session.open = false;
+    }
+    void PublishSingleFile(CDuplicateCandidates*, bool) {}
+@@IGNORE@@
+@@CONTINUE@@
+@@SCAN@@
+@@SCAN_PAGED@@
+@@SCAN_LEGACY@@
+@@MATCH_FILE@@
+@@FINISH@@
+};
+static int checks, failures;
+static void Check(bool ok, const char* text) { ++checks; if (!ok) { ++failures; std::printf("FAIL: %s\n", text); } }
+static WIN32_FIND_DATAW File(const wchar_t* name, DWORD attributes = 0) {
+    WIN32_FIND_DATAW file{}; wcscpy_s(file.cFileName, name); file.dwFileAttributes = attributes; return file;
+}
+int main() {
+    for (unsigned i = 0; i < 256; ++i) LowerCase[i] = static_cast<unsigned char>(std::tolower(static_cast<int>(i)));
+    {
+        CGrepData data; FindProtectedRequest scan(data); scan.discardCandidates = true;
+        auto& files=scan.session.entries[scan.path];
+        for (int i=0; i<5003; ++i) files.push_back(File((L"file-"+std::to_wstring(i)).c_str()));
+        liveListingRows=maxLiveListingRows=0;
+        scan.Scan(scan.path,0,nullptr);
+        Check(!data.IncompleteReasons && scan.candidateCount==5003 && scan.session.lists==1 &&
+              maxLiveListingRows<=64 && liveListingRows==0, "wide directory over 4096 uses bounded pages without lost rows");
+    }
+    {
+        CGrepData data; FindProtectedRequest scan(data);
+        scan.session.entries[scan.path]={File(L"first"),File(L"dír",FILE_ATTRIBUTE_DIRECTORY),File(L"last")};
+        scan.session.entries[scan.path+L"\\dír"]={File(L"東.txt")};
+        scan.Scan(scan.path,0,nullptr);
+        Check(!data.IncompleteReasons && scan.published==std::vector<std::wstring>({scan.path+L"\\first",scan.path+L"\\dír",
+              scan.path+L"\\dír\\東.txt",scan.path+L"\\last"}), "nested pages preserve original DFS order and Unicode");
+    }
+    {
+        CGrepData data; FindProtectedRequest scan(data);
+        scan.session.entries[scan.path]={File(L"fallback")}; scan.session.openErrors[scan.path]=ERROR_NOT_SUPPORTED;
+        scan.Scan(scan.path,0,nullptr);
+        Check(!data.IncompleteReasons && scan.published.size()==1 && scan.session.lists==2,
+              "unsupported open falls back to original bounded List");
+    }
+    {
+        CGrepData data; FindProtectedRequest scan(data);
+        scan.session.entries[scan.path]={File(L"fallback")}; scan.session.firstPageErrors[scan.path]=ERROR_NOT_SUPPORTED;
+        scan.Scan(scan.path,0,nullptr);
+        Check(!data.IncompleteReasons && scan.published.size()==1 && scan.session.lists==2 && scan.session.cursors.empty(),
+              "unsupported first page closes its cursor before the legacy fallback");
+    }
+    {
+        CGrepData data; FindProtectedRequest scan(data);
+        const auto child=scan.path+L"\\child";
+        scan.session.entries[scan.path]={File(L"child",FILE_ATTRIBUTE_DIRECTORY)};
+        scan.session.entries[child]={File(L"should-not-appear")}; scan.session.openErrors[child]=ERROR_NOT_SUPPORTED;
+        scan.session.legacyRejectExpected=true; scan.Scan(scan.path,0,nullptr);
+        Check(scan.session.legacyExpectedSeen && scan.published.size()==1 &&
+              data.IncompleteReasons==FindIncompleteProtectedFailure && scan.logs.size()==1 &&
+              scan.logs[0].second==ERROR_FILE_INVALID,
+              "unsupported child fallback carries its listed ID and rejects a replacement");
+    }
+    {
+        CGrepData data; FindProtectedRequest scan(data);
+        for (int i=0; i<70; ++i) scan.session.entries[scan.path].push_back(File((L"row-"+std::to_wstring(i)).c_str()));
+        scan.session.laterPageErrors[scan.path]=ERROR_NOT_SUPPORTED;
+        scan.Scan(scan.path,0,nullptr);
+        Check(data.IncompleteReasons==FindIncompleteProtectedFailure && scan.published.size()==64 && scan.session.lists==1 &&
+              scan.logs.size()==1 && scan.logs[0].second==ERROR_NOT_SUPPORTED && scan.session.cursors.empty(),
+              "failure after a published page retains results and never restarts legacy enumeration");
+    }
+    {
+        CGrepData data; FindProtectedRequest scan(data);
+        for (int i=0; i<70; ++i) scan.session.entries[scan.path].push_back(File((L"row-"+std::to_wstring(i)).c_str()));
+        scan.stopOnCandidate=true; scan.Scan(scan.path,0,nullptr);
+        Check(data.StopSearch && !data.IncompleteReasons && scan.published.size()==1 && scan.session.cursors.empty(),
+              "Stop during a nonterminal page closes its cursor and retains already-published result");
+    }
+    {
+        CGrepData data; FindProtectedRequest scan(data);
+        scan.session.entries[scan.path] = {File(L"first", FILE_ATTRIBUTE_DIRECTORY), File(L"second", FILE_ATTRIBUTE_DIRECTORY)};
+        for (const wchar_t* name : {L"first", L"second"}) {
+            auto& child = scan.session.entries[scan.path + L"\\" + name];
+            for (int i = 0; i < 3000; ++i) child.push_back(File((L"file" + std::to_wstring(i)).c_str()));
+        }
+        scan.consent.emplace();
+        scan.Finish(nullptr);
+        Check(!data.IncompleteReasons && scan.published.size() == 6002 && scan.logs.empty() &&
+              scan.session.lists == 3 && scan.starts == 1,
+              "two 3000-item branches complete under one approved session without an aggregate limit");
+    }
+    {
+        CGrepData data; FindProtectedRequest scan(data); scan.discardCandidates = true;
+        std::wstring directory = scan.path;
+        for (int depth = 0; depth <= 32; ++depth) {
+            auto& items = scan.session.entries[directory];
+            items.resize(4096, File(L"file"));
+            if (depth != 32) { items[0] = File(L"child", FILE_ATTRIBUTE_DIRECTORY); directory += L"\\child"; }
+        }
+        const SIZE_T before = PrivateBytes();
+        liveListingRows = maxLiveListingRows = 0; maxPrivateBytes = 0;
+        scan.Scan(scan.path, 0, nullptr);
+        Check(!data.IncompleteReasons && scan.session.lists == 33 && scan.candidateCount == size_t(33) * 4096 &&
+              maxLiveListingRows <= size_t(33) * 64 && liveListingRows == 0,
+              "maximum depth retains at most one 64-row page per level");
+        std::printf("Synthetic maximum: row_size=%zu max_live_rows=%zu listing_bytes=%zu peak_private_delta=%llu\n",
+                    sizeof(WIN32_FIND_DATAW), maxLiveListingRows, maxLiveListingRows * sizeof(WIN32_FIND_DATAW),
+                    static_cast<unsigned long long>(maxPrivateBytes >= before ? maxPrivateBytes - before : 0));
+    }
+    { CGrepData data; FindProtectedRequest scan(data);
+      scan.Scan(scan.path, 33, nullptr);
+      Check(data.IncompleteReasons == FindIncompleteScanDepth && scan.session.lists == 0 && scan.logs.size() == 1,
+            "depth beyond 32 is marked incomplete without enumerating the branch"); }
+    { CGrepData data; FindProtectedRequest scan(data);
+      scan.session.entries[scan.path] = {File(L"link", FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT),
+          File(L"deny", FILE_ATTRIBUTE_DIRECTORY), File(L"good", FILE_ATTRIBUTE_DIRECTORY)};
+      scan.session.errors[scan.path + L"\\deny"] = ERROR_ACCESS_DENIED;
+      scan.session.entries[scan.path + L"\\good"] = {File(L"readable")};
+      scan.Scan(scan.path, 0, nullptr);
+      Check(data.IncompleteReasons == (FindIncompleteReparse | FindIncompleteProtectedFailure) &&
+            scan.logs.size() == 2 && scan.published.size() == 4 && scan.session.lists == 3,
+            "link and denied branch are reported while a readable sibling is searched"); }
+    { CGrepData data; FindProtectedRequest scan(data);
+      scan.session.entries[scan.path] = {File(L"locked", FILE_ATTRIBUTE_DIRECTORY), File(L"good", FILE_ATTRIBUTE_DIRECTORY)};
+      scan.session.openErrors[scan.path + L"\\locked"] = ERROR_SHARING_VIOLATION;
+      scan.session.entries[scan.path + L"\\good"] = {File(L"accessible")};
+      scan.Scan(scan.path, 0, nullptr);
+      Check(data.IncompleteReasons == FindIncompleteProtectedFailure && scan.logs.size() == 1 &&
+            scan.logs[0].second == ERROR_SHARING_VIOLATION && scan.published.size() == 3 &&
+            scan.published.back() == scan.path + L"\\good\\accessible",
+            "a sharing-locked branch is reported incomplete while an accessible sibling remains searchable"); }
+    { CGrepData data; FindProtectedRequest scan(data);
+      scan.ignoreSnapshot = SnapshotIgnore("C:\\root");
+      scan.Scan(scan.path, 0, nullptr);
+      Check(!data.IncompleteReasons && scan.logs.size() == 1 && scan.session.lists == 0,
+            "an explicitly ignored directory is not treated as a failed protected access"); }
+    { CGrepData data; FindProtectedRequest scan(data);
+      scan.ignoreSnapshot = SnapshotIgnore("C:\\root");
+      scan.Scan(scan.path, 33, nullptr);
+      Check(!data.IncompleteReasons && scan.logs.size() == 1 && scan.logs[0].second == ERROR_CANCELLED &&
+            scan.session.lists == 0, "Ignore takes precedence over the depth limit"); }
+    { CGrepData data; FindProtectedRequest scan(data);
+      scan.ignoreSnapshot = SnapshotIgnore("C:\\root\\link");
+      scan.session.entries[scan.path] = {File(L"link", FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT),
+                                         File(L"good", FILE_ATTRIBUTE_DIRECTORY)};
+      scan.session.entries[scan.path + L"\\good"] = {File(L"readable")};
+      scan.Scan(scan.path, 0, nullptr);
+      Check(!data.IncompleteReasons && scan.logs.size() == 1 && scan.logs[0].second == ERROR_CANCELLED &&
+            scan.published.size() == 3 && scan.session.lists == 2,
+            "an explicitly ignored link has no false incompleteness and its sibling is still searched"); }
+    { CGrepData data; FindProtectedRequest scan(data); scan.session.open = false;
+      scan.Scan(scan.path, 0, nullptr);
+      Check(data.IncompleteReasons == FindIncompleteProtectedFailure && scan.logs.size() == 1 &&
+            scan.logs[0].second == ERROR_NOT_READY, "closed session at scan entry is incomplete"); }
+    { CGrepData data; FindProtectedRequest scan(data);
+      scan.session.entries[scan.path] = {File(L"one"), File(L"two")}; scan.closeOnCandidate = true;
+      scan.Scan(scan.path, 0, nullptr);
+      Check(data.IncompleteReasons == FindIncompleteProtectedFailure && scan.logs.size() == 1 &&
+            scan.published.size() == 1, "session loss after a candidate reports incomplete and retains the first result"); }
+    { CGrepData data; FindProtectedRequest scan(data);
+      scan.session.entries[scan.path] = {File(L"last")}; scan.closeOnCandidate = true;
+      scan.Scan(scan.path, 0, nullptr);
+      Check(!data.IncompleteReasons && scan.logs.empty() && scan.published.size() == 1,
+            "session loss after the last published leaf does not invent incomplete work"); }
+    { CGrepData data; FindProtectedRequest scan(data);
+      scan.session.entries[scan.path] = {File(L"child", FILE_ATTRIBUTE_DIRECTORY)}; scan.closeOnCandidate = true;
+      scan.Scan(scan.path, 0, nullptr);
+      Check(data.IncompleteReasons == FindIncompleteProtectedFailure && scan.logs.size() == 1 &&
+            scan.published.size() == 1, "session loss before descending into a directory marks incomplete"); }
+    { CGrepData data; FindProtectedRequest scan(data);
+      scan.session.entries[scan.path] = {File(L"child", FILE_ATTRIBUTE_DIRECTORY)}; scan.closeOnCandidate = true;
+      scan.ignoreSnapshot = SnapshotIgnore("C:\\root\\child");
+      scan.Scan(scan.path, 0, nullptr);
+      Check(!data.IncompleteReasons && scan.published.size() == 1 && scan.logs.size() == 1 &&
+            scan.logs[0].second == ERROR_CANCELLED, "session loss before an ignored child does not invent incomplete work"); }
+    { CGrepData data; FindProtectedRequest scan(data);
+      scan.session.entries[scan.path] = {File(L"one"), File(L"two")}; scan.session.stopOnList = true;
+      scan.Scan(scan.path, 0, nullptr);
+      Check(data.StopSearch && !data.IncompleteReasons && scan.logs.empty() && scan.published.empty(),
+            "Stop racing the listing prevents a false omission"); }
+    { CGrepData data; FindProtectedRequest scan(data);
+      scan.session.entries[scan.path] = {File(L"link", FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)};
+      scan.stopOnCandidate = true; scan.Scan(scan.path, 0, nullptr);
+      Check(data.StopSearch && !data.IncompleteReasons && scan.logs.empty(),
+            "Stop while publishing a link does not report a false omission"); }
+    { CGrepData data; FindProtectedRequest scan(data);
+      scan.session.errors[scan.path] = ERROR_BUFFER_OVERFLOW; scan.Scan(scan.path, 0, nullptr);
+      Check(data.IncompleteReasons == FindIncompleteProtectedFailure && scan.logs.size() == 1 &&
+            scan.logs[0].second == ERROR_BUFFER_OVERFLOW,
+            "untyped broker overflow remains a generic protected failure with its original error"); }
+    { CGrepData data; FindProtectedRequest scan(data); CQuadWord size{}; auto file = File(L"file");
+      scan.session.contentError = ERROR_ACCESS_DENIED;
+      Check(!scan.MatchFile(scan.path, file, size) && data.IncompleteReasons == FindIncompleteProtectedFailure &&
+            scan.logs.size() == 1, "denied protected content marks the search incomplete"); }
+    { CGrepData data; FindProtectedRequest scan(data); CQuadWord size{}; auto file = File(L"file");
+      scan.session.contentError = ERROR_ACCESS_DENIED; scan.session.stopOnOpen = true;
+      Check(!scan.MatchFile(scan.path, file, size) && !data.IncompleteReasons && scan.logs.empty(),
+            "Stop racing a content error does not publish a spurious failure"); }
+    { CGrepData data; FindProtectedRequest scan(data); CQuadWord size{}; auto file = File(L"file");
+      scan.session.contentSize = 1;
+      Check(!scan.MatchFile(scan.path, file, size) && data.IncompleteReasons == FindIncompleteProtectedFailure &&
+            scan.logs.size() == 1, "a changed content revision is not presented as a nonmatch"); }
+    { CGrepData data; FindProtectedRequest scan(data); CQuadWord size{}; auto file = File(L"file");
+      UacF7::MoveFileIdentity identity{}; identity.id[0]=1;
+      Check(!scan.MatchFile(scan.path,file,size,&identity) && data.IncompleteReasons==FindIncompleteProtectedFailure &&
+            scan.logs.size()==1 && scan.logs[0].second==ERROR_FILE_INVALID,
+            "a same-size, same-time file with changed ID is rejected before content matching"); }
+    { UacF7::MoveFileIdentity identity{}; UacF7::ArchiveRevision revision{}; identity.serial=7; identity.id[0]=4;
+      revision.serial=7; revision.fileId[0]=4;
+      Check(FindListedIdentityMatches(&identity,revision), "matching identity allows the deferred content read");
+      revision.fileId[0]=5;
+      Check(!FindListedIdentityMatches(&identity,revision), "deferred duplicate read rejects same-name replacement ID");
+      revision.fileId[0]=4; revision.serial=8;
+      Check(!FindListedIdentityMatches(&identity,revision), "deferred duplicate read rejects another volume"); }
+    { CGrepData data; FindProtectedRequest scan(data); CQuadWord size{}; auto file = File(L"file");
+      scan.session.closeError = ERROR_BROKEN_PIPE;
+      Check(!scan.MatchFile(scan.path, file, size) && data.IncompleteReasons == FindIncompleteProtectedFailure &&
+            scan.logs.size() == 1, "lost broker content close is reported as incomplete"); }
+    { CGrepData data; FindProtectedRequest scan(data); scan.launchThread = reinterpret_cast<HANDLE>(1);
+      scan.consent.emplace(); scan.consent->result = ERROR_CANCELLED; scan.Finish(nullptr);
+      Check(data.IncompleteReasons == FindIncompleteProtectedFailure && scan.logs.size() == 1,
+            "declined elevation marks the protected search incomplete"); }
+    { CGrepData data; FindProtectedRequest scan(data); scan.launchThread = reinterpret_cast<HANDLE>(1);
+      scan.consent.emplace(); scan.consent->result = ERROR_ACCESS_DENIED; scan.Finish(nullptr);
+      Check(data.IncompleteReasons == FindIncompleteProtectedFailure && scan.logs.size() == 1,
+            "broker denial marks the protected search incomplete"); }
+    { CGrepData data; FindProtectedRequest scan(data); scan.launchThread = reinterpret_cast<HANDLE>(1);
+      scan.consent.emplace(); scan.consent->result = ERROR_CANCELLED; data.StopSearch = true; scan.Finish(nullptr);
+      Check(!data.IncompleteReasons && scan.logs.empty(), "explicit Stop suppresses consent failure diagnostics"); }
+    { CGrepData data; FindProtectedRequest scan(data); scan.startOk = false; scan.Finish(nullptr);
+      Check(data.IncompleteReasons == FindIncompleteProtectedFailure && scan.logs.size() == 1,
+            "consent launch failure cannot be presented as a complete search"); }
+    std::printf("Actual protected Find scan: %d checks, %d failures\n", checks, failures);
+    return failures ? 1 : 0;
+}

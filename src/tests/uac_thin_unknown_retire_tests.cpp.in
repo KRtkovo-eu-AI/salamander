@@ -1,0 +1,211 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Cover added overwrite and write-only response roles. | Keep rejected handle ownership tests aligned with the actual client. | #731 | gpt-6.1-terra |
+// | 2026-11-14 | Exercise failed closure of rejected received handles. | Report ownership uncertainty and retire the affected job. | #731 | GPT-6 |
+// | 2026-11-14 | Reject unexpected identity fields in control replies. | Avoid accepting a malformed cleanup or release confirmation. | #731 | GPT-6 |
+// | 2026-11-14 | Reject contradictory error replies carrying handle values. | Preserve unrelated host handles and retire the uncertain session. | #731 | GPT-6 |
+// | 2026-11-14 | Reject a retry reply that contradicts the requested identity. | Independently bind the returned handle to the earlier target. | #731 | GPT-6 |
+// | 2026-11-13 | Exercise uncertain thin replies with real handles. | Retire the affected pipe without closing other jobs. | #731 | GPT-6 |
+#include <windows.h>
+#include <cstdio>
+#include <cstring>
+#include <initializer_list>
+#include <new>
+
+enum class ThinOpenKind { Source, TargetCreate, TargetRetry, TargetProbe, Discard, Release, TargetOverwrite, TargetReopenWrite };
+struct Id { ULONGLONG serial{}; BYTE id[16]{}; BYTE sourceId[16]{}; };
+struct ThinOpenResult { DWORD error{}; bool unknown{}; HANDLE file{INVALID_HANDLE_VALUE}; Id targetIdentity{}; };
+struct Result { DWORD error{}; bool unknown{}; };
+struct Prepared { Id source, target; };
+struct Reply { ULONGLONG value{}; FILE_ID_INFO target{}; };
+
+struct TransferJobSession {
+    HANDLE read{nullptr}, write{nullptr};
+    unsigned closes{0}, closeCalls{0};
+    bool Init() { return CreatePipe(&read, &write, nullptr, 0) != FALSE; }
+    bool IsOpen() const { return write != nullptr; }
+    void Close() { ++closeCalls; if (write) { CloseHandle(write); write = nullptr; ++closes; } }
+    ~TransferJobSession() { Close(); if (read) CloseHandle(read); }
+};
+
+class ThinCopySession {
+    void ClearMarker() { ++markersCleared; }
+public:
+    unsigned markersCleared{0};
+    ThinOpenResult Classify(TransferJobSession* job, const Prepared& prepared,
+                            ThinOpenKind kind, Result result, Reply reply, const Id* expectedTarget = nullptr) {
+        (void)expectedTarget;
+        ThinOpenResult output;
+@@ACTUAL_GUARD@@
+@@ACTUAL_CLASSIFICATION@@
+    }
+    void Unwind(TransferJobSession* job) {
+        ThinOpenResult output;
+        try {
+@@ACTUAL_GUARD@@
+            output.unknown = true;
+            throw std::bad_alloc();
+        } catch (const std::bad_alloc&) {}
+    }
+};
+
+static int failures = 0;
+static void Check(bool condition, const char* name) {
+    std::printf("%s %s\n", condition ? "PASS" : "FAIL", name);
+    if (!condition) ++failures;
+}
+static bool Valid(HANDLE handle) {
+    DWORD flags = 0;
+    return GetHandleInformation(handle, &flags) != FALSE;
+}
+static HANDLE File(wchar_t (&path)[MAX_PATH]) {
+    if (!GetTempFileNameW(L".", L"uac", 0, path)) return INVALID_HANDLE_VALUE;
+    return CreateFileW(path, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                       nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_TEMPORARY, nullptr);
+}
+
+int main() {
+    {
+        TransferJobSession job, other;
+        Check(job.Init() && other.Init(), "create real independent pipes");
+        HANDLE old = job.write, untouched = other.write;
+        ThinCopySession session;
+        auto result = session.Classify(&job, {}, ThinOpenKind::Source, {ERROR_BROKEN_PIPE, true}, {});
+        Check(result.unknown && result.error == ERROR_BROKEN_PIPE && !job.IsOpen() && job.closes == 1 &&
+              !Valid(old) && Valid(untouched) && session.markersCleared == 1,
+              "unknown transport result closes only selected job");
+    }
+    {
+        TransferJobSession job; Check(job.Init(), "create inconsistent-result pipe");
+        ThinCopySession session;
+        auto result = session.Classify(&job, {}, ThinOpenKind::Source, {ERROR_SUCCESS, true}, {});
+        Check(result.unknown && result.error == ERROR_PARTIAL_COPY && !job.IsOpen(),
+              "unknown cannot become success");
+    }
+    {
+        TransferJobSession job; Check(job.Init(), "create already-closed job pipe");
+        job.Close();
+        ThinCopySession session;
+        auto result = session.Classify(&job, {}, ThinOpenKind::Source, {ERROR_BROKEN_PIPE, true}, {});
+        Check(result.unknown && !job.IsOpen() && job.closes == 1 && job.closeCalls == 1 &&
+              session.markersCleared == 1,
+              "already closed job is not closed twice");
+    }
+    for (auto kind : {ThinOpenKind::Discard, ThinOpenKind::Release}) {
+        TransferJobSession job; Check(job.Init(), "create malformed-control-reply pipe");
+        ThinCopySession session;
+        auto result = session.Classify(&job, {}, kind, {}, {1, {}});
+        Check(result.unknown && result.error == ERROR_INVALID_DATA && !job.IsOpen(),
+              "malformed control reply retires job");
+    }
+    for (auto kind : {ThinOpenKind::Discard, ThinOpenKind::Release}) {
+        for (bool serial : {false, true}) {
+            TransferJobSession job; Check(job.Init(), "create malformed control identity reply pipe");
+            Reply reply{};
+            if (serial) reply.target.VolumeSerialNumber = 1;
+            else reply.target.FileId.Identifier[15] = 1;
+            ThinCopySession session;
+            auto result = session.Classify(&job, {}, kind, {}, reply);
+            Check(result.unknown && result.error == ERROR_INVALID_DATA && !job.IsOpen() &&
+                  session.markersCleared == 1,
+                  serial ? "control reply with unexpected volume is uncertain" :
+                           "control reply with unexpected file ID is uncertain");
+        }
+    }
+    {
+        TransferJobSession job; Check(job.Init(), "create normal-error pipe");
+        ThinCopySession session;
+        auto result = session.Classify(&job, {}, ThinOpenKind::Source, {ERROR_ACCESS_DENIED, false}, {});
+        Check(!result.unknown && result.error == ERROR_ACCESS_DENIED && job.IsOpen() && !session.markersCleared,
+              "known error preserves job");
+    }
+    for (auto kind : {ThinOpenKind::Source, ThinOpenKind::TargetCreate, ThinOpenKind::TargetRetry, ThinOpenKind::TargetOverwrite, ThinOpenKind::TargetReopenWrite,
+                      ThinOpenKind::TargetProbe, ThinOpenKind::Discard, ThinOpenKind::Release}) {
+        TransferJobSession job, unrelated;
+        const bool ready = job.Init() && unrelated.Init();
+        Check(ready, "create contradictory-error-reply fixture");
+        if (!ready) continue;
+        HANDLE unrelatedHandle = unrelated.write;
+        Reply reply{}; reply.value = static_cast<ULONGLONG>(reinterpret_cast<ULONG_PTR>(unrelatedHandle));
+        ThinCopySession session;
+        auto result = session.Classify(&job, {}, kind, {ERROR_ACCESS_DENIED, false}, reply);
+        Check(result.unknown && result.error == ERROR_INVALID_DATA && !job.IsOpen() &&
+              Valid(unrelatedHandle) && session.markersCleared == 1,
+              "error reply carrying a handle retires only its job without closing an untrusted value");
+    }
+    for (auto kind : {ThinOpenKind::Discard, ThinOpenKind::Release}) {
+        TransferJobSession job; Check(job.Init(), "create valid-control-reply pipe");
+        ThinCopySession session;
+        auto result = session.Classify(&job, {}, kind, {}, {});
+        Check(!result.unknown && !result.error && job.IsOpen(), "valid control reply preserves job");
+    }
+    for (auto kind : {ThinOpenKind::Source, ThinOpenKind::TargetCreate, ThinOpenKind::TargetOverwrite, ThinOpenKind::TargetReopenWrite}) {
+        wchar_t path[MAX_PATH]{}; HANDLE file = File(path);
+        TransferJobSession job; const bool ready = job.Init() && file != INVALID_HANDLE_VALUE;
+        Check(ready, "create real file and identity pipe");
+        if (ready) {
+            ThinCopySession session;
+            Reply reply{}; reply.value = static_cast<ULONGLONG>(reinterpret_cast<ULONG_PTR>(file));
+            auto result = session.Classify(&job, {}, kind, {}, reply);
+            const bool target = kind != ThinOpenKind::Source;
+            Check(result.error == ERROR_FILE_INVALID && result.unknown == target &&
+                  job.IsOpen() != target && !Valid(file),
+                  target ? "uncertain target identity retires job and handle" :
+                           "known source identity error preserves job and closes handle");
+        } else if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
+        if (*path) DeleteFileW(path);
+    }
+    for (auto kind : {ThinOpenKind::Source, ThinOpenKind::TargetProbe}) {
+        wchar_t path[MAX_PATH]{}; HANDLE file = File(path);
+        TransferJobSession job;
+        const bool ready = job.Init() && file != INVALID_HANDLE_VALUE &&
+            SetHandleInformation(file, HANDLE_FLAG_PROTECT_FROM_CLOSE, HANDLE_FLAG_PROTECT_FROM_CLOSE);
+        Check(ready, "create rejected file handle with protected close");
+        if (ready) {
+            ThinCopySession session;
+            Reply reply{}; reply.value = static_cast<ULONGLONG>(reinterpret_cast<ULONG_PTR>(file));
+            auto result = session.Classify(&job, {}, kind, {}, reply);
+            Check(result.error == ERROR_PARTIAL_COPY && result.unknown && !job.IsOpen() && Valid(file),
+                  "failed close of rejected handle reports uncertainty and retires job");
+            SetHandleInformation(file, HANDLE_FLAG_PROTECT_FROM_CLOSE, 0);
+            CloseHandle(file);
+        } else if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
+        if (*path) DeleteFileW(path);
+    }
+    for (int mismatch : {0, 1, 2}) {
+        wchar_t path[MAX_PATH]{}; HANDLE file = File(path);
+        TransferJobSession job; FILE_ID_INFO identity{};
+        const bool ready = job.Init() && file != INVALID_HANDLE_VALUE &&
+            GetFileInformationByHandleEx(file, FileIdInfo, &identity, sizeof(identity));
+        Check(ready, "create retry response fixture with real file identity");
+        if (ready) {
+            ThinCopySession session;
+            Prepared prepared{}; prepared.target.serial = identity.VolumeSerialNumber;
+            Id expected{}; expected.serial = identity.VolumeSerialNumber;
+            std::memcpy(expected.id, identity.FileId.Identifier, sizeof(expected.id));
+            if (mismatch == 1) expected.id[0] ^= 1;
+            if (mismatch == 2) expected.serial ^= 1;
+            Reply reply{}; reply.value = static_cast<ULONGLONG>(reinterpret_cast<ULONG_PTR>(file)); reply.target = identity;
+            auto result = session.Classify(&job, prepared, ThinOpenKind::TargetRetry, {}, reply, &expected);
+            if (mismatch) {
+                Check(result.error == ERROR_FILE_INVALID && result.unknown && !job.IsOpen() && !Valid(file),
+                      mismatch == 1 ? "retry response with a different requested ID is rejected and retired" :
+                                      "retry response with a different requested volume is rejected and retired");
+                if (Valid(file)) CloseHandle(file);
+            } else {
+                Check(!result.error && !result.unknown && result.file == file && job.IsOpen(),
+                      "retry response matching requested identity remains usable");
+                CloseHandle(file);
+            }
+        } else if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
+        if (*path) DeleteFileW(path);
+    }
+    {
+        TransferJobSession job; Check(job.Init(), "create unwind pipe");
+        ThinCopySession session; session.Unwind(&job);
+        Check(!job.IsOpen() && job.closes == 1 && session.markersCleared == 1,
+              "unknown unwinding retires job once");
+    }
+    return failures ? 1 : 0;
+}

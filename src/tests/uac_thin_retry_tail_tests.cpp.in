@@ -1,0 +1,192 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Test the native retry-tail verifier on NTFS. | Exercise real sync and overlapped file I/O without presenting it as full F5 integration. | #731 | GPT-6 |
+#include <windows.h>
+#include <algorithm>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <sstream>
+#include <string>
+#include <vector>
+
+// Only these application dependencies are adapted. The tested class and
+// functions below are extracted without editing from the actual worker.
+struct CQuadWord
+{
+    union { struct { DWORD LoDWord, HiDWord; }; unsigned __int64 Value; };
+    CQuadWord() : Value(0) {}
+    explicit CQuadWord(unsigned __int64 value) : Value(value) {}
+};
+#define HANDLES(value) (value)
+#define TRACE_I(value) do { if (false) { std::ostringstream trace; trace << value; } } while (false)
+#define TRACE_E(value) TRACE_I(value)
+#define TRACE_C(value) TRACE_I(value)
+#define WORKER_COPY_DEBUG_MSG
+static const char* GetErrorText(DWORD) { return "Win32 error"; }
+@@BUFFER_SIZE@@
+@@ASYNC_CODE@@
+@@TAIL_CODE@@
+
+class File
+{
+    HANDLE value = INVALID_HANDLE_VALUE;
+public:
+    explicit File(HANDLE handle) : value(handle) {}
+    ~File() { if (value != INVALID_HANDLE_VALUE) CloseHandle(value); }
+    File(const File&) = delete;
+    File& operator=(const File&) = delete;
+    HANDLE get() const { return value; }
+    bool valid() const { return value != INVALID_HANDLE_VALUE; }
+};
+
+static int failures = 0;
+static void Check(bool condition, const char* message)
+{
+    std::printf("%s %s\n", condition ? "PASS" : "FAIL", message);
+    if (!condition) ++failures;
+}
+
+static bool WriteFixture(const std::wstring& path, const std::vector<unsigned char>& data)
+{
+    File file(CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
+    if (!file.valid()) return false;
+    DWORD written = 0;
+    return WriteFile(file.get(), data.data(), static_cast<DWORD>(data.size()), &written, nullptr) &&
+           written == data.size();
+}
+
+static bool HasPosition(HANDLE file, LONGLONG value)
+{
+    LARGE_INTEGER zero{}, actual{};
+    return SetFilePointerEx(file, zero, &actual, FILE_CURRENT) && actual.QuadPart == value;
+}
+
+static bool SetPosition(HANDLE file, LONGLONG value)
+{
+    LARGE_INTEGER at{};
+    at.QuadPart = value;
+    return SetFilePointerEx(file, at, nullptr, FILE_BEGIN) != FALSE;
+}
+
+static bool Verify(const std::wstring& source, const std::wstring& target, bool async,
+                   unsigned __int64 offset, unsigned __int64 inputOffset,
+                   bool writeOnlyTarget, bool ignoreOutputError, bool expected,
+                   const char* label, bool checkPositions = false)
+{
+    const DWORD flags = async ? FILE_FLAG_OVERLAPPED : 0;
+    File in(CreateFileW(source.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, flags, nullptr));
+    File out(CreateFileW(target.c_str(), writeOnlyTarget ? GENERIC_WRITE : GENERIC_READ | GENERIC_WRITE,
+                         0, nullptr, OPEN_EXISTING, flags, nullptr));
+    if (!in.valid() || !out.valid()) { Check(false, label); return false; }
+    if (!SetPosition(in.get(), 7) || !SetPosition(out.get(), 13)) { Check(false, label); return false; }
+    CAsyncCopyParams params;
+    if (async) params.Init(TRUE);
+    if (params.Failed()) { Check(false, label); return false; }
+    const CQuadWord copied(offset), nextInput(inputOffset);
+    const bool actual = CheckTailOfOutFile(async ? &params : nullptr, in.get(), out.get(), copied,
+                                           nextInput, ignoreOutputError ? TRUE : FALSE) != FALSE;
+    Check(actual == expected, label);
+    if (checkPositions && !async && actual)
+    {
+        Check(HasPosition(in.get(), static_cast<LONGLONG>(inputOffset)), "sync verifier restores input offset");
+        Check(HasPosition(out.get(), static_cast<LONGLONG>(offset)), "sync verifier restores output offset");
+    }
+    return actual == expected;
+}
+
+int wmain(int argc, wchar_t** argv)
+{
+    if (argc != 2) return 2;
+    std::vector<wchar_t> volume(32768), filesystem(64);
+    if (!GetVolumePathNameW(argv[1], volume.data(), static_cast<DWORD>(volume.size())) ||
+        !GetVolumeInformationW(volume.data(), nullptr, 0, nullptr, nullptr, nullptr,
+                               filesystem.data(), static_cast<DWORD>(filesystem.size())) ||
+        _wcsicmp(filesystem.data(), L"NTFS") != 0)
+    {
+        std::fprintf(stderr, "NTFS fixture volume required\n");
+        return 2;
+    }
+    std::wstring path = L"\\\\?\\" + std::wstring(argv[1]);
+    std::vector<std::wstring> directories;
+    for (int i = 0; i != 3; ++i)
+    {
+        path += L"\\" + std::wstring(75, static_cast<wchar_t>(L'a' + i)) + L"-\u6771-\u65e5";
+        if (!CreateDirectoryW(path.c_str(), nullptr))
+        {
+            std::fprintf(stderr, "CreateDirectoryW failed: %lu\n", GetLastError());
+            for (auto it = directories.rbegin(); it != directories.rend(); ++it) RemoveDirectoryW(it->c_str());
+            return 2;
+        }
+        directories.push_back(path);
+    }
+    const std::wstring source = path + L"\\source-\u6771.bin";
+    const std::wstring target = path + L"\\target-\u65e5.bin";
+    Check(target.size() > 260, "fixture uses an extended Unicode path longer than MAX_PATH");
+    std::vector<unsigned char> bytes(192 * 1024);
+    DWORD state = 0x6d2b79f5u;
+    for (size_t i = 0; i != bytes.size(); ++i)
+    {
+        state ^= state << 13;
+        state ^= state >> 17;
+        state ^= state << 5;
+        bytes[i] = static_cast<unsigned char>(state >> 24);
+    }
+    for (const size_t shift : {size_t(256), size_t(32 * 1024), size_t(64 * 1024)})
+        Check(!std::equal(bytes.begin(), bytes.begin() + 32 * 1024, bytes.begin() + shift),
+              "fixture does not repeat for tested offset shift");
+    constexpr unsigned __int64 copied = 128 * 1024;
+    constexpr unsigned __int64 nextInput = 160 * 1024;
+    Check(WriteFixture(source, bytes), "write source fixture");
+    Check(WriteFixture(target, bytes), "write matching target fixture");
+
+    for (const bool async : {false, true})
+    {
+        Verify(source, target, async, copied, nextInput, false, false, true,
+               async ? "async matching copied tail accepted" : "sync matching copied tail accepted", true);
+        auto outside = bytes;
+        outside[static_cast<size_t>(copied)] ^= 0x40;
+        Check(WriteFixture(target, outside), "write changed byte beyond copied range");
+        Verify(source, target, async, copied, nextInput, false, false, true,
+               async ? "async ignores change beyond copied offset" : "sync ignores change beyond copied offset");
+        auto changed = bytes;
+        changed[static_cast<size_t>(copied - 1)] ^= 0x80;
+        Check(WriteFixture(target, changed), "write mismatching target fixture");
+        Verify(source, target, async, copied, nextInput, false, false, false,
+               async ? "async changed copied tail rejected" : "sync changed copied tail rejected");
+        Verify(source, target, async, copied, nextInput, false, true, false,
+               async ? "async mismatch rejected even when output errors are ignored" :
+                       "sync mismatch rejected even when output errors are ignored");
+        changed[0] ^= 0x7f;
+        Check(WriteFixture(target, changed), "write distinct first byte for zero-offset case");
+        Verify(source, target, async, 0, nextInput, false, false, true,
+               async ? "async zero copied offset ignores changed first byte" :
+                       "sync zero copied offset ignores changed first byte", true);
+        Verify(source, target, async, 0, 0, false, false, true,
+               async ? "async zero input and copied offsets ignore changed first byte" :
+                       "sync zero input and copied offsets ignore changed first byte", true);
+        changed.resize(8192);
+        Check(WriteFixture(target, changed), "write shortened target fixture");
+        Verify(source, target, async, copied, nextInput, false, false, false,
+               async ? "async shortened output rejected" : "sync shortened output rejected");
+        Check(WriteFixture(target, bytes), "restore matching target fixture");
+        auto shortSource = bytes;
+        shortSource.resize(8192);
+        Check(WriteFixture(source, shortSource), "write shortened source fixture");
+        Verify(source, target, async, copied, nextInput, false, true, false,
+               async ? "async shortened input rejected even when output errors are ignored" :
+                       "sync shortened input rejected even when output errors are ignored");
+        Check(WriteFixture(source, bytes), "restore matching source fixture");
+        Verify(source, target, async, copied, nextInput, true, false, false,
+               async ? "async unreadable output rejected" : "sync unreadable output rejected");
+        Verify(source, target, async, copied, nextInput, true, true, true,
+               async ? "async output read failure ignored only when requested" :
+                       "sync output read failure ignored only when requested");
+    }
+    Check(DeleteFileW(source.c_str()) != FALSE, "remove source fixture");
+    Check(DeleteFileW(target.c_str()) != FALSE, "remove target fixture");
+    for (auto it = directories.rbegin(); it != directories.rend(); ++it)
+        Check(RemoveDirectoryW(it->c_str()) != FALSE, "remove owned fixture directory");
+    return failures ? 1 : 0;
+}

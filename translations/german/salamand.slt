@@ -4369,9 +4369,124 @@ SLGINCOMPLETE,""
 14611,1,"Keiner der Prozesse, die diese Datei verwenden, konnte beendet werden."
 
 [STRINGTABLE 193]
-14991,1,"Lese Dateizuordnungen aus dem Dateispeicher, bitte warten..."
+14624,1,"Zugriff verweigert. Diesen Ordner als Administrator erstellen?"
+14625,1,"Die Verbindung zum Hilfsprozess wurde getrennt, bevor das Ergebnis bestätigt wurde. Prüfen Sie das Ziel, bevor Sie es erneut versuchen."
+14626,1,"Zugriff verweigert. Diese Datei als Administrator umbenennen? Zuerst wird der aktuelle Pfad angezeigt, danach der neue."
+14627,1,"Zugriff verweigert. Die angeforderten Attribute und Zeitstempel als Administrator auf diese Datei anwenden?"
+14628,1,"Die Verbindung zum Hilfsprozess wurde vor der Bestätigung des Ergebnisses getrennt. Prüfen Sie vor einem erneuten Versuch die Attribute und Zeitstempel der Datei."
+14629,1,"Zugriff verweigert. Diese Datei als Administrator endgültig löschen?"
+14630,1,"Die Verbindung zum Hilfsprozess wurde vor der Bestätigung der Löschung getrennt. Prüfen Sie vor einem erneuten Versuch, ob die Datei noch vorhanden ist."
+14631,1,"Zugriff verweigert. Diesen Ordner und seine Unterordner als Administrator auflisten?"
+14632,1,"Administratoransicht"
+14633,1,"Zugriff verweigert. Diese Datei einschließlich ihrer alternativen Datenströme als Administrator kopieren?"
+14634,1,"Der Abschluss des Kopiervorgangs konnte nicht bestätigt werden. Prüfen Sie das Ziel vor einem erneuten Versuch."
+14635,1,"Zugriff verweigert. Diese Datei als Administrator verschieben?"
+14636,1,"Der Abschluss des Verschiebens konnte nicht bestätigt werden. Prüfen Sie Quelle und Ziel vor einem erneuten Versuch."
+14637,1,"Bestandsaufnahme des geschützten Unterbaums"
+14639,1,"Bei der Größenberechnung konnte nicht der gesamte Verzeichnisbaum durchsucht werden."
 
 [STRINGTABLE 194]
+14640,1,"Dateien: "
+14641,1,"Unterordner: "
+14642,1,"Logische Größe (Byte): "
+14643,1,"Diesen Ordner mit seinem Inhalt als Administrator kopieren?"
+14644,1,"Das Kopieren oder Aufräumen konnte nicht bestätigt werden. Prüfen Sie das Ziel, bevor Sie es erneut versuchen."
+14645,1,"Zugriff verweigert. Die angeforderten Zeitstempel für diesen Ordner als Administrator festlegen?"
+14646,1,"Die Verbindung zum Hilfsprozess wurde getrennt, bevor das Ergebnis bestätigt wurde. Prüfen Sie die Zeitstempel des Ordners vor einem erneuten Versuch."
+14647,1,"Zugriff verweigert. Die angeforderten Attribute und gegebenenfalls ausgewählten Zeitstempel für diesen Ordner als Administrator festlegen?"
+14648,1,"Die Verbindung zum Hilfsprozess wurde getrennt, bevor das Ergebnis bestätigt wurde. Prüfen Sie die Attribute und Zeitstempel des Ordners vor einem erneuten Versuch."
+14649,1,"Zugriff verweigert. Diese Datei ohne ihre alternativen Datenströme als Administrator kopieren?"
+14650,1,"Zugriff verweigert. Diese Datei unter Beibehaltung der NTFS-Komprimierung als Administrator kopieren?"
+14651,1,"Zugriff verweigert. Diesen symbolischen Link als Administrator umbenennen?"
+14652,1,"Zugriff verweigert. Diese Verzeichnisverknüpfung (Junction) als Administrator umbenennen?"
+14653,1,"Zugriff verweigert. Diesen symbolischen Link als Administrator endgültig löschen? Die verknüpfte Datei bleibt erhalten."
+14654,1,"Zugriff verweigert. Diesen symbolischen Ordnerlink als Administrator endgültig löschen? Der verknüpfte Ordner bleibt erhalten."
+14655,1,"Zugriff verweigert. Diese Verzeichnisverknüpfung (Junction) als Administrator endgültig löschen? Der verknüpfte Ordner bleibt erhalten."
+
+[STRINGTABLE 195]
+14656,1,"Zugriff verweigert. Diese Datei unter Beibehaltung des NTFS-Besitzers, der Gruppe und der expliziten Berechtigungen als Administrator kopieren?"
+14657,1,"Die EFS-verschlüsselte Datei konnte nicht kopiert werden. Bei diesem Vorgang kann die EFS-Verschlüsselung auch mit Administratorrechten nicht beibehalten werden."
+14658,1,"Windows hat nicht bestätigt, dass alle Elemente in den Papierkorb verschoben wurden. Prüfen Sie den ursprünglichen Speicherort und den Papierkorb vor einem erneuten Versuch."
+14659,1,"Zugriff verweigert. Die Größe dieses Ordners und seiner Unterordner als Administrator berechnen?"
+14660,1,"Zugriff verweigert. In diesem Ordner als Administrator nach Namen und Metadaten suchen? Während Sie entscheiden, läuft die Suche in zugänglichen Ordnern weiter."
+14661,1,"Warte auf Administratorzugriff auf einen geschützten Ordner…"
+14662,1,"Der freigegebene Ordner wird mit Administratorrechten durchsucht."
+14663,1,"Nicht verfügbar"
+14664,1,"Zugriff verweigert. Eine schreibgeschützte Momentaufnahme dieser Datei als Administrator im internen Betrachter öffnen? Die Momentaufnahme ist auf 16 MB begrenzt."
+14665,1,"Momentaufnahme mit Administratorrechten"
+14666,1,"Diese Momentaufnahme ist schreibgeschützt. Kehren Sie zur Dateiansicht zurück, um eine neue Momentaufnahme anzufordern."
+14667,1,"Die geschützte Datei konnte nicht im internen Betrachter geöffnet werden."
+14668,1,"Als Administrator bearbeiten"
+14669,1,"Zugriff verweigert. Die Originaldatei im konfigurierten Editor als Administrator öffnen? Windows fordert die Berechtigung für den unten angezeigten Editor an."
+14670,1,"Der Administratormodus setzt voraus, dass die Programmdatei des Editors in einem geschützten Windows- oder Programme-Ordner liegt."
+14671,1,"Inhalt eines geschützten ZIP-Archivs"
+
+[STRINGTABLE 196]
+14672,1,"Zugriff verweigert. Den Inhalt dieses ZIP-Archivs als Administrator lesen? Das Archiv wird schreibgeschützt geöffnet."
+14673,1,"Mit F3 zeigen Sie eine Datei an, mit F5 entpacken Sie sie. Das Öffnen in einer externen Anwendung ist nicht verfügbar."
+14674,1,"Zugriff verweigert. Die ausgewählten ZIP-Dateien und -Ordner als Administrator in das angezeigte Ziel entpacken?"
+14675,1,"Wählen Sie einen vorhandenen lokalen Zielordner für die ausgewählten Elemente aus dem geschützten ZIP-Archiv aus."
+14676,1,"Das Entpacken wurde abgebrochen, nachdem ein Teil der ausgewählten ZIP-Elemente erstellt worden war. Prüfen Sie das Ziel vor einem erneuten Versuch."
+14677,1,"Geschütztes ZIP-Archiv aktualisieren"
+14678,1,"Die vorbereiteten Änderungen an diesem ZIP-Archiv als Administrator speichern?"
+14679,1,"Windows hat die vollständige Aktualisierung des ZIP-Archivs nicht bestätigt. Prüfen Sie vor einem erneuten Versuch das Archiv und eine eventuell im selben Ordner verbliebene Sicherung."
+14680,1,"Das ZIP-Archiv wurde aktualisiert. Aktualisieren Sie die Archivansicht, um den neuen Inhalt anzuzeigen."
+14681,1,"Zugriff verweigert. Diese vorhandene Datei als Administrator ersetzen und die Berechtigungen des Ziels beibehalten?"
+14682,1,"Die Zustimmung gilt für dieses Element. Beim Abbrechen werden die verbleibenden Elemente nicht mehr verarbeitet. Bereits abgeschlossene Änderungen bleiben erhalten."
+14683,1,"Zugriff verweigert. Dateiinhalte in diesem Ordner für die aktuelle Suche als Administrator lesen? Während Sie entscheiden, läuft die Suche in zugänglichen Ordnern weiter."
+14684,1,"Zugriff verweigert. Diese Datei für die aktuelle Suche als Administrator lesen?"
+14685,1,"Zugriff verweigert. Diese Datei unter Beibehaltung der EFS-Verschlüsselung als Administrator kopieren?"
+14686,1,"Die Zustimmung gilt bis zum Ende dieses Vorgangs auch für weitere geeignete Dateien in den unten aufgeführten Ordnern."
+14687,1,"Die Zustimmung gilt bis zum Ende dieses Vorgangs auch für weitere geeignete Elemente im unten aufgeführten Ordner."
+
+[STRINGTABLE 197]
+14688,1,"Zugriff verweigert. Diese Datei als Administrator in Ihren Papierkorb verschieben?"
+14689,1,"Zugriff verweigert. Diese Datei unter Beibehaltung der NTFS-Komprimierung, des Besitzers, der Gruppe und der expliziten Berechtigungen als Administrator kopieren?"
+14690,1,"Zugriff verweigert. Diesen leeren Ordner als Administrator endgültig löschen?"
+14694,1,"Diese Zustimmung gilt auch für geschützte Ordner unter:"
+14695,1,"Zugriff verweigert. Für diesen Vergleich Dateiinhalte unter diesem Pfad als Administrator lesen?"
+14696,1,"Diese Windows-Kompatibilitätsverknüpfung wurde übersprungen. Sie trägt 0 Bytes zur Gesamtsumme bei."
+
+14698,1,"Der Abschluss des Vorgangs konnte nicht bestätigt werden. Eine Arbeitssicherung oder ein Journal kann erhalten geblieben sein. Prüfen Sie vor einem erneuten Versuch die Quelle, das Ziel und eine mögliche Sicherung."
+
+14699,1,"Zugriff verweigert. Diese Datei als Administrator unter Beibehaltung der Zielberechtigungen ersetzen? Die Ersatzdatei enthält keine alternativen Datenströme."
+
+14700,1,"Das Limit für Administratorzugriff ist erreicht (%s geschützte Elemente). Dieses Element wurde nicht durchsucht; die Ergebnisse sind möglicherweise unvollständig."
+14701,1,"Unvollständig (Admin-Limit)"
+
+14702,1,"Eine frühere Suche in diesen Ergebnissen hat das Limit für Administratorzugriff erreicht (%s geschützte Elemente). Einige Elemente wurden nicht durchsucht."
+
+14703,1,"Das Verschieben eines geschützten Ordners mit Administratorrechten in den Papierkorb wird noch nicht unterstützt."
+
+[STRINGTABLE 198]
+14704,1,"Unvollständig (siehe Protokoll)"
+14705,1,"Eine Verzeichnisauflistung hat ihre Kapazität überschritten. Einige Elemente wurden nicht durchsucht."
+14706,1,"Ein geschützter Teilbaum hat sein Elementlimit überschritten. Einige Elemente wurden nicht durchsucht."
+14707,1,"Ein geschützter Teilbaum hat sein Tiefenlimit überschritten. Einige Elemente wurden nicht durchsucht."
+14708,1,"Einige Verknüpfungsziele wurden nicht durchsucht."
+14709,1,"Der Zugriff auf einen Teil eines geschützten Verzeichnisbaums wurde nicht genehmigt oder ist fehlgeschlagen. Einige Elemente wurden nicht durchsucht."
+
+14710,1,"Der ausgewählte Viewer kann dieses überprüfte Ergebnis noch nicht sicher öffnen. Verwenden Sie den internen Viewer."
+14711,1,"Dieses Ergebnis ist an eine zuvor überprüfte Identität gebunden. Eine schreibgeschützte Momentaufnahme als Administrator im internen Viewer öffnen? Die Momentaufnahme ist auf 16 MB begrenzt."
+
+14712,1,"Die überprüfte Identität dieses geschützten Ergebnisses ist nicht verfügbar. Die Datei kann nicht sicher geöffnet werden; versuchen Sie, die Suche erneut zu starten."
+14713,1,"View With kann die überprüfte Identität dieses geschützten Ergebnisses noch nicht sicher erhalten. Verwenden Sie stattdessen F3."
+
+14714,1,"Inhalt und Tags dieses geschützten Ergebnisses können beim Verfeinern derzeit nicht sicher mit der zuvor überprüften Identität gelesen werden. Dieses Element wurde nicht überprüft."
+14715,1,"Der Zugriff wurde verweigert. Diese Dateiliste als Administrator erstellen?"
+
+14716,1,"Die Identität einiger geschützter Ordner kann nicht überprüft werden. Sie wurden nicht geöffnet; die Liste ist unvollständig. Erster Ordner:"
+14717,1,"Ein geschützter Ordner enthält mehr als 4096 Einträge. Seine Liste ist unvollständig."
+
+14719,1,"Branch View - %I64u Dateien; Ergebnis möglicherweise unvollständig"
+14720,1,"Die Ordnerauflistung wurde unterbrochen und fortgesetzt. Dateien können sich zwischenzeitlich geändert haben; die Liste kann unvollständig sein. Aktualisieren Sie sie zur Überprüfung."
+
+14721,1,"Zugriff verweigert. Diese Datei als Administrator kopieren? Dateien mit alternativen Datenströmen werden in diesem Modus nicht unterstützt."
+
+[STRINGTABLE 199]
+14991,1,"Lese Dateizuordnungen aus dem Dateispeicher, bitte warten..."
+
+[STRINGTABLE 200]
 14992,1,"Konfiguration wird im Dateispeicher gespeichert, bitte warten..."
 14993,1,"Alte Konfiguration wird aus dem Dateispeicher gelöscht, bitte warten..."
 14994,1,"Lese Dateizuordnungen aus dem Dateispeicher..."

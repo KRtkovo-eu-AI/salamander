@@ -1,7 +1,14 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-11 | Share the output write entry point for ZIP extraction. | Prepare the existing decoders for a verified streaming destination. | #731 | GPT-6.1 Terra |
+// | 2026-11-08 | Keep ordinary archive extraction on its original lookup. | Protected reads use the verified record offset. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Include the private entry reader types. | Use one callback contract across ZIP implementation files. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Declare a range-backed single-entry decoder. | Keep output under caller control. | | GPT-6.1 Sol (Codex) |
 
 #pragma once
+
+#include "../../common/zipread.h"
 
 /*
 int MatchFiles(CDynamicArray *namesArray, CExtractInfo *info);
@@ -77,6 +84,8 @@ public:
     }
 
     int UnpackArchive(const char* targetDir, SalEnumSelection next, void* param);
+    DWORD ReadSourceEntry(const SalZipReadSourceV1& source, const char* name, const CFileData& file,
+                          ULONGLONG maxBytes, SalZipWrite write, void* context);
     int UnpackOneFile(const char* nameInZip, const CFileData* fileData, const char* targetPath, const char* newFileName);
     int UnpackWholeArchive(const char* mask, const char* targetDir);
 
@@ -96,6 +105,7 @@ public:
     int ExtractSingleFile(char* targetDir, int targetDirLen,
                           CFileInfo* fileInfo, BOOL* success, const char* newFileName = NULL);
     int SafeRead(void* buffer, unsigned bytesToRead, bool* skipAll);
+    int WriteExtractBytes(const void* buffer, unsigned bytesToWrite);
     // int SafeRead(void * buffer, unsigned bytesToRead,
     //              unsigned * bytesRead, bool * skipAll);
     int SafeCreateCFile(CFile** file, const char* fileName, const char* arcName,

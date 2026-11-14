@@ -2,7 +2,53 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Guard experimental planned copy custody. | Reject reentrant item access to a checked-out session. | #731 | GPT-6 |
+// | 2026-11-13 | Distinguish pre-transfer prompt errors. | Respect cancellation without suppressing uncertain broker results. | #731 | GPT-6 |
+// | 2026-11-13 | Carry terminal thin-copy error details. | Preserve context without offering unsupported retries. | #731 | GPT-6 |
+// | 2026-11-12 | Select ready conflicts without allocating queues. | Keep the coordinator consistent under memory pressure. | #731 | GPT-6 (Codex) |
+// | 2026-11-12 | Carry owned prompt data and allocation errors. | Keep this UAC slice reviewable and fail closed. | #731 | GPT-6 (Codex) |
+// | 2026-11-11 | Define typed overwrite prompt payload. | Own the native dialog text across modal dispatch. | #731 | GPT-6 (Codex) |
+// | 2026-11-11 | Bind conflict responses to their displayed coordinator snapshot. | Reject decisions for a replaced scan generation. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Identify an uncertain disk replacement. | Explain retained recovery files without changing other operation messages. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Carry the exact singleton special-file timestamp policy. | Keep attribute and compression edits outside the verified time-only retry. | #731 | GPT-6.1 Terra |
+// | 2026-11-10 | Track declined Windows consent on the copy plan. | Distinguish system refusal from skipping the source in the app. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Keep the protected source plan with its approved connection. | Transfer one scoped session from analysis to the copy worker. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Track the selected root of a per-entry copy. | Distinguish permission to open a job from permission to reuse it. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Carry the deferred target in the transfer script. | Keep it local to the current file operation. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Mark the individual transfer source from a protected listing. | Keep ordinary files on the native worker path in mixed selections. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Identify permanent Branch View deletes in the worker. | Keep ordinary deletes and lock recovery on their usual paths. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Keep the verification result with each protected source. | Allow skipping a failed row while preserving the rest of the job. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Share prepared file identities between transfer and delete. | Allocate the path map only for work built from a protected listing. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Retain the first inventory omission and direct alias outcome. | Explain a partial result at the end of the size job. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Keep size calculation completeness per row and per job. | Report skipped subtrees without losing the accessible totals. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Carry protected transfer identities in the job. | Keep the listing pipe on the panel thread. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Keep size consent on the dialog thread. | Remove the scan-end foreground snapshot from the operation script. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Keep the foreground return point with the size scan. | Share consent across the size entry points without changing worker operations. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Integrate clipboard lease cleanup with UAC worker teardown. | Release staged sources in the existing out-of-line destructor. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Retain staged clipboard sources through disk operation completion. | Async disk copies may continue after the clipboard drop callback returns. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
+// | 2026-11-10 | Keep accepted destination identity with the transfer job. | Consume the dialog consent only for the verified target. | #731 | GPT-6 (Codex) |
+// | 2026-11-10 | Carry the exact confirmed permanent deletion into the worker. | Prevent a selected shield from authorizing a descendant or replacement. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Carry the accepted metadata shield with the operation. | Bind the initial confirmation to the worker operation. | #731 | GPT-6.1 Sol (Codex) |
+// | 2026-11-10 | Own one verified protected metadata request in the worker script. | Keep the listing connection on its UI thread. | #731 | GPT-6.1 Sol (Codex) |
+// | 2026-11-10 | Track skipped directories in per-folder size batches. | Prevent a partial size from being shown as complete. | #731 | Codex |
+// | 2026-11-10 | Keep UAC metadata separate from locked-file recovery | Integrate UAC with current upstream behavior. | #731 | Codex |
+// | 2026-11-09 | Declare the progress caption callback. | Dispatch broker activity to the native dialog thread. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Mark directly selected files for protected transfer. | Keep recursive script items outside the selected-file broker scope. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Store the target revision for a protected Scan Ahead overwrite. | Keep the approved revision alongside the existing conflict identity. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Document deferred source access for copy and move. | Use one flag for the two existing transfer retries. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Store the approved basic attribute choices. | Reuse the same policy across metadata items. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Use the shared job flag for EFS. | Retire the single-file eligibility gate. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Track eligibility of single-file EFS jobs. | Keep multi-file consent scoped to the job. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Track complete protected disk measurements separately. | An unavailable measurement must not invalidate the logical file sizes. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Distinguish protected logical totals from allocation totals. | Avoid showing partial allocation as occupied space. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Carry the explicit F5 stream option. | Preserve the difference between user choice and failed stream discovery. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Declare the terminal tree-copy UI message. | Report broker outcomes even when the user requested cancellation. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Carry the prepared protected tree copy in the worker script. | Keep the verified request alive through queue admission. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-07 | Mark explicitly permanent single-file delete operations. | Keep Shell recycling outside the UAC delete pilot. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-07 | Mark eligible basic metadata operations and define their UI message. | Keep the broker pilot scoped to a single regular file. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Mark one-file F5 requests and deferred source discovery. | Keep other copy and move paths on their normal route. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Share the one-file transfer flag between F5 and F6. | Use the same worker consent path. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
@@ -11,7 +57,15 @@
 #include <objidl.h>
 #include <vector>
 #include <deque>
+#include <memory>
+#include <map>
+#include <optional>
 #include "storagesched.h"
+#include "uacbroker/f7pilot.h"
+
+// Open the existing local object for the requested right without changing it.
+DWORD ProbeLocalElevationAccess(const std::wstring& path, DWORD access, bool directory);
+
 
 #define CREATE_DIR_SIZE CQuadWord(4096, 0) // operation cost estimates (uncached measurements based on worker thread runtimes)
 #define MOVE_DIR_SIZE CQuadWord(5050, 0)
@@ -44,7 +98,36 @@
 
 void InitWorker();
 void ReleaseWorker();
+void NotifyNativeBrokerActivity(HWND dialog, bool active);
 
+constexpr WPARAM WORKER_DIALOG_UAC_METADATA = 18;
+constexpr WPARAM WORKER_DIALOG_UAC_DELETE = 14;
+constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER = 15;
+constexpr WPARAM WORKER_DIALOG_UAC_TREE_RESULT = 16;
+constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER_UNKNOWN = 17;
+constexpr WPARAM WORKER_DIALOG_UAC_DISK_RECOVERY_UNKNOWN = 19;
+constexpr WPARAM WORKER_DIALOG_UAC_OVERWRITE_PROBE = 20;
+constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER_PROMPT_ERROR = 22;
+#ifdef SAM_UAC_THIN_COPY_TEST
+constexpr WPARAM WORKER_DIALOG_UAC_THIN_TERMINAL = 21;
+struct CThinTerminalFileError
+{
+    DWORD error;
+    int caption;
+    const char* target;
+    bool cleanupUncertain;
+};
+#endif
+
+// Worker-owned during a synchronous typed prompt; the UI copies all strings
+// before entering the modal loop and never retains this object afterwards.
+struct CUacOverwriteProbePrompt
+{
+    int result = IDCANCEL;
+    DWORD error = ERROR_SUCCESS;
+    BOOL singleItem = FALSE;
+    std::string targetName, targetInfo, sourceName, sourceInfo;
+};
 
 struct CChangeAttrsData
 {
@@ -57,6 +140,11 @@ struct CChangeAttrsData
     FILETIME TimeCreated;
     BOOL ChangeTimeAccessed;
     FILETIME TimeAccessed;
+    BOOL AllowBasicMetadataPilot;
+    BOOL AllowSpecialMetadataTimes;
+    DWORD BasicMetadataSet;
+    DWORD BasicMetadataClear;
+    bool MetadataShieldedOk;
 };
 
 struct CConvertData // data used by ocConvert
@@ -66,6 +154,9 @@ struct CConvertData // data used by ocConvert
 };
 
 class COperations;
+namespace UacF7 { class PreparedTransfer; class PreparedLeaf; struct MetadataChange; }
+bool BuildBasicMetadataChange(DWORD expected, DWORD desired, const CChangeAttrsData& input,
+                              UacF7::MetadataChange& change);
 struct CProgressDlgArrItem;
 
 struct CStartProgressDialogData
@@ -238,6 +329,7 @@ enum COperationCode
     ocConvert,
     ocLabelForSkipOfCreateDir, // label to jump to when the script skips on ocCreateDirXXX; WARNING: SourceName and TargetName store the LO- and HI-DWORD of the total file sizes (including ADS) contained in the skipped directory; WARNING: Attr stores the ocCreateDirXXX index in the COperations array for that directory
     ocCopyDirTime,             // Move/Copy: when filterCriteria->PreserveDirTime==TRUE copy the directory timestamps; WARNING: lastWrite is stored in SourceName and Attr (applies to every type; just two DWORDs)
+    ocCopyProtectedTree,
 };
 
 #define OPFL_OVERWROLDERALRTESTED 0x00000001 // the "overwrite older, skip other existing" test has already been performed
@@ -251,6 +343,12 @@ enum COperationCode
 #define OPFL_ALLOW_CASE_ONLY_RENAME 0x00000100 // allow renames where source and target differ only by letter case
 #define OPFL_PARALLEL_DONE 0x00000200 // copy file already completed by rolling lookahead
 #define OPFL_PARALLEL_DIR_PREPARED 0x00000400 // directory created/resolved by rolling lookahead
+#define OPFL_UAC_TRANSFER_SOURCE 0x00000800       // F5 or F6 source access failed during ADS discovery
+#define OPFL_UAC_TRANSFER_ELIGIBLE 0x00001000     // directly selected F5 or F6 item can offer a broker retry
+#define OPFL_UAC_BRANCH_DELETE 0x00002000         // Branch View file can retry a denied permanent delete
+#define OPFL_UAC_TRANSFER_LISTED 0x00004000       // transfer source was prepared from a protected listing
+#define OPFL_UAC_TREE_ENTRY 0x00008000            // copy entry in a single verified directory tree
+#define OPFL_UAC_TREE_ROOT 0x00010000             // the only directory creation that can start that tree's consent
 enum CCopyMoveItemState
 {
     cmisUnscanned,
@@ -314,6 +412,21 @@ struct CCopyMoveConflictSnapshot
     CCopyMoveConflictDecision AuthorizedDecision;
 };
 
+// The visible conflict list keeps its small snapshot; only an active prompt
+// needs the complete target state used to reject stale modal responses.
+struct CCopyMoveConflictDecisionSnapshot
+{
+    CCopyMoveConflictSnapshot Conflict;
+    DWORD TargetVolumeSerial;
+    ULONGLONG TargetFileIndex;
+    BOOL TargetIdentityValid;
+    BOOL TargetExisted;
+    DWORD TargetAttributes;
+    ULONGLONG TargetSize;
+    FILETIME TargetWriteTime;
+    UacF7::ArchiveRevision TargetRevision;
+};
+
 struct CCopyMoveConflictRequest
 {
     ULONGLONG OperationId;
@@ -367,6 +480,7 @@ struct COperation
     ULONGLONG ScannedTargetFileIndex;
     BOOL ScannedTargetIdentityValid;
     BOOL ScannedTargetExisted;
+    UacF7::ArchiveRevision ScannedTargetRevision;
     ULONGLONG ConflictOperationId;
     DWORD ConflictGeneration;
     CConflictScannerPhase ConflictScannerState;
@@ -391,6 +505,44 @@ public:
 
     DWORD ClearReadonlyMask; // for automatically clearing the read-only flag from CD-ROMs
     BOOL InvertRecycleBin;   // invert Recycle Bin usage
+    BOOL AllowPermanentDeletePilot;
+    std::unique_ptr<UacF7::PreparedLeaf> PreparedDeleteRequest;
+    std::wstring PreparedDeletePath;
+    DWORD PreparedDeleteAttrs = INVALID_FILE_ATTRIBUTES;
+    bool DeleteShieldAccepted = false;
+    BOOL AllowTransferPilot;
+    bool AllowTreeTransfer = false;
+#ifdef SAM_UAC_THIN_COPY_TEST
+    struct ThinCopyPlanAnchor
+    {
+        volatile LONG Claim = 0;
+    };
+#endif
+    struct CopySourcePlan
+    {
+        std::wstring Root, Destination;
+        std::unique_ptr<UacF7::TransferJobSession> Session;
+#if defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_PLANNED_PROTOTYPE)
+        std::shared_ptr<ThinCopyPlanAnchor> ThinAnchor = std::make_shared<ThinCopyPlanAnchor>();
+#elif defined(SAM_UAC_THIN_COPY_TEST)
+        std::shared_ptr<ThinCopyPlanAnchor> ThinAnchor;
+#endif
+        bool ElevationDeclined = false;
+    };
+    std::optional<CopySourcePlan> CopySource;
+    bool TransferFromProtectedListing = false;
+    struct ProtectedFileSource
+    {
+        std::unique_ptr<UacF7::PreparedLeaf> Request;
+        DWORD Error = ERROR_SUCCESS;
+    };
+    std::optional<std::map<std::wstring, ProtectedFileSource>> ProtectedFileSources;
+    std::optional<UacF7::MoveFileIdentity> ShieldedTransferTarget;
+    std::optional<UacF7::DeferredTransferTarget> DeferredTransferTarget;
+    BOOL IgnoreTransferAds;
+    std::unique_ptr<UacF7::PreparedTransfer> ProtectedTreeTransfer;
+    // The UI owns the listing connection; only this verified single-item request crosses to the worker.
+    std::unique_ptr<UacF7::PreparedLeaf> ProtectedMetadataRequest;
 
     int FilesCount;
     int DirsCount;
@@ -432,6 +584,8 @@ public:
     int GetConflictListVersion();
     void GetDeferredConflicts(std::vector<CCopyMoveConflictSnapshot>& conflicts);
     BOOL GetConflictSnapshot(int index, CCopyMoveConflictSnapshot& conflict);
+    BOOL GetConflictDecisionSnapshot(int index, CCopyMoveConflictDecisionSnapshot& conflict);
+    BOOL ResolveConflictSnapshot(const CCopyMoveConflictDecisionSnapshot& conflict, CCopyMoveConflictDecision decision, BOOL applyAll);
     BOOL GetNextConflictPromptItem(int& index, int excludedIndex = -1);
     void SetDeferredConflictDecision(int index, CCopyMoveConflictDecision decision, BOOL applyAll);
     void SetOperationWideConflictDecision(CCopyMoveConflictDecision decision);
@@ -468,14 +622,13 @@ public:
     BOOL IsPreparedParentDirectoryLocked(int index) const;
     BOOL AreConflictAncestorsPreparedLocked(int index) const;
     BOOL IsConflictItemReadyLocked(int index) const;
-    void RebuildConflictQueuesLocked();
     void SuppressConflictSubtreeLocked(int index);
     void AdmitConflictSubtreeLocked(int index);
     void RetractConflictSubtreeLocked(int index);
     CConflictLeaseOutcome FinishParallelCopyLeaseLocked(int index, ULONGLONG leaseToken, CConflictLeaseOutcome outcome);
     void PublishConflictScanResult(int index, CCopyMoveConflictType type, DWORD attributes,
                                    ULONGLONG size, const FILETIME& writeTime, DWORD volumeSerial,
-                                   ULONGLONG fileIndex, BOOL identityValid, BOOL existed);
+                                   ULONGLONG fileIndex, BOOL identityValid, BOOL existed, const UacF7::ArchiveRevision& revision);
 
     // for the status line in the progress dialog (Copy and Move only)
     BOOL ShowStatus;       // should the operation status (copy speed, etc.) appear below the second progress bar?
@@ -483,6 +636,14 @@ public:
     BOOL FastMoveUsed;     // is at least one file or directory being "renamed"? (then the total moved data size would be misleading)
     BOOL ChangeSpeedLimit; // TRUE = the speed limit might change (the worker should reach a state where changing it is easy)
 
+    bool CountSizeIncomplete = false; // current top-level directory
+    bool CountSizeAnyIncomplete = false; // at least one top-level directory was incomplete
+    bool CountSizeAliasSkipped = false;
+    DWORD CountSizeFirstOmission = ERROR_SUCCESS;
+    std::wstring CountSizeFirstOmissionPath;
+    bool CountSizeUsedBroker = false;
+    bool CountSizeCompressionUnavailable = false;
+    bool CountSizeOccupiedUnavailable = false;
     BOOL SkipAllCountSizeErrors; // should all subsequent count-size errors be skipped?
 
     char WorkPath1[MAX_PATH];  // when non-empty string first path processed (used for change notifications)
@@ -495,6 +656,8 @@ public:
     char* WaitInQueueTo;      // text for the "waiting in queue" state: bottom line (To)
 
 private:
+    void GetConflictSnapshotLocked(int index, CCopyMoveConflictSnapshot& conflict);
+    void SetDeferredConflictDecisionLocked(int index, CCopyMoveConflictDecision decision, BOOL applyAll);
     // for the status line in the progress dialog (Copy and Move only)
     CRITICAL_SECTION StatusCS;              // critical section protecting TransferSpeedMeter, ProgressSpeedMeter, and
     CRITICAL_SECTION ConflictCS;            // protects scan-ahead item states and snapshots
@@ -509,8 +672,6 @@ private:
     HWND ConflictProgressWindow;
     BOOL ConflictProgressNotificationPosted;
     std::vector<CConflictDependencyNode> ConflictDependencies;
-    std::deque<int> ConflictReadyQueue;
-    std::deque<int> ConflictPendingQueue;
     std::deque<CCopyMoveConflictRequest> ConflictRequestQueue;
     CTransferSpeedMeter TransferSpeedMeter; // meter for data transfers (Read/WriteFile)
     CProgressSpeedMeter ProgressSpeedMeter; // meter for calculating "time left" (also tracks directory creation speed, empty copies, etc.; uses the same operation sizes as the progress meter)
@@ -535,11 +696,7 @@ private:
 
 public:
     COperations(int base, int delta, char* waitInQueueSubject, char* waitInQueueFrom, char* waitInQueueTo);
-    ~COperations()
-    {
-        if (ClipboardLease != NULL) ClipboardLease->Release();
-        HANDLES(DeleteCriticalSection(&ConflictCS)); HANDLES(DeleteCriticalSection(&StatusCS));
-    }
+    ~COperations();
     void HoldClipboardLease(IDataObject* dataObject)
     {
         if (ClipboardLease == dataObject) return;

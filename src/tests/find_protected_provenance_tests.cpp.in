@@ -1,0 +1,270 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Check paged Find result identities. | Preserve exact deferred duplicate and viewer provenance. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Verify exact Find-to-view identity conversion. | Preserve the captured identity after session closure. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Test actual protected Find publication and Refine guards. | Keep provenance on optional identity allocation failure. | #731 | GPT-6.1 Terra |
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <cstdio>
+#include <memory>
+#include <string>
+#include <vector>
+
+namespace UacF7 {
+struct MoveFileIdentity { ULONGLONG serial = 0; BYTE id[16]{}; };
+struct PreparedLeaf { bool MatchesFileIdentity(const MoveFileIdentity& identity) const { return identity.id[0] == 7; } };
+constexpr DWORD maxViewerSnapshotBytes = 16 * 1024 * 1024;
+}
+constexpr DWORD FLI_ERROR = 1, FindIncompleteProtectedFailure = 1u << 5;
+constexpr int IDS_CANTSHOWRESULTS = 1, IDS_UAC_FIND_REFINE_IDENTITY_UNAVAILABLE = 2,
+              IDS_UAC_FIND_VIEW_IDENTITY_UNAVAILABLE = 3, IDS_ERRORREADINGFILE = 4,
+              IDS_UAC_FIND_VIEW_WITH_UNAVAILABLE = 5;
+static int logs, messages, contentReads, tagReads, probeReads;
+static bool failIdentity, throwIdentity, allowExact;
+struct CQuadWord { DWORD LoDWord, HiDWord; CQuadWord(DWORD lo, DWORD hi) : LoDWord(lo), HiDWord(hi) {} };
+struct CFoundFilesData {
+    DWORD Attr = 0; CQuadWord Size{0, 0}; FILETIME LastWrite{}; bool IsDir = false, ProtectedOrigin = false;
+    unsigned ProtectedScope = 0; const char* Path = "C:\\x"; const char* Name = "file.txt";
+    std::wstring PathW = L"C:\\x", NameW = L"file.txt";
+    std::shared_ptr<const UacF7::PreparedLeaf> FoundView;
+    std::shared_ptr<const UacF7::MoveFileIdentity> ProtectedListedIdentity;
+    BOOL Set(const char*, const char*, const CQuadWord& size, DWORD attr, const FILETIME* time, BOOL dir) {
+        Size = size; Attr = attr; LastWrite = *time; IsDir = dir != FALSE; return TRUE;
+    }
+    BOOL SetW(const wchar_t*, const wchar_t*, const CQuadWord& size, DWORD attr, const FILETIME* time, BOOL dir) {
+        return Set(nullptr, nullptr, size, attr, time, dir);
+    }
+    std::wstring GetFullNameW() const { return PathW + L"\\" + NameW; }
+};
+struct FakeList {
+    std::vector<CFoundFilesData*> rows;
+    ~FakeList() { for (auto* row : rows) delete row; }
+    int Add(CFoundFilesData* row) { rows.push_back(row); return static_cast<int>(rows.size()) - 1; }
+    bool IsGood() const { return true; } void ResetState() {}
+    CFoundFilesData* At(int i) { return rows.at(static_cast<size_t>(i)); }
+    HWND HWindow = nullptr;
+    void Delete(int i) { delete rows.at(static_cast<size_t>(i)); rows.erase(rows.begin() + i); }
+};
+struct CDuplicateCandidates { std::vector<CFoundFilesData*> rows; ~CDuplicateCandidates(){for(auto* row:rows) delete row;}
+    void Add(CFoundFilesData* row) { rows.push_back(row); } bool IsGood() { return true; } void ResetState() {} };
+struct Criteria {
+    bool tags = false; bool HasTags() const { return tags; }
+    BOOL TestTags(const wchar_t*) const { ++tagReads; return TRUE; }
+};
+struct CGrepData {
+    FakeList* FoundFilesListView = nullptr; void* Watchdog = nullptr;
+    BOOL StopSearch = FALSE, Grep = FALSE; int Refine = 0; unsigned IncompleteReasons = 0; Criteria Criteria;
+};
+static bool duplicateContent = false;
+static bool FindDuplicateContent(const CGrepData&) { return duplicateContent; }
+struct FIND_LOG_ITEM { DWORD Flags; const char* Text; const char* Path; };
+static const char* LoadStr(int) { return "test"; }
+static void AddFindLog(CGrepData*, DWORD, const char*, const char*) { ++logs; }
+static void RecordFindWatchdogResult(void*, int) {}
+static void RequestFindResultsRefresh(CGrepData*) {}
+@@ADD@@
+struct Session {
+    bool PrepareExactFindViewer(const std::wstring&, DWORD, UacF7::PreparedLeaf&) {
+        if (throwIdentity) throw std::bad_alloc();
+        return allowExact;
+    }
+    DWORD PrepareViewer(const std::wstring&, UacF7::PreparedLeaf&, DWORD) {
+        if (throwIdentity) throw std::bad_alloc();
+        return failIdentity ? ERROR_ACCESS_DENIED : ERROR_SUCCESS;
+    }
+};
+static void SalPathAppendW(std::wstring& path, const wchar_t* leaf) { path += L"\\"; path += leaf; }
+struct Publisher {
+    bool singleFile = false; unsigned scopeId = 1; Session session; CGrepData* data = nullptr;
+@@PUBLISH@@
+};
+@@REFINE_RESULT@@
+static std::wstring SalPathAddExtendedPrefixW(const wchar_t* path) { return path; }
+static std::string SalWideToMultiBytePath(const wchar_t*, unsigned) { return "display"; }
+static HANDLE Probe(const wchar_t*, DWORD, DWORD, LPSECURITY_ATTRIBUTES, DWORD, DWORD, HANDLE) {
+    ++probeReads; return INVALID_HANDLE_VALUE;
+}
+#define CreateFileW Probe
+#define HANDLES_Q(x) (x)
+#define HANDLES(x) (x)
+static BOOL TestFileContent(DWORD, DWORD, const char*, CGrepData*, BOOL, bool*, const wchar_t*) {
+    ++contentReads; return TRUE;
+}
+static bool RefineCandidate(CGrepData* data, CFoundFilesData* refineData) {
+    BOOL ok = TRUE;
+@@REFINE@@
+    (void)openDenied;
+    return ok != FALSE;
+}
+static void PublishRefined(CGrepData* data, CFoundFilesData* refineData, BOOL ok) {
+@@REFINE_PUBLISH@@
+}
+@@MERGE@@
+static FakeList* activeList;
+static HCURSOR FakeSetCursor(HCURSOR) { return nullptr; }
+#undef SetCursor
+#define SetCursor FakeSetCursor
+#undef LoadCursor
+#define LoadCursor(a, b) ((HCURSOR)nullptr)
+#define ListView_GetItemCount(hwnd) ((void)(hwnd), static_cast<int>(activeList->rows.size()))
+#define ListView_SetItemCount(hwnd, count) do { (void)(hwnd); (void)(count); } while (0)
+#define ListView_SetItemState(hwnd, index, state, mask) do { (void)(hwnd); (void)(index); (void)(state); (void)(mask); } while (0)
+#define ListView_EnsureVisible(hwnd, index, partial) do { (void)(hwnd); (void)(index); (void)(partial); } while (0)
+constexpr DWORD LVIS_SELECTED = 1, LVIS_FOCUSED = 2;
+static int RegSetStrICmp(const char* left, const char* right) { return _stricmp(left, right); }
+struct CFindDialog {
+    FakeList* FoundFilesListView = nullptr;
+    BOOL UpdateStatusBar = FALSE;
+    void UpdateListViewItems() {}
+    void OnHideDuplicateNamesSorted(int sortedCount);
+};
+@@DEDUPE@@
+static int SalMessageBox(HWND, const char*, const char*, unsigned) { ++messages; return 0; }
+static void F3Guard(HWND HWindow, const CFoundFilesData* result, bool& continued) {
+@@F3_GUARD@@
+    continued = true;
+}
+static void WithGuard(HWND HWindow, FakeList* FoundFilesListView, int viewedIndex, bool& continued) {
+@@WITH_GUARD@@
+    continued = true;
+}
+static int checks, failures;
+static void Check(bool value, const char* text) { ++checks; if (!value) { ++failures; std::printf("FAIL: %s\n", text); } }
+int main() {
+    FakeList list; CGrepData data; data.FoundFilesListView = &list; Publisher publisher; publisher.data = &data;
+    WIN32_FIND_DATAW entry{}; wcscpy_s(entry.cFileName, L"x.txt");
+    failIdentity = true; publisher.PublishCandidate(L"C:\\x", entry, nullptr);
+    Check(list.rows.size() == 1 && list.rows[0]->ProtectedOrigin && !list.rows[0]->FoundView,
+          "failed identity preparation preserves protected provenance");
+    failIdentity = false; throwIdentity = true; publisher.PublishCandidate(L"C:\\x", entry, nullptr);
+    Check(list.rows.size() == 2 && list.rows[1]->ProtectedOrigin && !list.rows[1]->FoundView,
+          "bad_alloc during identity preparation preserves protected provenance");
+    throwIdentity = false; publisher.singleFile = true; publisher.PublishCandidate(L"C:\\x", entry, nullptr);
+    Check(list.rows.size() == 3 && list.rows[2]->ProtectedOrigin && !list.rows[2]->FoundView,
+          "exact-file results remain protected even before viewer identity support");
+    allowExact = true; publisher.PublishCandidate(L"C:\\x", entry, nullptr);
+    Check(list.rows.size() == 4 && list.rows[3]->ProtectedOrigin && list.rows[3]->FoundView,
+          "an authorized exact-file result carries its prepared viewer identity");
+    allowExact = false; publisher.singleFile = false; publisher.PublishCandidate(L"C:\\x", entry, nullptr);
+    Check(list.rows.size() == 5 && list.rows[4]->ProtectedOrigin && list.rows[4]->FoundView,
+          "successful identity preparation retains protected provenance and identity");
+    {
+        UacF7::MoveFileIdentity expected{}; expected.serial=3; expected.id[0]=7;
+        CDuplicateCandidates candidates; duplicateContent=true;
+        publisher.PublishCandidate(L"C:\\x",entry,&candidates,&expected);
+        Check(candidates.rows.size()==1 && candidates.rows[0]->ProtectedListedIdentity &&
+              candidates.rows[0]->ProtectedListedIdentity->serial==3 && candidates.rows[0]->ProtectedListedIdentity->id[0]==7 &&
+              candidates.rows[0]->FoundView, "deferred duplicate carries the exact paged identity");
+        duplicateContent=false;
+        expected.id[0]=8; publisher.PublishCandidate(L"C:\\x",entry,nullptr,&expected);
+        Check(!list.rows.back()->FoundView && list.rows.back()->ProtectedOrigin,
+              "a viewer identity recaptured after replacement is not attached to the paged result");
+    }
+    bool continued = false;
+    F3Guard(nullptr, list.rows[0], continued);
+    Check(!continued && messages == 1, "F3 refuses a protected result whose identity is missing");
+    F3Guard(nullptr, list.rows[4], continued);
+    Check(continued, "F3 allows a protected result with a captured identity into the verified controller");
+    continued = false; WithGuard(nullptr, &list, 4, continued);
+    Check(!continued && messages == 2, "View With fails before presenting a pathname-only handler");
+    FILETIME time{};
+    AddFoundItem("C:\\x", "ordinary", 0, 0, 0, &time, FALSE, &data, nullptr);
+    auto* ordinaryResult = list.rows.back();
+    continued = false; F3Guard(nullptr, list.rows.back(), continued);
+    Check(continued && !list.rows.back()->ProtectedOrigin, "ordinary F3 remains available");
+    for (int mode : {1, 2}) {
+        data.Grep = TRUE; data.Criteria.tags = true; data.IncompleteReasons = 0;
+        logs = contentReads = tagReads = probeReads = 0;
+        const bool match = RefineCandidate(&data, list.rows[4]);
+        Check(!match && data.IncompleteReasons == FindIncompleteProtectedFailure && logs == 1 &&
+              contentReads == 0 && tagReads == 0 && probeReads == 0 &&
+              IncludeRefinedFindResult(mode, match) == (mode == 2),
+              "protected content and tags never read a pathname; Subtract alone preserves unverified row");
+    }
+    { auto* retained = list.rows[0]; retained->ProtectedListedIdentity = std::make_shared<UacF7::MoveFileIdentity>();
+      const auto identity = retained->ProtectedListedIdentity; data.Refine = 2; const size_t before = list.rows.size();
+      PublishRefined(&data, retained, FALSE);
+      Check(list.rows.size() == before + 1 && list.rows.back()->ProtectedOrigin && !list.rows.back()->FoundView &&
+            list.rows.back()->ProtectedListedIdentity == identity,
+            "actual Subtract publication preserves listed identity and protected provenance"); }
+    { auto* retained = list.rows[4]; data.Refine = 1; const auto identity = retained->FoundView;
+      retained->ProtectedListedIdentity = std::make_shared<UacF7::MoveFileIdentity>();
+      const auto listed = retained->ProtectedListedIdentity;
+      PublishRefined(&data, retained, TRUE);
+      Check(list.rows.back()->ProtectedOrigin && list.rows.back()->FoundView == identity &&
+            list.rows.back()->ProtectedListedIdentity == listed,
+            "actual Intersect publication preserves both captured identities and protected provenance"); }
+    { data.StopSearch = TRUE; data.IncompleteReasons = 0; logs = probeReads = contentReads = tagReads = 0;
+      Check(!RefineCandidate(&data, list.rows[4]) && !data.IncompleteReasons && !logs && !probeReads &&
+            !contentReads && !tagReads, "explicit Stop suppresses new diagnostics and all protected reads");
+      data.StopSearch = FALSE; }
+    { FakeList rows; activeList = &rows; CFindDialog dialog; dialog.FoundFilesListView = &rows;
+      auto* a = new CFoundFilesData; auto* b = new CFoundFilesData; a->ProtectedOrigin = true;
+      rows.rows = {a, b}; dialog.OnHideDuplicateNamesSorted(2);
+      Check(rows.rows.size() == 2 && rows.rows[0]->ProtectedOrigin && !rows.rows[1]->ProtectedOrigin,
+            "actual dedup retains protected then ordinary result for the same path"); }
+    { FakeList rows; activeList = &rows; CFindDialog dialog; dialog.FoundFilesListView = &rows;
+      auto* a = new CFoundFilesData; auto* b = new CFoundFilesData; b->ProtectedOrigin = true;
+      rows.rows = {a, b}; dialog.OnHideDuplicateNamesSorted(2);
+      Check(rows.rows.size() == 2 && !rows.rows[0]->ProtectedOrigin && rows.rows[1]->ProtectedOrigin,
+            "actual dedup retains ordinary then protected result for the same path"); }
+    { FakeList rows; activeList = &rows; CFindDialog dialog; dialog.FoundFilesListView = &rows;
+      auto* a = new CFoundFilesData; auto* b = new CFoundFilesData;
+      a->ProtectedOrigin = b->ProtectedOrigin = true;
+      a->FoundView = std::make_shared<UacF7::PreparedLeaf>(); b->FoundView = std::make_shared<UacF7::PreparedLeaf>();
+      rows.rows = {a, b}; dialog.OnHideDuplicateNamesSorted(2);
+      Check(rows.rows.size() == 2, "actual dedup retains different captured identities at the same path"); }
+    { FakeList rows; activeList = &rows; CFindDialog dialog; dialog.FoundFilesListView = &rows;
+      auto* a = new CFoundFilesData; auto* b = new CFoundFilesData;
+      a->ProtectedOrigin = b->ProtectedOrigin = true; a->FoundView = std::make_shared<UacF7::PreparedLeaf>(); b->FoundView = a->FoundView;
+      rows.rows = {a, b}; dialog.OnHideDuplicateNamesSorted(2);
+      Check(rows.rows.size() == 1 && rows.rows[0]->ProtectedOrigin && rows.rows[0]->FoundView,
+            "actual dedup merges only equal shared protected identity"); }
+    { FakeList rows; activeList = &rows; CFindDialog dialog; dialog.FoundFilesListView = &rows;
+      auto* a = new CFoundFilesData; auto* b = new CFoundFilesData; auto* c = new CFoundFilesData;
+      a->ProtectedOrigin = c->ProtectedOrigin = true; a->FoundView = std::make_shared<UacF7::PreparedLeaf>(); c->FoundView = a->FoundView;
+      rows.rows = {a, b, c}; dialog.OnHideDuplicateNamesSorted(3);
+      Check(rows.rows.size() == 3, "an intervening incompatible result does not cause a nonadjacent merge"); }
+    { FakeList rows; activeList = &rows; CFindDialog dialog; dialog.FoundFilesListView = &rows;
+      auto* a = new CFoundFilesData; auto* b = new CFoundFilesData;
+      a->ProtectedOrigin = b->ProtectedOrigin = true; b->FoundView = std::make_shared<UacF7::PreparedLeaf>();
+      rows.rows = {a, b}; dialog.OnHideDuplicateNamesSorted(2);
+      Check(rows.rows.size() == 2, "missing and captured protected identity never merge"); }
+    { FakeList rows; activeList = &rows; CFindDialog dialog; dialog.FoundFilesListView = &rows;
+      auto* a = new CFoundFilesData; auto* b = new CFoundFilesData;
+      a->ProtectedOrigin = b->ProtectedOrigin = true;
+      rows.rows = {a, b}; dialog.OnHideDuplicateNamesSorted(2);
+      Check(rows.rows.size() == 2, "two unknown protected identities cannot merge by pathname"); }
+    { FakeList rows; activeList = &rows; CFindDialog dialog; dialog.FoundFilesListView = &rows;
+      auto* a = new CFoundFilesData; auto* b = new CFoundFilesData;
+      a->ProtectedOrigin = b->ProtectedOrigin = true;
+      auto first = std::make_shared<UacF7::MoveFileIdentity>();
+      auto second = std::make_shared<UacF7::MoveFileIdentity>();
+      first->serial = second->serial = 3; first->id[0] = second->id[0] = 7;
+      a->ProtectedListedIdentity = first; b->ProtectedListedIdentity = second;
+      rows.rows = {a, b}; dialog.OnHideDuplicateNamesSorted(2);
+      Check(rows.rows.size() == 2, "independent captures with equal numeric IDs never merge by pathname"); }
+    { FakeList rows; activeList = &rows; CFindDialog dialog; dialog.FoundFilesListView = &rows;
+      auto* a = new CFoundFilesData; auto* b = new CFoundFilesData;
+      a->ProtectedOrigin = b->ProtectedOrigin = true;
+      a->ProtectedListedIdentity = std::make_shared<UacF7::MoveFileIdentity>();
+      rows.rows = {a, b}; dialog.OnHideDuplicateNamesSorted(2);
+      Check(rows.rows.size() == 2, "known and unknown listed identities never merge"); }
+    { FakeList rows; activeList = &rows; CFindDialog dialog; dialog.FoundFilesListView = &rows;
+      auto* a = new CFoundFilesData; auto* b = new CFoundFilesData;
+      a->ProtectedOrigin = b->ProtectedOrigin = true;
+      a->ProtectedListedIdentity = std::make_shared<UacF7::MoveFileIdentity>();
+      b->ProtectedListedIdentity = a->ProtectedListedIdentity;
+      rows.rows = {a, b}; dialog.OnHideDuplicateNamesSorted(2);
+      Check(rows.rows.size() == 1 && rows.rows[0]->ProtectedListedIdentity,
+            "the same shared listed identity remains attached after deduplication"); }
+    { FakeList rows; activeList = &rows; CFindDialog dialog; dialog.FoundFilesListView = &rows;
+      rows.rows = {new CFoundFilesData, new CFoundFilesData}; dialog.OnHideDuplicateNamesSorted(2);
+      Check(rows.rows.size() == 1 && !rows.rows[0]->ProtectedOrigin, "ordinary dedup is unchanged"); }
+    data.IncompleteReasons = 0; logs = contentReads = tagReads = probeReads = 0;
+    (void)RefineCandidate(&data, ordinaryResult);
+    Check(probeReads == 1, "ordinary Refine keeps its native pathname probe");
+    std::printf("Find protected provenance: %d checks, %d failures\n", checks, failures);
+    return failures ? 1 : 0;
+}

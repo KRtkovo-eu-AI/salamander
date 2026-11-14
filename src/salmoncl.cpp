@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Isolate acceptance-test crash reports. | Prevent the test reporter from touching existing user reports. | #731 | GPT-6 |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
@@ -129,6 +130,17 @@ BOOL SalmonSharedMemInit(CSalmonSharedMemory* mem)
     mem->SetSLG = NOHANDLES(CreateEvent(&sa, TRUE, FALSE, NULL));    // "nonsignaled" state, manual
     mem->CheckBugs = NOHANDLES(CreateEvent(&sa, TRUE, FALSE, NULL)); // "nonsignaled" state, manual
 
+#ifdef SAM_UAC_THIN_COPY_TEST
+    // The test reporter may enumerate, remove or write reports. Confine its
+    // entire report directory to the same disposable test executable folder.
+    DWORD testLen = GetModuleFileNameA(NULL, mem->BugPath, sizeof(mem->BugPath));
+    if (!testLen || testLen >= sizeof(mem->BugPath)) return FALSE;
+    while (testLen && mem->BugPath[testLen - 1] != '\\') --testLen;
+    if (!testLen) return FALSE;
+    static const char suffix[] = "uac-test-reports";
+    if (testLen + sizeof(suffix) > sizeof(mem->BugPath)) return FALSE;
+    for (DWORD i = 0; i < sizeof(suffix); ++i) mem->BugPath[testLen + i] = suffix[i];
+#else
     // the path for bug reports is now set to LOCAL_APPDATA, where Windows WER normally stores minidumps
     // we do not create the path immediately; we will create it only when a crash occurs
     if (SHGetFolderPath(NULL, CSIDL_LOCAL_APPDATA, NULL, 0, mem->BugPath) == S_OK)
@@ -150,6 +162,7 @@ BOOL SalmonSharedMemInit(CSalmonSharedMemory* mem)
             }
         }
     }
+#endif
 
     // base name for bug report files
     strcpy(mem->BugName, "AS" VERSINFO_SAL_SHORT_VERSION);

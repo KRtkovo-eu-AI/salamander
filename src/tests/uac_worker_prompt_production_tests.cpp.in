@@ -1,0 +1,237 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Extend singleton overwrite regression coverage. | Preserve cancellation, lifetime and prompt behavior. | #731 | GPT-6 (Codex) |
+// | 2026-11-11 | Exercise extracted typed prompt and completion guard with a real modal loop. | Keep worker-owned data alive across reentrant completion. | #731 | GPT-6.1 Sol |
+// The generated source embeds two unchanged blocks from dialogs.cpp and the
+// prompt struct from worker.h. The remaining dialog framework is a test stub.
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <cstdio>
+#include <cwchar>
+#include <cstring>
+#include <cstdlib>
+#include <new>
+#include <string>
+#include <vector>
+
+// Test-only, thread-local allocation fault. With the extracted production
+// branch the third allocation copies the long first display name, after the
+// two CPathBuffer allocations. All other threads keep their normal allocator.
+static thread_local int allocationsBeforeFailure = 0;
+void* operator new(std::size_t size)
+{
+    if (allocationsBeforeFailure > 0 && --allocationsBeforeFailure == 0) throw std::bad_alloc();
+    if (void* result = std::malloc(size ? size : 1)) return result;
+    throw std::bad_alloc();
+}
+void operator delete(void* value) noexcept { std::free(value); }
+void operator delete(void* value, std::size_t) noexcept { std::free(value); }
+
+@PROMPT_STRUCT@
+@PATH_BUFFER@
+struct COperations { char* RemapNameFrom = nullptr; char* RemapNameTo = nullptr; int RemapNameFromLen = 0, RemapNameToLen = 0; };
+#define CALL_STACK_MESSAGE3(...) ((void)0)
+@REMAP_NAMES@
+constexpr WPARAM WORKER_DIALOG_UAC_OVERWRITE_PROBE = 20;
+constexpr UINT promptMessage = WM_APP + 91;
+constexpr LPARAM foreignCompletion = 0x131;
+constexpr LPARAM workerCompletion = 0x132;
+
+struct State
+{
+    HANDLE modalReady = nullptr, worker = nullptr, injector = nullptr, workerContinue = nullptr, cancel = nullptr;
+    HWND parent = nullptr, modal = nullptr;
+    BOOL WorkerOverwriteProbePromptActive = FALSE, WorkerOverwriteProbePromptInvalidated = FALSE, CancelWorker = FALSE;
+    CUacOverwriteProbePrompt prompt;
+    COperations script;
+    std::string expectedTarget, expectedSource;
+    volatile LONG payloadAlive = 0, payloadWasAlive = 0, workerReturned = 0, workerFinished = 0, completed = 0;
+    volatile LONG stringsStable = 0, modalError = 0, variantMatches = 0, modalOpened = 0;
+    bool foreignSent = false, requestCancel = false, remap = false, single = false, injectOom = false;
+};
+static State* current = nullptr;
+
+INT_PTR CALLBACK ModalProc(HWND dialog, UINT message, WPARAM wparam, LPARAM parameter)
+{
+    if (message == WM_INITDIALOG)
+    {
+        auto* state = reinterpret_cast<State*>(parameter);
+        state->modal = dialog;
+        SetEvent(state->modalReady);
+        return TRUE;
+    }
+    if (message == WM_COMMAND && LOWORD(wparam) == IDYES) { EndDialog(dialog, IDYES); return TRUE; }
+    if (message == WM_CLOSE) { EndDialog(dialog, IDCANCEL); return TRUE; }
+    return FALSE;
+}
+
+// Test seam: production COverwriteDlg is replaced by a real, empty modal
+// dialog. It deliberately retains the provided string pointers until return.
+class COverwriteDlg
+{
+public:
+    COverwriteDlg(HWND, const char* tn, const char* ti, const char* sn, const char* si, BOOL yesnocancel = FALSE)
+        : targetName(tn), targetInfo(ti), sourceName(sn), sourceInfo(si)
+    {
+        InterlockedExchange(&current->modalOpened, 1);
+        InterlockedExchange(&current->variantMatches, (yesnocancel != FALSE) == current->single ? 1 : 0);
+    }
+    INT_PTR Execute()
+    {
+        struct Template { DLGTEMPLATE dialog; WORD menu, className, title; } definition{};
+        definition.dialog.style = WS_POPUP | WS_CAPTION | WS_SYSMENU | DS_MODALFRAME;
+        definition.dialog.cx = 100; definition.dialog.cy = 50;
+        const INT_PTR result = DialogBoxIndirectParamW(GetModuleHandleW(nullptr), &definition.dialog,
+            current->parent, ModalProc, reinterpret_cast<LPARAM>(current));
+        if (result == -1) InterlockedExchange(&current->modalError, 1);
+        const bool alive = InterlockedCompareExchange(&current->payloadAlive, 0, 0) != 0;
+        InterlockedExchange(&current->payloadWasAlive, alive ? 1 : 0);
+        const bool strings = std::string(targetName) == current->expectedTarget && std::string(targetInfo) == "target-info" &&
+                             std::string(sourceName) == current->expectedSource && std::string(sourceInfo) == "source-info";
+        InterlockedExchange(&current->stringsStable, strings ? 1 : 0);
+        return result;
+    }
+private:
+    const char *targetName, *targetInfo, *sourceName, *sourceInfo;
+};
+
+// The real helper posts WM_CLOSE. Queue a prior Yes to model an input already
+// pending before that post, then use the same asynchronous close semantics.
+void CloseAllOwnedEnabledDialogs(HWND)
+{
+    if (current->modal)
+    {
+        PostMessageW(current->modal, WM_COMMAND, IDYES, 0);
+        PostMessageW(current->modal, WM_CLOSE, 0, 0);
+    }
+}
+
+LRESULT CALLBACK ParentProc(HWND window, UINT message, WPARAM wparam, LPARAM lparam)
+{
+    auto* state = reinterpret_cast<State*>(GetWindowLongPtrW(window, GWLP_USERDATA));
+    if (message == WM_NCCREATE)
+    {
+        const auto* create = reinterpret_cast<const CREATESTRUCTW*>(lparam);
+        SetWindowLongPtrW(window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(create->lpCreateParams));
+        return TRUE;
+    }
+    if (!state) return DefWindowProcW(window, message, wparam, lparam);
+    HWND HWindow = window;
+    BOOL& WorkerOverwriteProbePromptActive = state->WorkerOverwriteProbePromptActive;
+    BOOL& WorkerOverwriteProbePromptInvalidated = state->WorkerOverwriteProbePromptInvalidated;
+    BOOL& CancelWorker = state->CancelWorker;
+    COperations* Script = &state->script;
+    LPARAM lParam = lparam;
+    if (message == promptMessage)
+    {
+        if (state->injectOom) allocationsBeforeFailure = 3;
+        switch (WORKER_DIALOG_UAC_OVERWRITE_PROBE)
+        {
+            @PROMPT_CASE@
+        }
+        return TRUE;
+    }
+    if (message == WM_COMMAND && LOWORD(wparam) == IDOK)
+    {
+        if (lparam == foreignCompletion)
+        {
+            if (state->requestCancel) CancelWorker = TRUE;
+            // Simulate another UI action changing the original payload while
+            // the real extracted handler owns its copied display strings.
+            state->prompt.targetName = "changed-target";
+            @IDOK_GUARD@
+            return FALSE; // Reaching this line means the production guard failed.
+        }
+        if (lparam == workerCompletion)
+        {
+            if (InSendMessage()) ReplyMessage(0);
+            SetEvent(state->workerContinue);
+            if (WaitForSingleObject(state->worker, 3000) == WAIT_OBJECT_0)
+                InterlockedExchange(&state->completed, 1);
+            PostQuitMessage(0);
+            return TRUE;
+        }
+    }
+    return DefWindowProcW(window, message, wparam, lparam);
+}
+
+DWORD WINAPI Worker(void* value)
+{
+    auto& state = *static_cast<State*>(value);
+    // Kept allocated for the test's duration so a failure cannot dereference
+    // a destroyed object; payloadAlive independently models worker lifetime.
+    const std::string tail = std::string(6000, 'x') + u8"-\u6771.txt";
+    state.prompt.targetName = "C:\\from\\target-" + tail; state.prompt.targetInfo = "target-info";
+    state.prompt.sourceName = "C:\\from\\source-" + tail; state.prompt.sourceInfo = "source-info";
+    state.prompt.singleItem = state.single ? TRUE : FALSE;
+    state.expectedTarget = std::string(state.remap ? "C:\\remapped\\target-" : "C:\\from\\target-") + tail;
+    state.expectedSource = std::string(state.remap ? "C:\\remapped\\source-" : "C:\\from\\source-") + tail;
+    InterlockedExchange(&state.payloadAlive, 1);
+    SendMessageW(state.parent, promptMessage, 0, reinterpret_cast<LPARAM>(&state.prompt));
+    InterlockedExchange(&state.workerReturned, 1);
+    InterlockedExchange(&state.payloadAlive, 0);
+    SendMessageW(state.parent, WM_COMMAND, IDOK, workerCompletion);
+    if (WaitForSingleObject(state.workerContinue, 3000) == WAIT_OBJECT_0)
+        InterlockedExchange(&state.workerFinished, 1);
+    return 0;
+}
+
+DWORD WINAPI Injector(void* value)
+{
+    auto& state = *static_cast<State*>(value);
+    if (state.injectOom) return 0;
+    if (WaitForSingleObject(state.modalReady, 3000) != WAIT_OBJECT_0) return 1;
+    if (state.requestCancel) SetEvent(state.cancel);
+    if (state.foreignSent) SendMessageW(state.parent, WM_COMMAND, IDOK, foreignCompletion);
+    else if (!PostMessageW(state.parent, WM_COMMAND, IDOK, foreignCompletion)) return 2;
+    return 0;
+}
+
+int wmain(int argc, wchar_t** argv)
+{
+    if (argc != 6) return 2;
+    State state;
+    state.foreignSent = wcscmp(argv[1], L"sent") == 0;
+    state.requestCancel = wcscmp(argv[2], L"cancel") == 0;
+    state.remap = wcscmp(argv[3], L"remap") == 0;
+    state.single = wcscmp(argv[4], L"single") == 0;
+    state.injectOom = wcscmp(argv[5], L"oom") == 0;
+    char from[] = "C:\\from\\", to[] = "C:\\remapped\\";
+    if (state.remap)
+    {
+        state.script.RemapNameFrom = from; state.script.RemapNameTo = to;
+        state.script.RemapNameFromLen = static_cast<int>(std::strlen(from));
+        state.script.RemapNameToLen = static_cast<int>(std::strlen(to));
+    }
+    state.modalReady = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    state.workerContinue = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    state.cancel = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (!state.modalReady || !state.workerContinue || !state.cancel) return 3;
+    WNDCLASSW wc{}; wc.lpfnWndProc = ParentProc; wc.hInstance = GetModuleHandleW(nullptr);
+    wc.lpszClassName = L"SamandarinUacExtractedPromptTest";
+    if (!RegisterClassW(&wc)) return 4;
+    state.parent = CreateWindowExW(0, wc.lpszClassName, L"test", WS_OVERLAPPED,
+                                   0, 0, 100, 100, nullptr, nullptr, wc.hInstance, &state);
+    if (!state.parent) return 5;
+    current = &state;
+    state.worker = CreateThread(nullptr, 0, Worker, &state, CREATE_SUSPENDED, nullptr);
+    state.injector = CreateThread(nullptr, 0, Injector, &state, 0, nullptr);
+    if (!state.worker || !state.injector || ResumeThread(state.worker) == static_cast<DWORD>(-1)) return 6;
+    MSG message{};
+    while (GetMessageW(&message, nullptr, 0, 0) > 0) { TranslateMessage(&message); DispatchMessageW(&message); }
+    const DWORD injectorWait = WaitForSingleObject(state.injector, 3000);
+    const bool modalChecks = state.injectOom ? !state.modalOpened && state.prompt.error == ERROR_NOT_ENOUGH_MEMORY :
+        state.payloadWasAlive && state.stringsStable && state.variantMatches && state.prompt.error == ERROR_SUCCESS;
+    const bool pass = modalChecks && state.workerReturned && state.workerFinished && state.completed &&
+                      !state.modalError && injectorWait == WAIT_OBJECT_0 && state.prompt.result == IDCANCEL &&
+                      !state.WorkerOverwriteProbePromptActive;
+    std::printf("foreign=%s cancel=%d remap=%d single=%d oom=%d alive=%ld strings=%ld variant=%ld worker=%ld completed=%ld result=%d error=%lu guard=%d %s\n",
+                state.foreignSent ? "sent" : "posted", state.requestCancel, state.remap, state.single, state.injectOom, state.payloadWasAlive,
+                state.stringsStable, state.variantMatches, state.workerFinished, state.completed, state.prompt.result, state.prompt.error,
+                state.WorkerOverwriteProbePromptActive, pass ? "PASS" : "FAIL");
+    DestroyWindow(state.parent);
+    CloseHandle(state.injector); CloseHandle(state.worker); CloseHandle(state.cancel);
+    CloseHandle(state.workerContinue); CloseHandle(state.modalReady);
+    return pass ? 0 : 1;
+}

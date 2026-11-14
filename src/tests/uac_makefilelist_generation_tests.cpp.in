@@ -1,0 +1,196 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Exercise the portable file-list exclusion identity. | Preserve the full NTFS identifier without a public SDK type. | #731 | GPT-6.1 Sol |
+// Actual host generators and Win32 enumeration; formatter and panel/UI are test seams.
+// This is not a test of the real formatter, controller, broker or UAC consent.
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#include <algorithm>
+#include <cstdio>
+#include <cstring>
+#include <filesystem>
+#include <stdexcept>
+#include <string>
+#include <vector>
+#define SAL_MAX_PATH 32768
+#define CALL_STACK_MESSAGE_NONE
+#define CALL_STACK_MESSAGE2(...)
+#define HANDLES_Q(x) (x)
+#define HANDLES(x) (x)
+#define TRACE_E(...)
+#define LOW_MEMORY "low memory"
+#define ICONOVERLAYINDEX_NOTUSED -1
+#define IDS_CANNOTREADDIR 1
+#define IDS_ERRORTITLE 2
+#define VALID_DATA_EXTENSION 1
+#define VALID_DATA_SIZE 2
+#define VALID_DATA_DATE 4
+#define VALID_DATA_TIME 8
+#define VALID_DATA_ATTRIBUTES 16
+#define VALID_DATA_DOSNAME 32
+#define VALID_DATA_ISLINK 64
+struct CQuadWord { DWORD LoDWord, HiDWord; CQuadWord(DWORD low=0, DWORD high=0):LoDWord(low),HiDWord(high){} };
+namespace UacF7 { struct MoveFileIdentity { ULONGLONG serial = 0; BYTE id[16]{}; }; }
+struct CFileListExclusion { std::wstring Name; UacF7::MoveFileIdentity Identity{}; };
+struct CFileData {
+    char* Name=nullptr; char* DosName=nullptr; char* Ext=nullptr; const wchar_t* NameW=nullptr;
+    int NameLen=0; DWORD Attr=0; FILETIME LastWrite{}; CQuadWord Size; BOOL IsLink=FALSE; int IconOverlayIndex=0;
+    BOOL UseWideName() const { return NameW != nullptr; }
+};
+struct Items {
+    std::vector<CFileData> values; int Count=0;
+    CFileData& At(int index) { return values.at(static_cast<size_t>(index)); }
+};
+enum { ptDisk=1 };
+struct CFilesWindow {
+    HWND HWindow=nullptr; Items directories, fixtureFiles; Items* Dirs=&directories; Items* Files=&fixtureFiles;
+    BOOL FilesActionInProgress=FALSE; int ValidFileData=0; int PluginData=0;
+    std::wstring widePath; std::string panelPathNarrow; std::vector<int> selected; int caret=0;
+    BOOL Is(int type) const { return type==ptDisk; }
+    int GetSelCount() const { return static_cast<int>(selected.size()); }
+    int GetCaretIndex() const { return caret; }
+    void GetSelItems(int count, int* result) { for(int i=0;i<count;++i) result[i]=selected.at(static_cast<size_t>(i)); }
+    const wchar_t* GetPathW() const { return widePath.c_str(); }
+    const char* GetPath() const { return panelPathNarrow.c_str(); }
+    std::wstring GetItemFullPathW(const CFileData& file) const { return widePath+L"\\"+file.NameW; }
+    BOOL MakeFileList(HANDLE, BOOL, const char*, const CFileListExclusion* = nullptr);
+    BOOL MakeFileListRecursive(HANDLE, const char*, const CFileListExclusion* = nullptr);
+};
+static struct { const char* FileListHistory[1]={"stub formatter"}; } Configuration;
+static int dialogCount=0;
+static const char* LoadStr(int id) { return id==IDS_CANNOTREADDIR ? "%s: %s" : "fixture error"; }
+static const char* GetErrorText(DWORD) { return "expected error"; }
+static int SalMessageBox(HWND,const char*,const char*,UINT) { ++dialogCount; return IDOK; }
+static BOOL IsFileLink(const char*) { return FALSE; }
+@@CONVERTERS@@
+static std::vector<std::string> pass1,pass2;
+static bool failWrite=false;
+static int failIdentityAt=0, identityCalls=0;
+static BOOL TestFileInfo(HANDLE file, FILE_INFO_BY_HANDLE_CLASS type, void* result, DWORD length) {
+    if(type==FileIdInfo && ++identityCalls==failIdentityAt) { SetLastError(ERROR_ACCESS_DENIED); return FALSE; }
+    return GetFileInformationByHandleEx(file,type,result,length);
+}
+namespace UacF7 {
+bool CaptureMoveFileIdentity(HANDLE file, MoveFileIdentity& identity) {
+    FILE_ID_INFO native{};
+    if(!TestFileInfo(file,FileIdInfo,&native,sizeof(native)))return false;
+    identity.serial=native.VolumeSerialNumber;
+    memcpy(identity.id,native.FileId.Identifier,sizeof(identity.id));
+    return true;
+}
+}
+static BOOL TestWriteFile(HANDLE file,const void* data,DWORD length,DWORD* written,LPOVERLAPPED overlapped) {
+    if(failWrite) { if(written)*written=0; SetLastError(ERROR_WRITE_FAULT); return FALSE; }
+    return WriteFile(file,data,length,written,overlapped);
+}
+// Deliberately stubbed: checks order, paths and width flow, not real format syntax.
+static BOOL ExpandMakeFileList(HWND,const char*,int*,CFileData* file,BOOL,char* output,int capacity,
+                               BOOL measuring,int* widths,int widthCount,DWORD,const char* path,BOOL) {
+    if(widthCount<1)return FALSE;
+    std::string value=std::string(path)+"\\"+file->Name;
+    if(measuring) { pass1.push_back(value); widths[0]=std::max(widths[0],static_cast<int>(value.size())); return TRUE; }
+    pass2.push_back(value);
+    if(widths[0] < static_cast<int>(value.size())) return FALSE;
+    value += "\n";
+    if(static_cast<int>(value.size()+1)>capacity)return FALSE;
+    memcpy(output,value.c_str(),value.size()+1); return TRUE;
+}
+#define WriteFile TestWriteFile
+#define GetFileInformationByHandleEx TestFileInfo
+#pragma warning(push)
+#pragma warning(disable: 4189) // Legacy MakeFileList retains unused counters.
+@@ACTUAL@@
+#pragma warning(pop)
+#undef GetFileInformationByHandleEx
+#undef WriteFile
+static int checks=0,failures=0;
+static void Check(bool condition,const char* label) { ++checks; if(!condition){++failures;std::printf("FAIL: %s\n",label);} }
+static void FixtureFile(const std::wstring& path) {
+    std::filesystem::create_directories(std::filesystem::path(path).parent_path());
+    HANDLE file=CreateFileW(path.c_str(),GENERIC_WRITE,FILE_SHARE_READ,nullptr,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);
+    if(file==INVALID_HANDLE_VALUE)throw std::runtime_error("fixture create failed");
+    DWORD written=0; const BOOL ok=WriteFile(file,"owned",5,&written,nullptr); CloseHandle(file);
+    if(!ok||written!=5)throw std::runtime_error("fixture write failed");
+}
+static std::string ReadAll(const std::wstring& path) {
+    HANDLE file=CreateFileW(path.c_str(),GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,nullptr,OPEN_EXISTING,0,nullptr);
+    if(file==INVALID_HANDLE_VALUE)throw std::runtime_error("fixture read failed");
+    char buffer[8192]{}; DWORD got=0; BOOL ok=ReadFile(file,buffer,sizeof(buffer),&got,nullptr); CloseHandle(file);
+    if(!ok)throw std::runtime_error("fixture read failed"); return std::string(buffer,got);
+}
+static BOOL Generate(CFilesWindow& panel,const std::wstring& output,BOOL recursive,const CFileListExclusion* exclusion=nullptr) {
+    HANDLE file=CreateFileW(output.c_str(),GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE,nullptr,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);
+    if(file==INVALID_HANDLE_VALUE)throw std::runtime_error("output create failed");
+    const auto encoded=SalWideToMultiBytePath(output.c_str(),CP_UTF8);
+    const BOOL ok=panel.MakeFileList(file,recursive,encoded.c_str(),exclusion); CloseHandle(file); return ok;
+}
+int main(int argc,char** argv) {
+    if(argc!=2)return 2;
+    const auto base=std::filesystem::absolute(argv[1]).wstring();
+    const auto root=base+L"\\panel", selected=root+L"\\選択-東";
+    FixtureFile(selected+L"\\nested\\東京.txt"); FixtureFile(selected+L"\\plain.txt");
+    CFilesWindow panel; panel.widePath=root; panel.panelPathNarrow=SalWideToMultiBytePath(root.c_str(),CP_UTF8);
+    const std::wstring wideName=L"選択-東"; std::string name=SalWideToMultiBytePath(wideName.c_str(),CP_UTF8);
+    CFileData directory{}; directory.Name=const_cast<char*>(name.c_str()); directory.NameW=wideName.c_str();
+    directory.NameLen=static_cast<int>(name.size()); directory.Attr=FILE_ATTRIBUTE_DIRECTORY;
+    panel.directories.values.push_back(directory); panel.directories.Count=1;
+    const auto inside=selected+L"\\nested\\result.txt", outside=base+L"\\outside.txt";
+    pass1.clear();pass2.clear();
+    Check(Generate(panel,inside,TRUE)!=FALSE,"recursive generation succeeds with output in selected tree");
+    const auto nestedFile=SalWideToMultiBytePath((selected+L"\\nested\\東京.txt").c_str(),CP_UTF8);
+    const auto insideText=SalWideToMultiBytePath(inside.c_str(),CP_UTF8);
+    Check(pass1==pass2 && pass1.size()==4,"both passes receive the same four directory/file entries");
+    Check(std::find(pass1.begin(),pass1.end(),nestedFile)!=pass1.end(),"Unicode nested file is enumerated");
+    Check(std::find(pass1.begin(),pass1.end(),insideText)==pass1.end() && ReadAll(inside).find(insideText)==std::string::npos,"nested output is excluded");
+    Check(!panel.FilesActionInProgress,"recursive action flag restored after success");
+    pass1.clear();pass2.clear();
+    Check(Generate(panel,outside,TRUE)!=FALSE,"recursive generation succeeds with outside output");
+    Check(pass1==pass2 && pass1.size()==5 && std::find(pass1.begin(),pass1.end(),insideText)!=pass1.end(),"outside output retains earlier inside file as ordinary input");
+    pass1.clear();pass2.clear();
+    Check(Generate(panel,outside,FALSE)!=FALSE,"nonrecursive host generator succeeds");
+    Check(pass1==pass2 && pass1.size()==1 && pass1[0]==SalWideToMultiBytePath(selected.c_str(),CP_UTF8),"nonrecursive selection does not descend");
+    failWrite=true; dialogCount=0;pass1.clear();pass2.clear();
+    Check(!Generate(panel,outside,TRUE),"recursive write error fails the operation");
+    Check(dialogCount==1 && !panel.FilesActionInProgress,"write error reports once and restores action flag");
+    failWrite=false;
+    const std::wstring workspaceName=L"Samandarin-FileList-{42EDBB73-9C63-4593-BCE8-B1C92EA9C913}";
+    const auto workspace=selected+L"\\nested\\"+workspaceName;
+    const auto unrelated=selected+L"\\other\\"+workspaceName;
+    FixtureFile(workspace+L"\\list.tmp"); FixtureFile(unrelated+L"\\keep.txt");
+    HANDLE pinned=CreateFileW(workspace.c_str(),FILE_READ_ATTRIBUTES,FILE_SHARE_READ|FILE_SHARE_WRITE,nullptr,
+                              OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS|FILE_FLAG_OPEN_REPARSE_POINT,nullptr);
+    if(pinned==INVALID_HANDLE_VALUE)throw std::runtime_error("cannot open workspace fixture");
+    CFileListExclusion exclusion;exclusion.Name=workspaceName;
+    FILE_ID_INFO workspaceIdentity{};
+    if(!GetFileInformationByHandleEx(pinned,FileIdInfo,&workspaceIdentity,sizeof(workspaceIdentity)))
+        throw std::runtime_error("cannot get workspace identity");
+    exclusion.Identity.serial=workspaceIdentity.VolumeSerialNumber;
+    memcpy(exclusion.Identity.id,workspaceIdentity.FileId.Identifier,sizeof(exclusion.Identity.id));
+    const auto workspaceText=SalWideToMultiBytePath(workspace.c_str(),CP_UTF8);
+    const auto unrelatedFile=SalWideToMultiBytePath((unrelated+L"\\keep.txt").c_str(),CP_UTF8);
+    pass1.clear();pass2.clear();
+    Check(Generate(panel,outside,TRUE,&exclusion)!=FALSE,"recursive workspace exclusion succeeds");
+    Check(pass1==pass2 && std::none_of(pass1.begin(),pass1.end(),[&](const std::string& item){return item.find(workspaceText)==0;}),"workspace and its children excluded from both passes");
+    Check(std::find(pass1.begin(),pass1.end(),unrelatedFile)!=pass1.end(),"same leaf name with another identity remains");
+    pass1.clear();pass2.clear();
+    Check(Generate(panel,outside,TRUE)!=FALSE && std::find(pass1.begin(),pass1.end(),workspaceText)!=pass1.end(),"without exclusion the workspace remains visible");
+    failIdentityAt=1;identityCalls=0;dialogCount=0;pass1.clear();pass2.clear();
+    Check(!Generate(panel,outside,TRUE,&exclusion) && dialogCount==1 && !panel.FilesActionInProgress,"selected directory identity failure is reported without success");
+    failIdentityAt=2;identityCalls=0;dialogCount=0;pass1.clear();pass2.clear();
+    Check(!Generate(panel,outside,TRUE,&exclusion) && dialogCount==1 && pass1.empty() && pass2.empty(),"nested candidate identity failure is reported before output");
+    failIdentityAt=0;
+    CFilesWindow workspacePanel; workspacePanel.widePath=selected+L"\\nested";
+    workspacePanel.panelPathNarrow=SalWideToMultiBytePath(workspacePanel.widePath.c_str(),CP_UTF8);
+    const std::string workspaceNameBytes=SalWideToMultiBytePath(workspaceName.c_str(),CP_UTF8);
+    CFileData workspaceRow{};workspaceRow.Name=const_cast<char*>(workspaceNameBytes.c_str());workspaceRow.NameW=workspaceName.c_str();
+    workspaceRow.NameLen=static_cast<int>(workspaceNameBytes.size());workspaceRow.Attr=FILE_ATTRIBUTE_DIRECTORY;
+    workspacePanel.directories.values.push_back(workspaceRow);workspacePanel.directories.Count=1;
+    pass1.clear();pass2.clear();
+    Check(Generate(workspacePanel,outside,TRUE,&exclusion)!=FALSE && pass1.empty() && pass2.empty(),"directly selected workspace is excluded by identity");
+    CloseHandle(pinned);
+    std::printf("Actual host Ctrl+M generators; stub formatter, no UAC: %d checks, %d failures\n",checks,failures);
+    return failures?1:0;
+}

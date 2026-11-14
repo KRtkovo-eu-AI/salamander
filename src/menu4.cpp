@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-10 | Reuse clipboard copy enabler for plugin FS selections. | Expose the new Ctrl+C feature in panel menus. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
+// | 2026-11-08 | Remove Recover Interrupted ZIP Update from Files. | Keep the same commands for ordinary and protected ZIPs. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Expose interrupted ZIP recovery in the Files menu. | Work from the archive parent without an existing file. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"

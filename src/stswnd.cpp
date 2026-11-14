@@ -1,6 +1,13 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+/*
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Retain the directory bar background for the protected path. | Highlight only the foreground using the selection color. | | GPT-6.1 Sol (Codex) |
+| 2026-11-07 | Highlight the approved path suffix with the selection palette. | Preserve readability and existing path hit-testing. | | GPT-6.1 Sol (Codex) |
+| 2026-11-07 | Show a UAC shield for protected directory listings. | Paint the system shield after the visible path and reuse the localized tooltip. | | GPT-6.1 Sol (Codex) |
+*/
+
 #include "precomp.h"
 #include "common/winlibdpi.h"
 
@@ -172,6 +179,8 @@ CStatusWindow::~CStatusWindow()
         free(SecurityTooltip);
     if (DriveIcon != NULL)
         HANDLES(DestroyIcon(DriveIcon));
+    if (AdministratorShield != NULL)
+        DestroyIcon(AdministratorShield);
     if (ToolBar != NULL)
     {
         if (ToolBar->HWindow != NULL)
@@ -532,6 +541,30 @@ void CStatusWindow::SetThrobberTooltip(const char* throbberTooltip)
     }
     if (throbberTooltip != NULL)
         ThrobberTooltip = DupStr(throbberTooltip);
+}
+
+void CStatusWindow::SetAdministratorListing(int pathStart)
+{
+    if (pathStart == AdministratorPathStart)
+        return;
+
+    AdministratorPathStart = pathStart;
+    if (pathStart >= 0 && AdministratorShield == NULL)
+    {
+        SHSTOCKICONINFO info{};
+        info.cbSize = sizeof(info);
+        if (SUCCEEDED(SHGetStockIconInfo(SIID_SHIELD, SHGSI_ICON | SHGSI_SMALLICON, &info)))
+            AdministratorShield = info.hIcon;
+    }
+    else if (pathStart < 0 && AdministratorShield != NULL)
+    {
+        DestroyIcon(AdministratorShield);
+        AdministratorShield = NULL;
+        SetRectEmpty(&AdministratorShieldRect);
+    }
+
+    if (HWindow != NULL)
+        InvalidateRect(HWindow, NULL, FALSE);
 }
 
 void CStatusWindow::SetSecurity(CSecurityIconState iconState)
@@ -960,6 +993,7 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
     }
 
     // text
+    SetRectEmpty(&AdministratorShieldRect);
     EllipsedChars = -1;
     EllipsedWidth = -1;
     if (Text != NULL)
@@ -999,6 +1033,11 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
 
         ZoomRect = tmpR;
         ZoomRect.left = ZoomRect.right;
+
+        const int shieldSize = AdministratorShield != NULL
+                                   ? min(WinLibDPIGetSystemMetric(HWindow, SM_CXSMICON), r.bottom - r.top - 4)
+                                   : 0;
+        constexpr int shieldGap = 4;
 
         // zjistim, ktere polozky (text/history/size/zoom) se vejdou do dostupne plochy
         if (isDirectoryLine)
@@ -1059,6 +1098,14 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
                 SecurityRect.left = tmpR.left;
                 SecurityRect.right = tmpR.left + 2 + LOCK_WIDTH + 3;
                 tmpR.left += 2 + LOCK_WIDTH + 3;
+            }
+
+            if (shieldSize > 0 && tmpR.right - tmpR.left >= shieldSize + shieldGap)
+            {
+                tmpR.right -= shieldSize + shieldGap;
+                const int top = (r.top + r.bottom - shieldSize) / 2;
+                SetRect(&AdministratorShieldRect, tmpR.right + shieldGap, top,
+                        tmpR.right + shieldGap + shieldSize, top + shieldSize);
             }
         }
 
@@ -1121,15 +1168,20 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
             else
             {
                 int leftMax = TextRect.right;
+                if (!IsRectEmpty(&AdministratorShieldRect))
+                {
+                    OffsetRect(&AdministratorShieldRect, TextRect.right - tmpR.right, 0);
+                    leftMax = AdministratorShieldRect.right;
+                }
                 if (Hidden)
                 {
-                    HiddenRect.left = TextRect.right + 2;
+                    HiddenRect.left = leftMax + 2;
                     HiddenRect.right = HiddenRect.left + FILTER_WIDTH + 2;
                     leftMax = HiddenRect.right;
                 }
                 if (Throbber)
                 {
-                    ThrobberRect.left = Hidden ? HiddenRect.right : TextRect.right + 2;
+                    ThrobberRect.left = leftMax + (Hidden ? 0 : 2);
                     ThrobberRect.right = ThrobberRect.left + THROBBER_WIDTH + 2;
                     leftMax = ThrobberRect.right;
                 }
@@ -1177,6 +1229,46 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
                     SetTextColor(dc, GetPanelHighlightTextColor());
             }
 
+            RECT administratorText{};
+            if (AdministratorPathStart >= 0)
+            {
+                // Map source offsets to the visible path, excluding filter text and omitted components.
+                const int visibleStart = truncateEnd ? 0 : TextLen - visibleChars;
+                const int first = max(AdministratorPathStart, visibleStart);
+                const int last = min(PathLen == -1 ? TextLen : PathLen, truncateEnd ? visibleChars : TextLen);
+                if (first < last)
+                {
+                    const int origin = truncateEnd ? TextRect.left
+                                                   : TextRect.left - EllipsedWidth + FilesWindow->GetTextEllipsisWidthEnv();
+                    administratorText = {origin + (first > 0 ? AlpDX[first - 1] : 0), r.top,
+                                         min(origin + AlpDX[last - 1], TextRect.right), r.bottom};
+                }
+            }
+
+            const auto drawPathText = [&](int x, const char* text, int count)
+            {
+                if (IsRectEmpty(&administratorText) || x >= administratorText.right)
+                {
+                    ExtTextOut(dc, x, textY, 0, NULL, text, count, NULL);
+                    return;
+                }
+
+                // Use the same text runs with separate clips to preserve shaping and path hit-testing.
+                if (x < administratorText.left)
+                {
+                    const RECT prefix{TextRect.left, r.top, administratorText.left, r.bottom};
+                    ExtTextOut(dc, x, textY, ETO_CLIPPED, &prefix, text, count, NULL);
+                }
+                const COLORREF previous = SetTextColor(dc, GetCOLORREF(CurrentColors[ITEM_FG_SELECTED]));
+                ExtTextOut(dc, x, textY, ETO_CLIPPED, &administratorText, text, count, NULL);
+                SetTextColor(dc, previous);
+                if (administratorText.right < TextRect.right)
+                {
+                    const RECT suffix{administratorText.right, r.top, TextRect.right, r.bottom};
+                    ExtTextOut(dc, x, textY, ETO_CLIPPED, &suffix, text, count, NULL);
+                }
+            };
+
             int firstClipChar = 2 * TextLen;
             int lastClipChar = 2 * TextLen;
             if (hotItem != NULL)
@@ -1190,23 +1282,22 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
             {
                 if (truncateEnd)
                 { // bez zkraceni nebo ustrizen konec
-                    ExtTextOut(dc, TextRect.left, textY, 0, NULL, Text, min(visibleChars, firstClipChar), NULL);
+                    drawPathText(TextRect.left, Text, min(visibleChars, firstClipChar));
                     if (visibleChars < min(TextLen, firstClipChar)) // pokud byl ustrizen konec -> pripojime "..."
                     {
                         int offset = (visibleChars > 0) ? AlpDX[visibleChars - 1] : 0;
-                        ExtTextOut(dc, TextRect.left + offset, textY, 0, NULL, "...", 3, NULL);
+                        drawPathText(TextRect.left + offset, "...", 3);
                     }
                 }
                 else
                 { // uriznuta cast za root slozkou
                     // root cast
                     int rootChars = HotTrackItems[0].Chars;
-                    ExtTextOut(dc, TextRect.left, textY, 0, NULL, Text, rootChars, NULL);
+                    drawPathText(TextRect.left, Text, rootChars);
                     // "..."
-                    ExtTextOut(dc, TextRect.left + AlpDX[rootChars - 1], textY, 0, NULL, "...", 3, NULL);
+                    drawPathText(TextRect.left + AlpDX[rootChars - 1], "...", 3);
                     // zbytek
-                    ExtTextOut(dc, TextRect.left + AlpDX[rootChars - 1] + FilesWindow->GetTextEllipsisWidthEnv(),
-                               textY, 0, NULL, Text + TextLen - visibleChars, visibleChars, NULL);
+                    drawPathText(TextRect.left + AlpDX[rootChars - 1] + FilesWindow->GetTextEllipsisWidthEnv(), Text + TextLen - visibleChars, visibleChars);
                 }
             }
 
@@ -1215,11 +1306,11 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
             {
                 // bez zkraceni nebo ustrizen konec
                 int visibleChars2 = visibleChars - lastClipChar;
-                ExtTextOut(dc, TextRect.left + AlpDX[lastClipChar - 1], textY, 0, NULL, Text + lastClipChar, visibleChars2, NULL);
+                drawPathText(TextRect.left + AlpDX[lastClipChar - 1], Text + lastClipChar, visibleChars2);
                 if (visibleChars < TextLen) // pokud byl ustrizen konec -> pripojime "..."
                 {
                     int offset = (visibleChars > 0) ? AlpDX[visibleChars - 1] : 0;
-                    ExtTextOut(dc, TextRect.left + offset, textY, 0, NULL, "...", 3, NULL);
+                    drawPathText(TextRect.left + offset, "...", 3);
                 }
             }
             // vykreslime druhou cast textu (za hotItem dal) -- zkracovani uprosted
@@ -1231,7 +1322,7 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
 
                 if (lastClipChar <= rootChars)
                 {
-                    ExtTextOut(dc, TextRect.left + AlpDX[rootChars - 1], textY, 0, NULL, "...", 3, NULL); // "..."
+                    drawPathText(TextRect.left + AlpDX[rootChars - 1], "...", 3); // "..."
                     firstChar += EllipsedChars;                                                           // posuneme se pres vypustene znaky
                 }
                 else
@@ -1239,8 +1330,7 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
                     if (firstChar < rootChars + EllipsedChars) // je potreba preskocit pripadne zpetne lomitko, ktere by lezlo do vypustky
                         firstChar = rootChars + EllipsedChars;
                 }
-                ExtTextOut(dc, TextRect.left + AlpDX[firstChar - 1] - EllipsedWidth + FilesWindow->GetTextEllipsisWidthEnv(),
-                           textY, 0, NULL, Text + firstChar, TextLen - firstChar, NULL);
+                drawPathText(TextRect.left + AlpDX[firstChar - 1] - EllipsedWidth + FilesWindow->GetTextEllipsisWidthEnv(), Text + firstChar, TextLen - firstChar);
             }
 
             // zobrazime hot track polozku
@@ -1269,12 +1359,11 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
                     {
                         showChars = visibleChars - hotItem->Offset;
                         int offset = (visibleChars > 0) ? AlpDX[visibleChars - 1] : 0;
-                        ExtTextOut(dc, TextRect.left + offset, textY, 0, NULL, "...", 3, NULL);
+                        drawPathText(TextRect.left + offset, "...", 3);
                     }
                     if (showChars > 0)
                     {
-                        ExtTextOut(dc, TextRect.left + hotItem->PixelsOffset, textY, 0, NULL,
-                                   Text + hotItem->Offset, showChars, NULL);
+                        drawPathText(TextRect.left + hotItem->PixelsOffset, Text + hotItem->Offset, showChars);
                     }
                 }
                 else
@@ -1282,16 +1371,15 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
                     int showChars = hotItem->Chars;
 
                     int rootChars = HotTrackItems[0].Chars;
-                    ExtTextOut(dc, TextRect.left, textY, 0, NULL, Text, rootChars, NULL);
+                    drawPathText(TextRect.left, Text, rootChars);
                     if (showChars > rootChars)
                     {
                         // "..."
-                        ExtTextOut(dc, TextRect.left + AlpDX[rootChars - 1], textY, 0, NULL, "...", 3, NULL);
+                        drawPathText(TextRect.left + AlpDX[rootChars - 1], "...", 3);
                         if (showChars - rootChars - EllipsedChars > 0)
                         {
                             // zbytek
-                            ExtTextOut(dc, TextRect.left + AlpDX[rootChars - 1] + FilesWindow->GetTextEllipsisWidthEnv(),
-                                       textY, 0, NULL, Text + rootChars + EllipsedChars, showChars - rootChars - EllipsedChars, NULL);
+                            drawPathText(TextRect.left + AlpDX[rootChars - 1] + FilesWindow->GetTextEllipsisWidthEnv(), Text + rootChars + EllipsedChars, showChars - rootChars - EllipsedChars);
                         }
                     }
                 }
@@ -1384,6 +1472,10 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
         // throbber
         if (ThrobberRect.left < ThrobberRect.right)
             PaintThrobber(dc);
+
+        if (!IsRectEmpty(&AdministratorShieldRect))
+            DrawIconEx(dc, AdministratorShieldRect.left, AdministratorShieldRect.top, AdministratorShield,
+                       shieldSize, shieldSize, 0, NULL, DI_NORMAL);
 
         // security
         if (SecurityRect.left < SecurityRect.right)
@@ -1952,6 +2044,12 @@ CStatusWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             break;
         }
 
+        case 10:
+        {
+            lstrcpyn(text, AdministratorShield != NULL ? LoadStr(IDS_UAC_LIST_ACTIVE) : "", TOOLTIP_TEXT_MAX);
+            break;
+        }
+
         default:
             TRACE_E("Unknown ID:" << id);
             break;
@@ -2003,6 +2101,10 @@ CStatusWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             toolTipID = 8;
         if (isInSecurityRect)
             toolTipID = 9;
+
+        const bool isInAdministratorShield = PtInRect(&AdministratorShieldRect, POINT{xPos, yPos}) != FALSE;
+        if (isInAdministratorShield)
+            toolTipID = 10;
 
         if (wParam & (MK_LBUTTON | MK_MBUTTON | MK_RBUTTON))
             toolTipID = 0;
@@ -2096,7 +2198,7 @@ CStatusWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             POINT p;
             GetCursorPos(&p);
             if (!isInRect && !isInSizeRect && !isInHistory && !isInZoomRect &&
-                    !isInHiddenRect && !isInSecurityRect ||
+                    !isInHiddenRect && !isInSecurityRect && !isInAdministratorShield ||
                 WindowFromPoint(p) != HWindow)
             {
                 WindowProc(WM_MOUSELEAVE, 0, 0);
@@ -2108,7 +2210,7 @@ CStatusWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             // zahajeni capture modu
             if (!MouseCaptured && (isInRect || isInSizeRect || isInHistory ||
-                                   isInZoomRect || isInHiddenRect || isInSecurityRect))
+                                   isInZoomRect || isInHiddenRect || isInSecurityRect || isInAdministratorShield))
             {
                 TRACKMOUSEEVENT tme;
                 tme.cbSize = sizeof(tme);

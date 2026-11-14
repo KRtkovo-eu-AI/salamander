@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 //
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Exercise the approved listing scan without a filesystem fallback. | Verify scope, reparse filtering, path identity and cancellation. | #731 | GPT-6.1 Sol |
 // | 2026-11-07 | Cover hidden and system files in the Branch scan filter. | Keep the hide option aligned with ordinary panels. | https://github.com/KRtkovo-eu-AI/salamander/pull/818 | Grok 4.7 |
 #include "../branch_view.h"
 #include <stdio.h>
@@ -173,8 +174,61 @@ static void CheckPublicationBudgetAndPathOrder()
     printf("Branch Path comparator: %zu Unicode/long-path rows, copied paths %llu ms, retained references %llu ms (equivalent order)\n",
         count, oldElapsed, newElapsed);
 }
+static void CheckProtectedListingScan()
+{
+    const std::wstring root = L"C:\\approved";
+    const std::wstring child = Join(root, L"\u6771");
+    std::vector<std::wstring> requests;
+    const auto list = [](void* context, const std::wstring& path, std::vector<WIN32_FIND_DATAW>& entries) -> DWORD {
+        auto& paths = *static_cast<std::vector<std::wstring>*>(context);
+        paths.push_back(path);
+        auto append = [&](const wchar_t* name, DWORD attributes, DWORD tag = 0) {
+            WIN32_FIND_DATAW row{};
+            wcscpy_s(row.cFileName, name);
+            row.dwFileAttributes = attributes;
+            row.dwReserved0 = tag;
+            entries.push_back(row);
+        };
+        if (paths.size() == 1)
+        {
+            append(L"root.txt", FILE_ATTRIBUTE_NORMAL);
+            append(L"\u6771", FILE_ATTRIBUTE_DIRECTORY);
+            append(L"junction", FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT, IO_REPARSE_TAG_MOUNT_POINT);
+            append(L"other-reparse", FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT);
+            append(L"hidden.txt", FILE_ATTRIBUTE_HIDDEN);
+        }
+        else
+            append(L"child.txt", FILE_ATTRIBUTE_NORMAL);
+        return ERROR_SUCCESS;
+    };
+
+    Scan scan;
+    Progress progress;
+    std::vector<Entry> entries;
+    Check(scan.Start(root, true, true), "start the incremental protected scan");
+    do
+    {
+        scan.Advance(list, &requests);
+        std::vector<Entry> batch;
+        scan.Drain(batch, progress);
+        entries.insert(entries.end(), batch.begin(), batch.end());
+    } while (progress.Running && requests.size() < 3);
+    Check(!progress.Running && !progress.Errors && progress.Files == 2 && progress.SkippedLinks == 2 &&
+              requests == std::vector<std::wstring>{root, child},
+          "enumerate only ordinary directories below the approved root");
+    Check(entries.size() == 2 && entries.back().FullPath() == Join(child, L"child.txt") &&
+              entries.back().RelativePath == L"\u6771\\child.txt",
+          "preserve the exact physical and relative path of protected rows");
+
+    Check(scan.Start(root, true, true), "restart the incremental protected scan");
+    scan.Cancel();
+    scan.Advance(list, &requests);
+    Check(requests.size() == 2, "a cancelled scan makes no further protected listing requests");
+}
+
 int wmain()
 {
+    CheckProtectedListingScan();
     CheckRefreshSchedule();
     CheckPublicationBudgetAndPathOrder();
     Fixture fixture;

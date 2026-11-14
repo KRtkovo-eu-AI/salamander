@@ -1,0 +1,226 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Test post-completion write fault injection. | Distinguish completed native writes from pending requests in the F5 test hook. | #731 | GPT-6 |
+#include <windows.h>
+#include <cstdio>
+#include <cwchar>
+#include <string>
+#include <vector>
+
+static std::vector<std::wstring> observations;
+static void ThinCopyTestSignal(const wchar_t* name)
+{
+    observations.emplace_back(name);
+    SetLastError(ERROR_INVALID_PARAMETER); // Observation must not change caller-visible status.
+}
+
+static BOOL nextResult = TRUE;
+static DWORD nextError = 0;
+static DWORD nextBytes = 0;
+static unsigned writeCalls = 0;
+static unsigned readCalls = 0;
+static BOOL FakeWriteFile(HANDLE, const void*, DWORD, DWORD* written, OVERLAPPED*)
+{
+    ++writeCalls;
+    if (written) *written = nextBytes;
+    SetLastError(nextError);
+    return nextResult;
+}
+#define WriteFile FakeWriteFile
+static BOOL FakeReadFile(HANDLE, void*, DWORD, DWORD* read, OVERLAPPED*)
+{
+    ++readCalls;
+    if (read) *read = nextBytes;
+    SetLastError(nextError);
+    return nextResult;
+}
+#define ReadFile FakeReadFile
+@@FAILURE@@
+@@OBSERVE@@
+@@READ@@
+@@WRITE@@
+
+struct FakeAsyncParams
+{
+    OVERLAPPED operation{};
+    OVERLAPPED* GetOverlapped(unsigned) { return &operation; }
+};
+struct FakeContext { DWORD BlockDataLen[1]{}; };
+static BOOL completionResult = FALSE;
+static DWORD completionBytes = 0;
+static DWORD completionError = 0;
+static BOOL FakeGetOverlappedResult(HANDLE, OVERLAPPED*, DWORD* bytes, BOOL)
+{
+    *bytes = completionBytes;
+    SetLastError(completionError);
+    return completionResult;
+}
+#define GetOverlappedResult FakeGetOverlappedResult
+static BOOL InvokeCompletion(DWORD length)
+{
+    HANDLE out = nullptr;
+    FakeAsyncParams params;
+    auto* asyncPar = &params;
+    FakeContext ctx;
+    ctx.BlockDataLen[0] = length;
+    unsigned i = 0;
+    DWORD bytes = 0;
+@@ASYNC_COMPLETION@@
+    return res;
+}
+
+static int failures = 0;
+static void Check(bool condition, const char* text)
+{
+    std::printf("%s %s\n", condition ? "PASS" : "FAIL", text);
+    if (!condition) ++failures;
+}
+static unsigned Count(const wchar_t* event)
+{
+    unsigned count = 0;
+    for (const auto& observation : observations)
+        if (observation == event) ++count;
+    return count;
+}
+static bool SetMode(const wchar_t* mode)
+{
+    return SetEnvironmentVariableW(L"SAM_UAC_TEST_FAIL", mode) != FALSE;
+}
+static BOOL Write(DWORD size, DWORD* written, OVERLAPPED* operation)
+{
+    char bytes[64]{};
+    return ThinCopyTestWriteFile(nullptr, bytes, size, written, operation);
+}
+
+int wmain(int argc, wchar_t** argv)
+{
+    if (argc != 2 || !SetMode(argv[1])) return 2;
+    DWORD written = 0;
+    OVERLAPPED operation{};
+    const wchar_t* fault = L"SAM_UAC_TEST_WRITE_FAULT_EVENT";
+    const wchar_t* syncDone = L"SAM_UAC_TEST_SYNC_WRITE_COMPLETED_EVENT";
+    const wchar_t* asyncDone = L"SAM_UAC_TEST_ASYNC_WRITE_COMPLETED_EVENT";
+    if (std::wcscmp(argv[1], L"write") == 0)
+    {
+        nextResult = TRUE; nextBytes = 8; nextError = ERROR_SUCCESS;
+        SetLastError(99);
+        Check(!Write(8, &written, nullptr) && GetLastError() == ERROR_WRITE_FAULT && writeCalls == 0,
+              "legacy write mode injects before first write");
+        Check(Count(fault) == 1 && Count(syncDone) == 0, "legacy fault is signalled exactly once");
+        Check(Write(8, &written, nullptr) && writeCalls == 1 && written == 8,
+              "legacy write mode succeeds after its single failure");
+    }
+    else if (std::wcscmp(argv[1], L"write-after-completion") == 0)
+    {
+        nextResult = TRUE; nextBytes = 0; nextError = 91;
+        Check(Write(0, &written, nullptr) && GetLastError() == 91 && Count(syncDone) == 0,
+              "zero-byte sync write does not arm fault and preserves status");
+        nextBytes = 3; nextError = 92;
+        Check(Write(8, &written, nullptr) && GetLastError() == 92 && Count(syncDone) == 0,
+              "short sync write does not arm fault and preserves status");
+        nextResult = FALSE; nextError = ERROR_DISK_FULL;
+        Check(!Write(8, &written, nullptr) && GetLastError() == ERROR_DISK_FULL && Count(fault) == 0,
+              "underlying sync write failure is preserved and does not arm fault");
+        nextResult = TRUE; nextBytes = 8; nextError = 93;
+        Check(Write(8, &written, nullptr) && GetLastError() == 93 && Count(syncDone) == 1,
+              "completed nonzero sync write arms fault and preserves status");
+        unsigned before = writeCalls;
+        Check(!Write(8, &written, nullptr) && GetLastError() == ERROR_WRITE_FAULT && writeCalls == before && Count(fault) == 1,
+              "next sync write fails once after completion");
+        Check(Write(8, &written, nullptr) && writeCalls == before + 1 && Count(fault) == 1,
+              "subsequent sync write is delegated normally");
+    }
+    else if (std::wcscmp(argv[1], L"async") == 0)
+    {
+        Check(SetMode(L"write-after-completion"), "enable async post-completion mode");
+        nextResult = FALSE; nextError = ERROR_IO_PENDING;
+        Check(!Write(8, nullptr, &operation) && GetLastError() == ERROR_IO_PENDING && Count(asyncDone) == 0,
+              "pending request is not counted as completed");
+        nextResult = TRUE; nextError = 80;
+        Check(Write(8, nullptr, &operation) && GetLastError() == 80 && Count(asyncDone) == 0,
+              "inline issue alone is not counted as completed");
+        completionResult = FALSE; completionBytes = 8; completionError = ERROR_IO_INCOMPLETE;
+        Check(!InvokeCompletion(8) && GetLastError() == ERROR_IO_INCOMPLETE && Count(asyncDone) == 0,
+              "failed completion does not arm fault");
+        completionResult = TRUE; completionBytes = 0; completionError = 81;
+        Check(InvokeCompletion(8) && GetLastError() == 81 && Count(asyncDone) == 0,
+              "zero-byte completion does not arm fault");
+        completionBytes = 4; completionError = 82;
+        Check(InvokeCompletion(8) && GetLastError() == 82 && Count(asyncDone) == 0,
+              "short completion does not arm fault");
+        completionBytes = 8; completionError = 83;
+        Check(InvokeCompletion(8) && GetLastError() == 83 && Count(asyncDone) == 1,
+              "full nonzero async completion arms fault and preserves status");
+        unsigned before = writeCalls;
+        Check(!Write(8, nullptr, &operation) && GetLastError() == ERROR_WRITE_FAULT && writeCalls == before && Count(fault) == 1,
+              "next async write fails once after completion");
+        nextResult = FALSE; nextError = ERROR_IO_PENDING;
+        Check(!Write(8, nullptr, &operation) && GetLastError() == ERROR_IO_PENDING && writeCalls == before + 1 && Count(fault) == 1,
+              "later async request is delegated normally");
+    }
+    else if (std::wcscmp(argv[1], L"read") == 0)
+    {
+        char buffer[8]{};
+        DWORD received = 0;
+        SetLastError(97);
+        Check(!ThinCopyTestReadFile(nullptr, buffer, sizeof(buffer), &received, nullptr) &&
+              GetLastError() == ERROR_READ_FAULT && readCalls == 0 &&
+              Count(L"SAM_UAC_TEST_SYNC_READ_FAULT_EVENT") == 1,
+              "legacy read mode fails once with original error and event");
+        nextResult = TRUE; nextBytes = sizeof(buffer); nextError = 97;
+        Check(ThinCopyTestReadFile(nullptr, buffer, sizeof(buffer), &received, nullptr) &&
+              received == sizeof(buffer) && GetLastError() == 97 && readCalls == 1 &&
+              Count(L"SAM_UAC_TEST_SYNC_READ_COMPLETED_EVENT") == 1,
+              "legacy read mode delegates next read and preserves status");
+    }
+    else if (std::wcscmp(argv[1], L"read-after-write") == 0 || std::wcscmp(argv[1], L"read-after-write-async") == 0)
+    {
+        const bool asynchronous = std::wcscmp(argv[1], L"read-after-write-async") == 0;
+        Check(SetMode(L"read-after-write"), "enable read failure after completed write");
+        char buffer[8]{}; DWORD received = 0;
+        nextResult = TRUE; nextBytes = sizeof(buffer); nextError = 96;
+        Check(ThinCopyTestReadFile(nullptr, buffer, sizeof(buffer), &received, nullptr) &&
+              readCalls == 1 && GetLastError() == 96, "read before completed write is delegated");
+        nextBytes = 3;
+        Check(Write(8, &written, nullptr) && Count(syncDone) == 0, "short write does not arm read failure");
+        if (asynchronous)
+        {
+            completionResult = TRUE; completionBytes = 8; completionError = 98;
+            Check(InvokeCompletion(8) && Count(asyncDone) == 1, "completed async write arms read failure");
+        }
+        else
+        {
+            nextBytes = 8;
+            Check(Write(8, &written, nullptr) && Count(syncDone) == 1, "completed sync write arms read failure");
+        }
+        const wchar_t* readFault = asynchronous ? L"SAM_UAC_TEST_ASYNC_READ_FAULT_EVENT" : L"SAM_UAC_TEST_SYNC_READ_FAULT_EVENT";
+        Check(!ThinCopyTestReadFile(nullptr, buffer, sizeof(buffer), asynchronous ? nullptr : &received,
+                                    asynchronous ? &operation : nullptr) &&
+              GetLastError() == ERROR_READ_FAULT && readCalls == 1 && Count(readFault) == 1,
+              "next read fails once and signals the correct I/O mode");
+        nextResult = TRUE; nextBytes = sizeof(buffer); nextError = 99;
+        Check(ThinCopyTestReadFile(nullptr, buffer, sizeof(buffer), &received, nullptr) &&
+              readCalls == 2 && GetLastError() == 99 && Count(readFault) == 1,
+              "later read is delegated and preserves status");
+    }
+    else if (std::wcscmp(argv[1], L"read-pending") == 0)
+    {
+        Check(SetMode(L"none"), "disable read failure for pending test");
+        char buffer[8]{};
+        nextResult = FALSE; nextError = ERROR_IO_PENDING;
+        Check(!ThinCopyTestReadFile(nullptr, buffer, sizeof(buffer), nullptr, &operation) &&
+              GetLastError() == ERROR_IO_PENDING && readCalls == 1 &&
+              Count(L"SAM_UAC_TEST_ASYNC_READ_PENDING_EVENT") == 1,
+              "async read observation preserves pending status");
+    }
+    else if (std::wcscmp(argv[1], L"none") == 0)
+    {
+        nextResult = TRUE; nextBytes = 8; nextError = 95;
+        Check(Write(8, &written, nullptr) && GetLastError() == 95, "ordinary sync write preserves status");
+        Check(Write(8, &written, nullptr) && Count(fault) == 0 && writeCalls == 2,
+              "no-fault mode does not inject after completion");
+    }
+    else return 2;
+    return failures ? 1 : 0;
+}

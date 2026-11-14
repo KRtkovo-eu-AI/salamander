@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-10 | Keep Find Look in contracts for the protected root. | Guard the entry point that previously returned Access Denied. | #731 | GPT-6.1 Sol |
 # | 2026-11-05 | Add Find Look in HistoryComboBox contracts. | Guard against Unicode combo history overwriting the current panel path. | https://github.com/KRtkovo-eu-AI/salamander/issues/743 | Composer |
 """Source contracts for Find Look in following the current panel path (#743)."""
 
@@ -30,18 +31,29 @@ class FindLookInContracts(unittest.TestCase):
             "void CFilesWindow::ViewFile(",
         )
         self.assertIn(
-            'OpenFindDialog(MainWindow->HWindow, Is(ptDisk) ? GetPath() : "");',
+            'OpenFindDialog(MainWindow->HWindow, Is(ptDisk) ? GetPath() : "", std::move(protectedRoot));',
             find_file,
         )
 
     def test_find_dialog_seeds_look_in_from_init_path(self):
         ctor = section(
             self.finddlg1,
-            "CFindDialog::CFindDialog(HWND hCenterAgainst, const char* initPath)",
+            "CFindDialog::CFindDialog(HWND hCenterAgainst, const char* initPath,",
             "CFindDialog::~CFindDialog()",
         )
         self.assertIn("if (Data.LookInText[0] == 0)", ctor)
         self.assertIn("const char* s = initPath;", ctor)
+
+    def test_protected_panel_is_identified_before_the_ordinary_path_check(self):
+        find_file = section(
+            self.fileswn5,
+            "void CFilesWindow::FindFile()",
+            "void CFilesWindow::ViewFile(",
+        )
+        self.assertLess(
+            find_file.index("ProtectedListing->CaptureFindRoot(path, *identity)"),
+            find_file.index("!protectedRoot && CheckPath(TRUE)"),
+        )
 
     def test_history_combo_sets_text_on_combo_hwnd(self):
         setter = section(

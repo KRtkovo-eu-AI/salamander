@@ -1,7 +1,15 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-11 | Route extracted bytes through one output method. | Keep all existing ZIP methods on the same write behavior before adding streaming. | #731 | GPT-6.1 Terra |
+// | 2026-11-08 | Seek to the listed ZIP record and revalidate it before decoding. | Keep extraction work proportional to the selected entries. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Decode one ZIP entry from the approved source. | Reuse the ZIP parser and host Deflate engine with exact size and CRC checks. | | GPT-6.1 Sol (Codex) |
 
 #include "precomp.h"
+#include "../../common/zipread.h"
+#include "spl_zlib.h"
+#include <vector>
+#include <memory>
 #include <tchar.h>
 #include <string>
 #include <new>
@@ -220,6 +228,129 @@ int CZipUnpack::UnpackArchive(const char* targetDir, SalEnumSelection next, void
     return ErrorID;
 }
 
+DWORD CZipUnpack::ReadSourceEntry(const SalZipReadSourceV1& source, const char* name, const CFileData& file,
+                                    ULONGLONG maxBytes, SalZipWrite write, void* context)
+{
+    if (!file.PluginData || file.Size.Value > maxBytes)
+        return file.PluginData ? ERROR_FILE_TOO_LARGE : ERROR_INVALID_DATA;
+    const auto& listed = *reinterpret_cast<const CZIPFileData*>(file.PluginData);
+    const DWORD openError = OpenReadSource(source);
+    if (openError)
+        return openError;
+    if (listed.ItemNumber < 0 || listed.ItemNumber >= EOCentrDir.TotalEntries)
+        return ERROR_INVALID_DATA;
+
+    const QWORD centralStart = CentrDirOffs + ExtraBytes;
+    const QWORD centralEnd = centralStart + CentrDirSize;
+    QWORD offset = listed.CentralOffset;
+    if (offset < centralStart || offset >= centralEnd)
+        return ERROR_INVALID_DATA;
+    std::vector<BYTE> centralBytes(MAX_HEADER_SIZE);
+    auto* central = reinterpret_cast<CFileHeader*>(centralBytes.data());
+    if (ReadCentralHeader(central, &offset, nullptr) || offset > centralEnd)
+        return RangeError ? RangeError : ERROR_INVALID_DATA;
+    std::vector<char> decodedName(MAX_HEADER_SIZE);
+    const int nameLength = ProcessName(central, decodedName.data());
+    if (nameLength <= 0 || strcmp(name, decodedName.data()) != 0)
+        return ERROR_INVALID_DATA;
+
+    CFileInfo entry;
+    ProcessHeader(central, &entry);
+    if (entry.Size != file.Size.Value || entry.CompSize != listed.PackedSize ||
+        entry.StartDisk || entry.IsDir || entry.LocHeaderOffs >= CentrDirOffs ||
+        (entry.FileAttr & FILE_ATTRIBUTE_REPARSE_POINT))
+        return ERROR_INVALID_DATA;
+    if ((entry.Flag & GPF_ENCRYPTED) || (entry.Method != CM_STORED && entry.Method != CM_DEFLATED))
+        return ERROR_NOT_SUPPORTED;
+
+    std::vector<BYTE> input(MAX_HEADER_SIZE);
+    auto* local = reinterpret_cast<CLocalFileHeader*>(input.data());
+    if (ReadLocalHeader(local, entry.LocHeaderOffs))
+        return RangeError ? RangeError : ERROR_INVALID_DATA;
+    if (local->Method != entry.Method || local->Flag != entry.Flag ||
+        local->NameLen != central->NameLen ||
+        memcmp(input.data() + sizeof(*local), centralBytes.data() + sizeof(*central), central->NameLen) != 0 ||
+        ZipFile->FilePointer > CentrDirOffs || entry.CompSize > CentrDirOffs - ZipFile->FilePointer)
+        return ERROR_INVALID_DATA;
+
+    QWORD remaining = entry.CompSize;
+    QWORD written = 0;
+    DWORD crc = INIT_CRC;
+    auto emit = [&](const BYTE* bytes, DWORD count) {
+        if (count > entry.Size - written)
+            return static_cast<DWORD>(ERROR_INVALID_DATA);
+        if (!count)
+            return static_cast<DWORD>(ERROR_SUCCESS);
+        crc = SalamanderGeneral->UpdateCrc32(bytes, count, crc);
+        written += count;
+        return write(context, bytes, count);
+    };
+    auto fill = [&]() -> DWORD {
+        const auto count = static_cast<unsigned>(min(remaining, static_cast<QWORD>(input.size())));
+        if (Read(ZipFile, input.data(), count, nullptr, nullptr))
+            return 0;
+        remaining -= count;
+        return count;
+    };
+
+    DWORD error = ERROR_SUCCESS;
+    if (entry.Method == CM_STORED)
+    {
+        if (entry.CompSize != entry.Size)
+            return ERROR_INVALID_DATA;
+        while (remaining && !error)
+        {
+            const DWORD count = fill();
+            if (!count)
+                return RangeError ? RangeError : ERROR_HANDLE_EOF;
+            error = emit(input.data(), count);
+        }
+    }
+    else
+    {
+        std::vector<BYTE> output(MAX_HEADER_SIZE);
+        auto* zlib = SalamanderGeneral->GetSalamanderZLIB();
+        CSalZLIB state{};
+        const int init = zlib->InflateInit2(&state, -15); // ZIP stores raw Deflate.
+        if (init != SAL_Z_OK)
+            return init == SAL_Z_MEM_ERROR ? ERROR_NOT_ENOUGH_MEMORY : ERROR_INVALID_DATA;
+        int result;
+        do
+        {
+            if (!state.avail_in && remaining)
+            {
+                state.avail_in = fill();
+                if (!state.avail_in)
+                {
+                    error = RangeError ? RangeError : ERROR_HANDLE_EOF;
+                    break;
+                }
+                state.next_in = input.data();
+            }
+            const UINT available = state.avail_in;
+            state.next_out = output.data();
+            state.avail_out = static_cast<UINT>(output.size());
+            result = zlib->Inflate(&state, SAL_Z_NO_FLUSH);
+            const DWORD produced = static_cast<DWORD>(output.size()) - state.avail_out;
+            if (result != SAL_Z_OK && result != SAL_Z_STREAM_END)
+                error = result == SAL_Z_MEM_ERROR ? ERROR_NOT_ENOUGH_MEMORY : ERROR_INVALID_DATA;
+            else if (result == SAL_Z_OK && !produced && state.avail_in == available)
+                error = ERROR_INVALID_DATA;
+            else
+                error = emit(output.data(), produced);
+        } while (!error && result != SAL_Z_STREAM_END);
+        if (!error && (remaining || state.avail_in))
+            error = ERROR_INVALID_DATA;
+        zlib->InflateEnd(&state);
+    }
+
+    if (error)
+        return error;
+    if (written != entry.Size)
+        return ERROR_INVALID_DATA;
+    return crc == entry.Crc ? ERROR_SUCCESS : ERROR_CRC;
+}
+
 int CZipUnpack::UnpackOneFile(const char* nameInZip, const CFileData* fileData, const char* targetPath, const char* newFileName)
 {
     CALL_STACK_MESSAGE3("CZipUnpack::UnpackOneFile(%s, , %s)", nameInZip, targetPath);
@@ -391,16 +522,12 @@ int CZipUnpack::FindFile(LPCTSTR name, CFileInfo* fileInfo, int nItem)
     DWORD pathFlag = Unix ? 0 : NORM_IGNORECASE;
     BOOL found = FALSE;
 
-    centralHeader = (CFileHeader*)malloc(MAX_HEADER_SIZE);
-    tempName = (char*)malloc(MAX_HEADER_SIZE);
+    const std::unique_ptr<void, decltype(&free)> headerStorage(malloc(MAX_HEADER_SIZE), free);
+    const std::unique_ptr<void, decltype(&free)> nameStorage(malloc(MAX_HEADER_SIZE), free);
+    centralHeader = static_cast<CFileHeader*>(headerStorage.get());
+    tempName = static_cast<char*>(nameStorage.get());
     if (!centralHeader || !tempName)
-    {
-        if (centralHeader)
-            free(centralHeader);
-        if (tempName)
-            free(tempName);
         return IDS_LOWMEM;
-    }
     readOffset = CentrDirOffs + ExtraBytes;
     readSize = 0;
     if (DiskNum != CentrDirStartDisk && MultiVol)
@@ -453,8 +580,6 @@ int CZipUnpack::FindFile(LPCTSTR name, CFileInfo* fileInfo, int nItem)
     }
     if (!found)
         errorID = IDS_FILENOTFOUND;
-    free(centralHeader);
-    free(tempName);
     return errorID;
 }
 
@@ -651,6 +776,11 @@ void Refill(CDecompressionObject* decompress)
     decompress->Input->BytesLeft = s;
 }
 
+int CZipUnpack::WriteExtractBytes(const void* buffer, unsigned bytesToWrite)
+{
+    return Write(OutputFile, buffer, bytesToWrite, &SkipAllIOErrors);
+}
+
 int ExtractFlush(unsigned bytes, CDecompressionObject* decompress)
 {
     CALL_STACK_MESSAGE2("ExtractFlush(0x%X, )", bytes);
@@ -662,7 +792,7 @@ int ExtractFlush(unsigned bytes, CDecompressionObject* decompress)
     if (!CZIPUNPACK(decompress)->Test)
     {
         CZIPUNPACK(decompress)->OutputError =
-            CZIPUNPACK(decompress)->Write(CZIPUNPACK(decompress)->OutputFile, buf, bytes, &CZIPUNPACK(decompress)->SkipAllIOErrors);
+            CZIPUNPACK(decompress)->WriteExtractBytes(buf, bytes);
     }
     else
     {
@@ -908,7 +1038,7 @@ int CZipUnpack::UnStoreFile(CFileInfo* fileInfo, int* errorID)
             Crc = SalamanderGeneral->UpdateCrc32(InputBuffer, readBytes, Crc);
             if (!Test)
             {
-                result = Write(OutputFile, InputBuffer, readBytes, &SkipAllIOErrors);
+                result = WriteExtractBytes(InputBuffer, readBytes);
                 if (result)
                 {
                     switch (result)

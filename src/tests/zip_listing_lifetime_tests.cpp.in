@@ -13,6 +13,7 @@
 #include <cstring>
 #include <new>
 #include <string>
+#include <string_view>
 #include <vector>
 #define CALL_STACK_MESSAGE1(...) ((void)0)
 #define TRACE_E(...) ((void)0)
@@ -77,8 +78,9 @@ static General* SalamanderGeneral = &GeneralObject;
 enum { MAX_HEADER_SIZE=65536, HS_UNIX=3, FILE_ATTTRIBUTE_MASK=0xFFFFFFFF,
     GPF_ENCRYPTED=1, SALCFG_SORTBYEXTDIRSASFILES=1, SALDIRFLAG_CASESENSITIVE=1,
     IDS_LOWMEM=10, IDS_ERRADDDIR=11, IDS_ERRADDFILE=12,
-    IDS_ERRADDDIR_TOOLONG=13, IDS_ERRADDFILE_TOOLONG=14 };
-struct CFileHeader { unsigned Version; };
+    IDS_ERRADDDIR_TOOLONG=13, IDS_ERRADDFILE_TOOLONG=14, IDS_ERRFORMAT=15 };
+struct CFileHeader { unsigned Version; size_t NameLen; };
+struct CPluginDataInterfaceAbstract;
 struct Entry { std::string name; bool directory=false, unixEntry=false; };
 static std::wstring Wide(const char* value)
 {
@@ -129,14 +131,19 @@ public:
     const Entry* current=nullptr;
     QWORD CentrDirOffs=0, ExtraBytes=0, CentrDirSize;
     BOOL ZeroZip=FALSE, Unix=FALSE, MultiVol=FALSE;
+    bool RangeSource=false;
+    struct { int TotalEntries; } EOCentrDir;
     int DiskNum=0, CentrDirStartDisk=0, readError=-1;
-    explicit CZipList(const std::vector<Entry>& entries) : input(entries), CentrDirSize(entries.size()) {}
+    explicit CZipList(const std::vector<Entry>& entries) :
+        input(entries), CentrDirSize(entries.size()), EOCentrDir{static_cast<int>(entries.size())} {}
     int ChangeDisk() { return 0; }
     int ReadCentralHeader(CFileHeader* header, QWORD* offset, unsigned* size)
     {
         if (static_cast<int>(*offset) == readError) return IDS_ERRADDFILE;
         current=&input.at(static_cast<size_t>((*offset)++));
         header->Version=current->unixEntry ? HS_UNIX<<8 : 0;
+        header->NameLen=current->name.size();
+        std::memcpy(reinterpret_cast<char*>(header) + sizeof(*header), current->name.data(), header->NameLen);
         *size=1; return 0;
     }
     int ProcessName(CFileHeader*, char* name)
@@ -148,10 +155,11 @@ public:
         info->Size=11; info->CompSize=7; info->Flag=0; info->FileAttr=0;
         info->IsDir=current->directory; info->LastWrite={};
     }
-    int List(CSalamanderDirectoryAbstract*, BOOL&);
+    @@LIST_DECL@@
 };
 #define malloc OwnedMalloc
 #define free OwnedFree
+@@SAFE_NAME@@
 @@LIST@@
 #undef malloc
 #undef free

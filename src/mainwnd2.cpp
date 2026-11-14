@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Restore protected saved panel paths to a readable ancestor. | Do not prompt for elevation while starting the application. | #731 | GPT-6.1 Sol |
 // | 2026-11-09 | Save and load the Change Drive block order. | Keep the chosen Plugin/Hot Paths ordering across restarts. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
 // | 2026-11-09 | Load and save custom association handlers with the active configuration. | Resolve custom association IDs against the selected viewer/editor catalog after restart. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-08 | Register the complete canonical runtime adapter after archive setup. | Ensure staged canonical rows resolve against the final plugin and packer indexes. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -33,6 +34,7 @@
 #include "tabwnd.h"
 #include "mainwnd.h"
 #include "configstorage.h"
+#include "common/widepath.h"
 #include "fileassoc.h"
 #include "fileassoclifecycle.h"
 #include "fileassocruntimeadapter.h"
@@ -2839,7 +2841,59 @@ static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBu
         panel->SetTabLocked(false);
 }
 
-static BOOL RestorePanelPathFromConfig(CMainWindow* mainWnd, CFilesWindow* panel, const char* path)
+// A directory can allow metadata queries while denying enumeration. The saved
+// path is not consent to relaunch a broker, so test the actual list access.
+static BOOL RestoreDeniedSavedPanelPath(CFilesWindow* panel, const char* path)
+{
+    std::wstring candidate = SalPathRemoveExtendedPrefixW(
+        SalMultiByteToWidePath(path, IsValidPathUtf8Text(path) ? CP_UTF8 : CP_ACP).c_str());
+    if (candidate.size() < 3 || candidate[1] != L':' || candidate[2] != L'\\' ||
+        GetDriveTypeW(candidate.substr(0, 3).c_str()) != DRIVE_FIXED)
+        return FALSE;
+
+    while (candidate.size() > 3 && candidate.back() == L'\\')
+        candidate.pop_back();
+
+    bool denied = false;
+    for (;;)
+    {
+        std::wstring search = SalPathAddExtendedPrefixW(candidate.c_str());
+        if (search.back() != L'\\')
+            search += L'\\';
+        search += L'*';
+
+        WIN32_FIND_DATAW item;
+        const HANDLE listing = HANDLES_Q(FindFirstFileW(search.c_str(), &item));
+        DWORD error = ERROR_SUCCESS;
+        if (listing == INVALID_HANDLE_VALUE)
+            error = GetLastError();
+        else
+            HANDLES(FindClose(listing));
+
+        if (!denied && error != ERROR_ACCESS_DENIED)
+            return FALSE;
+        denied = true;
+
+        if (error == ERROR_SUCCESS || error == ERROR_FILE_NOT_FOUND)
+        {
+            const auto readable = SalWideToMultiBytePath(candidate.c_str(), CP_UTF8);
+            if (panel->ChangePathToDisk(panel->HWindow, readable.c_str(), -1, NULL,
+                                        NULL, TRUE, FALSE, FALSE, NULL, FALSE))
+                return TRUE;
+            break;
+        }
+        if (candidate.size() == 3)
+            break;
+        const auto separator = candidate.rfind(L'\\');
+        candidate.resize(max(size_t{3}, separator));
+    }
+
+    panel->ChangeToFixedDrive(panel->HWindow);
+    return TRUE;
+}
+
+static BOOL RestorePanelPathFromConfig(CMainWindow* mainWnd, CFilesWindow* panel, const char* path,
+                                       BOOL useGeneralPath = TRUE)
 {
     if (panel == NULL)
         return FALSE;
@@ -2850,7 +2904,8 @@ static BOOL RestorePanelPathFromConfig(CMainWindow* mainWnd, CFilesWindow* panel
         return FALSE;
     }
 
-    if (panel->ChangeDirLite(path))
+    if (RestoreDeniedSavedPanelPath(panel, path) ||
+        (useGeneralPath && panel->ChangeDirLite(path)))
     {
         if (mainWnd != NULL)
             mainWnd->UpdatePanelTabTitle(panel);
@@ -2859,14 +2914,13 @@ static BOOL RestorePanelPathFromConfig(CMainWindow* mainWnd, CFilesWindow* panel
 
     if (IsDiskOrUNCPath(path))
     {
-        char tmp[2 * MAX_PATH];
-        lstrcpyn(tmp, path, _countof(tmp));
+        std::string diskPath(path);
         BOOL tryNet = TRUE;
         DWORD err, lastErr;
         BOOL pathInvalid, cut;
-        if (SalCheckAndRestorePathWithCut(panel->HWindow, tmp, tryNet, err, lastErr, pathInvalid, cut, TRUE))
+        if (SalCheckAndRestorePathWithCut(panel->HWindow, diskPath.data(), tryNet, err, lastErr, pathInvalid, cut, TRUE))
         {
-            if (panel->ChangePathToDisk(panel->HWindow, tmp))
+            if (panel->ChangePathToDisk(panel->HWindow, diskPath.c_str()))
             {
                 if (mainWnd != NULL)
                     mainWnd->UpdatePanelTabTitle(panel);
@@ -6706,31 +6760,21 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         if (rightPanelPathSet)
             RightPanel->RefreshVisibleItemsArray();
 
-        // leftPanelPath and rightPanelPath are only disk paths; we don't store archives or FS paths
-        DWORD err, lastErr;
-        BOOL pathInvalid, cut;
-        BOOL tryNet = TRUE;
+        // The legacy settings only store disk paths.
         if (!leftPanelPathSet && !PanelConfigPathsRestoredLeft)
         {
-            if (SalCheckAndRestorePathWithCut(LeftPanel->HWindow, leftPanelPath, tryNet,
-                                              err, lastErr, pathInvalid, cut, TRUE))
-            {
-                LeftPanel->ChangePathToDisk(LeftPanel->HWindow, leftPanelPath);
-            }
+            if (leftPanelPath[0] != 0)
+                RestorePanelPathFromConfig(this, LeftPanel, leftPanelPath, FALSE);
             else
                 LeftPanel->ChangeToRescuePathOrFixedDrive(LeftPanel->HWindow);
             LeftPanel->RefreshVisibleItemsArray(); // see comment "RefreshVisibleItemsArray" above
         }
         UpdateWindow(LeftPanel->HWindow); // ensures dir/info line is drawn immediately after the panel content
 
-        tryNet = TRUE;
         if (!rightPanelPathSet && !PanelConfigPathsRestoredRight)
         {
-            if (SalCheckAndRestorePathWithCut(RightPanel->HWindow, rightPanelPath, tryNet,
-                                              err, lastErr, pathInvalid, cut, TRUE))
-            {
-                RightPanel->ChangePathToDisk(RightPanel->HWindow, rightPanelPath);
-            }
+            if (rightPanelPath[0] != 0)
+                RestorePanelPathFromConfig(this, RightPanel, rightPanelPath, FALSE);
             else
                 RightPanel->ChangeToRescuePathOrFixedDrive(RightPanel->HWindow);
             RightPanel->RefreshVisibleItemsArray(); // see comment "RefreshVisibleItemsArray" above

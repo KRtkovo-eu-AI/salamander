@@ -2,11 +2,63 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Explain uncertain thin-copy cleanup in terminal errors. | Tell users to check a retained destination without weakening identity checks. | #731 | GPT-6 |
+// | 2026-11-13 | Identify accepted thin batch scope. | Preserve consent only when the scope was actually displayed. | #731 | GPT-6 |
+// | 2026-11-13 | Report transfer prompt allocation failures. | Distinguish low memory from a user's refusal. | #731 | GPT-6 |
+// | 2026-11-13 | Show terminal thin-copy errors without retry controls. | Preserve the native caption, target and error when retry is unsafe. | #731 | GPT-6 |
+// | 2026-11-13 | Distinguish experimental thin copy consent. | Avoid claiming support for alternate streams. | #731 | GPT-6 |
+// | 2026-11-12 | Hand thin F5 completion to the main UI thread. | Complete foreground activation before closing progress. | #731 | GPT-6 |
+// | 2026-11-12 | Return thin F5 progress focus without overriding later input. | Keep the native panel active after a short elevated operation. | #731 | GPT-6 |
+// | 2026-11-12 | Guard native singleton overwrite and post-cancel recovery warning. | Keep this UAC slice reviewable and fail closed. | #731 | GPT-6 (Codex) |
+// | 2026-11-11 | Guard typed overwrite prompts during nested dispatch. | Keep native prompt payload alive until the worker resumes. | #731 | GPT-6 (Codex) |
+// | 2026-11-11 | Resolve native conflict dialogs against their original snapshot. | Discard stale answers when Scan Ahead changes the conflict. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Explain uncertain disk overwrite recovery. | Point users to preserved backup and journal files. | #731 | GPT-6.1 Terra |
+// | 2026-11-10 | Respect refused UAC consent in the same delete scope. | Suppress repeated system prompts while allowing an explicit retry. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Display the approved roots for an existing F5 tree. | Keep the consent scope independent of the first denied entry. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Show the scope of the rooted F5 consent. | Describe the selected trees instead of their parent directories. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Describe the directory rename used for same-volume F6. | Show the exact source and destination in the existing transfer dialog. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Use accepted Copy/Move OK for the first matching target denial. | Avoid a duplicate Administrator button while preserving normal consent. | #731 | GPT-6 (Codex) |
+// | 2026-11-10 | Honor the initial shield for one verified permanent deletion. | Go straight to Windows for the explicitly approved item. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Use the shielded metadata confirmation for the same denied item. | Go straight to Windows consent for one verified change. | #731 | GPT-6.1 Sol (Codex) |
+// | 2026-11-10 | Update the Change Attributes OK shield from the selected options. | Leave elevation and write handling in the existing worker. | #731 | GPT-6 (Codex) |
+// | 2026-11-10 | Handle UAC foreground return on the owner thread. | Avoid activating a dialog directly from the broker worker. | #731 | GPT-6 (Codex) |
+// | 2026-11-09 | Suppress queued conflict prompts during cancellation. | Keep Scan Ahead from reopening a prompt during job shutdown. | | Codex |
+// | 2026-11-09 | Show the Windows shield while an elevated job runs. | Restore the previous small caption icon when the broker returns. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Release closed leaf broker sessions during a batch. | Keep metadata and deletion scopes only while connected. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Show both options in protected F5 consent. | Explain that compression and permissions will both be preserved. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Share one consent across matching leaf mutations. | Display the approved directory and preserve default Cancel. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Report only uncertain broker outcomes in the consent dialog. | Let the ordinary worker dialog handle confirmed failures. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Reuse approved F5 and F6 scopes in the progress dialog. | Ask again only for a different scope. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Describe EFS preservation in the F5 consent. | Identify what the elevated copy will preserve. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Explain the scope of elevated batch items. | Make cancellation and completed items predictable. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Identify the protected F5 replacement. | Show the authorized replacement paths. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Share the protected read consent prompt with F3. | Keep the scope and shield consistent. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Offer explicit administrator consent for a protected read. | Keep the exact folder and operation visible in a shared prompt. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Describe a refused EFS broker copy. | Report the exact boundary when EFS is detected after consent. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Identify the security scope in F5 consent. | Show the owner and access rules covered by the request. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Describe junction deletion in the consent prompt. | Identify the link and explain that its target is kept. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Identify directory symbolic links in permanent-delete consent. | Make clear that the linked folder is kept. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Identify file symbolic links in permanent-delete consent. | Describe the exact object approved for deletion. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Describe compression preservation in F5 consent. | Show the attribute requested from the broker. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | State when a protected F5 skips named streams. | Make the selected stream behavior visible at consent. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Select consent text for folder attributes. | Keep timestamp-only and ordinary file prompts specific. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Describe a folder timestamp change in the UAC prompt. | Distinguish the directory and file scopes. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Keep Cancel responsive during a protected tree copy. | Show the confirmed result even after a cancel request. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Show tree copy consent from the admitted progress dialog. | Keep queued tree operations behind the FIFO barrier. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-07 | Show the shield on Administrator in permanent-delete consent. | Keep Cancel as the default independently of the shield. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-07 | Confirm the exact permanent delete path in the progress dialog. | Default to Cancel and report an unconfirmed deletion without replay. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-07 | Show the metadata UAC consent on the progress dialog thread. | Keep secure consent and uncertain results in the existing UI. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Show the exact F5 source and target before broker consent. | Default to Cancel and show failures without replay. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Show exact F6 paths and the move-specific result. | Share the F5 consent UI while keeping the requested action explicit. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Pass lock paths with a typed payload and format localized text safely. | Address CodeQL findings in the file-lock recovery dialog. | https://github.com/KRtkovo-eu-AI/salamander/pull/842 | GPT-6 (Codex) |
 // | 2026-11-09 | Offer lock-process recovery in file error dialogs. | Let users resolve sharing failures without installing an extension. | https://github.com/KRtkovo-eu-AI/salamander/issues/836 | GPT-6 (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#ifdef SAM_UAC_THIN_COPY_TEST
+#include "uac_thin_foreground.h"
+#endif
 
 #include "mainwnd.h"
 #include "plugins.h"
@@ -20,6 +72,21 @@
 #include "menu.h"
 #include "consts.h"
 #include "common/widepath.h"
+
+bool ConfirmProtectedRead(HWND owner, int caption, int description, const std::wstring& path)
+{
+    const std::string message = std::string(LoadStr(description)) + "\n\n" +
+                                SalWideToMultiBytePath(path.c_str(), CP_UTF8);
+    const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
+    MSGBOXEX_PARAMS consent{};
+    consent.HParent = owner;
+    consent.Text = message.c_str();
+    consent.Caption = LoadStr(caption);
+    consent.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_ICONQUESTION | MSGBOXEX_DEFBUTTON2 | MSGBOXEX_SHIELDONOKBTN;
+    consent.AliasBtnNames = alias.c_str();
+    return SalMessageBoxEx(&consent) == IDOK;
+}
+#include "uacbroker/f7pilot.h"
 
 CConfiguration Configuration;
 
@@ -80,31 +147,88 @@ CChangeAttrDialog::CChangeAttrDialog(HWND parent, DWORD attr, DWORD attrDiff,
     HAccessedTime = NULL;
 }
 
+static bool ReadAttributeDialogTime(const SYSTEMTIME& date, HWND clock, SYSTEMTIME& value, FILETIME& local)
+{
+    if (DateTime_GetSystemtime(clock, &value) != GDT_VALID)
+        return false;
+    value.wYear = date.wYear;
+    value.wMonth = date.wMonth;
+    value.wDayOfWeek = date.wDayOfWeek;
+    value.wDay = date.wDay;
+    value.wMilliseconds = 0;
+    return SystemTimeToFileTime(&value, &local) != FALSE;
+}
+
 BOOL CChangeAttrDialog::GetAndValidateTime(CTransferInfo* ti, int resIDDate, int resIDTime, SYSTEMTIME* time)
 {
-    HWND hDate = GetDlgItem(HWindow, resIDDate);
-    HWND hTime = GetDlgItem(HWindow, resIDTime);
-
-    SYSTEMTIME st;
-    SYSTEMTIME st2;
-    DateTime_GetSystemtime(hDate, &st);
-    DateTime_GetSystemtime(hTime, &st2);
-    st2.wYear = st.wYear;
-    st2.wMonth = st.wMonth;
-    st2.wDayOfWeek = st.wDayOfWeek;
-    st2.wDay = st.wDay;
-    st2.wMilliseconds = 0;
-
-    FILETIME dummyFT;
-    if (!SystemTimeToFileTime(&st2, &dummyFT))
+    SYSTEMTIME date{}, value{};
+    FILETIME local{};
+    if (DateTime_GetSystemtime(GetDlgItem(HWindow, resIDDate), &date) != GDT_VALID ||
+        !ReadAttributeDialogTime(date, GetDlgItem(HWindow, resIDTime), value, local))
     {
         SalMessageBox(HWindow, LoadStr(IDS_INVALIDDATE), LoadStr(IDS_ERRORTITLE),
                       MB_OK | MB_ICONEXCLAMATION);
         ti->ErrorOn(resIDDate);
         return FALSE;
     }
-    *time = st2;
+    *time = value;
     return TRUE;
+}
+
+void CChangeAttrDialog::UpdateElevationShield()
+{
+    if (!ElevationShieldProbe)
+        return;
+    bool required = false;
+    if (IsDlgButtonChecked(HWindow, IDC_RECURSESUBDIRS) != BST_CHECKED)
+    {
+        const auto readTime = [](HWND dateControl, HWND clock, LONGLONG& time) {
+            SYSTEMTIME date{}, value{};
+            const DWORD selected = DateTime_GetSystemtime(dateControl, &date);
+            if (selected == GDT_NONE)
+                return true;
+            FILETIME local{}, utc{};
+            if (selected != GDT_VALID || !ReadAttributeDialogTime(date, clock, value, local) ||
+                !LocalFileTimeToFileTime(&local, &utc))
+                return false;
+            ULARGE_INTEGER ticks{};
+            ticks.LowPart = utc.dwLowDateTime;
+            ticks.HighPart = utc.dwHighDateTime;
+            time = static_cast<LONGLONG>(ticks.QuadPart);
+            return time > 0;
+        };
+
+        UacF7::MetadataChange times{};
+        if (readTime(HCreatedDate, HCreatedTime, times.created) &&
+            readTime(HAccessedDate, HAccessedTime, times.accessed) &&
+            readTime(HModifiedDate, HModifiedTime, times.modified))
+        {
+            constexpr struct
+            {
+                int control;
+                DWORD attribute;
+            } attributes[] = {
+                {IDC_ARCHIVE, FILE_ATTRIBUTE_ARCHIVE},
+                {IDC_READONLY, FILE_ATTRIBUTE_READONLY},
+                {IDC_HIDDEN, FILE_ATTRIBUTE_HIDDEN},
+                {IDC_SYSTEM, FILE_ATTRIBUTE_SYSTEM},
+                {IDC_COMPRESSED, FILE_ATTRIBUTE_COMPRESSED},
+                {IDC_ENCRYPTED, FILE_ATTRIBUTE_ENCRYPTED},
+            };
+            DWORD set = 0, clear = 0;
+            for (const auto& item : attributes)
+            {
+                const auto state = IsDlgButtonChecked(HWindow, item.control);
+                if (state == BST_CHECKED)
+                    set |= item.attribute;
+                else if (state == BST_UNCHECKED)
+                    clear |= item.attribute;
+            }
+            required = ElevationShieldProbe(set, clear, times, ElevationShieldContext);
+        }
+    }
+    Button_SetElevationRequiredState(GetDlgItem(HWindow, IDOK), required);
+    ElevationShieldShown = required;
 }
 
 void CChangeAttrDialog::Transfer(CTransferInfo& ti)
@@ -154,6 +278,7 @@ void CChangeAttrDialog::Transfer(CTransferInfo& ti)
             ret &= GetAndValidateTime(&ti, IDC_ATTR_CREATED_DATE, IDC_ATTR_CREATED_TIME, &TimeCreated);
         if (ret & ChangeTimeAccessed)
             ret &= GetAndValidateTime(&ti, IDC_ATTR_ACCESSED_DATE, IDC_ATTR_ACCESSED_TIME, &TimeAccessed);
+        ElevationShieldAccepted = ret && ElevationShieldShown;
     }
 
     if (ti.Type == ttDataToWindow)
@@ -185,7 +310,9 @@ CChangeAttrDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         HCreatedTime = GetDlgItem(HWindow, IDC_ATTR_CREATED_TIME);
         HAccessedDate = GetDlgItem(HWindow, IDC_ATTR_ACCESSED_DATE);
         HAccessedTime = GetDlgItem(HWindow, IDC_ATTR_ACCESSED_TIME);
-        break;
+        const auto result = CCommonDialog::DialogProc(uMsg, wParam, lParam);
+        UpdateElevationShield();
+        return result;
     }
     case WM_COMMAND:
     {
@@ -271,7 +398,10 @@ CChangeAttrDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 }
                 break;
             }
+            default:
+                return CCommonDialog::DialogProc(uMsg, wParam, lParam);
             }
+            UpdateElevationShield();
         }
         break;
     }
@@ -280,7 +410,10 @@ CChangeAttrDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         LPNMHDR nmh = (LPNMHDR)lParam;
         if (nmh->code == DTN_DATETIMECHANGE)
+        {
             EnableWindows();
+            UpdateElevationShield();
+        }
         break;
     }
     }
@@ -464,7 +597,7 @@ CProgressDialog::CProgressDialog(HWND parent, COperations* script, const char* c
     NextTimeLeftUpdateTime = GetTickCount();
     TimeLeftLastValue.SetUI64(0);
 
-    if (Script != NULL && Script->IsCopyOrMoveOperation)
+    if (Script != NULL && Script->IsCopyOrMoveOperation && !Script->ProtectedTreeTransfer)
     {
         const char* mode = LoadStr(IDS_COPYMOVE_SCHED_TITLE_STORAGEAWARE);
         if (Script->CopyMoveTransferMode == CMS_SEQUENTIAL)
@@ -481,6 +614,8 @@ CProgressDialog::CProgressDialog(HWND parent, COperations* script, const char* c
 
 CProgressDialog::~CProgressDialog()
 {
+    if (BrokerShieldIcon != NULL)
+        DestroyIcon(BrokerShieldIcon);
     if (Worker != NULL)
         TRACE_E("Unexpected situation in CProgressDialog::~CProgressDialog(): worker thread is still alive!");
 }
@@ -877,6 +1012,35 @@ void CProgressDialog::SetWindowIcon()
     }
 }
 
+void NotifyNativeBrokerActivity(HWND dialog, bool active)
+{
+    SendMessage(dialog, WM_USER_UAC_PROGRESS_ACTIVE, active, 0);
+}
+
+void CProgressDialog::SetBrokerActive(bool active)
+{
+    if (active == BrokerShieldVisible)
+        return;
+    if (active)
+    {
+        if (BrokerShieldIcon == NULL)
+        {
+            SHSTOCKICONINFO info{};
+            info.cbSize = sizeof(info);
+            if (FAILED(SHGetStockIconInfo(SIID_SHIELD, SHGSI_ICON | SHGSI_SMALLICON, &info)))
+                return;
+            BrokerShieldIcon = info.hIcon;
+        }
+        PreviousSmallIcon = (HICON)SendMessage(HWindow, WM_SETICON, ICON_SMALL, (LPARAM)BrokerShieldIcon);
+    }
+    else
+    {
+        SendMessage(HWindow, WM_SETICON, ICON_SMALL, (LPARAM)PreviousSmallIcon);
+        PreviousSmallIcon = NULL;
+    }
+    BrokerShieldVisible = active;
+}
+
 int CProgressDialog::GetSelectedConflictIndex() const
 {
     if (HConflictOperations == NULL || Script == NULL)
@@ -944,6 +1108,15 @@ void CProgressDialog::EndConflictPromptPresentation()
     DeferredParallelProgress = NULL;
     DeferredProgressKind = dpkNone;
 
+    // Ending the worker can close this window during the nested modal loop.
+    // The deferred payload is still ours even when there is no UI to update.
+    if (Script == NULL || HWindow == NULL || !IsWindow(HWindow))
+    {
+        if (parallel != NULL) FreeParallelProgressMessage(parallel);
+        ConflictRefreshDeferred = FALSE;
+        return;
+    }
+
     if (progressKind == dpkParallel && parallel != NULL)
     {
         ParallelProgressActive = TRUE;
@@ -974,7 +1147,8 @@ void CProgressDialog::EndConflictPromptPresentation()
 void CProgressDialog::PromptNextConflict()
 {
     if (ConflictPromptActive || ConflictAutomaticPromptConsumed || Script == NULL ||
-        Script->CopyMoveConflictMode != CMCM_SCAN_AHEAD)
+        Script->CopyMoveConflictMode != CMCM_SCAN_AHEAD ||
+        CancelWorker || (CancelWorkerEvent != NULL && WaitForSingleObject(CancelWorkerEvent, 0) == WAIT_OBJECT_0))
         return;
 
     int index = -1;
@@ -986,16 +1160,20 @@ void CProgressDialog::PromptNextConflict()
     // Operation/dialog lifetime policy: opening the first automatic prompt consumes
     // the only automatic admission, regardless of its eventual result.
     ConflictAutomaticPromptConsumed = TRUE;
-    CCopyMoveConflictSnapshot conflict;
+    CCopyMoveConflictDecisionSnapshot conflict;
+    COperations* const promptScript = Script;
+    const HWND promptWindow = HWindow;
     BOOL decided = FALSE;
-    if (Script->GetConflictSnapshot(index, conflict))
+    if (Script->GetConflictDecisionSnapshot(index, conflict))
     {
         COperation& operation = Script->At(index);
+        const std::string targetName = operation.TargetName != NULL ? operation.TargetName : "";
+        const std::string sourceName = operation.SourceName != NULL ? operation.SourceName : "";
         char targetInfo[101], sourceInfo[101];
         std::wstring targetPath = operation.TargetNameWValid ? operation.TargetNameW :
-            SalMultiByteToWidePath(operation.TargetName, IsValidPathUtf8Text(operation.TargetName) ? CP_UTF8 : CP_ACP);
+            SalMultiByteToWidePath(targetName.c_str(), IsValidPathUtf8Text(targetName.c_str()) ? CP_UTF8 : CP_ACP);
         std::wstring sourcePath = operation.SourceNameWValid ? operation.SourceNameW :
-            SalMultiByteToWidePath(operation.SourceName, IsValidPathUtf8Text(operation.SourceName) ? CP_UTF8 : CP_ACP);
+            SalMultiByteToWidePath(sourceName.c_str(), IsValidPathUtf8Text(sourceName.c_str()) ? CP_UTF8 : CP_ACP);
         if (!targetPath.empty() && !sourcePath.empty())
         {
             targetPath = SalPathAddExtendedPrefixW(targetPath.c_str());
@@ -1003,20 +1181,36 @@ void CProgressDialog::PromptNextConflict()
             BOOL failed = FALSE;
             HANDLE target = HANDLES_Q(CreateFileW(targetPath.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL));
             HANDLE source = HANDLES_Q(CreateFileW(sourcePath.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL));
-            GetFileOverwriteInfo(targetInfo, _countof(targetInfo), target, operation.TargetName, NULL, &failed);
-            GetFileOverwriteInfo(sourceInfo, _countof(sourceInfo), source, operation.SourceName, NULL, &failed);
+            GetFileOverwriteInfo(targetInfo, _countof(targetInfo), target, targetName.c_str(), NULL, &failed);
+            GetFileOverwriteInfo(sourceInfo, _countof(sourceInfo), source, sourceName.c_str(), NULL, &failed);
             if (target != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(target));
             if (source != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(source));
-            COverwriteDlg dlg(HWindow, operation.TargetName, targetInfo, operation.SourceName,
-                              sourceInfo, FALSE, conflict.Type == cmctDirectoryExists);
+            COverwriteDlg dlg(promptWindow, targetName.c_str(), targetInfo, sourceName.c_str(),
+                              sourceInfo, FALSE, conflict.Conflict.Type == cmctDirectoryExists);
             int ret = (int)dlg.Execute();
-            if (ret == IDYES || ret == IDB_ALL)
-                Script->SetDeferredConflictDecision(index, cmcdOverwrite, ret == IDB_ALL);
-            else if (ret == IDB_SKIP || ret == IDB_SKIPALL)
-                Script->SetDeferredConflictDecision(index, cmcdSkip, ret == IDB_SKIPALL);
+            if (Script != promptScript || HWindow != promptWindow || !IsWindow(promptWindow) || CancelWorker ||
+                (CancelWorkerEvent != NULL && WaitForSingleObject(CancelWorkerEvent, 0) == WAIT_OBJECT_0))
+                return;
+            if (ret == IDYES || ret == IDB_ALL || ret == IDB_SKIP || ret == IDB_SKIPALL)
+            {
+                const auto decision = ret == IDYES || ret == IDB_ALL ? cmcdOverwrite : cmcdSkip;
+                decided = Script == promptScript && !CancelWorker &&
+                    Script->ResolveConflictSnapshot(conflict, decision, ret == IDB_ALL || ret == IDB_SKIPALL);
+                if (!decided && Script == promptScript && !CancelWorker)
+                {
+                    CCopyMoveConflictSnapshot current;
+                    ConflictPromptIndex = -1;
+                    if (Script->GetConflictSnapshot(index, current))
+                    {
+                        // A changed generation needs a new native decision, not
+                        // the answer just given for its predecessor.
+                        ConflictAutomaticPromptConsumed = FALSE;
+                        PostMessage(HWindow, WM_TIMER, IDT_UPDATESTATUS, 0);
+                    }
+                }
+            }
             else
                 ConflictPromptIndex = index;
-            decided = ret == IDYES || ret == IDB_ALL || ret == IDB_SKIP || ret == IDB_SKIPALL;
         }
     }
     if (decided)
@@ -1362,9 +1556,12 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
         }
 
-        Worker = StartWorker(Script, HWindow, AttrsData, ConvertData, WContinue,
-                             WorkerNotSuspended, CancelWorkerEvent, &CancelWorker, &OperationProgress,
-                             &SummaryProgress);
+        if (Script->ProtectedTreeTransfer)
+            EnableWindow(GetDlgItem(HWindow, IDB_PAUSERESUME), FALSE);
+        if (!Script->ProtectedTreeTransfer || IsInQueue)
+            Worker = StartWorker(Script, HWindow, AttrsData, ConvertData, WContinue,
+                                 WorkerNotSuspended, CancelWorkerEvent, &CancelWorker, &OperationProgress,
+                                 &SummaryProgress);
         if (Worker == NULL)
         {
             if (IsInQueue)
@@ -1428,6 +1625,27 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         return TRUE;
     }
+    case UacF7::restoreConsentForegroundMessage:
+        UacF7::RestoreConsentForeground(HWindow, reinterpret_cast<HWND>(wParam), static_cast<DWORD>(lParam));
+        return TRUE;
+#ifdef SAM_UAC_THIN_COPY_TEST
+    case UacF7::restoreThinProgressForegroundMessage:
+    {
+        ThinConsentReturned = false;
+        const HWND foreground = reinterpret_cast<HWND>(wParam);
+        const DWORD lastInput = static_cast<DWORD>(lParam);
+        if (!ThinProgressSnapshotMatches(foreground, lastInput))
+            return TRUE;
+        UacF7::RestoreConsentForeground(HWindow, foreground, lastInput);
+        ThinConsentReturned = ThinProgressIsActive(HWindow, lastInput);
+        return TRUE;
+    }
+#endif
+
+    case WM_USER_UAC_PROGRESS_ACTIVE:
+        SetBrokerActive(wParam != 0);
+        return TRUE;
+
     case WM_USER_SETDIALOG:
     {
         WPARAM progressWParam = wParam;
@@ -1595,8 +1813,13 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         //--- worker request to show a dialog
     case WM_USER_DIALOG:
     {
-        if (CancelWorker)
-            return TRUE; // should terminate, it should not request anything
+        if (CancelWorker && wParam != WORKER_DIALOG_UAC_TREE_RESULT && wParam != WORKER_DIALOG_UAC_TRANSFER_UNKNOWN &&
+            wParam != WORKER_DIALOG_UAC_DISK_RECOVERY_UNKNOWN
+#ifdef SAM_UAC_THIN_COPY_TEST
+            && wParam != WORKER_DIALOG_UAC_THIN_TERMINAL
+#endif
+            )
+            return TRUE; // other worker prompts are suppressed after cancellation
 
         if (DelayParallelProgressShow)
         {
@@ -1652,6 +1875,35 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             CFileErrorDlg dlg(HWindow, lockData->Caption, lockData->FileName, lockData->Error,
                               FALSE, 0, lockData->ExactPath);
             *lockData->Result = (int)dlg.Execute();
+            break;
+        }
+
+        case WORKER_DIALOG_UAC_OVERWRITE_PROBE:
+        {
+            auto* prompt = reinterpret_cast<CUacOverwriteProbePrompt*>(lParam);
+            if (!prompt || WorkerOverwriteProbePromptActive) break;
+            try
+            {
+                // Local ownership makes the visible data independent of list or
+                // operation changes during the modal dispatch.
+                CPathBuffer targetBuffer, sourceBuffer;
+                const std::string targetName = Script && Script->RemapNameFrom ?
+                    RemapNames(targetBuffer.Data(), targetBuffer.Capacity(), prompt->targetName.data(), Script) : prompt->targetName;
+                const std::string sourceName = Script && Script->RemapNameFrom ?
+                    RemapNames(sourceBuffer.Data(), sourceBuffer.Capacity(), prompt->sourceName.data(), Script) : prompt->sourceName;
+                const std::string targetInfo = prompt->targetInfo, sourceInfo = prompt->sourceInfo;
+                WorkerOverwriteProbePromptInvalidated = FALSE;
+                struct PromptGuard
+                {
+                    BOOL& active;
+                    explicit PromptGuard(BOOL& value) : active(value) { active = TRUE; }
+                    ~PromptGuard() { active = FALSE; }
+                } guard(WorkerOverwriteProbePromptActive);
+                COverwriteDlg dlg(HWindow, targetName.c_str(), targetInfo.c_str(), sourceName.c_str(), sourceInfo.c_str(), prompt->singleItem);
+                const int answer = static_cast<int>(dlg.Execute());
+                prompt->result = CancelWorker || WorkerOverwriteProbePromptInvalidated ? IDCANCEL : answer;
+            }
+            catch (const std::bad_alloc&) { prompt->error = ERROR_NOT_ENOUGH_MEMORY; prompt->result = IDCANCEL; }
             break;
         }
 
@@ -1749,6 +2001,241 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             CConfirmEncryptionLossDlg dlg(HWindow, (BOOL)(INT_PTR)data[1], data[2], (BOOL)(INT_PTR)data[3]);
             *(int*)data[0] = (int)dlg.Execute();
+            break;
+        }
+
+        case WORKER_DIALOG_UAC_TRANSFER:
+        {
+            auto& prompt = *reinterpret_cast<UacF7::TransferPrompt*>(lParam);
+            try
+            {
+                if (prompt.targetDenied && Script->ShieldedTransferTarget &&
+                    prompt.request.MatchesTargetDirectory(*Script->ShieldedTransferTarget))
+                {
+                    Script->ShieldedTransferTarget.reset();
+                    prompt.approved = !CancelWorker;
+                    break;
+                }
+                const bool moving = prompt.request.IsMove();
+                const bool tree = prompt.request.IsTree();
+                int confirmText = moving ? IDS_UAC_MOVE_CONFIRM : IDS_UAC_COPY_CONFIRM;
+                if (prompt.request.IsDirectoryMove())
+                    confirmText = IDS_UAC_RENAME_DIRECTORY_CONFIRM;
+                else if (prompt.request.IsOverwrite())
+                    confirmText = prompt.request.IgnoresAds() ? IDS_UAC_COPY_OVERWRITE_IGNORE_ADS_CONFIRM : IDS_UAC_COPY_OVERWRITE_CONFIRM;
+                else if (tree)
+                    confirmText = IDS_UAC_TREE_COPY_CONFIRM;
+                else if (prompt.request.PreservesSecurity())
+                    confirmText = prompt.request.PreservesCompression() ? IDS_UAC_COPY_COMPRESSED_SECURITY_CONFIRM
+                                                                         : IDS_UAC_COPY_SECURITY_CONFIRM;
+                else if (prompt.request.PreservesEncryption())
+                    confirmText = IDS_UAC_COPY_ENCRYPTED_CONFIRM;
+                else if (prompt.request.PreservesCompression())
+                    confirmText = IDS_UAC_COPY_COMPRESSED_CONFIRM;
+                else if (prompt.request.IgnoresAds())
+                    confirmText = IDS_UAC_COPY_IGNORE_ADS_CONFIRM;
+    #ifdef SAM_UAC_THIN_COPY_TEST
+                else if (prompt.kind == UacF7::TransferPromptKind::ThinPlainCopy && !moving && !tree)
+                    confirmText = IDS_UAC_THIN_COPY_CONFIRM;
+    #endif
+                const bool shareJob = Script->Count > 1 && prompt.request.CanShareJob();
+                std::string message = std::string(LoadStr(confirmText)) + "\n\n" +
+                                      prompt.sourcePath + "\n -> " + prompt.targetPath;
+                if (shareJob && !prompt.request.IsScopedTree())
+                {
+                    auto parent = [](std::string_view path) { return path.substr(0, path.rfind('\\') + 1); };
+                    message += std::string("\n\n") + LoadStr(IDS_UAC_TRANSFER_JOB_SCOPE) + "\n" +
+                               std::string(parent(prompt.sourcePath)) + "\n -> " + std::string(parent(prompt.targetPath));
+                }
+                else if (Script->Count > 1 && !prompt.request.IsScopedTree())
+                    message += std::string("\n\n") + LoadStr(IDS_UAC_BATCH_ITEM_SCOPE);
+                const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
+                MSGBOXEX_PARAMS confirm{};
+                confirm.HParent = HWindow;
+                confirm.Text = message.c_str();
+                confirm.Caption = LoadStr(moving ? IDS_MOVE : IDS_COPY);
+                confirm.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_ICONQUESTION | MSGBOXEX_DEFBUTTON2 | MSGBOXEX_SHIELDONOKBTN;
+                confirm.AliasBtnNames = alias.c_str();
+                prompt.approved = SalMessageBoxEx(&confirm) == IDOK && !CancelWorker;
+#ifdef SAM_UAC_THIN_COPY_TEST
+                prompt.batchScopeShownAndApproved = prompt.approved &&
+                    prompt.kind == UacF7::TransferPromptKind::ThinPlainCopy &&
+                    shareJob && !prompt.request.IsScopedTree();
+#endif
+            }
+            catch (const std::bad_alloc&)
+            {
+                // The worker must not mistake failure to construct the
+                // dialog for a refusal or close previously approved sessions.
+                prompt.approved = false;
+                prompt.promptError = ERROR_NOT_ENOUGH_MEMORY;
+            }
+            break;
+        }
+
+        case WORKER_DIALOG_UAC_TRANSFER_PROMPT_ERROR:
+        {
+            // This is a pre-broker error, unlike an uncertain transfer
+            // result. Cancellation takes precedence on the UI thread too.
+            if (CancelWorker)
+                break;
+            DWORD error = static_cast<DWORD>(lParam);
+            if (!CancelWorkerEvent)
+                error = ERROR_INVALID_HANDLE;
+            else
+            {
+                const DWORD wait = WaitForSingleObject(CancelWorkerEvent, 0);
+                if (wait == WAIT_OBJECT_0)
+                    break;
+                if (wait == WAIT_FAILED)
+                {
+                    error = GetLastError();
+                    if (error == ERROR_SUCCESS) error = ERROR_INVALID_HANDLE;
+                }
+                else if (wait != WAIT_TIMEOUT)
+                    error = ERROR_INVALID_HANDLE;
+            }
+            SalMessageBox(HWindow, GetErrorText(error), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+            break;
+        }
+
+        case WORKER_DIALOG_UAC_TRANSFER_UNKNOWN:
+        {
+            const bool moving = lParam != 0;
+            SalMessageBox(HWindow, LoadStr(moving ? IDS_UAC_MOVE_UNKNOWN : IDS_UAC_COPY_UNKNOWN),
+                          LoadStr(moving ? IDS_ERRORMOVE : IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+            break;
+        }
+
+        case WORKER_DIALOG_UAC_DISK_RECOVERY_UNKNOWN:
+        {
+            SalMessageBox(HWindow, LoadStr(IDS_UAC_DISK_RECOVERY_UNKNOWN),
+                          LoadStr(lParam ? IDS_ERRORMOVE : IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+            break;
+        }
+
+#ifdef SAM_UAC_THIN_COPY_TEST
+        case WORKER_DIALOG_UAC_THIN_TERMINAL:
+        {
+            const auto& error = *reinterpret_cast<const CThinTerminalFileError*>(lParam);
+            if (CancelWorker || (CancelWorkerEvent && WaitForSingleObject(CancelWorkerEvent, 0) == WAIT_OBJECT_0))
+            {
+                if (error.cleanupUncertain)
+                    SalMessageBox(HWindow, LoadStr(IDS_UAC_COPY_UNKNOWN), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+                break;
+            }
+            const char* description = GetErrorText(error.error);
+            const char* target = error.target ? error.target : "";
+            // Truncate only on a UTF-8 character boundary; other code pages
+            // may still shorten an unusually long name conservatively.
+            const auto prefix = [](const char* value, size_t limit) {
+                size_t length = strnlen_s(value, limit + 1);
+                if (length <= limit) return length;
+                length = limit;
+                while (length > 0 && (static_cast<unsigned char>(value[length]) & 0xc0) == 0x80) --length;
+                return length;
+            };
+            const size_t descriptionLength = prefix(description, 800);
+            const size_t targetLength = prefix(target, 3000);
+            const char* warning = error.cleanupUncertain ? LoadStr(IDS_UAC_COPY_UNKNOWN) : "";
+            const size_t warningLength = prefix(warning, 240);
+            char text[4096];
+            _snprintf_s(text, _countof(text), _TRUNCATE, "%.*s%s\n\n%.*s%s%s%.*s%s",
+                        static_cast<int>(descriptionLength), description, description[descriptionLength] ? "..." : "",
+                        static_cast<int>(targetLength), target, target[targetLength] ? "..." : "",
+                        warningLength ? "\n\n" : "", static_cast<int>(warningLength), warning,
+                        warning[warningLength] ? "..." : "");
+            SalMessageBox(HWindow, text, LoadStr(error.caption), MB_OK | MB_ICONEXCLAMATION);
+            break;
+        }
+#endif
+
+        case WORKER_DIALOG_UAC_TREE_RESULT:
+        {
+            const auto& result = *reinterpret_cast<const UacF7::Result*>(lParam);
+            if (result.unknown || (result.error != ERROR_SUCCESS && result.error != ERROR_CANCELLED))
+                SalMessageBox(HWindow, result.unknown ? LoadStr(IDS_UAC_TREE_COPY_UNKNOWN) : GetErrorText(result.error),
+                              LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+            else if (result.error == ERROR_SUCCESS)
+                MainWindow->PostChangeOnPathNotification(Script->WaitInQueueTo, TRUE);
+            break;
+        }
+
+        case WORKER_DIALOG_UAC_METADATA:
+        case WORKER_DIALOG_UAC_DELETE:
+        {
+            const bool deleting = wParam == WORKER_DIALOG_UAC_DELETE;
+            auto& prompt = *reinterpret_cast<UacF7::LeafPrompt*>(lParam);
+            int confirmText = deleting ? IDS_UAC_DELETE_CONFIRM : IDS_UAC_METADATA_CONFIRM;
+            int unknownText = deleting ? IDS_UAC_DELETE_UNKNOWN : IDS_UAC_METADATA_UNKNOWN;
+            if (prompt.request.IsDirectoryDelete())
+                confirmText = IDS_UAC_DELETE_EMPTY_DIRECTORY_CONFIRM;
+            else if (prompt.request.IsJunctionDelete())
+                confirmText = IDS_UAC_DELETE_JUNCTION_CONFIRM;
+            else if (prompt.request.IsDirectorySymlinkDelete())
+                confirmText = IDS_UAC_DELETE_DIRECTORY_SYMLINK_CONFIRM;
+            else if (prompt.request.IsSymlinkDelete())
+                confirmText = IDS_UAC_DELETE_SYMLINK_CONFIRM;
+            else if (prompt.request.IsDirectoryMetadata())
+            {
+                const bool attributes = prompt.request.ChangesAttributes();
+                confirmText = attributes ? IDS_UAC_DIRECTORY_ATTRS_CONFIRM : IDS_UAC_DIRECTORY_TIMES_CONFIRM;
+                unknownText = attributes ? IDS_UAC_DIRECTORY_ATTRS_UNKNOWN : IDS_UAC_DIRECTORY_TIMES_UNKNOWN;
+            }
+            const bool shareJob = Script->Count > 1;
+            const bool trackDeleteRefusal = deleting && shareJob;
+            UacF7::TransferJobScope deleteScope;
+            if (trackDeleteRefusal)
+            {
+                deleteScope = prompt.request.JobScope();
+                const auto declined = std::find_if(DeclinedDeleteScopes.begin(), DeclinedDeleteScopes.end(),
+                    [&](const auto& scope) { return scope.Matches(deleteScope); });
+                if (declined != DeclinedDeleteScopes.end())
+                {
+                    if (!prompt.retryDeclined)
+                        break; // Leave the cancellation result for the worker's usual error choices.
+                    DeclinedDeleteScopes.erase(declined);
+                }
+            }
+            auto existing = shareJob ? std::find_if(TransferJobs.begin(), TransferJobs.end(),
+                                                     [&](const auto& job) { return prompt.request.IsInJob(job); })
+                                     : TransferJobs.end();
+            bool approved = existing != TransferJobs.end() || ((deleting || !shareJob) && prompt.shieldedOk);
+            if (!approved)
+            {
+                std::string message = std::string(LoadStr(confirmText)) + "\n\n" + prompt.path;
+                if (shareJob && !prompt.request.IsDirectoryDelete())
+                {
+                    const std::string_view path(prompt.path);
+                    message += std::string("\n\n") + LoadStr(IDS_UAC_LEAF_JOB_SCOPE) + "\n" +
+                               std::string(path.substr(0, path.rfind('\\') + 1));
+                }
+                const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
+                MSGBOXEX_PARAMS confirm{};
+                confirm.HParent = HWindow;
+                confirm.Text = message.c_str();
+                confirm.Caption = LoadStr(deleting ? IDS_CONFIRM_DELETE_TITLE : IDS_CHANGEATTRSTITLE);
+                confirm.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_DEFBUTTON2 | MSGBOXEX_SHIELDONOKBTN |
+                                (deleting ? MSGBOXEX_ICONEXCLAMATION : MSGBOXEX_ICONQUESTION);
+                confirm.AliasBtnNames = alias.c_str();
+                approved = SalMessageBoxEx(&confirm) == IDOK;
+            }
+            if (approved && !CancelWorker)
+            {
+                const bool newScope = existing == TransferJobs.end();
+                if (shareJob && newScope)
+                    existing = TransferJobs.emplace(TransferJobs.end());
+                prompt.result = prompt.request.Execute(HWindow, existing != TransferJobs.end() ? &*existing : nullptr,
+                                                       NotifyNativeBrokerActivity);
+                if (trackDeleteRefusal && newScope && !prompt.result.unknown && prompt.result.error == ERROR_CANCELLED)
+                    DeclinedDeleteScopes.push_back(std::move(deleteScope));
+                if (existing != TransferJobs.end() && (CancelWorker || !existing->IsOpen()))
+                    TransferJobs.erase(existing);
+                if (prompt.result.unknown)
+                    SalMessageBox(HWindow, LoadStr(unknownText),
+                                  LoadStr(deleting ? IDS_ERRORDELETINGFILE : IDS_ERRORCHANGINGATTRS),
+                                  MB_OK | MB_ICONEXCLAMATION);
+            }
             break;
         }
         }
@@ -2070,6 +2557,8 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
         {
             if (!IsWindowEnabled(HWindow)) // there is a modal dialog above this dialog (a message box asking about operation canceling or reporting an error)
                 CloseAllOwnedEnabledDialogs(HWindow);
+            for (auto& job : TransferJobs)
+                job.Close();
             CancelWorker = TRUE; // set worker cancel
             if (CancelWorkerEvent != NULL) SetEvent(CancelWorkerEvent);
             EnableWindow(GetDlgItem(HWindow, IDB_PAUSERESUME), FALSE);
@@ -2137,24 +2626,58 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
 
     case WM_USER_PROGRDLGEND: // probably needless on W2K+: we had to delay the dialog termination a bit
     {
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (ThinHandoffInProgress)
+            return TRUE;
+#endif
         uMsg = WM_COMMAND;
-        if (RunningInOwnThread && !Configuration.AlwaysOnTop && GetForegroundWindow() == HWindow)
+#ifdef SAM_UAC_THIN_COPY_TEST
+        bool thinCompletionSelected = false;
+        DWORD thinCompletionInput = 0;
+#endif
+        if (RunningInOwnThread &&
+#ifdef SAM_UAC_THIN_COPY_TEST
+            (!Configuration.AlwaysOnTop || ThinConsentReturned) &&
+#else
+            !Configuration.AlwaysOnTop &&
+#endif
+            GetForegroundWindow() == HWindow)
         {
             // Prior to Windows Vista we only called GetNextWindow(), which was enough to reach the next window in the Z-order.
             // Vista introduced new hidden helper windows such as "MSCTFIME UI" and "Default IME" that sit between us and 
             // our window (main, viver, ect.). So we skip hidden windows here.
-            BOOL valid;
-            HWND hNext = HWindow;
-            do
+#ifdef SAM_UAC_THIN_COPY_TEST
+            if (ThinConsentReturned)
             {
-                hNext = GetNextWindow(hNext, GW_HWNDNEXT);
-                //          TRACE_I("WM_USER_PROGRDLGEND hNext=0x"<<std::hex<<hNext);
-                if (hNext != NULL)
-                    valid = IsWindowVisible(hNext) && IsWindowEnabled(hNext);
-                else
-                    valid = FALSE;
-            } while (hNext != NULL && hNext != HWindow && !valid);
-            NextForegroundWindow = hNext;
+                // Do not use the legacy deferred activation for this path if
+                // its target or input snapshot cannot be verified.
+                thinCompletionSelected = true;
+                NextForegroundWindow = NULL;
+                const HWND thinTarget = ThinProgressReturnTarget(HWindow,
+                    MainWindow ? MainWindow->HWindow : nullptr, true);
+                LASTINPUTINFO input{sizeof(input)};
+                if (thinTarget && GetLastInputInfo(&input) && ThinProgressIsActive(HWindow, input.dwTime))
+                {
+                    NextForegroundWindow = thinTarget;
+                    thinCompletionInput = input.dwTime;
+                }
+            }
+            else
+#endif
+            {
+                BOOL valid;
+                HWND hNext = HWindow;
+                do
+                {
+                    hNext = GetNextWindow(hNext, GW_HWNDNEXT);
+                    //          TRACE_I("WM_USER_PROGRDLGEND hNext=0x"<<std::hex<<hNext);
+                    if (hNext != NULL)
+                        valid = IsWindowVisible(hNext) && IsWindowEnabled(hNext);
+                    else
+                        valid = FALSE;
+                } while (hNext != NULL && hNext != HWindow && !valid);
+                NextForegroundWindow = hNext;
+            }
         }
         if (IsInQueue)
         {
@@ -2167,6 +2690,32 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
             }
         }
         IsInQueue = FALSE;
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (thinCompletionSelected)
+        {
+            // EndDialog can hide the progress window before WM_DESTROY. Try
+            // while it is still foreground, after giving the queue priority.
+            // Never defer this activation past a possible user focus switch.
+            if (NextForegroundWindow != NULL &&
+                ThinProgressIsActive(HWindow, thinCompletionInput) &&
+                ThinProgressReturnTarget(HWindow, MainWindow ? MainWindow->HWindow : nullptr, true) == NextForegroundWindow)
+            {
+                const HWND progressWindow = HWindow;
+                const HWND targetWindow = NextForegroundWindow;
+                // A reentrant WM_DESTROY must not run the legacy deferred
+                // activation while this guarded handoff is in flight.
+                NextForegroundWindow = NULL;
+                ThinHandoffInProgress = true;
+                ThinSendMainForegroundHandoff(progressWindow, targetWindow, thinCompletionInput, false);
+                ThinHandoffInProgress = false;
+                // A sent message can reenter and destroy this dialog. Its C++
+                // object stays on the dialog thread's stack until Execute ends.
+                if (!IsWindow(progressWindow) || HWindow != progressWindow)
+                    return TRUE;
+            }
+            NextForegroundWindow = NULL;
+        }
+#endif
         break;
     }
 
@@ -2186,19 +2735,23 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
             BOOL retainedPrompt = index >= 0 && index == ConflictPromptIndex;
             if (index >= 0)
             {
-                CCopyMoveConflictSnapshot conflict;
-                if (Script->GetConflictSnapshot(index, conflict))
+                CCopyMoveConflictDecisionSnapshot conflict;
+                if (Script->GetConflictDecisionSnapshot(index, conflict))
                 {
+                    COperations* const promptScript = Script;
+                    const HWND promptWindow = HWindow;
                     CCopyMoveConflictDecision decision = cmcdSkip;
                     if (command == IDC_PROGRESS_SOLVE)
                     {
                         int ret = IDCANCEL;
                         char targetInfo[101], sourceInfo[101];
                         COperation& operation = Script->At(index);
+                        const std::string targetName = operation.TargetName != NULL ? operation.TargetName : "";
+                        const std::string sourceName = operation.SourceName != NULL ? operation.SourceName : "";
                         std::wstring targetPath = operation.TargetNameWValid ? operation.TargetNameW :
-                            SalMultiByteToWidePath(operation.TargetName, IsValidPathUtf8Text(operation.TargetName) ? CP_UTF8 : CP_ACP);
+                            SalMultiByteToWidePath(targetName.c_str(), IsValidPathUtf8Text(targetName.c_str()) ? CP_UTF8 : CP_ACP);
                         std::wstring sourcePath = operation.SourceNameWValid ? operation.SourceNameW :
-                            SalMultiByteToWidePath(operation.SourceName, IsValidPathUtf8Text(operation.SourceName) ? CP_UTF8 : CP_ACP);
+                            SalMultiByteToWidePath(sourceName.c_str(), IsValidPathUtf8Text(sourceName.c_str()) ? CP_UTF8 : CP_ACP);
                         if (targetPath.empty() || sourcePath.empty())
                             return TRUE;
                         targetPath = SalPathAddExtendedPrefixW(targetPath.c_str());
@@ -2206,30 +2759,44 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
                         BOOL failed = FALSE;
                         HANDLE target = HANDLES_Q(CreateFileW(targetPath.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL));
                         HANDLE source = HANDLES_Q(CreateFileW(sourcePath.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL));
-                        GetFileOverwriteInfo(targetInfo, _countof(targetInfo), target, operation.TargetName, NULL, &failed);
-                        GetFileOverwriteInfo(sourceInfo, _countof(sourceInfo), source, operation.SourceName, NULL, &failed);
+                        GetFileOverwriteInfo(targetInfo, _countof(targetInfo), target, targetName.c_str(), NULL, &failed);
+                        GetFileOverwriteInfo(sourceInfo, _countof(sourceInfo), source, sourceName.c_str(), NULL, &failed);
                         if (target != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(target));
                         if (source != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(source));
-                        COverwriteDlg dlg(HWindow, operation.TargetName, targetInfo, operation.SourceName,
-                                          sourceInfo, FALSE, conflict.Type == cmctDirectoryExists);
+                        COverwriteDlg dlg(promptWindow, targetName.c_str(), targetInfo, sourceName.c_str(),
+                                          sourceInfo, FALSE, conflict.Conflict.Type == cmctDirectoryExists);
                         CConflictPromptPresentationGuard presentation(this);
                         ret = (int)dlg.Execute();
+                        if (Script != promptScript || HWindow != promptWindow || !IsWindow(promptWindow) || CancelWorker ||
+                            (CancelWorkerEvent != NULL && WaitForSingleObject(CancelWorkerEvent, 0) == WAIT_OBJECT_0))
+                            return TRUE;
                         if (ret == IDYES || ret == IDB_ALL) decision = cmcdOverwrite;
                         else if (ret != IDB_SKIP && ret != IDB_SKIPALL)
                         {
                             return TRUE;
                         }
-                        if (selectedAction)
+                        const BOOL resolved = Script == promptScript && !CancelWorker &&
+                            Script->ResolveConflictSnapshot(conflict, decision, ret == IDB_ALL || ret == IDB_SKIPALL);
+                        if (resolved && selectedAction)
                             ConflictSelectionRowAfterRemoval = selectedRow;
-                        Script->SetDeferredConflictDecision(index,
-                            decision, ret == IDB_ALL || ret == IDB_SKIPALL);
                         ConflictPromptIndex = -1;
+                        if (!resolved && Script == promptScript && !CancelWorker)
+                        {
+                            CCopyMoveConflictSnapshot current;
+                            if (Script->GetConflictSnapshot(index, current))
+                            {
+                                ConflictAutomaticPromptConsumed = FALSE;
+                                PostMessage(HWindow, WM_TIMER, IDT_UPDATESTATUS, 0);
+                            }
+                        }
                         return TRUE;
                     }
-                    if (selectedAction)
+                    const BOOL resolved = Script->ResolveConflictSnapshot(conflict, decision, FALSE);
+                    if (resolved && selectedAction)
                         ConflictSelectionRowAfterRemoval = selectedRow;
-                    Script->SetDeferredConflictDecision(index, decision, FALSE);
                     if (retainedPrompt)
+                        ConflictPromptIndex = -1;
+                    else if (!resolved)
                         ConflictPromptIndex = -1;
                 }
             }
@@ -2257,10 +2824,21 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
         {
         case IDOK: // operation finished, called only by the worker, must not come from the dialog
         {
+            if (WorkerOverwriteProbePromptActive)
+            {
+                // The worker cannot legitimately finish while it is blocked in
+                // this synchronous prompt. Do not ReplyMessage or release its
+                // stack/event handles from a reentrant IDOK.
+                WorkerOverwriteProbePromptInvalidated = TRUE;
+                if (!IsWindowEnabled(HWindow)) CloseAllOwnedEnabledDialogs(HWindow);
+                return TRUE;
+            }
             if (!IsWindowEnabled(HWindow)) // if a modal dialog is open we must locate and close it
                 CloseAllOwnedEnabledDialogs(HWindow);
             if (InSendMessage())
                 ReplyMessage(0);                   // let the worker continue
+            for (auto& job : TransferJobs)
+                job.Close();
             Script = NULL;                         // script is freed in the worker thread, so we must not use it here anymore
             SetEvent(WContinue);                   // worker may start deleting the script
             WaitForSingleObject(Worker, INFINITE); // wait until it finishes and exits
@@ -2315,6 +2893,8 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
 
                 if (ret == IDYES)
                 {
+                    for (auto& job : TransferJobs)
+                        job.Close();
                     CancelWorker = TRUE; // set cancel of the worker
                     if (CancelWorkerEvent != NULL) SetEvent(CancelWorkerEvent);
                     EnableWindow(GetDlgItem(HWindow, IDB_PAUSERESUME), FALSE);
@@ -2341,6 +2921,8 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
         case CM_RESUMEOPER:   // resume posted from the operations queue
         case IDB_PAUSERESUME: // pause/resume
         {
+            if (LOWORD(wParam) == IDB_PAUSERESUME && Script != NULL && Script->ProtectedTreeTransfer)
+                return TRUE;
             if ((LOWORD(wParam) == CM_RESUMEOPER || AcceptCommands) && CanClose && !CancelWorker)
             {
                 AutoPaused = FALSE; // this may be a manual pause/resume or an automatic resume

@@ -1,0 +1,142 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Model the portable file-list exclusion identity. | Keep the controller seam aligned with the real panel header. | #731 | GPT-6.1 Sol |
+// | 2026-11-11 | Exercise the actual file-list UAC controller with isolated seams. | Preserve selections and refuse stale or unconfirmed work. | #731 | GPT-6.1 Sol |
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#include <commctrl.h>
+#include <cstdio>
+#include <cstring>
+#include <new>
+#include <string>
+#include <vector>
+
+constexpr int ptDisk = 1, IDS_ERRORTITLE = 1, IDS_ERRORDELETINGDIR = 2,
+    IDS_MAKEFILELIST_OUTPUT = 3, IDS_UAC_FILELIST_CREATE_CONFIRM = 4, IDS_UAC_DISK_RECOVERY_UNKNOWN = 5;
+namespace UacF7 { struct MoveFileIdentity { ULONGLONG serial = 0; BYTE id[16]{}; }; }
+struct CFileListExclusion { std::wstring Name; UacF7::MoveFileIdentity Identity{}; };
+static DWORD AttributeError = ERROR_FILE_NOT_FOUND, ExecuteError = ERROR_SUCCESS;
+static bool Exists = false, Approval = true, Current = true, Match = true, Unknown = false;
+static int Creates = 0, Generates = 0, Confirms = 0, Executes = 0, Notices = 0, Messages = 0;
+static std::string OutputPath;
+static std::string LastMessage;
+static BOOL Recursive = FALSE;
+static HINSTANCE HInstance = nullptr;
+struct CFilesWindow
+{
+    BOOL FilesActionInProgress = FALSE;
+    int Selection = 1;
+    ULONGLONG GetPanelTabId() const { return 123; }
+    bool Is(int kind) const { return kind == ptDisk; }
+    BOOL MakeFileList(HANDLE, BOOL recursive, const char* output, const CFileListExclusion* exclusion)
+    {
+        ++Generates; Recursive = recursive; OutputPath = output;
+        return exclusion && exclusion->Name == L"private";
+    }
+};
+struct CMainWindow
+{
+    HWND HWindow = nullptr;
+    void PostChangeOnPathNotification(char*, BOOL) { ++Notices; }
+};
+struct CFilesActionDiskTarget
+{
+    CFilesWindow* Panel = nullptr; ULONGLONG Tab = 123;
+    bool Capture(CMainWindow*, CFilesWindow* panel) { Panel = panel; return true; }
+    bool IsCurrent(CMainWindow*) const { return Current; }
+    static CFilesWindow* FindLive(CMainWindow*, CFilesWindow* panel) { return panel; }
+};
+static CFilesWindow* CurrentPanel = nullptr;
+bool ConfirmProtectedRead(HWND, int, int, const std::wstring&)
+{
+    ++Confirms;
+    CurrentPanel->Selection = 2; // Another selection arrives during the modal consent.
+    return Approval;
+}
+const char* LoadStr(int id) { return id == IDS_UAC_DISK_RECOVERY_UNKNOWN ? "RECOVERY_WARNING" : "message"; }
+const char* GetErrorText(DWORD) { return "error"; }
+void SalMessageBox(HWND, const char* text, const char*, UINT) { ++Messages; LastMessage = text; }
+void CutDirectory(char*) {}
+bool IsValidPathUtf8Text(const char*) { return true; }
+std::wstring SalMultiByteToWidePath(const char* value, UINT) { return std::wstring(value, value + strlen(value)); }
+std::string SalWideToMultiBytePath(const wchar_t*, UINT) { return "workspace"; }
+std::wstring SalPathAddExtendedPrefixW(const wchar_t* path) { return path; }
+DWORD WINAPI FakeGetFileAttributes(const wchar_t*)
+{
+    if (Exists) return FILE_ATTRIBUTE_NORMAL;
+    SetLastError(AttributeError);
+    return INVALID_FILE_ATTRIBUTES;
+}
+#define GetFileAttributesW FakeGetFileAttributes
+namespace UacFileList
+{
+struct Workspace
+{
+    using Reporter = void (*)(void*, const std::wstring&, DWORD);
+    using Fallback = void (*)(void*, const std::wstring&, DWORD) noexcept;
+    UacF7::MoveFileIdentity id{};
+    Workspace(Reporter, void*, Fallback) {}
+    DWORD Create() { ++Creates; return ERROR_SUCCESS; }
+    HANDLE Writer() const { return reinterpret_cast<HANDLE>(1); }
+    const std::wstring& DirectoryName() const { static const std::wstring s = L"private"; return s; }
+    const std::wstring& Path() const { static const std::wstring s = L"temp\\list.tmp"; return s; }
+    const UacF7::MoveFileIdentity& Identity() const { return id; }
+    const UacF7::MoveFileIdentity& ParentIdentity() const { return id; }
+    DWORD Seal() { return ERROR_SUCCESS; }
+    ULONGLONG Size() const { return 3; }
+};
+}
+namespace UacF7
+{
+enum class Operation { CopyIgnoreAds };
+struct Result { DWORD error = ERROR_SUCCESS; bool unknown = false; };
+struct PreparedTransfer
+{
+    bool Prepare(const std::wstring&, const std::wstring&, ULONGLONG, Operation op)
+    { return op == Operation::CopyIgnoreAds; }
+    bool MatchesSourceIdentity(const MoveFileIdentity&, const MoveFileIdentity&) const { return Match; }
+    Result Execute(HWND) { ++Executes; return {ExecuteError, Unknown}; }
+};
+}
+@@CONTROLLER@@
+#undef GetFileAttributesW
+
+int main()
+{
+    CMainWindow mainWindow;
+    CFilesWindow panel;
+    CurrentPanel = &panel;
+    int failures = 0;
+    const auto check = [&](bool pass, const char* text) {
+        std::printf("%s: %s\n", pass ? "PASS" : "FAIL", text); failures += !pass;
+    };
+    check(CreateProtectedFileList(&mainWindow, &panel, "C:\\target\\list.txt", TRUE) &&
+          panel.Selection == 2 && !panel.FilesActionInProgress && Executes == 1 && Notices == 1 &&
+          OutputPath == "C:\\target\\list.txt" && Recursive, "success keeps a selection changed during consent");
+    Approval = false; panel.Selection = 1;
+    check(CreateProtectedFileList(&mainWindow, &panel, "C:\\target\\cancel.txt", FALSE) &&
+          panel.Selection == 2 && Executes == 1 && Notices == 1 && !panel.FilesActionInProgress,
+          "declined consent does not execute or report completion");
+    Approval = true; AttributeError = ERROR_ACCESS_DENIED; ExecuteError = ERROR_FILE_EXISTS;
+    check(CreateProtectedFileList(&mainWindow, &panel, "C:\\target\\hidden.txt", FALSE) &&
+          Executes == 2 && Messages == 1 && Notices == 1, "hidden existing target is attempted only as create and reports collision");
+    AttributeError = ERROR_FILE_NOT_FOUND; ExecuteError = ERROR_SUCCESS; Unknown = true;
+    check(CreateProtectedFileList(&mainWindow, &panel, "C:\\target\\unknown.txt", FALSE) &&
+          Executes == 3 && Messages == 2 && Notices == 1, "unknown outcome is reported and not marked complete");
+    Unknown = false; Match = false;
+    check(!CreateProtectedFileList(&mainWindow, &panel, "C:\\target\\changed.txt", FALSE) &&
+          Executes == 3 && Confirms == 4, "changed source identity is rejected before consent");
+    Match = true; ExecuteError = ERROR_PARTIAL_COPY;
+    check(CreateProtectedFileList(&mainWindow, &panel, "C:\\target\\recovery.txt", FALSE) &&
+          Executes == 4 && Messages == 3 && Notices == 1 && LastMessage == "RECOVERY_WARNING",
+          "partial recovery explicitly warns about the retained journal");
+    ExecuteError = ERROR_SUCCESS;
+    Match = true; Exists = true;
+    const int creates = Creates;
+    check(!CreateProtectedFileList(&mainWindow, &panel, "C:\\target\\existing.txt", FALSE) &&
+          Creates == creates && Executes == 4, "known existing target never enters create-only fallback");
+    std::printf("%d failures\n", failures);
+    return failures ? 1 : 0;
+}

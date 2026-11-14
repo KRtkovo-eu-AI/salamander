@@ -1,4 +1,68 @@
+﻿// | 2026-11-13 | Localize experimental thin copy consent. | Avoid claiming support for alternate streams. | #731 | GPT-6 |
+// | 2026-11-12 | Describe uncertain partial Branch merges. | Avoid presenting a live retry as an atomic snapshot. | #731 | GPT-6.1 Terra |
+// | 2026-11-12 | Retry denied Branch listings after scoped consent. | Keep partial results and verify listed directory identities. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Explain unavailable Find result identity. | Prevent unsafe viewer fallback and suggest a new search. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Localize verified Find viewer limitations and consent. | Keep file identity and the snapshot choice clear. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Localize distinct incomplete Find reasons. | Report the actual omission without inventing a path or limit. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Explain the protected folder Recycle Bin limitation. | Report unsupported elevation without assuming the item state. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Localize the protected Find limit and incomplete status. | Explain omitted results without implying success. | #731 | GPT-6.1 Terra |
+// | 2026-11-08 | Explain the protected archive panel scope. | Localize the entry action message. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Explain retained disk overwrite recovery files. | Make an uncertain result actionable without implying data was removed. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Describe exact-file allocation consent. | Identify the selected file and metadata-only access. | #731 | GPT-6.1 Terra |
+// | 2026-11-10 | Describe administrator approval for any verified tree copy. | Use the same localized consent wording for registered and ordinary targets. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Explain exclusion of a verified Windows compatibility link. | Show why the target was not counted. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Explain why the size calculation is incomplete. | Preserve a visibly partial directory total. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Localize protected directory content comparison consent. | Show the exact subtree and operation before elevation. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Describe the scope of size consent. | Explain automatic reuse for protected folders. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Describe elevated ordinary-directory rename. | Identify the exact same-parent rename and both paths. | #731 | GPT-6.1 Sol (Codex) |
+// | 2026-11-10 | Describe the protected empty-directory removal prompt. | Clarify that elevation cannot remove unknown descendants. | #731 | GPT-6.1 Sol |
+// | 2026-11-09 | Describe combined protected F5 options. | Show both compression and security in the consent prompt. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Describe protected recycle consent. | Identify the original user's Recycle Bin in the administrator prompt. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Clarify unconfirmed copy and move results. | Cover both disconnects and partial operations. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Describe the approved leaf job scope. | Identify the folder and authorization lifetime. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Describe the transfer consent lifetime and paths. | Make the shared scope explicit. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Add an explicit EFS consent prompt. | Describe preservation of encryption. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Describe the single-file Find grant. | Show the file scope before Windows consent. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Use Find consent wording that covers duplicate content comparison. | Describe the granted access rather than the matching algorithm. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Explain protected content-search consent. | Identify content reading before elevation. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Explain cancellation in an elevated batch. | Distinguish completed changes from remaining items. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Describe the protected F5 replacement. | Distinguish replacement from creating a new copy. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Remove the standalone ZIP recovery wording. | Describe where to check an unconfirmed ZIP update. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Explain how to recover an interrupted ZIP update. | Make recovery discoverable after the archive name disappears. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Describe the separate protected ZIP write consent. | Explain when to check or refresh the archive after the broker responds. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Describe protected ZIP selection consent and partial outcomes. | Keep retry decisions explicit. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Describe protected extraction and its limited consent. | Clarify the supported operations in the archive panel. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Describe protected ZIP consent and read-only output. | Keep viewer refresh guidance valid for both snapshots and ZIP listings. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Identify the executable and document before administrator editing. | Make the scope of the Windows prompt clear. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Describe the protected size operation in the consent prompt. | Cover both logical and detailed size calculations. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Label unmeasured values in the full size dialog. | Distinguish an unavailable value from a zero measurement. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Explain protected viewer snapshots. | Keep the read-only scope and size limit visible. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Label logical size in a protected Ctrl+Q calculation. | Keep occupied space separate from logical file bytes. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Describe protected size and Find actions. | Make consent specific to the requested subtree and operation. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Explain unconfirmed Shell recycling. | Keep the operation result distinct from permanent deletion. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Explain the EFS copy boundary. | Avoid suggesting that administrator approval grants the encryption key. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Describe the protected security copy in consent. | Identify the authorized metadata in the F5 operation. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Describe junction deletion as a separate operation. | Identify the exact object covered by administrator consent. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Describe permanent deletion of a directory symbolic link. | Show the approved object in the broker consent prompt. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Describe permanent deletion of a file symbolic link. | Identify the link in the broker consent prompt. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Describe junction rename consent. | Tell users which link object the broker will rename. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Describe the affected symbolic link in rename consent. | Identify the object affected by the broker. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Explain compression preservation in F5 consent. | Name the attribute covered by the administrator request. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Describe default protected copy with alternate data streams. | Show the data covered by the administrator request. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Explain the main-stream-only copy in its consent prompt. | Tell the user which data will be copied. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Describe the folder attribute change. | Identify the selected folder and report an uncertain outcome. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Describe the directory timestamp operation. | Explain consent and uncertainty for a folder. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Use plain inventory labels. | Keep translations out of format-string arguments. | https://github.com/majklvi/salamander/security/code-scanning/13 | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Describe consent and an uncertain tree copy result. | Show the complete scope of one registered F5 request. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Describe the protected subtree inventory. | Distinguish logical size from occupied space and suppress incomplete results. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Add the F6 elevation text. | Identify the move and its uncertain outcome. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Add the one-file UAC copy prompts. | Describe consent and uncertain results. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-07 | Add F7 elevation strings. | Describe the exact action and a lost result. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-07 | Add the confirmation for elevated rename. | Identify both paths before invoking Windows UAC. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-07 | Add basic metadata consent and disconnect strings. | Explain the protected operation and unconfirmed outcome. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-07 | Add permanent-delete elevation messages. | Name the irreversible operation and report an unconfirmed result. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-07 | Describe the protected listing consent and status. | Explain its scope and read-only access. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Localize lock-aware file error recovery. | Identify locking processes and warn before terminating them from an operation error. | https://github.com/KRtkovo-eu-AI/salamander/issues/836 | GPT-6 (Codex) |
 // | 2026-11-09 | Localize the Change Drive block ordering selector. | Name both available first-block choices in the user's language. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
 // | 2026-11-09 | Localize adding new association patterns. | Give the existing text-input dialog clear instructions and report invalid or duplicate entries. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -2382,6 +2446,100 @@ STRINGTABLE
  IDS_BRANCH_REFRESH_STOPPED, "Branch View - refresh stopped; previous results retained (%I64u files)"
  IDS_BRANCH_PREPARING, "Branch View - preparing %I64u files; %I64u previous results retained"
  IDS_FILELAUNCH_ERROR_CODE, "Windows error:"
+ IDS_UAC_MKDIR_CONFIRM, "Access was denied. Create this folder as an administrator?"
+ IDS_UAC_MKDIR_UNKNOWN, "The broker disconnected before the result was confirmed. Check the destination before retrying."
+ IDS_UAC_RENAME_CONFIRM, "Access was denied. Rename this file as an administrator? The current path is shown first, followed by the new path."
+ IDS_UAC_RENAME_SYMLINK_CONFIRM, "Access was denied. Rename this symbolic link as an administrator?"
+ IDS_UAC_RENAME_JUNCTION_CONFIRM, "Access was denied. Rename this directory junction as an administrator?"
+ IDS_UAC_METADATA_CONFIRM, "Access was denied. Apply the requested attributes and times to this file as an administrator?"
+ IDS_UAC_METADATA_UNKNOWN, "The broker disconnected before the result was confirmed. Check the file's attributes and times before retrying."
+ IDS_UAC_DIRECTORY_TIMES_CONFIRM, "Access was denied. Set the requested times on this folder as an administrator?"
+ IDS_UAC_DIRECTORY_TIMES_UNKNOWN, "The broker disconnected before the result was confirmed. Check the folder's times before retrying."
+ IDS_UAC_DIRECTORY_ATTRS_CONFIRM, "Access was denied. Apply the requested attributes and any selected times to this folder as an administrator?"
+ IDS_UAC_DIRECTORY_ATTRS_UNKNOWN, "The broker disconnected before the result was confirmed. Check the folder's attributes and times before retrying."
+ IDS_UAC_DELETE_CONFIRM, "Access was denied. Permanently delete this file as an administrator?"
+ IDS_UAC_DELETE_EMPTY_DIRECTORY_CONFIRM, "Access was denied. Permanently delete this empty directory as an administrator?"
+ IDS_UAC_RENAME_DIRECTORY_CONFIRM, "Access was denied. Rename this directory as an administrator? The current path is shown first, followed by the new path."
+ IDS_UAC_SIZE_CONSENT_SCOPE, "This approval also covers protected folders under:"
+ IDS_UAC_COMPARE_CONTENT_CONFIRM, "Access was denied. Read file contents under this path as an administrator for this comparison?"
+ IDS_UAC_DELETE_SYMLINK_CONFIRM, "Access was denied. Permanently delete this symbolic link as an administrator? The linked file will be kept."
+ IDS_UAC_DELETE_DIRECTORY_SYMLINK_CONFIRM, "Access was denied. Permanently delete this directory symbolic link as an administrator? The linked folder will be kept."
+ IDS_UAC_DELETE_JUNCTION_CONFIRM, "Access was denied. Permanently delete this directory junction as an administrator? The linked folder will be kept."
+ IDS_UAC_RECYCLE_NOT_CONFIRMED, "Windows did not confirm that all items were moved to the Recycle Bin. Check the original location and the Recycle Bin before retrying."
+ IDS_UAC_RECYCLE_DIRECTORY_UNSUPPORTED, "Moving a protected folder to the Recycle Bin with administrator privileges is not supported yet."
+ IDS_UAC_DELETE_UNKNOWN, "The broker disconnected before deletion was confirmed. Check whether the file still exists before retrying."
+ IDS_UAC_LIST_CONFIRM, "Access was denied. List this folder and its subfolders as an administrator?"
+ IDS_UAC_LIST_ACTIVE, "Administrator listing"
+ IDS_UAC_SIZE_CONFIRM, "Access was denied. Calculate the size of this folder and its subfolders as an administrator?"
+ IDS_UAC_SIZE_FILE_CONFIRM, "Access was denied. Read this file's disk allocation as an administrator?"
+ IDS_UAC_FIND_FILE_CONFIRM, "Access was denied. Read this file for the current search as an administrator?"
+ IDS_UAC_FIND_CONTENT_CONFIRM, "Access was denied. Read file contents in this folder for the current search as an administrator? The search continues in accessible folders while you decide."
+ IDS_UAC_FIND_CONFIRM, "Access was denied. Search names and metadata in this folder as an administrator? The search continues in accessible folders while you decide."
+ IDS_UAC_FIND_WAIT, "Waiting for administrator access to a protected folder..."
+ IDS_UAC_FIND_SCOPE, "Searching the approved folder with administrator access."
+ IDS_UAC_FIND_SCOPE_LIMIT, "Administrator access limit reached (%s protected items). This item was not searched; results may be incomplete."
+ IDS_FIND_ACTIVITY_INCOMPLETE, "Incomplete (admin limit)"
+ IDS_FIND_ACTIVITY_INCOMPLETE_OTHER, "Incomplete (see log)"
+ IDS_FIND_INCOMPLETE_DIRECTORY_CAPACITY, "A directory listing exceeded its capacity. Some items were not searched."
+ IDS_FIND_INCOMPLETE_SCAN_BUDGET, "A protected subtree exceeded its item limit. Some items were not searched."
+ IDS_FIND_INCOMPLETE_DEPTH, "A protected subtree exceeded its depth limit. Some items were not searched."
+ IDS_FIND_INCOMPLETE_REPARSE, "Some link targets were not searched."
+ IDS_FIND_INCOMPLETE_PROTECTED_FAILURE, "Access to part of a protected tree was not approved or failed. Some items were not searched."
+ IDS_UAC_FIND_SCOPE_LIMIT_CARRIED, "An earlier search in these results reached the administrator access limit (%s protected items). Some items were not searched."
+ IDS_UAC_VIEW_CONFIRM, "Access was denied. Open a read-only snapshot of this file in the internal viewer as an administrator? The snapshot is limited to 16 MB."
+ IDS_UAC_VIEW_SNAPSHOT, "Administrator snapshot"
+ IDS_UAC_VIEW_REFRESH, "This is a read-only snapshot. Return to the panel to request a new snapshot."
+ IDS_UAC_VIEW_UNAVAILABLE, "The protected file could not be opened in the internal viewer."
+ IDS_UAC_VIEW_IDENTITY_HANDLER_UNSUPPORTED, "The selected viewer cannot yet safely open this verified result. Use the internal viewer."
+ IDS_UAC_VIEW_VERIFIED_CONFIRM, "This result is bound to a previously verified identity. Open a read-only snapshot in the internal viewer as an administrator? The snapshot is limited to 16 MB."
+ IDS_UAC_FIND_VIEW_IDENTITY_UNAVAILABLE, "The verified identity of this protected result is unavailable. The file cannot be opened safely; try running the search again."
+ IDS_UAC_FIND_VIEW_WITH_UNAVAILABLE, "View With cannot yet safely preserve the verified identity of this protected result. Use F3 instead."
+ IDS_UAC_FIND_REFINE_IDENTITY_UNAVAILABLE, "Content and tags of this protected result cannot currently be read safely using its previously verified identity during refinement. This item was not verified."
+ IDS_UAC_FILELIST_CREATE_CONFIRM, "Access was denied. Create this file list as an administrator?"
+ IDS_BRANCH_IDENTITY_UNAVAILABLE, "Some protected folders could not be safely identified and were not opened. The listing is incomplete. First folder:"
+ IDS_BRANCH_LIST_LIMIT, "A protected folder contains more than 4096 items. Its listing is incomplete."
+ IDS_BRANCH_MERGE_UNCERTAIN, "Branch View - %I64u files; results may be incomplete"
+ IDS_BRANCH_MERGE_UNCERTAIN_DETAIL, "A directory listing was interrupted and resumed. Files may have changed in the meantime, so the merged listing may be incomplete. Refresh to check."
+ IDS_UAC_EDIT_ADMIN_TITLE, "Edit as Administrator"
+ IDS_UAC_EDIT_ADMIN_CONFIRM, "Access was denied. Open the original file with the configured editor as an administrator? Windows will request permission for the editor shown below."
+ IDS_UAC_ZIP_TITLE, "Protected ZIP Listing"
+ IDS_UAC_ZIP_LIST_ONLY, "Use F3 to view a file or F5 to extract it. Opening in an external application is unavailable."
+ IDS_UAC_ZIP_WRITE_CONFIRM, "Access was denied. Extract the selected ZIP files and folders to the shown destination as an administrator?"
+ IDS_UAC_ZIP_EXTRACT_TARGET, "Select an existing local destination folder for this protected ZIP selection."
+ IDS_UAC_ZIP_EXTRACT_PARTIAL, "Extraction stopped after creating part of the ZIP selection. Check the destination before retrying."
+ IDS_UAC_ZIP_EDIT_TITLE, "Protected ZIP Update"
+ IDS_UAC_ZIP_EDIT_CONFIRM, "Save the prepared changes to this ZIP as an administrator?"
+ IDS_UAC_ZIP_EDIT_UNKNOWN, "Windows did not confirm a complete ZIP update. Check the archive and any backup left in its folder before retrying."
+ IDS_UAC_ZIP_EDIT_REFRESH, "The ZIP was updated. Refresh the archive panel to display the new contents."
+ IDS_UAC_ZIP_CONFIRM, "Access was denied. Read the contents of this ZIP as an administrator? The archive will be opened for reading only."
+ IDS_UAC_EDIT_ADMIN_UNTRUSTED, "Administrator mode requires an editor executable in a protected Windows or Program Files directory."
+ IDS_UAC_SIZE_NOT_AVAILABLE, "Not available"
+ IDS_UAC_TRANSFER_JOB_SCOPE, "Approval also applies to eligible files for this operation in the folders below, until this job ends."
+ IDS_UAC_LEAF_JOB_SCOPE, "Approval also applies to eligible items for this operation in the folder below, until this job ends."
+ IDS_UAC_RECYCLE_CONFIRM, "Access was denied. Move this file to your Recycle Bin as an administrator?"
+ IDS_UAC_BATCH_ITEM_SCOPE, "Approval applies to this item. Cancel stops the remaining items and keeps completed changes."
+ IDS_UAC_COPY_OVERWRITE_CONFIRM, "Access was denied. Replace this existing file as an administrator while keeping the destination permissions?"
+ IDS_UAC_COPY_OVERWRITE_IGNORE_ADS_CONFIRM, "Access was denied. Replace this file as an administrator while keeping the destination permissions? The replacement will not contain alternate data streams."
+ IDS_UAC_COPY_CONFIRM, "Access was denied. Copy this file and its alternate data streams as an administrator?"
+ IDS_UAC_THIN_COPY_CONFIRM, "Access was denied. Copy this file as an administrator? Files with alternate data streams are not supported in this mode."
+ IDS_UAC_COPY_IGNORE_ADS_CONFIRM, "Access was denied. Copy this file without its alternate data streams as an administrator?"
+ IDS_UAC_COPY_COMPRESSED_CONFIRM, "Access was denied. Copy this file and preserve its NTFS compression as an administrator?"
+ IDS_UAC_COPY_SECURITY_CONFIRM, "Access was denied. Copy this file and preserve its NTFS owner, group, and explicit permissions as an administrator?"
+ IDS_UAC_COPY_COMPRESSED_SECURITY_CONFIRM, "Access was denied. Copy this file and preserve its NTFS compression, owner, group, and explicit permissions as an administrator?"
+ IDS_UAC_COPY_ENCRYPTED_CONFIRM, "Access was denied. Copy this file as an administrator and preserve its EFS encryption?"
+ IDS_UAC_COPY_EFS_UNSUPPORTED, "This EFS copy could not be completed. Administrator mode cannot preserve the EFS encryption for this operation."
+ IDS_UAC_COPY_UNKNOWN, "The copy could not be confirmed as complete. Check the destination before retrying."
+ IDS_UAC_DISK_RECOVERY_UNKNOWN, "The operation could not be confirmed as complete. A working backup or journal may remain. Check the source, destination, and any backup before retrying."
+ IDS_UAC_MOVE_CONFIRM, "Access was denied. Move this file as an administrator?"
+ IDS_UAC_MOVE_UNKNOWN, "The move could not be confirmed as complete. Check the source and destination before retrying."
+ IDS_UAC_INVENTORY_TITLE, "Protected subtree inventory"
+ IDS_UAC_SIZE_COMPAT_ALIAS, "This Windows compatibility link was skipped. It contributes 0 bytes to the total."
+ IDS_UAC_INVENTORY_INCOMPLETE, "The directory size calculation could not scan the entire tree."
+ IDS_UAC_INVENTORY_FILES, "Files: "
+ IDS_UAC_INVENTORY_DIRECTORIES, "Subfolders: "
+ IDS_UAC_INVENTORY_BYTES, "Logical size (bytes): "
+ IDS_UAC_TREE_COPY_CONFIRM, "Copy this folder and its contents as an administrator?"
+ IDS_UAC_TREE_COPY_UNKNOWN, "The folder copy or its cleanup could not be confirmed. Check the destination before retrying."
  IDS_FILELAUNCH_PROGRAM_FAILED, "The program could not be started safely through Windows. It was not retried using another launch method."
  IDS_FILELAUNCH_DOCUMENT_FAILED, "The item could not be opened through Windows Shell. The selected item was not retried using another launch method."
  IDS_FILELAUNCH_LONGPATH_OFF, "Windows long-path setting: disabled."

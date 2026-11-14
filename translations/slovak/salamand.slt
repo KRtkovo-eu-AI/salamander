@@ -4369,9 +4369,123 @@ SLGINCOMPLETE,""
 14611,1,"Nepodarilo sa ukončiť žiadny proces používajúci tento súbor."
 
 [STRINGTABLE 193]
-14991,1,"Čítanie priradení súborov zo súborového úložiska, čakajte prosím..."
+14624,1,"Prístup bol odmietnutý. Vytvoriť tento priečinok ako správca?"
+14625,1,"Spojenie s pomocným procesom sa prerušilo pred potvrdením výsledku. Pred opakovaním skontrolujte cieľ."
+14626,1,"Prístup bol odmietnutý. Premenovať tento súbor ako správca? Prvý riadok uvádza súčasnú cestu, druhý novú."
+14627,1,"Prístup bol odmietnutý. Použiť požadované atribúty a časy tohto súboru ako správca?"
+14628,1,"Spojenie s pomocným procesom sa prerušilo pred potvrdením výsledku. Pred opakovaním skontrolujte atribúty a časy súboru."
+14629,1,"Prístup bol odmietnutý. Natrvalo odstrániť tento súbor ako správca?"
+14630,1,"Spojenie s pomocným procesom sa prerušilo pred potvrdením odstránenia. Pred opakovaním skontrolujte, či súbor ešte existuje."
+14631,1,"Prístup bol odmietnutý. Zobraziť výpis tohto priečinka a jeho podpriečinkov ako správca?"
+14632,1,"Výpis správcu"
+14633,1,"Prístup bol odmietnutý. Skopírovať tento súbor vrátane alternatívnych dátových prúdov ako správca?"
+14634,1,"Dokončenie kopírovania sa nepodarilo potvrdiť. Pred opakovaním skontrolujte cieľ."
+14635,1,"Prístup bol odmietnutý. Presunúť tento súbor ako správca?"
+14636,1,"Dokončenie presunu sa nepodarilo potvrdiť. Pred opakovaním skontrolujte zdroj aj cieľ."
+14637,1,"Súpis chráneného podstromu"
+14639,1,"Pri výpočte veľkosti sa nepodarilo prejsť celý adresárový strom."
 
 [STRINGTABLE 194]
+14640,1,"Súbory: "
+14641,1,"Podpriečinky: "
+14642,1,"Logická veľkosť (bajty): "
+14643,1,"Skopírovať tento priečinok a jeho obsah ako správca?"
+14644,1,"Kopírovanie priečinka alebo čistenie sa nepodarilo potvrdiť. Pred opakovaním skontrolujte cieľ."
+14645,1,"Prístup bol odmietnutý. Nastaviť požadované časové údaje tohto priečinka ako správca?"
+14646,1,"Spojenie s pomocným procesom sa prerušilo pred potvrdením výsledku. Pred opakovaním skontrolujte časové údaje priečinka."
+14647,1,"Prístup bol odmietnutý. Nastaviť požadované atribúty a prípadné vybrané časové údaje tohto priečinka ako správca?"
+14648,1,"Spojenie s pomocným procesom sa prerušilo pred potvrdením výsledku. Pred opakovaním skontrolujte atribúty a časové údaje priečinka."
+14649,1,"Prístup bol odmietnutý. Skopírovať tento súbor bez alternatívnych dátových prúdov ako správca?"
+14650,1,"Prístup bol odmietnutý. Skopírovať tento súbor so zachovaním kompresie NTFS ako správca?"
+14651,1,"Prístup bol odmietnutý. Premenovať tento symbolický odkaz ako správca?"
+14652,1,"Prístup bol odmietnutý. Premenovať toto prepojenie priečinka (junction) ako správca?"
+14653,1,"Prístup bol odmietnutý. Natrvalo odstrániť tento symbolický odkaz ako správca? Cieľový súbor zostane zachovaný."
+14654,1,"Prístup bol odmietnutý. Natrvalo odstrániť tento symbolický odkaz na priečinok ako správca? Cieľový priečinok zostane zachovaný."
+14655,1,"Prístup bol odmietnutý. Natrvalo odstrániť toto prepojenie priečinka (junction) ako správca? Cieľový priečinok zostane zachovaný."
+
+[STRINGTABLE 195]
+14656,1,"Prístup bol odmietnutý. Skopírovať tento súbor so zachovaním vlastníka, skupiny a explicitných povolení NTFS ako správca?"
+14657,1,"Kopírovanie súboru šifrovaného pomocou EFS sa nepodarilo dokončiť. Pri tejto operácii sa šifrovanie EFS nedá zachovať ani s oprávneniami správcu."
+14658,1,"Windows nepotvrdil presun všetkých položiek do Koša. Pred opakovaním skontrolujte pôvodné umiestnenie aj Kôš."
+14659,1,"Prístup bol odmietnutý. Vypočítať veľkosť tohto priečinka a jeho podpriečinkov ako správca?"
+14660,1,"Prístup bol odmietnutý. Vyhľadávať v tomto priečinku podľa názvov a metadát ako správca? Kým sa rozhodnete, vyhľadávanie pokračuje v dostupných priečinkoch."
+14661,1,"Čaká sa na oprávnenia správcu pre prístup k chránenému priečinku…"
+14662,1,"Prehľadáva sa schválený priečinok s oprávneniami správcu."
+14663,1,"Nie je k dispozícii"
+14664,1,"Prístup bol odmietnutý. Otvoriť kópiu tohto súboru iba na čítanie v internom prehliadači ako správca? Limit kópie je 16 MB."
+14665,1,"Kópia otvorená s oprávneniami správcu"
+14666,1,"Táto kópia je iba na čítanie. Ak chcete vyžiadať novú kópiu, vráťte sa do panela."
+14667,1,"Chránený súbor sa nepodarilo otvoriť v internom prehliadači."
+14668,1,"Upraviť ako správca"
+14669,1,"Prístup bol odmietnutý. Otvoriť pôvodný súbor v nastavenom editore ako správca? Windows požiada o povolenie pre nižšie uvedený editor."
+14670,1,"Režim správcu vyžaduje spustiteľný súbor editora v chránenom priečinku Windows alebo Program Files."
+14671,1,"Výpis chráneného archívu ZIP"
+
+[STRINGTABLE 196]
+14672,1,"Prístup bol odmietnutý. Načítať obsah tohto archívu ZIP ako správca? Archív sa otvorí iba na čítanie."
+14673,1,"Stlačením F3 zobrazíte súbor, stlačením F5 ho rozbalíte. Otvorenie v externej aplikácii nie je k dispozícii."
+14674,1,"Prístup bol odmietnutý. Rozbaliť vybrané súbory a priečinky z archívu ZIP do zobrazeného cieľa ako správca?"
+14675,1,"Vyberte existujúci lokálny cieľový priečinok pre vybrané položky z chráneného archívu ZIP."
+14676,1,"Rozbaľovanie sa zastavilo po vytvorení časti vybraných položiek ZIP. Pred opakovaním skontrolujte cieľ."
+14677,1,"Aktualizácia chráneného archívu ZIP"
+14678,1,"Uložiť pripravené zmeny tohto archívu ZIP ako správca?"
+14679,1,"Windows nepotvrdil dokončenie aktualizácie archívu ZIP. Pred opakovaním skontrolujte archív a prípadnú zálohu v jeho priečinku."
+14680,1,"Archív ZIP sa aktualizoval. Ak chcete zobraziť nový obsah, obnovte výpis archívu v paneli."
+14681,1,"Prístup bol odmietnutý. Nahradiť tento existujúci súbor ako správca a zachovať povolenia cieľa?"
+14682,1,"Súhlas platí pre túto položku. Zrušením zastavíte spracovanie zvyšných položiek. Dokončené zmeny zostanú zachované."
+14683,1,"Prístup bol odmietnutý. Čítať obsah súborov v tomto priečinku pre aktuálne vyhľadávanie ako správca? Kým sa rozhodnete, vyhľadávanie pokračuje v dostupných priečinkoch."
+14684,1,"Prístup bol odmietnutý. Prečítať tento súbor pre aktuálne vyhľadávanie ako správca?"
+14685,1,"Prístup bol odmietnutý. Skopírovať tento súbor so zachovaním šifrovania EFS ako správca?"
+14686,1,"Súhlas platí do konca tejto operácie aj pre ďalšie súbory v nižšie uvedených priečinkoch, ktoré spĺňajú podmienky."
+14687,1,"Súhlas platí do konca tejto operácie aj pre ďalšie položky v nižšie uvedenom priečinku, ktoré spĺňajú podmienky."
+
+[STRINGTABLE 197]
+14688,1,"Prístup bol odmietnutý. Presunúť tento súbor do vášho Koša ako správca?"
+14689,1,"Prístup bol odmietnutý. Skopírovať tento súbor so zachovaním kompresie NTFS, vlastníka, skupiny a explicitných povolení ako správca?"
+14694,1,"Súhlas platí aj pre chránené priečinky pod touto cestou:"
+14695,1,"Prístup bol odmietnutý. Čítať pre toto porovnanie obsah súborov pod touto cestou ako správca?"
+14696,1,"Odkaz Windows na zabezpečenie kompatibility bol preskočený. Do súčtu sa započítava 0 bajtov."
+
+14698,1,"Operáciu sa nepodarilo potvrdiť ako dokončenú. Pracovná záloha alebo žurnál mohli zostať zachované. Pred opakovaním skontrolujte zdroj, cieľ a prípadnú zálohu."
+
+14699,1,"Prístup bol odmietnutý. Nahradiť tento súbor ako správca so zachovaním oprávnení cieľa? Náhradný súbor nebude obsahovať alternatívne dátové prúdy."
+
+14700,1,"Bol dosiahnutý limit správcovského prístupu (%s chránených položiek). Táto položka nebola prehľadaná; výsledky môžu byť neúplné."
+14701,1,"Neúplné (limit správcu)"
+
+14702,1,"Predchádzajúce vyhľadávanie v týchto výsledkoch dosiahlo limit prístupu správcu (%s chránených položiek). Niektoré položky neboli prehľadané."
+
+14703,1,"Presun chránenej zložky do Koša s oprávneniami správcu zatiaľ nie je podporovaný."
+
+[STRINGTABLE 198]
+14704,1,"Neúplné (pozri protokol)"
+14705,1,"Výpis adresára prekročil svoju kapacitu. Niektoré položky neboli prehľadané."
+14706,1,"Chránený podstrom prekročil limit počtu položiek. Niektoré položky neboli prehľadané."
+14707,1,"Chránený podstrom prekročil limit hĺbky. Niektoré položky neboli prehľadané."
+14708,1,"Niektoré ciele odkazov neboli prehľadané."
+14709,1,"Prístup k časti chráneného stromu nebol schválený alebo zlyhal. Niektoré položky neboli prehľadané."
+
+14710,1,"Zvolený prehliadač zatiaľ nevie bezpečne otvoriť tento overený výsledok. Použite interný prehliadač."
+14711,1,"Tento výsledok je viazaný na skôr overenú identitu. Otvoriť jeho snímku na čítanie v internom prehliadači ako správca? Snímka je obmedzená na 16 MB."
+
+14712,1,"Overená identita tohto chráneného výsledku nie je k dispozícii. Súbor nemožno bezpečne otvoriť; skúste vyhľadávanie zopakovať."
+14713,1,"Voľba View With zatiaľ nevie bezpečne zachovať overenú identitu tohto chráneného výsledku. Použite bežné F3."
+
+14714,1,"Obsah ani štítky chráneného výsledku teraz nemožno pri spresnení bezpečne prečítať s pôvodnou overenou identitou. Táto položka nebola overená."
+14715,1,"Prístup bol odmietnutý. Vytvoriť tento zoznam súborov ako správca?"
+
+14716,1,"Identitu niektorých chránených priečinkov nemožno overiť. Neboli otvorené; výpis je neúplný. Prvý priečinok:"
+14717,1,"Chránený priečinok obsahuje viac ako 4096 položiek. Jeho výpis je neúplný."
+
+14719,1,"Branch View - %I64u súborov; výsledok môže byť neúplný"
+14720,1,"Výpis priečinka bol prerušený a obnovený. Súbory sa medzitým mohli zmeniť, preto môže byť výsledný výpis neúplný. Overte ho obnovením."
+
+14721,1,"Prístup bol odmietnutý. Skopírovať tento súbor ako správca? Súbory s alternatívnymi dátovými prúdmi nie sú v tomto režime podporované."
+
+[STRINGTABLE 199]
+14991,1,"Čítanie priradení súborov zo súborového úložiska, čakajte prosím..."
+
+[STRINGTABLE 200]
 14992,1,"Ukladanie konfigurácie do súborového úložiska, čakajte prosím..."
 14993,1,"Odstraňovanie starej konfigurácie zo súborového úložiska, čakajte prosím..."
 14994,1,"Prebieha čítanie priradení súborov zo súborového úložiska..."

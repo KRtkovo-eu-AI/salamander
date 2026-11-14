@@ -1,5 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Extract the Branch View copy route with current boundaries. | Keep deletion setup out and include the target path state. | #731 | GPT-6.1 Sol |
+# | 2026-11-09 | Link the extracted recycle code to COM. | Resolve the exact Shell item identity helper. | | GPT-6.1 Sol (Codex) |
 """Compile actual panel path getters with isolated panel storage; no UI or disk mutation."""
 import argparse
 import os
@@ -68,8 +71,17 @@ def main():
     builder = read("src/fileswn6.cpp", args.source_ref)
     first = builder.index("            std::string branchName;", builder.index("BOOL CFilesWindow::BuildScriptMain("))
     last = builder.index("            i++;", first)
+    # Permanent-delete preparation is covered by the delete worker fixture.
+    delete_start = builder.find("            std::wstring deleteItemPath;", first, last)
+    if delete_start != -1:
+        last = delete_start
     relative = builder.index("                    std::string branchTarget;", first)
     relative_end = builder.index("                    if (!BuildScriptFile(", relative)
+    # The following item-flag expression belongs to the transfer planner.
+    # This fixture compiles only the preceding relative-target construction.
+    transfer_flags = builder.find("                    const DWORD itemFlags =", relative, relative_end)
+    if transfer_flags != -1:
+        relative_end = transfer_flags
     shell = read("src/shellsup.cpp", args.source_ref)
     properties = shell[shell.index("    case saProperties:"):]
     properties_begin = properties.index("                IContextMenu2* menu = CreatePanelShellMenu")
@@ -93,7 +105,11 @@ def main():
         "SHELL_DIRECTORY": block(shell,"static std::wstring GetPanelShellDirectoryW("),
         "PROPERTIES_DISPATCH": properties[properties_begin:properties_end],
         "SHELL_GATE": shell[gate_begin:gate_end],
-        "COPY_RELATIVE": builder[relative:relative_end],
+        "COPY_TARGET_STATE": block(read("src/fileswnd.h", args.source_ref), "enum CTargetPathState", ";"),
+        "COPY_RELATIVE": builder[relative:relative_end] + (
+            "                    (void)itemTargetState;\n"
+            if "CTargetPathState itemTargetState" in builder[relative:relative_end] else ""
+        ),
         "COPY_LABELS": block(builder, "                    for (std::vector<int>::reverse_iterator directory = branchCreatedDirectories.rbegin();"),
         "CONVERSION_UTF8_ACP": block(builder,"std::wstring SalMultiByteToWidePathUtf8OrAcp("),
         "COPY_PREP": builder[first:last],
@@ -136,7 +152,7 @@ def main():
             flags = ["/MDd", "/D_DEBUG", "/Od"] if configuration == "Debug" else ["/MD", "/DNDEBUG", "/O2"]
             print("Actual Branch panel getters:", configuration, flush=True)
             for command in ([compiler, "/nologo", "/std:c++17", "/EHsc", "/utf-8", "/W4", "/WX",
-                             *flags, str(source), "/Fe:" + str(executable), "user32.lib"], [str(executable), str(directory)]):
+                             *flags, str(source), "/Fe:" + str(executable), "user32.lib", "ole32.lib"], [str(executable), str(directory)]):
                 result = run(command, cwd=directory, env=environment, timeout=45)
                 if result.returncode:
                     return result.returncode

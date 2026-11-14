@@ -4369,9 +4369,123 @@ SLGINCOMPLETE,""
 14611,1,"Impossible de terminer les processus qui utilisent ce fichier."
 
 [STRINGTABLE 193]
-14991,1,"Lecture des associations depuis le stockage de fichiers, veuillez patienter..."
+14624,1,"Accès refusé. Créer ce dossier en tant qu'administrateur ?"
+14625,1,"La connexion au processus auxiliaire a été interrompue avant la confirmation du résultat. Vérifiez la destination avant de réessayer."
+14626,1,"Accès refusé. Renommer ce fichier en tant qu’administrateur ? Le chemin actuel est indiqué en premier, suivi du nouveau."
+14627,1,"Accès refusé. Appliquer les attributs et les dates demandés à ce fichier en tant qu’administrateur ?"
+14628,1,"Le processus auxiliaire s’est déconnecté avant la confirmation du résultat. Vérifiez les attributs et les dates du fichier avant de réessayer."
+14629,1,"Accès refusé. Supprimer définitivement ce fichier en tant qu’administrateur ?"
+14630,1,"Le processus auxiliaire s’est déconnecté avant la confirmation de la suppression. Vérifiez si le fichier existe toujours avant de réessayer."
+14631,1,"Accès refusé. Afficher ce dossier et ses sous-dossiers en tant qu’administrateur ?"
+14632,1,"Liste administrateur"
+14633,1,"Accès refusé. Copier ce fichier et ses flux de données alternatifs en tant qu’administrateur ?"
+14634,1,"Impossible de confirmer que la copie est terminée. Vérifiez la destination avant de réessayer."
+14635,1,"Accès refusé. Déplacer ce fichier en tant qu’administrateur ?"
+14636,1,"Impossible de confirmer que le déplacement est terminé. Vérifiez la source et la destination avant de réessayer."
+14637,1,"Inventaire de l’arborescence protégée"
+14639,1,"Le calcul de la taille du dossier n’a pas pu parcourir toute l’arborescence."
 
 [STRINGTABLE 194]
+14640,1,"Fichiers : "
+14641,1,"Sous-dossiers : "
+14642,1,"Taille logique (octets) : "
+14643,1,"Copier ce dossier et son contenu en tant qu’administrateur ?"
+14644,1,"La copie du dossier ou son nettoyage n’a pas pu être confirmé. Vérifiez la destination avant de réessayer."
+14645,1,"Accès refusé. Appliquer les dates et heures demandées à ce dossier en tant qu’administrateur ?"
+14646,1,"La connexion au processus auxiliaire a été interrompue avant la confirmation du résultat. Vérifiez les dates et heures du dossier avant de réessayer."
+14647,1,"Accès refusé. Appliquer les attributs demandés et les dates et heures sélectionnées, le cas échéant, à ce dossier en tant qu’administrateur ?"
+14648,1,"La connexion au processus auxiliaire a été interrompue avant la confirmation du résultat. Vérifiez les attributs, les dates et les heures du dossier avant de réessayer."
+14649,1,"Accès refusé. Copier ce fichier sans ses flux de données alternatifs en tant qu’administrateur ?"
+14650,1,"Accès refusé. Copier ce fichier en conservant sa compression NTFS en tant qu’administrateur ?"
+14651,1,"Accès refusé. Renommer ce lien symbolique en tant qu’administrateur ?"
+14652,1,"Accès refusé. Renommer cette jonction de répertoire en tant qu’administrateur ?"
+14653,1,"Accès refusé. Supprimer définitivement ce lien symbolique en tant qu’administrateur ? Le fichier cible sera conservé."
+14654,1,"Accès refusé. Supprimer définitivement ce lien symbolique vers un dossier en tant qu’administrateur ? Le dossier cible sera conservé."
+14655,1,"Accès refusé. Supprimer définitivement cette jonction de répertoire en tant qu’administrateur ? Le dossier cible sera conservé."
+
+[STRINGTABLE 195]
+14656,1,"Accès refusé. Copier ce fichier en conservant son propriétaire, son groupe et ses autorisations NTFS explicites en tant qu’administrateur ?"
+14657,1,"Impossible de terminer la copie de ce fichier chiffré avec EFS. Le mode administrateur ne permet pas de conserver le chiffrement EFS pour cette opération."
+14658,1,"Windows n’a pas confirmé que tous les éléments ont été déplacés vers la Corbeille. Vérifiez l’emplacement d’origine et la Corbeille avant de réessayer."
+14659,1,"Accès refusé. Calculer la taille de ce dossier et de ses sous-dossiers en tant qu’administrateur ?"
+14660,1,"Accès refusé. Rechercher par nom et par métadonnées dans ce dossier en tant qu’administrateur ? La recherche se poursuit dans les dossiers accessibles pendant que vous décidez."
+14661,1,"En attente de l’autorisation d’accès administrateur à un dossier protégé…"
+14662,1,"Recherche dans le dossier approuvé avec les droits d’administrateur."
+14663,1,"Non disponible"
+14664,1,"Accès refusé. Ouvrir une copie en lecture seule de ce fichier dans la visionneuse interne en tant qu’administrateur ? La copie est limitée à 16 Mo."
+14665,1,"Copie ouverte avec les droits d’administrateur"
+14666,1,"Cette copie est en lecture seule. Revenez au panneau pour demander une nouvelle copie."
+14667,1,"Impossible d’ouvrir le fichier protégé dans la visionneuse interne."
+14668,1,"Modifier en tant qu’administrateur"
+14669,1,"Accès refusé. Ouvrir le fichier d’origine dans l’éditeur configuré en tant qu’administrateur ? Windows demandera une autorisation pour l’éditeur indiqué ci-dessous."
+14670,1,"Le mode administrateur exige que l’exécutable de l’éditeur se trouve dans un dossier protégé de Windows ou de Program Files."
+14671,1,"Contenu d’une archive ZIP protégée"
+
+[STRINGTABLE 196]
+14672,1,"Accès refusé. Lire le contenu de cette archive ZIP en tant qu’administrateur ? L’archive sera ouverte en lecture seule."
+14673,1,"Utilisez F3 pour afficher un fichier ou F5 pour l’extraire. L’ouverture dans une application externe est indisponible."
+14674,1,"Accès refusé. Extraire les fichiers et dossiers ZIP sélectionnés vers la destination affichée en tant qu’administrateur ?"
+14675,1,"Sélectionnez un dossier de destination local existant pour les éléments sélectionnés de cette archive ZIP protégée."
+14676,1,"L’extraction s’est arrêtée après la création d’une partie des éléments ZIP sélectionnés. Vérifiez la destination avant de réessayer."
+14677,1,"Mise à jour d’une archive ZIP protégée"
+14678,1,"Enregistrer les modifications préparées pour cette archive ZIP en tant qu’administrateur ?"
+14679,1,"Windows n’a pas confirmé la fin de la mise à jour ZIP. Vérifiez l’archive et toute copie de sauvegarde laissée dans son dossier avant de réessayer."
+14680,1,"L’archive ZIP a été mise à jour. Actualisez le panneau d’archive pour afficher le nouveau contenu."
+14681,1,"Accès refusé. Remplacer ce fichier existant en tant qu’administrateur tout en conservant les autorisations de la destination ?"
+14682,1,"L’autorisation s’applique à cet élément. L’annulation arrête le traitement des éléments restants. Les modifications terminées sont conservées."
+14683,1,"Accès refusé. Lire le contenu des fichiers de ce dossier pour la recherche en cours en tant qu’administrateur ? La recherche se poursuit dans les dossiers accessibles pendant que vous décidez."
+14684,1,"Accès refusé. Lire ce fichier pour la recherche en cours en tant qu’administrateur ?"
+14685,1,"Accès refusé. Copier ce fichier en conservant son chiffrement EFS en tant qu’administrateur ?"
+14686,1,"L’autorisation s’applique aussi aux autres fichiers admissibles à cette opération dans les dossiers ci-dessous, jusqu’à la fin de l’opération."
+14687,1,"L’autorisation s’applique aussi aux autres éléments admissibles à cette opération dans le dossier ci-dessous, jusqu’à la fin de l’opération."
+
+[STRINGTABLE 197]
+14688,1,"Accès refusé. Déplacer ce fichier vers votre Corbeille en tant qu’administrateur ?"
+14689,1,"Accès refusé. Copier ce fichier en conservant sa compression NTFS, son propriétaire, son groupe et ses autorisations explicites en tant qu’administrateur ?"
+14694,1,"Cette autorisation couvre aussi les dossiers protégés sous :"
+14695,1,"Accès refusé. Lire le contenu des fichiers sous ce chemin en tant qu’administrateur pour cette comparaison ?"
+14696,1,"Ce lien de compatibilité Windows a été ignoré. Il compte pour 0 octet dans le total."
+
+14698,1,"La fin de l’opération n’a pas pu être confirmée. Une sauvegarde de travail ou un journal peut subsister. Vérifiez la source, la destination et toute sauvegarde avant de réessayer."
+
+14699,1,"Accès refusé. Remplacer ce fichier en tant qu’administrateur en conservant les autorisations de destination ? Le fichier de remplacement ne contiendra aucun flux de données alternatif."
+
+14700,1,"La limite d’accès administrateur est atteinte (%s éléments protégés). Cet élément n’a pas été parcouru ; les résultats peuvent être incomplets."
+14701,1,"Incomplet (limite admin)"
+
+14702,1,"Une recherche précédente dans ces résultats a atteint la limite d’accès administrateur (%s éléments protégés). Certains éléments n’ont pas été parcourus."
+
+14703,1,"Le déplacement d’un dossier protégé vers la Corbeille avec les droits administrateur n’est pas encore pris en charge."
+
+[STRINGTABLE 198]
+14704,1,"Incomplet (voir journal)"
+14705,1,"Une liste de répertoire a dépassé sa capacité. Certains éléments n’ont pas été parcourus."
+14706,1,"Une branche protégée a dépassé sa limite d’éléments. Certains éléments n’ont pas été parcourus."
+14707,1,"Une branche protégée a dépassé sa limite de profondeur. Certains éléments n’ont pas été parcourus."
+14708,1,"Certaines cibles de liens n’ont pas été parcourues."
+14709,1,"L’accès à une partie d’une arborescence protégée n’a pas été approuvé ou a échoué. Certains éléments n’ont pas été parcourus."
+
+14710,1,"La visionneuse sélectionnée ne peut pas encore ouvrir ce résultat vérifié en toute sécurité. Utilisez la visionneuse interne."
+14711,1,"Ce résultat est associé à une identité vérifiée précédemment. Ouvrir un instantané en lecture seule dans la visionneuse interne en tant qu’administrateur ? L’instantané est limité à 16 Mo."
+
+14712,1,"L’identité vérifiée de ce résultat protégé n’est pas disponible. Le fichier ne peut pas être ouvert en toute sécurité ; essayez de relancer la recherche."
+14713,1,"View With ne peut pas encore préserver en toute sécurité l’identité vérifiée de ce résultat protégé. Utilisez plutôt F3."
+
+14714,1,"Le contenu et les étiquettes de ce résultat protégé ne peuvent pas être lus en toute sécurité avec l’identité vérifiée précédemment lors de l’affinement. Cet élément n’a pas été vérifié."
+14715,1,"Accès refusé. Créer cette liste de fichiers en tant qu’administrateur ?"
+
+14716,1,"L’identité de certains dossiers protégés ne peut pas être vérifiée. Ils ne sont pas ouverts ; la liste est incomplète. Premier dossier :"
+14717,1,"Un dossier protégé contient plus de 4096 éléments. Sa liste est incomplète."
+
+14719,1,"Branch View - %I64u fichiers ; résultat potentiellement incomplet"
+14720,1,"La liste du dossier a été interrompue puis reprise. Les fichiers ont pu changer entre-temps ; la liste peut être incomplète. Actualisez-la pour vérifier."
+
+14721,1,"Accès refusé. Copier ce fichier en tant qu’administrateur ? Les fichiers avec des flux de données alternatifs ne sont pas pris en charge dans ce mode."
+
+[STRINGTABLE 199]
+14991,1,"Lecture des associations depuis le stockage de fichiers, veuillez patienter..."
+
+[STRINGTABLE 200]
 14992,1,"Enregistrement de la configuration dans le stockage de fichiers, veuillez patienter..."
 14993,1,"Suppression de l'ancienne configuration du stockage de fichiers, veuillez patienter..."
 14994,1,"Lecture des associations depuis le stockage de fichiers..."

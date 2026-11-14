@@ -1,0 +1,255 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Test-only surrounding adapters; the injected function is the unmodified worker loop.
+#include <windows.h>
+#include <algorithm>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <sstream>
+#include <string>
+#include <vector>
+
+struct CQuadWord
+{
+    union { struct { DWORD LoDWord, HiDWord; }; unsigned __int64 Value; };
+    CQuadWord() : Value(0) {}
+    explicit CQuadWord(unsigned __int64 value) : Value(value) {}
+    CQuadWord(DWORD lo, DWORD hi) : LoDWord(lo), HiDWord(hi) {}
+    CQuadWord& operator+=(CQuadWord x) { Value += x.Value; return *this; }
+};
+static bool operator<(CQuadWord a, CQuadWord b) { return a.Value < b.Value; }
+static bool operator>(CQuadWord a, CQuadWord b) { return a.Value > b.Value; }
+static bool operator==(CQuadWord a, CQuadWord b) { return a.Value == b.Value; }
+static CQuadWord operator+(CQuadWord a, CQuadWord b) { return CQuadWord(a.Value + b.Value); }
+#ifdef _DEBUG
+static const char* NumberToStr(char* buffer, CQuadWord value) { sprintf_s(buffer, 50, "%llu", value.Value); return buffer; }
+#endif
+#define HANDLES(x) (x)
+#define HANDLES_Q(x) (x)
+#define TRACE_I(x) do { if (false) { std::ostringstream trace; trace << x; } } while (false)
+#define TRACE_E(x) TRACE_I(x)
+#define TRACE_C(x) TRACE_I(x)
+#define WORKER_COPY_DEBUG_MSG
+static char* GetErrorText(DWORD) { static char text[] = "Win32 error"; return text; }
+@@BUFFER@@
+@@ASYNC@@
+@@TAIL@@
+
+#define SAM_UAC_THIN_COPY_TEST
+#define IDS_ERRORREADINGFILE 1
+#define IDS_ERRORWRITINGFILE 2
+#define WM_USER_DIALOG (WM_APP + 10)
+#define IDB_SKIPALL 1001
+#define IDB_SKIP 1002
+struct CProgressDlgData { BOOL* CancelWorker; HANDLE WorkerNotSuspended; HANDLE CancelWorkerEvent; BOOL SkipAllFileRead = FALSE, SkipAllFileWrite = FALSE; };
+struct COperation { char* SourceName; char* TargetName; bool SourceNameWValid = true, TargetNameWValid = true; std::wstring SourceNameW, TargetNameW; CQuadWord Size; };
+struct COperations {
+    BOOL ChangeSpeedLimit = FALSE, RemovableSrcDisk = FALSE, RemovableTgtDisk = FALSE;
+    CQuadWord TotalSize;
+    unsigned progressBytes = 0;
+    void AddBytesToSpeedMetersAndTFSandPS(DWORD count, BOOL, int, int*) { progressBytes += count; }
+    void GetNewBufSize(int*, int) {}
+};
+static unsigned writes = 0;
+static bool failConnectionAfterWrite = false;
+struct CThinCopyWorker {
+    bool terminal = false;
+    unsigned reports = 0;
+    void* sessionContext = nullptr;
+    DWORD (*sessionCheck)(void*) = nullptr;
+    HANDLE (*sessionRetryTarget)(void*) = nullptr;
+    bool (*sessionDiscardTarget)(void*) = nullptr;
+    DWORD CheckTransferConnection() const {
+        return sessionCheck ? sessionCheck(sessionContext) : failConnectionAfterWrite && writes ? ERROR_BROKEN_PIPE : ERROR_SUCCESS;
+    }
+    bool ScopedTarget() const { return sessionRetryTarget != nullptr; }
+    bool CloseScopedTarget(HANDLE& h) { const BOOL result = CloseHandle(h); h = nullptr; return result != FALSE; }
+    void ReportTransferLoss(DWORD, int) { ++reports; }
+};
+static void ThinCopyTestSignal(const wchar_t*) {}
+static void ThinCopyTestObserve(const wchar_t*) {}
+static void ThinCopyTestRetryGate(const wchar_t*, HANDLE) {}
+static std::wstring WorkerOperationPathW(const char*, const wchar_t* wide) { return wide ? wide : L""; }
+static void WorkerClearReadOnlyW(const std::wstring&) {}
+static char* LoadStr(int) { static char msg[] = "error"; return msg; }
+static int CaclProg(CQuadWord, CQuadWord) { return 0; }
+static void SetProgressWithoutSuspend(HWND, int, int, CProgressDlgData&) {}
+static unsigned dialogCount = 0;
+static int dialogChoice = IDRETRY;
+static LRESULT FakeSendMessage(HWND, UINT, WPARAM, LPARAM param) {
+    ++dialogCount; char** data = reinterpret_cast<char**>(param); *reinterpret_cast<int*>(data[0]) = dialogChoice; return 0;
+}
+#undef SendMessage
+#define SendMessage FakeSendMessage
+static bool injectFault = false, didFault = false;
+static BOOL TestWrite(HANDLE h, LPCVOID b, DWORD n, LPDWORD w, LPOVERLAPPED o) {
+    if (injectFault && writes == 1 && !didFault) { didFault = true; SetLastError(ERROR_WRITE_FAULT); return FALSE; }
+    const BOOL result = WriteFile(h, b, n, w, o); if (result) ++writes; return result;
+}
+#define THIN_COPY_WRITE TestWrite
+#define THIN_COPY_READ ReadFile
+#define THIN_SYNC_PAUSE(ctx, data, failure) WaitForSingleObject((data).WorkerNotSuspended, INFINITE)
+#define THIN_REMEMBER_TARGET(ctx, file) ((void)0)
+#define THIN_REMEMBER_SOURCE(ctx, file) ((void)0)
+#define THIN_OPEN_TARGET_RETRY(ctx, local, overlapped) \
+    ((ctx) && (ctx)->sessionRetryTarget ? (ctx)->sessionRetryTarget((ctx)->sessionContext) : (local))
+#define THIN_OPEN_SOURCE_RETRY(ctx, local, overlapped) (local)
+#define THIN_DELETE_TARGET(ctx, local) \
+    ((ctx) && (ctx)->sessionDiscardTarget ? (ctx)->sessionDiscardTarget((ctx)->sessionContext) : (local))
+@@LOOP@@
+
+#ifdef SAM_UAC_LOOP_LINK_HARNESS
+extern "C" BOOL RunLinkedNativeCopyLoop(HANDLE* input, HANDLE* output, const wchar_t* source, const wchar_t* target,
+                                        ULONGLONG fileBytes, ULONGLONG expectedBytes, void* context, DWORD (*check)(void*), HANDLE (*retry)(void*),
+                                        bool (*discard)(void*), BOOL expectRestart)
+{
+    BOOL cancel = FALSE, error = FALSE, skipped = FALSE, again = FALSE;
+    HANDLE resumed = CreateEventW(nullptr, TRUE, TRUE, nullptr);
+    if (!resumed) return FALSE;
+    CProgressDlgData dialog{&cancel, resumed, nullptr};
+    COperation op{}; op.SourceNameW = source; op.TargetNameW = target; op.Size = CQuadWord(fileBytes);
+    COperations script; script.TotalSize = op.Size;
+    CQuadWord done, total, size(fileBytes);
+    int limit = 1024, alloc = 0; BYTE buffer[1024]{};
+    CThinCopyWorker thin; thin.sessionContext = context; thin.sessionCheck = check; thin.sessionRetryTarget = retry;
+    thin.sessionDiscardTarget = discard;
+    writes = dialogCount = 0; injectFault = true; didFault = failConnectionAfterWrite = false; dialogChoice = IDRETRY;
+    DoCopyFileLoopOrig(*input, *output, buffer, limit, &script, dialog, FALSE, &op, total, error, skipped,
+                       nullptr, done, size, sizeof(buffer), alloc, again, &thin);
+    CloseHandle(resumed);
+    return !error && !skipped && (again != FALSE) == (expectRestart != FALSE) && !thin.reports &&
+           (expectRestart || done.Value == expectedBytes) && didFault && dialogCount == 1;
+}
+#else
+static int failures = 0;
+static void Check(bool ok, const char* label) { std::printf("%s %s\n", ok ? "PASS" : "FAIL", label); if (!ok) ++failures; }
+struct HandleReceipt { ULONG_PTR input = 0, output = 0; DWORD error = ERROR_SUCCESS; };
+static int HandlePeer(const wchar_t* source, const wchar_t* target, DWORD parentId, const wchar_t* receiptPath)
+{
+    HandleReceipt receipt{};
+    HANDLE parent = OpenProcess(PROCESS_DUP_HANDLE, FALSE, parentId);
+    HANDLE in = CreateFileW(source, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+    HANDLE out = CreateFileW(target, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, 0, nullptr);
+    HANDLE duplicated = nullptr;
+    if (!parent || in == INVALID_HANDLE_VALUE || out == INVALID_HANDLE_VALUE)
+        receipt.error = GetLastError();
+    else if (!DuplicateHandle(GetCurrentProcess(), in, parent, &duplicated, 0, FALSE, DUPLICATE_SAME_ACCESS))
+        receipt.error = GetLastError();
+    else
+    {
+        receipt.input = reinterpret_cast<ULONG_PTR>(duplicated);
+        duplicated = nullptr;
+        if (!DuplicateHandle(GetCurrentProcess(), out, parent, &duplicated, 0, FALSE, DUPLICATE_SAME_ACCESS))
+            receipt.error = GetLastError();
+        else receipt.output = reinterpret_cast<ULONG_PTR>(duplicated);
+    }
+    if (in != INVALID_HANDLE_VALUE) CloseHandle(in);
+    if (out != INVALID_HANDLE_VALUE) CloseHandle(out);
+    if (parent) CloseHandle(parent);
+    HANDLE file = CreateFileW(receiptPath, GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+    DWORD bytes = 0;
+    const bool recorded = file != INVALID_HANDLE_VALUE && WriteFile(file, &receipt, sizeof(receipt), &bytes, nullptr) && bytes == sizeof(receipt);
+    if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
+    return recorded && !receipt.error ? 0 : 5;
+}
+
+static bool ReceivePeerHandles(const std::wstring& source, const std::wstring& target,
+                               const std::wstring& receiptPath, HANDLE& input, HANDLE& output)
+{
+    wchar_t image[32768]{};
+    if (!GetModuleFileNameW(nullptr, image, _countof(image))) return false;
+    std::wstring command = L"\"" + std::wstring(image) + L"\" --handle-peer \"" + source + L"\" \"" + target +
+        L"\" " + std::to_wstring(GetCurrentProcessId()) + L" \"" + receiptPath + L"\"";
+    STARTUPINFOW startup{}; startup.cb = sizeof(startup);
+    PROCESS_INFORMATION process{};
+    if (!CreateProcessW(image, command.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &startup, &process)) return false;
+    CloseHandle(process.hThread);
+    const DWORD wait = WaitForSingleObject(process.hProcess, 10000);
+    if (wait == WAIT_TIMEOUT) { TerminateProcess(process.hProcess, 99); WaitForSingleObject(process.hProcess, 5000); }
+    DWORD exitCode = 1;
+    const bool exited = wait == WAIT_OBJECT_0 && GetExitCodeProcess(process.hProcess, &exitCode) && exitCode == 0;
+    CloseHandle(process.hProcess);
+    HandleReceipt receipt{};
+    HANDLE file = CreateFileW(receiptPath.c_str(), GENERIC_READ, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+    DWORD bytes = 0;
+    const bool read = file != INVALID_HANDLE_VALUE && ReadFile(file, &receipt, sizeof(receipt), &bytes, nullptr) && bytes == sizeof(receipt);
+    if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
+    if (read) { input = reinterpret_cast<HANDLE>(receipt.input); output = reinterpret_cast<HANDLE>(receipt.output); }
+    return exited && read && !receipt.error && input && output;
+}
+int wmain(int argc, wchar_t** argv)
+{
+    if (argc == 6 && std::wstring(argv[1]) == L"--handle-peer")
+        return HandlePeer(argv[2], argv[3], wcstoul(argv[4], nullptr, 10), argv[5]);
+    if (argc != 2) return 2;
+    const std::wstring root = argv[1];
+    const std::wstring source = root + L"\\source-\u6771.bin", target = root + L"\\target-\u65e5.bin";
+    std::vector<BYTE> expected(196731);
+    for (size_t i = 0; i < expected.size(); ++i) expected[i] = static_cast<BYTE>((i * 31 + i / 251) & 255);
+    HANDLE seed = CreateFileW(source.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+    DWORD written = 0;
+    if (seed == INVALID_HANDLE_VALUE || !WriteFile(seed, expected.data(), static_cast<DWORD>(expected.size()), &written, nullptr)) return 3;
+    CloseHandle(seed);
+    for (int mode = 0; mode != 7; ++mode)
+    {
+        HANDLE in = nullptr, out = nullptr;
+        const std::wstring receiptPath = root + L"\\handle-receipt.bin";
+        if (mode == 6)
+        {
+            if (!ReceivePeerHandles(source, target, receiptPath, in, out))
+            { if (in) CloseHandle(in); if (out) CloseHandle(out); return 4; }
+            Check(DeleteFileW(receiptPath.c_str()) != FALSE, "remove the exact process receipt");
+            BYTE probe = 0; DWORD count = 0;
+            const BOOL sourceWrite = WriteFile(in, &probe, 1, &count, nullptr);
+            const DWORD sourceError = sourceWrite ? ERROR_SUCCESS : GetLastError();
+            const BOOL targetRead = ReadFile(out, &probe, 1, &count, nullptr);
+            const DWORD targetError = targetRead ? ERROR_SUCCESS : GetLastError();
+            Check(!sourceWrite && sourceError == ERROR_ACCESS_DENIED && !targetRead && targetError == ERROR_ACCESS_DENIED,
+                  "duplicated source and target retain only their intended data access");
+        }
+        else
+        {
+            in = CreateFileW(source.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+            out = CreateFileW(target.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, 0, nullptr);
+            if (in == INVALID_HANDLE_VALUE || out == INVALID_HANDLE_VALUE) return 4;
+        }
+        BOOL cancel = FALSE, error = FALSE, skipped = FALSE, again = FALSE;
+        HANDLE resumed = CreateEventW(nullptr, TRUE, TRUE, nullptr);
+        CProgressDlgData dialog{&cancel, resumed, nullptr};
+        COperation op{}; op.SourceNameW = source; op.TargetNameW = target; op.Size = CQuadWord(expected.size());
+        COperations script; script.TotalSize = op.Size;
+        CQuadWord done, total, size(expected.size());
+        int limit = 32768, alloc = 0; std::vector<BYTE> buffer(limit);
+        CThinCopyWorker thin; writes = dialogCount = 0; injectFault = (mode > 0 && mode < 5) || mode == 6; didFault = false;
+        failConnectionAfterWrite = mode == 5;
+        dialogChoice = mode == 2 ? IDB_SKIP : mode == 3 ? IDB_SKIPALL : mode == 4 ? IDCANCEL : IDRETRY;
+        DoCopyFileLoopOrig(in, out, buffer.data(), limit, &script, dialog, FALSE, &op, total, error, skipped,
+                           nullptr, done, size, static_cast<int>(buffer.size()), alloc, again, &thin);
+        CloseHandle(in); CloseHandle(out); CloseHandle(resumed);
+        HANDLE verify = CreateFileW(target.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+        std::vector<BYTE> actual(expected.size()); DWORD got = 0;
+        const BOOL read = verify != INVALID_HANDLE_VALUE && ReadFile(verify, actual.data(), static_cast<DWORD>(actual.size()), &got, nullptr);
+        if (verify != INVALID_HANDLE_VALUE) CloseHandle(verify);
+        if (mode < 2 || mode == 6)
+            Check(!error && !skipped && !again && done.Value == expected.size() && read && got == expected.size() && actual == expected,
+                  mode == 6 ? "native sync loop and Retry copy via cross-process duplicated handles" :
+                  mode ? "native sync loop recovers after injected write fault" : "native sync loop copies exact bytes");
+        else if (mode < 5)
+            Check((mode == 4 ? error && !skipped : !error && skipped) && !again && done.Value == 32768 &&
+                  read && got == 32768 && std::equal(actual.begin(), actual.begin() + got, expected.begin()) &&
+                  (dialog.SkipAllFileWrite != FALSE) == (mode == 3),
+                  mode == 2 ? "native Skip stops with the written prefix" :
+                  mode == 3 ? "native Skip All records its decision and preserves the prefix" :
+                              "native Cancel stops with the written prefix");
+        else
+            Check(error && !skipped && !again && thin.reports == 1 && writes == 1 && read && got == 32768 &&
+                  std::equal(actual.begin(), actual.begin() + got, expected.begin()),
+                  "sync loop stops after simulated connection loss without writing another block");
+        Check(injectFault ? didFault && dialogCount == 1 : !didFault && dialogCount == 0,
+              injectFault ? "injected fault shows one native error decision" : "no native error decision needed");
+    }
+    Check(DeleteFileW(source.c_str()) && DeleteFileW(target.c_str()), "remove only test fixtures");
+    return failures ? 1 : 0;
+}
+#endif

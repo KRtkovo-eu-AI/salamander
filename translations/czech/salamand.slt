@@ -4369,9 +4369,125 @@ SLGINCOMPLETE,""
 14611,1,"Nepodařilo se ukončit žádný proces používající tento soubor."
 
 [STRINGTABLE 193]
-14991,1,"Čtení přidružení souborů ze souborového úložiště, čekejte prosím..."
+14624,1,"Přístup byl odepřen. Vytvořit tuto složku jako správce?"
+14625,1,"Spojení s pomocným procesem skončilo před potvrzením výsledku. Před opakováním zkontrolujte cíl."
+14626,1,"Přístup byl odepřen. Přejmenovat tento soubor jako správce? První řádek uvádí současnou cestu, druhý novou."
+14627,1,"Přístup byl odepřen. Použít požadované atributy a časy tohoto souboru jako správce?"
+14628,1,"Spojení s pomocným procesem se přerušilo před potvrzením výsledku. Před opakováním zkontrolujte atributy a časy souboru."
+14629,1,"Přístup byl odepřen. Trvale smazat tento soubor jako správce?"
+14630,1,"Spojení s pomocným procesem se přerušilo před potvrzením smazání. Před opakováním zkontrolujte, zda soubor stále existuje."
+14631,1,"Přístup byl odepřen. Zobrazit výpis této složky a jejích podsložek jako správce?"
+14632,1,"Výpis správce"
+14633,1,"Přístup byl odepřen. Zkopírovat tento soubor včetně alternativních datových proudů jako správce?"
+14634,1,"Kopírování se nepodařilo potvrdit jako dokončené. Před opakováním zkontrolujte cíl."
+14635,1,"Přístup byl odepřen. Přesunout tento soubor jako správce?"
+14636,1,"Přesun se nepodařilo potvrdit jako dokončený. Před opakováním zkontrolujte zdroj i cíl."
+14637,1,"Soupis chráněného podstromu"
+14639,1,"Při výpočtu velikosti se nepodařilo projít celý adresářový strom."
 
 [STRINGTABLE 194]
+14640,1,"Soubory: "
+14641,1,"Podsložky: "
+14642,1,"Logická velikost (bajty): "
+14643,1,"Zkopírovat tuto složku a její obsah jako správce?"
+14644,1,"Kopírování složky nebo úklid se nepodařilo potvrdit. Před opakováním zkontrolujte cíl."
+14645,1,"Přístup byl odepřen. Nastavit požadované časy této složky jako správce?"
+14646,1,"Spojení s pomocným procesem skončilo před potvrzením výsledku. Před opakováním zkontrolujte časy složky."
+14647,1,"Přístup byl odepřen. Použít na tuto složku požadované atributy a případně vybrané časy jako správce?"
+14648,1,"Spojení s pomocným procesem skončilo před potvrzením výsledku. Před opakováním zkontrolujte atributy a časy složky."
+14649,1,"Přístup byl odepřen. Zkopírovat tento soubor bez alternativních datových proudů jako správce?"
+14650,1,"Přístup byl odepřen. Zkopírovat tento soubor se zachováním komprese NTFS jako správce?"
+14651,1,"Přístup byl odepřen. Přejmenovat tento symbolický odkaz jako správce?"
+14652,1,"Přístup byl odepřen. Přejmenovat toto propojení adresáře (junction) jako správce?"
+14653,1,"Přístup byl odepřen. Trvale smazat tento symbolický odkaz jako správce? Cílový soubor zůstane zachován."
+14654,1,"Přístup byl odepřen. Trvale smazat tento symbolický odkaz na složku jako správce? Cílová složka zůstane zachována."
+14655,1,"Přístup byl odepřen. Trvale smazat toto propojení adresáře (junction) jako správce? Cílová složka zůstane zachována."
+
+[STRINGTABLE 195]
+14656,1,"Přístup byl odepřen. Zkopírovat tento soubor se zachováním vlastníka, skupiny a explicitních oprávnění NTFS jako správce?"
+14657,1,"Kopírování souboru se šifrováním EFS se nepodařilo dokončit. Režim správce v tomto případě nemůže zachovat šifrování EFS."
+14658,1,"Windows nepotvrdil přesun všech položek do Koše. Před opakováním zkontrolujte původní umístění i Koš."
+14659,1,"Přístup byl odepřen. Vypočítat velikost této složky a jejích podsložek jako správce?"
+14660,1,"Přístup byl odepřen. Hledat podle názvů a metadat v této složce jako správce? Během rozhodování pokračuje hledání v dostupných složkách."
+14661,1,"Čeká se na oprávnění správce pro chráněné hledání…"
+14662,1,"Probíhá hledání ve schváleném umístění s oprávněním správce."
+14663,1,"Není k dispozici"
+14664,1,"Přístup byl odepřen. Otevřít kopii tohoto souboru jen pro čtení v interním prohlížeči jako správce? Limit kopie je 16 MB."
+14665,1,"Kopie otevřená s oprávněním správce"
+14666,1,"Tato kopie je jen pro čtení. Novou kopii lze vyžádat po návratu do panelu."
+14667,1,"Chráněný soubor se nepodařilo otevřít v interním prohlížeči."
+14668,1,"Upravit jako správce"
+14669,1,"Přístup byl odepřen. Otevřít původní soubor v nastaveném editoru jako správce? Windows požádá o souhlas pro níže uvedený editor."
+14670,1,"Režim správce vyžaduje editor v chráněné složce Windows nebo Program Files."
+14671,1,"Výpis chráněného archivu ZIP"
+
+[STRINGTABLE 196]
+14672,1,"Přístup byl odepřen. Načíst obsah tohoto archivu ZIP jako správce? Archiv se otevře jen pro čtení."
+14673,1,"Klávesa F3 otevře položku v prohlížeči a F5 ji rozbalí. Otevření v externí aplikaci není dostupné."
+14674,1,"Přístup byl odepřen. Rozbalit vybrané soubory a složky z archivu ZIP do zobrazeného cíle jako správce?"
+14675,1,"Vyberte existující místní složku pro rozbalení vybraných položek z chráněného archivu ZIP."
+14676,1,"Rozbalování skončilo po vytvoření části vybraných položek. Před opakováním zkontrolujte cíl."
+14677,1,"Změna chráněného archivu ZIP"
+14678,1,"Uložit připravené změny tohoto archivu ZIP jako správce?"
+14679,1,"Windows nepotvrdil dokončení změn archivu ZIP. Před opakováním zkontrolujte archiv a případnou zálohu v jeho složce."
+14680,1,"Archiv ZIP byl aktualizován. Obnovte výpis v panelu, aby se zobrazil nový obsah."
+14681,1,"Přístup byl odepřen. Nahradit tento existující soubor jako správce a zachovat oprávnění cíle?"
+14682,1,"Souhlas platí pro tuto položku. Zrušením zastavíte zpracování zbývajících položek. Dokončené změny zůstanou zachovány."
+14683,1,"Přístup byl odepřen. Číst obsah souborů v této složce pro aktuální hledání jako správce? Během rozhodování pokračuje hledání v dostupných složkách."
+14684,1,"Přístup byl odepřen. Přečíst tento soubor pro aktuální hledání jako správce?"
+14685,1,"Přístup byl odepřen. Zkopírovat tento soubor se zachováním šifrování EFS jako správce?"
+14686,1,"Souhlas platí i pro další způsobilé soubory v uvedených složkách až do konce této operace."
+14687,1,"Souhlas platí i pro další způsobilé položky v uvedené složce až do konce této operace."
+
+[STRINGTABLE 197]
+14688,1,"Přístup byl odepřen. Přesunout tento soubor do vašeho Koše jako správce?"
+14689,1,"Přístup byl odepřen. Zkopírovat tento soubor se zachováním komprese NTFS, vlastníka, skupiny a explicitních oprávnění jako správce?"
+14690,1,"Přístup byl odepřen. Trvale odstranit tento prázdný adresář jako správce?"
+14691,1,"Přístup byl odepřen. Přejmenovat tuto složku jako správce? První řádek uvádí současnou cestu, druhý novou."
+14694,1,"Souhlas platí i pro chráněné složky pod touto cestou:"
+14695,1,"Přístup byl odepřen. Číst pro toto porovnání obsah souborů pod touto cestou jako správce?"
+14696,1,"Odkaz Windows pro kompatibilitu byl přeskočen. Do součtu se započítává 0 bajtů."
+
+14698,1,"Operaci se nepodařilo potvrdit jako dokončenou. Pracovní záloha nebo žurnál mohly zůstat zachovány. Před opakováním zkontrolujte zdroj, cíl a případnou zálohu."
+
+14699,1,"Přístup byl odepřen. Nahradit tento soubor jako správce se zachováním oprávnění cíle? Náhradní soubor nebude obsahovat alternativní datové proudy."
+
+14700,1,"Byl dosažen limit správcovského přístupu (%s chráněných položek). Tato položka nebyla prohledána; výsledky mohou být neúplné."
+14701,1,"Neúplné (limit správce)"
+
+14702,1,"Dřívější hledání v těchto výsledcích dosáhlo limitu přístupu správce (%s chráněných položek). Některé položky nebyly prohledány."
+
+14703,1,"Přesun chráněné složky do Koše s oprávněními správce zatím není podporován."
+
+[STRINGTABLE 198]
+14704,1,"Neúplné (viz protokol)"
+14705,1,"Výpis adresáře překročil svou kapacitu. Některé položky nebyly prohledány."
+14706,1,"Chráněný podstrom překročil limit počtu položek. Některé položky nebyly prohledány."
+14707,1,"Chráněný podstrom překročil limit hloubky. Některé položky nebyly prohledány."
+14708,1,"Některé cíle odkazů nebyly prohledány."
+14709,1,"Přístup k části chráněného stromu nebyl schválen nebo selhal. Některé položky nebyly prohledány."
+
+14710,1,"Zvolený prohlížeč zatím neumí bezpečně otevřít tento ověřený výsledek. Použijte interní prohlížeč."
+14711,1,"Tento výsledek je svázán s dříve ověřenou identitou. Otevřít jeho snímek pro čtení v interním prohlížeči jako správce? Snímek je omezen na 16 MB."
+
+14712,1,"Ověřená identita tohoto chráněného výsledku není k dispozici. Soubor nelze bezpečně otevřít; zkuste hledání zopakovat."
+14713,1,"Volba View With zatím neumí bezpečně zachovat ověřenou identitu tohoto chráněného výsledku. Použijte běžné F3."
+
+14714,1,"Obsah ani štítky chráněného výsledku nyní nelze při zpřesnění bezpečně přečíst s původní ověřenou identitou. Tato položka nebyla ověřena."
+14715,1,"Přístup byl odepřen. Vytvořit tento seznam souborů jako správce?"
+
+14716,1,"Identitu některých chráněných složek nelze ověřit. Nebyly otevřeny; výpis je neúplný. První složka:"
+14717,1,"Chráněná složka obsahuje více než 4096 položek. Její výpis je neúplný."
+
+14719,1,"Branch View - %I64u souborů; výsledek může být neúplný"
+14720,1,"Výpis adresáře byl přerušen a obnoven. Soubory se mezitím mohly změnit, proto může být sloučený výpis neúplný. Ověřte jej obnovením."
+
+14721,1,"Přístup byl odepřen. Zkopírovat tento soubor jako správce? Soubory s alternativními datovými proudy nejsou v tomto režimu podporovány."
+
+[STRINGTABLE 199]
+14991,1,"Čtení přidružení souborů ze souborového úložiště, čekejte prosím..."
+
+[STRINGTABLE 200]
 14992,1,"Ukládání konfigurace do souborového úložiště, čekejte prosím..."
 14993,1,"Odstraňování staré konfigurace ze souborového úložiště, čekejte prosím..."
 14994,1,"Probíhá čtení přidružení souborů ze souborového úložiště..."

@@ -4369,9 +4369,123 @@ SLGINCOMPLETE,""
 14611,1,"No se pudo finalizar ninguno de los procesos que utilizan este archivo."
 
 [STRINGTABLE 193]
-14991,1,"Leyendo asociaciones del almacenamiento de archivos, espere por favor..."
+14624,1,"Acceso denegado. ¿Crear esta carpeta como administrador?"
+14625,1,"La conexión con el proceso auxiliar se interrumpió antes de confirmar el resultado. Compruebe el destino antes de volver a intentarlo."
+14626,1,"Acceso denegado. ¿Cambiar el nombre de este archivo como administrador? Se muestra primero la ruta actual y después la nueva."
+14627,1,"Acceso denegado. ¿Aplicar los atributos y las fechas solicitados a este archivo como administrador?"
+14628,1,"La conexión con el proceso auxiliar se interrumpió antes de confirmar el resultado. Compruebe los atributos y las fechas del archivo antes de volver a intentarlo."
+14629,1,"Acceso denegado. ¿Eliminar permanentemente este archivo como administrador?"
+14630,1,"La conexión con el proceso auxiliar se interrumpió antes de confirmar la eliminación. Compruebe si el archivo sigue existiendo antes de volver a intentarlo."
+14631,1,"Acceso denegado. ¿Listar esta carpeta y sus subcarpetas como administrador?"
+14632,1,"Listado de administrador"
+14633,1,"Acceso denegado. ¿Copiar este archivo y sus flujos de datos alternativos como administrador?"
+14634,1,"No se pudo confirmar que la copia se completara. Compruebe el destino antes de volver a intentarlo."
+14635,1,"Acceso denegado. ¿Mover este archivo como administrador?"
+14636,1,"No se pudo confirmar que el traslado se completara. Compruebe el origen y el destino antes de volver a intentarlo."
+14637,1,"Inventario del subárbol protegido"
+14639,1,"El cálculo del tamaño no pudo recorrer todo el árbol de directorios."
 
 [STRINGTABLE 194]
+14640,1,"Archivos: "
+14641,1,"Subcarpetas: "
+14642,1,"Tamaño lógico (bytes): "
+14643,1,"¿Copiar esta carpeta y su contenido como administrador?"
+14644,1,"No se pudo confirmar la copia de la carpeta o la limpieza. Comprueba el destino antes de volver a intentarlo."
+14645,1,"Acceso denegado. ¿Establecer las fechas y horas solicitadas de esta carpeta como administrador?"
+14646,1,"La conexión con el proceso auxiliar se interrumpió antes de confirmar el resultado. Compruebe las fechas y horas de la carpeta antes de volver a intentarlo."
+14647,1,"Acceso denegado. ¿Aplicar los atributos solicitados y, si procede, las fechas y horas seleccionadas a esta carpeta como administrador?"
+14648,1,"La conexión con el proceso auxiliar se interrumpió antes de confirmar el resultado. Compruebe los atributos, fechas y horas de la carpeta antes de volver a intentarlo."
+14649,1,"Acceso denegado. ¿Copiar este archivo sin sus flujos de datos alternativos como administrador?"
+14650,1,"Acceso denegado. ¿Copiar este archivo como administrador conservando su compresión NTFS?"
+14651,1,"Acceso denegado. ¿Cambiar el nombre de este enlace simbólico como administrador?"
+14652,1,"Acceso denegado. ¿Cambiar el nombre de esta unión de directorios como administrador?"
+14653,1,"Acceso denegado. ¿Eliminar permanentemente este enlace simbólico como administrador? El archivo de destino se conservará."
+14654,1,"Acceso denegado. ¿Eliminar permanentemente este enlace simbólico de carpeta como administrador? La carpeta de destino se conservará."
+14655,1,"Acceso denegado. ¿Eliminar permanentemente esta unión de directorios como administrador? La carpeta de destino se conservará."
+
+[STRINGTABLE 195]
+14656,1,"Acceso denegado. ¿Copiar este archivo como administrador conservando su propietario, grupo y permisos NTFS explícitos?"
+14657,1,"No se pudo completar la copia de este archivo cifrado con EFS. El modo de administrador no puede conservar el cifrado EFS en esta operación."
+14658,1,"Windows no confirmó que todos los elementos se movieran a la Papelera de reciclaje. Compruebe la ubicación original y la Papelera antes de volver a intentarlo."
+14659,1,"Acceso denegado. ¿Calcular el tamaño de esta carpeta y de sus subcarpetas como administrador?"
+14660,1,"Acceso denegado. ¿Buscar por nombre y metadatos en esta carpeta como administrador? La búsqueda continúa en las carpetas accesibles mientras decide."
+14661,1,"Esperando permiso de administrador para acceder a una carpeta protegida…"
+14662,1,"Buscando en la carpeta autorizada con permisos de administrador."
+14663,1,"No disponible"
+14664,1,"Acceso denegado. ¿Abrir una copia de solo lectura de este archivo en el visor interno como administrador? El límite de la copia es de 16 MB."
+14665,1,"Copia abierta con permisos de administrador"
+14666,1,"Esta copia es de solo lectura. Vuelva al panel para solicitar una copia nueva."
+14667,1,"No se pudo abrir el archivo protegido en el visor interno."
+14668,1,"Editar como administrador"
+14669,1,"Acceso denegado. ¿Abrir el archivo original con el editor configurado como administrador? Windows solicitará permiso para el editor que se muestra a continuación."
+14670,1,"El modo de administrador requiere que el ejecutable del editor esté en una carpeta protegida de Windows o Program Files."
+14671,1,"Contenido de un archivo ZIP protegido"
+
+[STRINGTABLE 196]
+14672,1,"Acceso denegado. ¿Leer el contenido de este archivo ZIP como administrador? El archivo se abrirá en modo de solo lectura."
+14673,1,"Use F3 para ver un archivo o F5 para extraerlo. No se puede abrir en una aplicación externa."
+14674,1,"Acceso denegado. ¿Extraer los archivos y las carpetas seleccionados del ZIP al destino que se muestra como administrador?"
+14675,1,"Seleccione una carpeta local existente como destino para los elementos seleccionados del ZIP protegido."
+14676,1,"La extracción se detuvo tras crear parte de los elementos ZIP seleccionados. Compruebe el destino antes de volver a intentarlo."
+14677,1,"Actualizar un archivo ZIP protegido"
+14678,1,"¿Guardar los cambios preparados para este archivo ZIP como administrador?"
+14679,1,"Windows no confirmó que se completara la actualización del ZIP. Compruebe el archivo y cualquier copia de seguridad que quede en su carpeta antes de volver a intentarlo."
+14680,1,"Se actualizó el archivo ZIP. Actualice el panel del archivo para ver el contenido nuevo."
+14681,1,"Acceso denegado. ¿Reemplazar este archivo existente como administrador conservando los permisos del destino?"
+14682,1,"El permiso se aplica a este elemento. Si cancela, se detendrá el procesamiento de los demás elementos. Los cambios completados se conservarán."
+14683,1,"Acceso denegado. ¿Leer como administrador el contenido de los archivos de esta carpeta para la búsqueda actual? La búsqueda continúa en las carpetas accesibles mientras decide."
+14684,1,"Acceso denegado. ¿Leer este archivo como administrador para la búsqueda actual?"
+14685,1,"Acceso denegado. ¿Copiar este archivo como administrador conservando su cifrado EFS?"
+14686,1,"El permiso también se aplica a otros archivos aptos para esta operación en las carpetas indicadas abajo, hasta que termine la operación."
+14687,1,"El permiso también se aplica a otros elementos aptos para esta operación en la carpeta indicada abajo, hasta que termine la operación."
+
+[STRINGTABLE 197]
+14688,1,"Acceso denegado. ¿Mover este archivo a su Papelera de reciclaje como administrador?"
+14689,1,"Acceso denegado. ¿Copiar este archivo como administrador conservando su compresión NTFS, propietario, grupo y permisos explícitos?"
+14694,1,"Esta autorización también cubre las carpetas protegidas en:"
+14695,1,"Acceso denegado. ¿Leer como administrador el contenido de los archivos de esta ruta para esta comparación?"
+14696,1,"Se omitió este vínculo de compatibilidad de Windows. Aporta 0 bytes al total."
+
+14698,1,"No se pudo confirmar que la operación terminara. Puede quedar una copia de trabajo o un registro. Compruebe el origen, el destino y cualquier copia de seguridad antes de volver a intentarlo."
+
+14699,1,"Acceso denegado. ¿Reemplazar este archivo como administrador conservando los permisos del destino? El archivo de reemplazo no contendrá flujos de datos alternativos."
+
+14700,1,"Se alcanzó el límite de acceso de administrador (%s elementos protegidos). No se buscó en este elemento; los resultados pueden estar incompletos."
+14701,1,"Incompleto (límite admin.)"
+
+14702,1,"Una búsqueda anterior en estos resultados alcanzó el límite de acceso de administrador (%s elementos protegidos). Algunos elementos no se buscaron."
+
+14703,1,"Todavía no se admite mover una carpeta protegida a la Papelera de reciclaje con privilegios de administrador."
+
+[STRINGTABLE 198]
+14704,1,"Incompleto (ver registro)"
+14705,1,"Una lista de directorio superó su capacidad. Algunos elementos no se buscaron."
+14706,1,"Un subárbol protegido superó el límite de elementos. Algunos elementos no se buscaron."
+14707,1,"Un subárbol protegido superó el límite de profundidad. Algunos elementos no se buscaron."
+14708,1,"No se buscaron algunos destinos de enlaces."
+14709,1,"El acceso a una parte de un árbol protegido no se aprobó o falló. Algunos elementos no se buscaron."
+
+14710,1,"El visor seleccionado aún no puede abrir de forma segura este resultado verificado. Use el visor interno."
+14711,1,"Este resultado está asociado a una identidad verificada anteriormente. ¿Abrir una instantánea de solo lectura en el visor interno como administrador? La instantánea está limitada a 16 MB."
+
+14712,1,"La identidad verificada de este resultado protegido no está disponible. El archivo no se puede abrir de forma segura; intente repetir la búsqueda."
+14713,1,"View With aún no puede conservar de forma segura la identidad verificada de este resultado protegido. Use F3 en su lugar."
+
+14714,1,"El contenido y las etiquetas de este resultado protegido no se pueden leer de forma segura durante el refinamiento con la identidad verificada anteriormente. Este elemento no se verificó."
+14715,1,"Acceso denegado. ¿Crear esta lista de archivos como administrador?"
+
+14716,1,"No se puede verificar la identidad de algunas carpetas protegidas. No se abrieron; la lista está incompleta. Primera carpeta:"
+14717,1,"Una carpeta protegida contiene más de 4096 elementos. Su lista está incompleta."
+
+14719,1,"Branch View - %I64u archivos; el resultado puede estar incompleto"
+14720,1,"La lista de la carpeta se interrumpió y se reanudó. Los archivos pudieron cambiar; la lista puede estar incompleta. Actualícela para comprobarla."
+
+14721,1,"Acceso denegado. ¿Copiar este archivo como administrador? Este modo no admite archivos con flujos de datos alternativos."
+
+[STRINGTABLE 199]
+14991,1,"Leyendo asociaciones del almacenamiento de archivos, espere por favor..."
+
+[STRINGTABLE 200]
 14992,1,"Guardando configuración en el almacenamiento de archivos, espere por favor..."
 14993,1,"Eliminando configuración antigua del almacenamiento de archivos, espere por favor..."
 14994,1,"Leyendo asociaciones del almacenamiento de archivos..."

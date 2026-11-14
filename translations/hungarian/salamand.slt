@@ -4369,9 +4369,123 @@ SLGINCOMPLETE,""
 14611,1,"A fájlt használó folyamatok egyikét sem sikerült leállítani."
 
 [STRINGTABLE 193]
-14991,1,"Társítások beolvasása fájltárolóból, kérem várjon..."
+14624,1,"A hozzáférés megtagadva. Létrehozza ezt a mappát rendszergazdaként?"
+14625,1,"A kapcsolat megszakadt a segédfolyamattal az eredmény megerősítése előtt. Újrapróbálkozás előtt ellenőrizze a célt."
+14626,1,"A hozzáférés megtagadva. Átnevezi a fájlt rendszergazdaként? Az első sor a jelenlegi, a második az új elérési út."
+14627,1,"A hozzáférés megtagadva. Alkalmazod a kért attribútumokat és időbélyegeket erre a fájlra rendszergazdaként?"
+14628,1,"A segédfolyamattal megszakadt a kapcsolat az eredmény megerősítése előtt. Újrapróbálkozás előtt ellenőrizd a fájl attribútumait és időbélyegeit."
+14629,1,"A hozzáférés megtagadva. Véglegesen törlöd ezt a fájlt rendszergazdaként?"
+14630,1,"A segédfolyamattal megszakadt a kapcsolat a törlés megerősítése előtt. Újrapróbálkozás előtt ellenőrizd, hogy a fájl még létezik-e."
+14631,1,"A hozzáférés megtagadva. Listázod ezt a mappát és almappáit rendszergazdaként?"
+14632,1,"Rendszergazdai lista"
+14633,1,"A hozzáférés megtagadva. Másolja ezt a fájlt az alternatív adatfolyamaival együtt rendszergazdaként?"
+14634,1,"A másolás befejezését nem sikerült megerősíteni. Újrapróbálkozás előtt ellenőrizze a célhelyet."
+14635,1,"A hozzáférés megtagadva. Áthelyezi ezt a fájlt rendszergazdaként?"
+14636,1,"Az áthelyezés befejezését nem sikerült megerősíteni. Újrapróbálkozás előtt ellenőrizze a forrást és a célhelyet."
+14637,1,"Védett mappafa leltára"
+14639,1,"A mappaméret kiszámításakor nem sikerült bejárni a teljes mappafát."
 
 [STRINGTABLE 194]
+14640,1,"Fájlok: "
+14641,1,"Almappák: "
+14642,1,"Logikai méret (bájt): "
+14643,1,"Másolja ezt a mappát és tartalmát rendszergazdaként?"
+14644,1,"A mappa másolását vagy a takarítást nem sikerült megerősíteni. Újrapróbálkozás előtt ellenőrizze a célhelyet."
+14645,1,"A hozzáférés megtagadva. Beállítja a mappa kért időbélyegeit rendszergazdaként?"
+14646,1,"A segédfolyamattal megszakadt a kapcsolat az eredmény megerősítése előtt. Újrapróbálkozás előtt ellenőrizze a mappa időbélyegeit."
+14647,1,"A hozzáférés megtagadva. Alkalmazza a kért attribútumokat és az esetleg kiválasztott időbélyegeket erre a mappára rendszergazdaként?"
+14648,1,"A segédfolyamattal megszakadt a kapcsolat az eredmény megerősítése előtt. Újrapróbálkozás előtt ellenőrizze a mappa attribútumait és időbélyegeit."
+14649,1,"A hozzáférés megtagadva. Másolja ezt a fájlt az alternatív adatfolyamai nélkül rendszergazdaként?"
+14650,1,"A hozzáférés megtagadva. Másolja ezt a fájlt rendszergazdaként az NTFS-tömörítés megőrzésével?"
+14651,1,"A hozzáférés megtagadva. Átnevezi ezt a szimbolikus hivatkozást rendszergazdaként?"
+14652,1,"A hozzáférés megtagadva. Átnevezi ezt a könyvtárcsatolást (junction) rendszergazdaként?"
+14653,1,"A hozzáférés megtagadva. Véglegesen törli ezt a szimbolikus hivatkozást rendszergazdaként? A hivatkozott fájl megmarad."
+14654,1,"A hozzáférés megtagadva. Véglegesen törli ezt a mappára mutató szimbolikus hivatkozást rendszergazdaként? A hivatkozott mappa megmarad."
+14655,1,"A hozzáférés megtagadva. Véglegesen törli ezt a könyvtárcsatolást (junction) rendszergazdaként? A hivatkozott mappa megmarad."
+
+[STRINGTABLE 195]
+14656,1,"A hozzáférés megtagadva. Másolja ezt a fájlt rendszergazdaként az NTFS-tulajdonos, a csoport és a kifejezetten megadott engedélyek megőrzésével?"
+14657,1,"Az EFS-titkosított fájl másolását nem sikerült befejezni. Ennél a műveletnél az EFS-titkosítás rendszergazdai módban sem őrizhető meg."
+14658,1,"A Windows nem erősítette meg, hogy minden elem a Lomtárba került. Újrapróbálkozás előtt ellenőrizze az eredeti helyet és a Lomtárat."
+14659,1,"A hozzáférés megtagadva. Kiszámítja ennek a mappának és almappáinak a méretét rendszergazdaként?"
+14660,1,"A hozzáférés megtagadva. Keres ebben a mappában név és metaadatok alapján rendszergazdaként? Amíg dönt, a keresés folytatódik a hozzáférhető mappákban."
+14661,1,"Várakozás a védett mappa eléréséhez szükséges rendszergazdai engedélyre…"
+14662,1,"Keresés a jóváhagyott mappában rendszergazdai jogosultsággal."
+14663,1,"Nem érhető el"
+14664,1,"A hozzáférés megtagadva. Megnyitja ennek a fájlnak az írásvédett másolatát a beépített megjelenítőben rendszergazdaként? A másolat legfeljebb 16 MB lehet."
+14665,1,"Rendszergazdai jogosultsággal megnyitott másolat"
+14666,1,"Ez a másolat írásvédett. Új másolat kéréséhez térjen vissza a panelre."
+14667,1,"A védett fájlt nem sikerült megnyitni a beépített megjelenítőben."
+14668,1,"Szerkesztés rendszergazdaként"
+14669,1,"A hozzáférés megtagadva. Megnyitja az eredeti fájlt a beállított szerkesztőben rendszergazdaként? A Windows az alább látható szerkesztőhöz kér engedélyt."
+14670,1,"Rendszergazdai módhoz a szerkesztő futtatható fájljának védett Windows- vagy Program Files-mappában kell lennie."
+14671,1,"Védett ZIP-archívum tartalma"
+
+[STRINGTABLE 196]
+14672,1,"A hozzáférés megtagadva. Beolvassa a ZIP-archívum tartalmát rendszergazdaként? Az archívum csak olvasásra nyílik meg."
+14673,1,"Az F3 megjeleníti, az F5 kibontja a fájlt. Külső alkalmazásban nem lehet megnyitni."
+14674,1,"A hozzáférés megtagadva. Kibontja a kijelölt ZIP-fájlokat és -mappákat a megjelenített célhelyre rendszergazdaként?"
+14675,1,"Válasszon egy meglévő helyi célmappát a védett ZIP-archívumban kijelölt elemekhez."
+14676,1,"A kibontás a kijelölt ZIP-elemek egy részének létrehozása után leállt. Újrapróbálkozás előtt ellenőrizze a célhelyet."
+14677,1,"Védett ZIP-archívum frissítése"
+14678,1,"Menti a ZIP-archívum előkészített módosításait rendszergazdaként?"
+14679,1,"A Windows nem erősítette meg a ZIP-frissítés befejezését. Újrapróbálkozás előtt ellenőrizze az archívumot és az esetleg a mappájában maradt biztonsági másolatot."
+14680,1,"A ZIP-archívum frissült. Az új tartalom megjelenítéséhez frissítse az archívumpanelt."
+14681,1,"A hozzáférés megtagadva. Lecseréli ezt a meglévő fájlt rendszergazdaként a cél engedélyeinek megőrzésével?"
+14682,1,"Az engedély erre az elemre vonatkozik. Megszakításkor a hátralévő elemek feldolgozása leáll. A befejezett módosítások megmaradnak."
+14683,1,"A hozzáférés megtagadva. Beolvassa e mappa fájljainak tartalmát a jelenlegi kereséshez rendszergazdaként? Amíg dönt, a keresés folytatódik a hozzáférhető mappákban."
+14684,1,"A hozzáférés megtagadva. Beolvassa ezt a fájlt a jelenlegi kereséshez rendszergazdaként?"
+14685,1,"A hozzáférés megtagadva. Másolja ezt a fájlt rendszergazdaként az EFS-titkosítás megőrzésével?"
+14686,1,"Az engedély a művelet végéig az alább felsorolt mappákban lévő, a feltételeknek megfelelő további fájlokra is vonatkozik."
+14687,1,"Az engedély a művelet végéig az alább megadott mappában lévő, a feltételeknek megfelelő további elemekre is vonatkozik."
+
+[STRINGTABLE 197]
+14688,1,"A hozzáférés megtagadva. Áthelyezi ezt a fájlt a saját Lomtárába rendszergazdaként?"
+14689,1,"A hozzáférés megtagadva. Másolja ezt a fájlt rendszergazdaként az NTFS-tömörítés, a tulajdonos, a csoport és a kifejezetten megadott engedélyek megőrzésével?"
+14694,1,"Az engedély az alábbi útvonalon található védett mappákra is vonatkozik:"
+14695,1,"A hozzáférés megtagadva. Rendszergazdaként olvassa be az ezen az útvonalon található fájlok tartalmát ehhez az összehasonlításhoz?"
+14696,1,"A Windows kompatibilitási hivatkozás kimaradt. A teljes mérethez 0 bájttal járul hozzá."
+
+14698,1,"A művelet befejezése nem erősíthető meg. Egy munkamásolat vagy napló megmaradhatott. Újrapróbálkozás előtt ellenőrizze a forrást, a célhelyet és az esetleges biztonsági másolatot."
+
+14699,1,"Hozzáférés megtagadva. Lecseréli ezt a fájlt rendszergazdaként a cél jogosultságainak megtartásával? A helyettesítő fájl nem fog alternatív adatfolyamokat tartalmazni."
+
+14700,1,"Elérte a rendszergazdai hozzáférés korlátját (%s védett elem). Ez az elem nem lett átvizsgálva; az eredmények hiányosak lehetnek."
+14701,1,"Hiányos (rendszergazdai korlát)"
+
+14702,1,"Az ezekben az eredményekben végzett korábbi keresés elérte a rendszergazdai hozzáférés korlátját (%s védett elem). Egyes elemek nem lettek átvizsgálva."
+
+14703,1,"A védett mappa rendszergazdai jogosultsággal történő Lomtárba helyezése még nem támogatott."
+
+[STRINGTABLE 198]
+14704,1,"Hiányos (lásd a naplót)"
+14705,1,"Egy könyvtárlistázás túllépte a kapacitását. Egyes elemek nem lettek átvizsgálva."
+14706,1,"Egy védett részfa túllépte az elemek számára vonatkozó korlátot. Egyes elemek nem lettek átvizsgálva."
+14707,1,"Egy védett részfa túllépte a mélységkorlátot. Egyes elemek nem lettek átvizsgálva."
+14708,1,"Egyes hivatkozások céljai nem lettek átvizsgálva."
+14709,1,"Egy védett fa egy részéhez való hozzáférést nem hagyták jóvá, vagy az sikertelen volt. Egyes elemek nem lettek átvizsgálva."
+
+14710,1,"A kiválasztott megjelenítő még nem tudja biztonságosan megnyitni ezt az ellenőrzött eredményt. Használja a belső megjelenítőt."
+14711,1,"Ez az eredmény egy korábban ellenőrzött azonossághoz van kötve. Megnyitja az írásvédett pillanatképet a belső megjelenítőben rendszergazdaként? A pillanatkép mérete legfeljebb 16 MB."
+
+14712,1,"A védett eredmény ellenőrzött azonossága nem érhető el. A fájl nem nyitható meg biztonságosan; próbálja meg újraindítani a keresést."
+14713,1,"A View With még nem tudja biztonságosan megőrizni a védett eredmény ellenőrzött azonosságát. Használja helyette az F3 billentyűt."
+
+14714,1,"A védett eredmény tartalma és címkéi a pontosítás során jelenleg nem olvashatók biztonságosan a korábban ellenőrzött azonossággal. Ez az elem nem lett ellenőrizve."
+14715,1,"A hozzáférés megtagadva. Létrehozza ezt a fájllistát rendszergazdaként?"
+
+14716,1,"Néhány védett mappa azonossága nem ellenőrizhető. Nem lettek megnyitva; a lista hiányos. Első mappa:"
+14717,1,"Egy védett mappa több mint 4096 elemet tartalmaz. A listája hiányos."
+
+14719,1,"Branch View - %I64u fájl; az eredmény hiányos lehet"
+14720,1,"A mappa listázása megszakadt, majd folytatódott. A fájlok közben módosulhattak, ezért a lista hiányos lehet. Ellenőrzéshez frissítse."
+
+14721,1,"A hozzáférés megtagadva. Másolja ezt a fájlt rendszergazdaként? Ez a mód nem támogatja az alternatív adatfolyamokat tartalmazó fájlokat."
+
+[STRINGTABLE 199]
+14991,1,"Társítások beolvasása fájltárolóból, kérem várjon..."
+
+[STRINGTABLE 200]
 14992,1,"Beállítások mentése fájltárolóba, kérem várjon..."
 14993,1,"Régi beállítások törlése fájltárolóból, kérem várjon..."
 14994,1,"Társítások beolvasása fájltárolóból..."

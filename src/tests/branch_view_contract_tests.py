@@ -1,4 +1,12 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Check deferred protected panel scope. | Match the nonblocking approved-session lookup. | #731 | GPT-6 |
+# | 2026-11-11 | Check captured Find viewer identity routing. | Prevent pathname-only fallback while preserving ordinary Branch View. | #731 | GPT-6.1 Terra |
+# | 2026-11-11 | Check the explicit Stop publication boundary. | Retain refresh cancellation and protected session ownership. | #731 | GPT-6.1 Terra |
+# | 2026-11-10 | Follow the common viewer owner argument. | Keep the Branch View identity assertion after adding Find F3. | #731 | GPT-6.1 Sol |
+# | 2026-11-10 | Guard Branch View rename consent and row lifetime. | Keep the operation tied to the exact selected row. | #731 | GPT-6.1 Sol |
+# | 2026-11-10 | Check Branch View F3 keeps the exact selected file. | Guard the existing internal viewer consent boundary. | #731 | GPT-6.1 Sol |
+# | 2026-11-10 | Check protected Branch scans retain the panel authorization boundary. | Guard caller-thread listing and keep the normal refresh contract. | #731 | GPT-6.1 Sol |
 """Integration guards for Branch View lifetime, identity and navigation.
 
 These checks protect boundaries that the standalone scanner cannot execute.
@@ -71,6 +79,19 @@ class BranchViewContracts(unittest.TestCase):
         self.assertIn("KillTimer(HWindow, IDT_BRANCHVIEW_POLL)", poll)
         self.assertIn("PollBranchView();", source("fileswnb.cpp"))
 
+    def test_protected_scan_uses_only_the_approved_panel_session(self):
+        toggle = body("branch_view.cpp", "void CFilesWindow::ToggleBranchView()")
+        self.ordered(toggle, "BranchView->UseProtectedListing = false", "BranchView->PanelScopePending = ProtectedListing != nullptr", "BranchView->Enabled = true")
+        prepare = body("branch_view.cpp", "static void StartBranchViewScan(")
+        self.ordered(prepare, "if (state.PanelScopePending)", "panel->ProtectedListing->TryContains(",
+                     "return; // another session operation owns the pipe", "state.UseProtectedListing = contains", "state.PanelScopePending = false")
+        start = body("branch_view.cpp", "bool Scan::Start(")
+        self.ordered(start, "if (incremental)", "Shared->PendingDirectories.emplace_back", "return true;", "CreateThread(")
+        poll = body("branch_view.cpp", "void CFilesWindow::PollBranchView()")
+        self.ordered(poll, "if (BranchView->UseProtectedListing && !BranchView->StoppingInitial)", "BranchView->Worker.Advance(",
+                     "!session || !session->Contains(path)", "session->List(path, entries)", "ProtectedListing.get()")
+        self.assertNotIn("session->Start(", poll)
+
     def test_refresh_does_not_synchronously_reopen_root(self):
         refresh = body("fileswn0.cpp", "void CFilesWindow::RefreshDirectory(")
         self.ordered(refresh, "if (IsBranchView() && !BranchView->Applying)", "RefreshBranchView();", "return;")
@@ -120,7 +141,7 @@ class BranchViewContracts(unittest.TestCase):
 
     def test_background_refresh_preserves_visible_snapshot_until_complete(self):
         start = body("branch_view.cpp", "static void StartBranchViewScan(")
-        self.assertIn("state.PreserveListing = !state.Entries.empty()", start)
+        self.assertIn("state.PreserveListing = state.HasCompletedSnapshot || !state.Entries.empty()", start)
         self.ordered(start, "state.ForcePublish = state.Refresh.IsManual()", "state.Refresh.Started(")
         self.assertNotIn("Generation", start)
         self.assertNotIn("state.Entries.clear()", start)
@@ -132,7 +153,7 @@ class BranchViewContracts(unittest.TestCase):
         self.assertIn("BranchView->Refresh.Cancel()", cancel)
         self.assertIn("BranchView->IncomingEntries.clear()", cancel)
         self.assertNotIn("BranchView->Entries.clear()", cancel)
-        self.ordered(poll, "if (BranchView->Status.Cancelled)", "return;", "BranchView->Worker.Drain")
+        self.ordered(poll, "if (BranchView->Status.Cancelled && !BranchView->StoppingInitial)", "return;", "BranchView->Worker.Drain")
         self.assertNotIn("FILE_NOTIFY_CHANGE_LAST_ACCESS", source("snooper.cpp"))
 
     def test_background_status_describes_retained_snapshot(self):
@@ -161,8 +182,8 @@ class BranchViewContracts(unittest.TestCase):
 
     def test_preparation_finishes_before_next_scan_and_survives_shell_callbacks(self):
         poll = body("branch_view.cpp", "void CFilesWindow::PollBranchView()")
-        self.ordered(poll, "lifetime->Busy", "preparation->Queue.RunSlice", "if (!preparation->Alive) return", "preparation->Queue.Restart()", "const bool finished = BranchView->CompletionPending", "RefreshDirectory();", "BranchView->Refresh.Finished", "BranchView->Refresh.Due")
-        self.assertIn("preparation->Queue.HasPending() ? 15 : 200", poll)
+        self.ordered(poll, "lifetime->Busy", "preparation->Queue.RunSlice", "if (!preparation->Alive) return", "preparation->Queue.Restart()", "finished = BranchView->CompletionPending", "RefreshDirectory();", "BranchView->Refresh.Finished", "BranchView->Refresh.Due")
+        self.assertIn("preparation->Queue.HasPending() || BranchView->StoppingInitial", poll)
         self.assertNotIn("DispatchMessage", poll)
         self.assertNotIn("PeekMessage", poll)
         self.assertIn("BranchView->CompletionPending = true", poll)
@@ -255,6 +276,30 @@ class BranchViewContracts(unittest.TestCase):
         self.ordered(sort, "SleepIconCacheThread();", "SortDirectory();", "file.Name == d1.Name", "focusIndex = i", "WakeupIconCacheThread();", "branchListing ? focusIndex : FocusedIndex")
         listing = body("fileswn3.cpp", "void CFilesWindow::SortDirectory(")
         self.ordered(listing, "BRANCH_VIEW_PATH_COLUMN", "std::stable_sort", "ReindexBranchViewFiles();", "VisibleItemsArray.InvalidateArr();")
+
+    def test_branch_f3_uses_verified_physical_path_for_internal_elevation(self):
+        view = body("fileswn5.cpp", "void CFilesWindow::ViewFile(")
+        self.assertIn("const bool panelF3 = name == NULL && Is(ptDisk) && !altView && handlerID == 0xFFFFFFFF;", view)
+        self.ordered(view, "GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*f)) != f",
+                     "GetItemFullPathW(*f)", "protectedCandidate = SalPathRemoveExtendedPrefixW",
+                     "ViewFileInt(owner", "deferredPathCheck ? ProtectedListing.get() : nullptr")
+        internal = body("fileswn5.cpp", "BOOL ViewFileInt(")
+        self.ordered(internal, "case VIEWER_INTERNAL:", "PrepareProtectedViewerSnapshot(")
+        controller = body("fileswn5.cpp", "static bool PrepareProtectedViewerSnapshot(")
+        self.ordered(controller, "GetLastError() == ERROR_ACCESS_DENIED", "PrepareViewer(*candidate",
+                     "ConfirmProtectedRead(", "ReadViewerSnapshot(",
+                     "enumFileNamesSourceUID = enumFileNamesLastFileIndex = -1")
+
+    def test_branch_rename_reuses_verified_source_and_checks_row_lifetime(self):
+        rename = body("fileswn5.cpp", "void CFilesWindow::RenameFileInternalW(")
+        self.ordered(rename, "GetBranchViewGeneration() == branchGeneration", "if (!rowIsCurrent())",
+                     "GetItemFullPathW(*f)", "GetItemDirectoryW(*f)", "err == ERROR_ACCESS_DENIED",
+                     "PrepareRename(listedSource", "if (confirmed && rowIsCurrent())", "request.Execute(HWindow)",
+                     "if (!rowIsCurrent())", "UpdateFileDataNameAfterRename(f")
+        self.assertNotIn("directoryRename) && !IsBranchView()", rename)
+        dialog = body("fileswn5.cpp", "void CFilesWindow::RenameFile(int specialIndex)")
+        self.assertNotIn("!branchRename && (f->Attr & FILE_ATTRIBUTE_REPARSE_POINT)", dialog)
+        self.assertIn("ProbeLocalElevationAccess(GetItemDirectoryW(*f)", dialog)
 
     def test_property_results_are_rejected_after_snapshot_changes(self):
         text = source("fileswn3.cpp")

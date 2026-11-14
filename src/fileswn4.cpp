@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Render the private disk size marker in tiles. | Keep plugin and archive size behavior unchanged. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Show a lower bound in the disk thumbnail view. | Preserve a visibly partial directory total. | #731 | GPT-6.1 Sol |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -1698,8 +1701,15 @@ void GetTileTexts(CFileData* f, int isDir,
     {
         plSizeValid = TRUE;
     }
-    if (!plSizeValid && ((validFileData & VALID_DATA_SIZE) == 0 || isDir && !f->SizeValid))
+    const bool partial = isDisk && isDir == 1 && !f->SizeValid &&
+                         f->PluginData == DiskDirectoryPartialSizeMarker;
+    if (!plSizeValid && ((validFileData & VALID_DATA_SIZE) == 0 || isDir && !f->SizeValid && !partial))
         *out1 = 0;
+    else if (partial && !plSizeValid)
+    {
+        memcpy(out1, ">= ", 3);
+        PrintDiskSize(out1 + 3, f->Size, 0);
+    }
     else
         PrintDiskSize(out1, plSizeValid ? plSize : f->Size, 0);
     *out1Len = (int)strlen(out1);

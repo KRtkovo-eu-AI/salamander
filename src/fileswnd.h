@@ -1,7 +1,32 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Track protected archive mode on the panel. | Distinguish manual refresh from background refresh. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Store file-list exclusion identity in the portable host type. | Avoid a Windows SDK type dependency in every panel consumer. | #731 | GPT-6.1 Sol |
+// | 2026-11-11 | Pass an identity-bound file-list exclusion. | Avoid listing a private staging directory inside the selected tree. | #731 | GPT-6.1 Sol |
+// | 2026-11-11 | Distinguish an explicit Branch Stop from internal cancellation. | Preserve initial partial results without publishing abandoned generations. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Pass the active size scope to file measurements. | Reuse one verified metadata consent across a selected tree. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Keep the directory size marker in disk-only row data. | Preserve the released SDK layout. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Return prepared editor state to Find. | Let the owner thread handle the system prompt. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Accept the original Find editor context. | Keep ordinary editor callers on their existing route. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Keep the Find viewer context in one argument. | Pass the original row context without adding parallel parameters. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Accept the Find result context for viewing. | Keep named F3 distinct from other viewer entry points. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Pass the current directory-size scope down the walk. | Limit shared elevation to one selected tree. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Share the access probe through the worker header. | Use it for both panel preview and move denial. | #731 | GPT-6 (Codex) |
+// | 2026-11-10 | Share the local access preview with permanent deletion. | Apply the same fixed-volume and non-following checks as F2 and F7. | #731 | GPT-6 (Codex) |
+// | 2026-11-10 | Distinguish F2 consent from Quick Rename. | Enable elevated plain-directory rename only from the F2 dialog. | #731 | GPT-6.1 Sol (Codex) |
+// | 2026-11-10 | Carry the F2 dialog consent into the verified rename retry. | Skip the redundant administrator dialog only for shielded OK. | #731 | GPT-6 (Codex) |
+// | 2026-11-08 | Remove the standalone ZIP recovery declaration. | Keep the archive command surface unchanged. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Declare the panel recovery command. | Allow recovery even without an open ZIP panel. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Accept an explicit internal ZIP destination. | Keep the normal F5 path field for protected archive additions. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Expose the protected ZIP editor to archive commands. | Share the staging path for delete and pack. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Share bounded ZIP entry buffering across F3 and F5. | Publish or display only verified bytes. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Expose the current ZIP session to entry actions. | Keep the stream tied to the panel archive. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Own the approved ZIP read session in the panel. | Keep authorization scoped to the open archive. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Opt in to protected ZIP listing for direct panel entry. | Keep history and refresh on their existing paths. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Distinguish directory timestamps from other copy options. | Let protected F5 accept the one option it already implements. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-07 | Own the protected directory listing session per panel. | End authorization on exit and keep listing data distinct from Branch View. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-05 | Persist Copy/Move transfer, conflict, and wait defaults in CCriteriaData. | Save options as defaults ignored the newer dialog settings. | https://github.com/KRtkovo-eu-AI/salamander/issues/734 | Composer |
 // | 2026-11-05 | Add SafeHandleContextMenuMsg2 for shell-extension SEH. | Panel ContextMenu HandleMenuMsg must not live inside WindowProc SEH. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
@@ -16,6 +41,12 @@ struct CExplorerPropertyCache;
 #include "panel_temporary_selection.h"
 #include <string>
 #include <vector>
+#include <memory>
+#include "uacbroker/f7pilot.h"
+
+BOOL ConfirmElevatedFileEdit(HWND owner, const std::wstring& document, const UacF7::ElevatedEditor& editor);
+void LaunchElevatedFileEdit(HWND owner, const std::wstring& document, const UacF7::ElevatedEditor& editor);
+#include "common/zipread.h"
 
 #ifndef SAL_MAX_PATH
 #define SAL_MAX_PATH 32768
@@ -76,6 +107,7 @@ struct CChangeCaseData // data for atChangeCase
 };
 
 class CCopyMoveData;
+struct CSizeScanScope;
 
 struct CTmpDropData
 {
@@ -122,6 +154,7 @@ public:
 
     // it returns TRUE if any criterion is set
     BOOL IsDirty();
+    BOOL HasOptionsOtherThanDirectoryTimes() const;
 
     // if the file 'file' matches UseMasks/Masks and UseAdvanced/Advanced
     // it returns TRUE; if it doesn't match, it returns FALSE
@@ -719,6 +752,11 @@ public:
     BOOL ArrContainsIndex(int index, BOOL* isArrValid, int* versionNum);
 };
 
+// Disk rows have no plug-in data owner. These values travel with the row on
+// sort and refresh without changing the public CFileData layout.
+constexpr DWORD_PTR DiskItemNoPluginData = static_cast<DWORD_PTR>(-1);
+constexpr DWORD_PTR DiskDirectoryPartialSizeMarker = static_cast<DWORD_PTR>(-2);
+
 enum CTargetPathState // state of the target path when building the operation script
 {
     tpsUnknown, // used only to detect the initial state of the target path
@@ -772,6 +810,12 @@ struct CTreeViewAsyncLoadData
     int DirCount;
     BOOL HasChildren;
     volatile BOOL Cancelled;                   // TRUE = abort reading
+};
+
+struct CFileListExclusion
+{
+    std::wstring Name;
+    UacF7::MoveFileIdentity Identity{};
 };
 
 class CFilesWindow : public CFilesWindowAncestor
@@ -879,6 +923,11 @@ public:
     ULONGLONG PanelTabId;
 
     CBranchViewState* BranchView; // core-owned disk collection, NULL for ordinary panels
+    bool ProtectedZip = false;
+    std::unique_ptr<UacF7::ArchiveReadSession> ProtectedZipSession;
+    std::unique_ptr<UacF7::ListingSession> ProtectedListing;
+    std::vector<WIN32_FIND_DATAW> ProtectedListingEntries;
+    bool KeepProtectedListing = false;
 
     BOOL IsBranchView() const;
     BOOL IsBranchViewScanning() const;
@@ -899,6 +948,7 @@ public:
     void ToggleBranchView();
     void RefreshBranchView(BOOL automatic = FALSE);
     void PollBranchView();
+    void StopBranchViewScan();
     void CancelBranchViewScan();
     void ShutdownBranchView();
     void LeaveBranchView();
@@ -1303,7 +1353,7 @@ public:
                              const char* suggestedFocusName = NULL, BOOL forceUpdate = FALSE,
                              BOOL* noChange = NULL, BOOL refreshListBox = TRUE, int* failReason = NULL,
                              BOOL isRefresh = FALSE, BOOL canFocusFileName = FALSE, BOOL isHistory = FALSE,
-                             CPluginData* forcedPlugin = NULL);
+                             CPluginData* forcedPlugin = NULL, bool allowProtectedZip = false);
     // change path to the plug-in FS;
     // if suggestedTopIndex != -1 the top index will be set;
     // if suggestedFocusName != NULL and present in the new list, it will be focused;
@@ -1501,8 +1551,8 @@ public:
     void Convert(); // converts character sets and line endings
     // handlerID specifies which viewer/editor should open the file; 0xFFFFFFFF = no preference
     void ViewFile(char* name, BOOL altView, DWORD handlerID, int enumFileNamesSourceUID,
-                  int enumFileNamesLastFileIndex);           // name == NULL -> item under the cursor in the panel
-    void EditFile(char* name, DWORD handlerID = 0xFFFFFFFF); // name == NULL -> item under the cursor in the panel
+                  int enumFileNamesLastFileIndex, const COpenViewerData* found = nullptr); // NULL name uses the panel caret
+    void EditFile(char* name, DWORD handlerID = 0xFFFFFFFF, COpenEditorData* found = nullptr); // name == NULL -> item under the cursor in the panel
     void EditNewFile();
     // fills a popup based on available viewers
     void FillViewWithMenu(CMenuPopup* popup);
@@ -1540,7 +1590,9 @@ public:
     void CreateDir(CFilesWindow* target);
     void RenameFile(int specialIndex = -1);
     void RenameFileInternal(CFileData* f, const char* formatedFileName, BOOL isDir, BOOL* mayChange, BOOL* tryAgain);
-    void RenameFileInternalW(CFileData* f, const std::wstring& newNameW, BOOL isDir, BOOL* mayChange, BOOL* tryAgain);
+    enum class RenameDialogConsent { None, Plain, Shielded };
+    void RenameFileInternalW(CFileData* f, const std::wstring& newNameW, BOOL isDir, BOOL* mayChange, BOOL* tryAgain,
+                             RenameDialogConsent consent = RenameDialogConsent::None);
     void DropCopyMove(BOOL copy, char* targetPath, CCopyMoveData* data);
 
     // performs deletion using the SHFileOperation API function (only when deleting to the Recycle Bin)
@@ -1558,14 +1610,14 @@ public:
                         DWORD sourceDirAttr, CChangeCaseData* chCaseData, BOOL firstLevelDir,
                         BOOL onlySize, BOOL fastDirectoryMove, CCriteriaData* filterCriteria,
                         BOOL* canDelUpperDirAfterMove, FILETIME* sourceDirTime,
-                        DWORD srcAndTgtPathsFlags);
+                        DWORD srcAndTgtPathsFlags, CSizeScanScope* sizeScope = nullptr);
     BOOL BuildScriptFile(COperations* script, CActionType type, char* sourcePath,
                          BOOL sourcePathSupADS, char* targetPath, CTargetPathState targetPathState,
                          BOOL targetPathSupADS, BOOL targetPathIsFAT32, char* mask, char* fileName,
                          char* fileDOSName, const CQuadWord& fileSize, CAttrsData* attrsData,
                          char* mapName, DWORD sourceFileAttr, CChangeCaseData* chCaseData,
                          BOOL onlySize, FILETIME* fileLastWriteTime, DWORD srcAndTgtPathsFlags,
-                         const wchar_t* fileNameW = NULL);
+                         const wchar_t* fileNameW = NULL, CSizeScanScope* sizeScope = nullptr);
     BOOL BuildScriptMain2(COperations* script, BOOL copy, char* targetDir,
                           CCopyMoveData* data);
 
@@ -1600,9 +1652,16 @@ public:
     // 'forceReloadThumbnails' is TRUE when all thumbnails need to be regenerated again (not only those
     // of changed files); 'isInactiveRefresh' is TRUE when refreshing an inactive window-we load
     // only visible icons/thumbnails/overlays; others are loaded once the main window becomes active
+    bool IsProtectedZip() { return Is(ptZIPArchive) && ProtectedZip; }
+    bool CanEditProtectedZip();
+    bool EditProtectedZip(const char* sourcePath, SalEnumSelection2 add, SalEnumSelection remove, void* context,
+                          const char* archiveRoot = nullptr);
+    DWORD ReadProtectedZipEntry(const CFileData& file, const std::string& entry, std::vector<BYTE>& bytes);
+    DWORD ReadProtectedZipEntry(const CFileData& file, const char* name, ULONGLONG maxBytes,
+                                SalZipWrite write, void* context);
     BOOL ShouldShowWaitCursorForRefresh();
     void RefreshDirectory(BOOL probablyUselessRefresh = FALSE, BOOL forceReloadThumbnails = FALSE,
-                          BOOL isInactiveRefresh = FALSE);
+                          BOOL isInactiveRefresh = FALSE, bool explicitProtectedZip = false);
 
     // read-dir (archives, FS, disk), sort
     // parent is the parent message box
@@ -1640,8 +1699,10 @@ public:
     void OfferArchiveUpdateIfNeededAux(HWND parent, int textID, BOOL* archMaybeUpdated); // used internally only
 
     // writes the list of selected files to the file hFile
-    BOOL MakeFileList(HANDLE hFile, BOOL recursively, const char* outputFileName);
-    BOOL MakeFileListRecursive(HANDLE hFile, const char* outputFileName);
+    BOOL MakeFileList(HANDLE hFile, BOOL recursively, const char* outputFileName,
+                      const CFileListExclusion* exclusion = nullptr);
+    BOOL MakeFileListRecursive(HANDLE hFile, const char* outputFileName,
+                               const CFileListExclusion* exclusion = nullptr);
 
     void Pack(CFilesWindow* target, int pluginIndex = -1, const char* pluginName = NULL, int delFilesAfterPacking = 0);
     void Unpack(CFilesWindow* target, int pluginIndex = -1, const char* pluginName = NULL, const char* unpackMask = NULL);

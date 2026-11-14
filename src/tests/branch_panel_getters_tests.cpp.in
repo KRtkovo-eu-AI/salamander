@@ -2,9 +2,14 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Exercise the protected-folder recycle diagnostic. | Keep Shell errors and selected identities precise. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Initialize the extracted copy target state. | Match the inputs of the production copy planner. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Model the clipboard lease in the Shell data fixture. | Compile the extracted delayed copy handoff against CCopyMoveData's current contract. | https://github.com/KRtkovo-eu-AI/salamander/pull/844 | GPT-6 |
 // | 2026-11-10 | Remove unused shell fallback mocks from the clipboard fixture. | Its source extractor includes only the disk clipboard branch. | https://github.com/KRtkovo-eu-AI/salamander/pull/844 | GPT-6 |
 // | 2026-11-10 | Stub shell menu fallback in the clipboard route fixture. | Keep the Branch panel getter test compiling against the disk and non-disk clipboard routes. | https://github.com/KRtkovo-eu-AI/salamander/pull/844 | GPT-6 |
+// | 2026-11-10 | Keep the initial Shell recycle attempt silent. | Reserve elevation flags for the guarded single-item retry. | #731 | GPT-6 (Codex) |
+// | 2026-11-09 | Keep Branch View on ordinary recycling. | Reject any protected recycle retry from the Branch panel fixture. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Model Shell recycle intent and item receipts. | Verify rejection of permanent mode and unconfirmed results. | | GPT-6.1 Sol (Codex) |
 // The three production getters, Entry, Entry::FullPath, Join and conversion
 // function are extracted verbatim. Only unrelated panel state is replaced.
 #define NOMINMAX
@@ -138,6 +143,7 @@ static DWORD RecordAttributes(const wchar_t* path) {
 
 // Recorders for the actual BuildScriptMain per-item source block. Worker I/O
 // is validated separately and by the real host GUI; no test-only copy engine.
+@@COPY_TARGET_STATE@@
 const int atCopy=1, atMove=2, atDelete=3, atChangeAttrs=4, SACCESS_READ=1,SACCESS_READWRITE=3;
 const DWORD OPFL_SRCPATH_IS_NET=1, OPFL_SRCPATH_IS_FAST=2, OPFL_TGTPATH_IS_NET=4;
 struct CopyCriteria {BOOL IgnoreADS=FALSE;};
@@ -252,25 +258,60 @@ struct CFilesWindow
 #include "@@RECYCLE_HEADER@@"
 static const int ptDisk=1;
 struct TestShellItem {std::wstring Path;void Release(){delete this;}};
+static std::function<void()> RecyclePerformHook;
 struct TestFileOperation {
-    std::vector<std::wstring> Paths;DWORD Flags=0;int PerformCalls=0,Released=0,AbortCalls=0;
+    std::vector<std::wstring> Paths;
+    std::vector<IFileOperationProgressSink*> Sinks;DWORD Flags=0;int PerformCalls=0,Released=0,AbortCalls=0;
     int FailStage=0,FailItem=-1;BOOL Aborted=FALSE;
+    bool PermanentIntent=false,MissingReceipt=false,PrefixSuccess=false,ForceFinalStatus=false,AbortAfterCallback=false;
+    HRESULT ItemResult=S_OK,ForcedResult=S_OK;
     HRESULT SetOwnerWindow(HWND){return FailStage==1?E_FAIL:S_OK;}
     HRESULT SetOperationFlags(DWORD flags){Flags=flags;return FailStage==2?E_FAIL:S_OK;}
-    HRESULT DeleteItem(TestShellItem* item,void*){if(FailItem==(int)Paths.size())return E_FAIL;Paths.push_back(item->Path);return S_OK;}
-    HRESULT PerformOperations(){++PerformCalls;return FailStage==3?E_FAIL:S_OK;}
-    HRESULT GetAnyOperationsAborted(BOOL* b){++AbortCalls;*b=Aborted;return FailStage==4?E_FAIL:S_OK;}
+    HRESULT DeleteItem(TestShellItem* item,IFileOperationProgressSink* sink){if(FailItem==(int)Paths.size())return E_FAIL;Paths.push_back(item->Path);Sinks.push_back(sink);return S_OK;}
+    HRESULT PerformOperations()
+    {
+        ++PerformCalls;
+        if (RecyclePerformHook) RecyclePerformHook();
+        if(FailStage==3)return E_FAIL;
+        if(Aborted)return S_OK;
+        for(auto* sink:Sinks)
+        {
+            HRESULT result=sink->PreDeleteItem(PermanentIntent ? 0 : TSF_DELETE_RECYCLE_IF_POSSIBLE, nullptr);
+            if (SUCCEEDED(result) && PrefixSuccess)
+                result=sink->PostDeleteItem(TSF_DELETE_RECYCLE_IF_POSSIBLE,nullptr,S_OK,reinterpret_cast<IShellItem*>(this));
+            if(SUCCEEDED(result))
+                result=sink->PostDeleteItem(TSF_DELETE_RECYCLE_IF_POSSIBLE,nullptr,ItemResult,
+                    MissingReceipt ? nullptr : reinterpret_cast<IShellItem*>(this));
+            if(FAILED(result))return ForceFinalStatus?ForcedResult:result;
+        }
+        return S_OK;
+    }
+    HRESULT GetAnyOperationsAborted(BOOL* b){++AbortCalls;*b=Aborted||AbortAfterCallback;return FailStage==4?E_FAIL:S_OK;}
     void Release(){++Released;}
 };
 static TestFileOperation RecycleMock;
 static int ParseCalls=0,ParseFail=-1,RecycleErrors=0;
+static std::string RecycleLastMessage;
 static HRESULT MakeOperation(REFCLSID,void*,DWORD,REFIID,void** out){if(RecycleMock.FailStage==5)return E_FAIL;*out=&RecycleMock;return S_OK;}
 static HRESULT MakeShellItem(const wchar_t* path,void*,REFIID,void** out){int i=ParseCalls++;if(i==ParseFail)return HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND);auto* item=new TestShellItem;item->Path=path;*out=item;return S_OK;}
 struct RecycleOwner {HWND HWindow=nullptr;};static RecycleOwner RecycleWindow;
-static const char* RecycleLoadStr(int){return "fixture";}
-static const char* RecycleErrorText(DWORD){return "fixture";}
-static int RecycleMessage(HWND,const char*,const char*,UINT){++RecycleErrors;return IDOK;}
-static const int IDS_ERRORTITLE=1;
+static const int IDS_ERRORTITLE=1,IDS_UAC_RECYCLE_NOT_CONFIRMED=2,IDS_UAC_RECYCLE_DIRECTORY_UNSUPPORTED=3;
+static const char* RecycleLoadStr(int id){return id==IDS_UAC_RECYCLE_DIRECTORY_UNSUPPORTED?"directory unsupported":"fixture";}
+static const char* RecycleErrorText(DWORD error){return error==ERROR_ACCESS_DENIED?"system error 5":"fixture";}
+static int RecycleMessage(HWND,const char* message,const char*,UINT){++RecycleErrors;RecycleLastMessage=message;return IDOK;}
+static int RecycleRetries=0;
+static HRESULT RecycleRetryResult=S_OK;
+namespace OperationRecycleDetail
+{
+static bool CaptureFileFixture = true;
+static bool CaptureRecycleFixture(const wchar_t*,RecycleFileId&,std::wstring*) { return CaptureFileFixture; }
+}
+static HRESULT RetryProtectedRecycle(HWND,const std::wstring&,const std::wstring&,const OperationRecycleDetail::VerifiedSource&)
+{
+    ++RecycleRetries;
+    return RecycleRetryResult;
+}
+#define ReadFileId CaptureRecycleFixture
 #define IFileOperation TestFileOperation
 #define IShellItem TestShellItem
 #pragma push_macro("IID_PPV_ARGS")
@@ -295,6 +336,7 @@ BOOL CFilesWindow::Recycle(int* selection,int selCount,CFileData* oneFile){
 #undef LoadStr
 #undef GetErrorText
 #undef SalMessageBox
+#undef ReadFileId
 static CRITICAL_SECTION TimeCounterSection;
 static int MyTimeCounter=1,PostedRefresh=0;
 static const UINT WM_USER_REFRESH_DIR=WM_APP+2;
@@ -465,6 +507,7 @@ BOOL CFilesWindow::PrepareCopySource(CFileData* oneFile,int type,CopyCapture& re
 BOOL CFilesWindow::PrepareRelativeTarget(CFileData* oneFile,BOOL keepBranchPaths,CopyScript* script,std::string& result)
 {
     int type=atCopy;char target[]="D:\\target";char* targetPath=target;
+    [[maybe_unused]] const auto targetPathState = tpsNotEncryptedExisting;
 @@COPY_RELATIVE@@
     result=itemTargetPath;
     COperation file;file.Opcode=ocTestCopy;if(script->Add(file)<0)return FALSE;
@@ -776,18 +819,125 @@ static void RecycleQueueTests()
     Add(state,panel.Files->At(2),L"C:\\"+std::wstring(110,L'a')+L"\\"+std::wstring(110,L'b')+L"\\東京",longName,L"deep\\"+longName);
     for(auto& row:panel.FileRows.Values)state.CacheFiles[state.Items.at(row.Name).CacheKey]=&row;
     int selected[]={0,1,2};
-    auto reset=[](){RecycleMock=TestFileOperation();ParseCalls=0;ParseFail=-1;RecycleErrors=0;};
+    auto reset=[](){RecycleMock=TestFileOperation();ParseCalls=0;ParseFail=-1;RecycleErrors=0;RecycleRetries=0;RecycleRetryResult=S_OK;RecycleLastMessage.clear();RecyclePerformHook={};OperationRecycleDetail::CaptureFileFixture=true;};
+    Check(NormalizeRecycleResult(COPYENGINE_E_REQUIRES_ELEVATION)==HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED),"recycle reports required elevation as access denied");
+    Check(NormalizeRecycleResult(COPYENGINE_E_USER_CANCELLED)==HRESULT_FROM_WIN32(ERROR_CANCELLED),"recycle recognizes Shell cancellation");
+    Check(NormalizeRecycleResult(COPYENGINE_E_RECYCLE_UNKNOWN_ERROR)==COPYENGINE_E_RECYCLE_UNKNOWN_ERROR,"recycle preserves the original unknown Shell error");
     reset();Check(panel.Recycle(selected,3,nullptr),"recycle queues entire mixed-volume selection");
     Check(RecycleMock.Paths.size()==3&&RecycleMock.Paths[0]==panel.GetItemFullPathW(panel.Files->At(0))&&RecycleMock.Paths[1]==panel.GetItemFullPathW(panel.Files->At(1)),"recycle preserves duplicate exact parent identities");
     Check(RecycleMock.Paths[2]==panel.GetItemFullPathW(panel.Files->At(2))&&RecycleMock.Paths[2].size()>260,"recycle preserves long Unicode name and parent");
-    Check(RecycleMock.Flags==(FOF_ALLOWUNDO|FOFX_RECYCLEONDELETE|FOFX_ADDUNDORECORD|FOFX_EARLYFAILURE),"recycle-only flags cannot permit permanent fallback");
+    Check((RecycleMock.Flags & (FOFX_RECYCLEONDELETE | FOF_NOERRORUI | FOFX_EARLYFAILURE | FOF_WANTNUKEWARNING)) ==
+        (FOFX_RECYCLEONDELETE | FOF_NOERRORUI | FOFX_EARLYFAILURE | FOF_WANTNUKEWARNING) &&
+        !(RecycleMock.Flags & (FOFX_REQUIREELEVATION | FOFX_SHOWELEVATIONPROMPT | FOF_NOCONFIRMATION)),"recycle does not prompt for elevation or silently accept permanent deletion");
     Check(RecycleMock.PerformCalls==1&&RecycleMock.AbortCalls==1&&RecycleMock.Released==1,"one perform after complete queue and checked abort status");
+    reset();RecycleMock.ItemResult=COPYENGINE_E_RECYCLE_UNKNOWN_ERROR;
+    Check(!panel.Recycle(selected,3,nullptr)&&RecycleErrors==1&&RecycleLastMessage.find("0x80270035")!=std::string::npos,
+          "unknown Shell error is shown with its original code");
     for(int stage=1;stage<=4;++stage){reset();RecycleMock.FailStage=stage;Check(!panel.Recycle(selected,3,nullptr)&&RecycleErrors==1&&RecycleMock.Released==1,"COM setup/perform/abort failure is reported");if(stage<=2)Check(ParseCalls==0&&RecycleMock.PerformCalls==0,"failed owner/flags cannot queue or perform");}
     reset();RecycleMock.FailStage=5;Check(!panel.Recycle(selected,3,nullptr)&&ParseCalls==0&&RecycleMock.PerformCalls==0,"COM creation failure cannot queue or perform");
     reset();RecycleMock.FailItem=1;Check(!panel.Recycle(selected,3,nullptr)&&RecycleMock.PerformCalls==0&&RecycleMock.Paths.size()==1,"queue failure prevents partial selection perform");
     reset();ParseFail=1;Check(!panel.Recycle(selected,3,nullptr)&&RecycleMock.PerformCalls==0,"unparsable second source prevents partial selection perform");
     reset();RecycleMock.Aborted=TRUE;Check(!panel.Recycle(selected,3,nullptr),"user abort is not success");
+    reset();RecycleMock.PermanentIntent=true;Check(!panel.Recycle(selected,3,nullptr)&&RecycleErrors==1,"reject permanent delete intent before it runs");
+    reset();RecycleMock.MissingReceipt=true;Check(!panel.Recycle(selected,3,nullptr)&&RecycleErrors==1,"missing Recycle Bin receipt cannot be reported as success");
     reset();Check(panel.Recycle(nullptr,0,&panel.Files->At(1))&&RecycleMock.Paths.size()==1&&RecycleMock.Paths[0]==panel.GetItemFullPathW(panel.Files->At(1)),"focused one-file recycle resolves exact parent");
+    reset();RecycleMock.ItemResult=COPYENGINE_E_ACCESS_DENIED_SRC;
+    Check(!panel.Recycle(nullptr,0,&panel.Files->At(1))&&RecycleRetries==0,"Branch access denial stays on the ordinary Shell route");
+    panel.BranchView=nullptr;
+    panel.WideRoot=L"C:\\protected";
+    reset();RecycleMock.ItemResult=COPYENGINE_E_ACCESS_DENIED_SRC;
+    Check(panel.Recycle(nullptr,0,&panel.Files->At(1))&&RecycleRetries==1&&RecycleErrors==0,"single disk file retries only after source access denial");
+    reset();RecycleMock.ItemResult=COPYENGINE_E_ACCESS_DENIED_SRC;RecycleRetryResult=HRESULT_FROM_WIN32(ERROR_CANCELLED);
+    Check(!panel.Recycle(nullptr,0,&panel.Files->At(1))&&RecycleRetries==1&&RecycleErrors==0,"cancelled protected retry stays cancelled");
+    reset();RecycleMock.ItemResult=COPYENGINE_E_ACCESS_DENIED_DEST;
+    Check(!panel.Recycle(nullptr,0,&panel.Files->At(1))&&RecycleRetries==0&&RecycleErrors==1,"destination access denial cannot trigger a protected retry");
+    reset();RecycleMock.ItemResult=COPYENGINE_E_ACCESS_DENIED_SRC;
+    Check(!panel.Recycle(selected,3,nullptr)&&RecycleRetries==0,"multiple disk items cannot trigger a protected retry");
+    wchar_t tempPath[MAX_PATH]{}, ownedName[MAX_PATH]{};
+    const bool temporary=GetTempPathW(MAX_PATH,tempPath) && GetTempFileNameW(tempPath,L"rcd",0,ownedName) &&
+        DeleteFileW(ownedName) && CreateDirectoryW(ownedName,nullptr);
+    Check(temporary,"create an owned directory for recycle diagnostics");
+    if(temporary)
+    {
+        const std::wstring full=ownedName;
+        const size_t split=full.find_last_of(L'\\');
+        const std::wstring leaf=full.substr(split+1);
+        const std::wstring moved=full+L"-previous";
+        CFileData directory; directory.Name="directory"; directory.NameW=leaf.c_str();
+        panel.WideRoot=full.substr(0,split);
+        OperationRecycleDetail::DirectoryDiagnosticIdentity originalDirectory;
+        Check(originalDirectory.Capture(full)&&originalDirectory.StillAtOriginalPath(),"capture an exact fixed-NTFS directory for diagnostics");
+        OperationRecycleDetail::DirectoryDiagnosticIdentity clearedIdentity;
+        Check(clearedIdentity.Capture(full)&&!clearedIdentity.Capture(full+L"-missing")&&!clearedIdentity.StillAtOriginalPath(),
+              "a failed diagnostic capture cannot reuse a previous identity");
+        reset();OperationRecycleDetail::CaptureFileFixture=false;RecycleMock.ItemResult=COPYENGINE_E_ACCESS_DENIED_SRC;
+        Check(!panel.Recycle(nullptr,0,&directory)&&RecycleErrors==1&&RecycleRetries==0&&RecycleMock.PerformCalls==1&&
+              RecycleLastMessage.find("directory unsupported")!=std::string::npos&&RecycleLastMessage.find("system error 5")!=std::string::npos,
+              "explicit source denial adds the explanation without replacing the error or retrying");
+        reset();OperationRecycleDetail::CaptureFileFixture=false;RecycleMock.ItemResult=COPYENGINE_E_ACCESS_DENIED_SRC;
+        RecycleMock.ForceFinalStatus=true;RecycleMock.ForcedResult=HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED);
+        Check(!panel.Recycle(nullptr,0,&directory)&&RecycleLastMessage.find("directory unsupported")!=std::string::npos&&
+              RecycleLastMessage.find("system error 5")!=std::string::npos,
+              "an explicit source denial remains specific when the Shell returns Win32 access denied");
+        reset();OperationRecycleDetail::CaptureFileFixture=false;RecycleMock.ItemResult=COPYENGINE_E_REQUIRES_ELEVATION;
+        Check(!panel.Recycle(nullptr,0,&directory)&&RecycleLastMessage.find("directory unsupported")==std::string::npos,
+              "a generic elevation requirement is not attributed to the source folder");
+        for(HRESULT other:{HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED),COPYENGINE_E_ACCESS_DENIED_DEST,E_FAIL,COPYENGINE_E_USER_CANCELLED})
+        {
+            reset();OperationRecycleDetail::CaptureFileFixture=false;RecycleMock.ItemResult=other;
+            Check(!panel.Recycle(nullptr,0,&directory)&&RecycleLastMessage.find("directory unsupported")==std::string::npos,
+                  "ambiguous errors and cancellation retain their ordinary behavior");
+        }
+        reset();OperationRecycleDetail::CaptureFileFixture=false;RecycleMock.PrefixSuccess=true;RecycleMock.ItemResult=COPYENGINE_E_ACCESS_DENIED_SRC;
+        Check(!panel.Recycle(nullptr,0,&directory)&&RecycleLastMessage.find("directory unsupported")==std::string::npos,
+              "a partial Shell result cannot be described as a clean folder denial");
+        reset();OperationRecycleDetail::CaptureFileFixture=false;RecycleMock.ItemResult=COPYENGINE_E_ACCESS_DENIED_SRC;
+        RecycleMock.ForceFinalStatus=true;RecycleMock.ForcedResult=COPYENGINE_E_USER_CANCELLED;
+        Check(!panel.Recycle(nullptr,0,&directory)&&RecycleLastMessage.find("directory unsupported")==std::string::npos,
+              "a later Shell cancellation is not reclassified by an earlier source denial");
+        for(HRESULT later:{E_FAIL,COPYENGINE_E_ACCESS_DENIED_DEST})
+        {
+            reset();OperationRecycleDetail::CaptureFileFixture=false;RecycleMock.ItemResult=COPYENGINE_E_ACCESS_DENIED_SRC;
+            RecycleMock.ForceFinalStatus=true;RecycleMock.ForcedResult=later;
+            Check(!panel.Recycle(nullptr,0,&directory)&&RecycleLastMessage.find("directory unsupported")==std::string::npos,
+                  "a different final Shell error cannot gain the folder-specific explanation");
+        }
+        reset();OperationRecycleDetail::CaptureFileFixture=false;RecycleMock.ItemResult=COPYENGINE_E_ACCESS_DENIED_SRC;
+        RecycleMock.ForceFinalStatus=true;RecycleMock.ForcedResult=S_OK;RecycleMock.AbortAfterCallback=true;
+        Check(!panel.Recycle(nullptr,0,&directory)&&RecycleLastMessage.find("directory unsupported")==std::string::npos,
+              "an aborted Shell result is not reclassified by an earlier source denial");
+        reset();OperationRecycleDetail::CaptureFileFixture=false;RecycleMock.FailItem=0;RecycleMock.ItemResult=COPYENGINE_E_ACCESS_DENIED_SRC;
+        Check(!panel.Recycle(nullptr,0,&directory)&&RecycleMock.PerformCalls==0&&
+              RecycleLastMessage.find("directory unsupported")==std::string::npos,"a queue failure cannot be reclassified as folder denial");
+        const std::wstring filePath=full+L"-file";
+        HANDLE ordinaryFile=CreateFileW(filePath.c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
+        Check(ordinaryFile!=INVALID_HANDLE_VALUE,"create an owned file for diagnostic type checking");
+        if(ordinaryFile!=INVALID_HANDLE_VALUE)
+        {
+            CloseHandle(ordinaryFile);
+            OperationRecycleDetail::DirectoryDiagnosticIdentity fileIdentity;
+            Check(!fileIdentity.Capture(filePath),"a file cannot be classified as a directory");
+            DeleteFileW(filePath.c_str());
+        }
+        const std::wstring linkPath=full+L"-link";
+        if(CreateSymbolicLinkW(linkPath.c_str(),full.c_str(),SYMBOLIC_LINK_FLAG_DIRECTORY|0x2))
+        {
+            OperationRecycleDetail::DirectoryDiagnosticIdentity linkIdentity;
+            Check(!linkIdentity.Capture(linkPath),"a directory symbolic link cannot be classified as the target");
+            RemoveDirectoryW(linkPath.c_str());
+        }
+        else
+            std::printf("SKIP: creating a directory symbolic link requires Windows developer mode or privilege\n");
+        reset();OperationRecycleDetail::CaptureFileFixture=false;RecycleMock.ItemResult=COPYENGINE_E_ACCESS_DENIED_SRC;
+        bool replaced=false;
+        RecyclePerformHook=[&](){replaced=MoveFileW(full.c_str(),moved.c_str())&&CreateDirectoryW(full.c_str(),nullptr);};
+        Check(!panel.Recycle(nullptr,0,&directory)&&replaced&&!originalDirectory.StillAtOriginalPath()&&
+              RecycleLastMessage.find("directory unsupported")==std::string::npos,"a substituted same-name directory does not receive the explanation");
+        RecyclePerformHook={};
+        RemoveDirectoryW(full.c_str());
+        RemoveDirectoryW(moved.c_str());
+    }
+    panel.BranchView=&state;
     reset();Check(!panel.Recycle(nullptr,0,nullptr)&&RecycleMock.PerformCalls==0,"null focused source cannot recycle");
     reset();int bad[]={-1};Check(!panel.Recycle(bad,1,nullptr)&&RecycleMock.PerformCalls==0,"out-of-range selection cannot recycle");
     reset();Check(!panel.Recycle(nullptr,1,nullptr)&&RecycleMock.PerformCalls==0,"missing selection array cannot recycle");

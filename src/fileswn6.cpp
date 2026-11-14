@@ -1,10 +1,71 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Stop execution and editing of entries from a listing-only archive. | Require a future authorized extraction path. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Admit ordinary protected CopyAttrs sources to the thin worker. | Preserve the native F5 attribute option after denied source discovery. | #731 | GPT-6 |
+// | 2026-11-13 | Initialize experimental copy-plan custody before dispatch. | Reject allocation failure before publishing work to the worker. | #731 | GPT-6 |
+// | 2026-11-11 | Pass the private workspace identity to recursive file-list generation. | Keep staged output out of the exported tree. | #731 | GPT-6.1 Sol |
+// | 2026-11-11 | Reuse approved panel allocation metadata for multi-selection. | Measure eligible selected files without broadening consent or starting new sessions. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Retain a declined size elevation across the selected batch. | Continue accessible work without widening approved listing scopes. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Measure one directly selected file in its own UAC scope. | Keep the approval narrower than the containing directory. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Retry denied allocation metadata in the active size scope. | Preserve ordinary totals while requesting a single verified measurement. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Align transfer and permanent-delete planning with native leaf support. | Keep UAC eligibility for ordinary attributes and streamed large copies. | #731 | GPT-6.1 Sol |
+// | 2026-11-11 | Record partial directory sizes on disk rows. | Preserve full-size checks without adding a shared SDK field. | #731 | GPT-6.1 Sol |
+// | 2026-11-11 | Use accepted copy shield for matching protected tree planning. | Open Windows consent directly after confirming the verified destination. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Prepare denied direct delete selections from the approved panel. | Retain each selected path and identity for files, links, and empty-only directory deletion. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Keep ordinary filters and exact directory enumeration paths. | Avoid DOS-name fallback and Win32 normalization for verified permanent deletion. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Use wide paths and preserve incomplete branches in permanent deletion. | Keep exact nested identities and skip removal of ancestors with unread children. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Preserve the original directory read error when elevation is unavailable. | Keep the ordinary copy error accurate before Skip or Cancel. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Prepare protected source listing for a new target root. | Keep initial consent and listing free of destination mutations. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Carry Windows refusal into the transfer worker. | Keep the refusal for the whole copy while planning readable branches. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Use the Windows error type in the source plan. | Avoid narrowing a protected entry status during initialization. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Report unsupported source planning explicitly. | Keep errors meaningful when a protected listing cannot be prepared. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Remove a skipped unreadable branch from the copy plan. | Preserve ordinary siblings without creating a misleading empty target. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | List denied F5 source branches through the scoped broker. | Keep ordinary siblings and exact source identities in the same copy plan. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Plan exact Unicode directory and file entries for plain F5. | Keep approved paths and ordinary worker traversal in agreement. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Retain exact paths for the fast directory move retry. | Route only the actual F6 whole-directory operation to the broker. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Analyze a deferred target using its existing ancestor. | Preserve encryption inheritance and allow the verified source retry. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Defer denied Branch View source discovery until relative targets exist. | Preserve target encryption state and revalidate the eventual parent in the broker. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Prepare denied transfer rows from their physical Branch View paths. | Allow accessible and inaccessible files in one job and preserve per-item preparation failures. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Flag direct Branch View file deletion for late elevation. | Keep ordinary deletion first unless the selected identity was already prepared. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Preserve failed protected source verification per row. | Keep the worker from deleting a replacement by path after preparation failed. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Prepare protected Branch View delete sources by physical path. | Capture denied file identities before the worker leaves the panel thread. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Continue when the approved broker also denies a requested subtree. | Avoid interrupting a size job for each inaccessible sibling and report the first omission. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Merge broker partial sizes and verify direct aliases through the panel. | Keep validated totals and report the first skipped branch. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Continue directory sizing after skipped or declined elevation. | Retain readable siblings and distinguish cancellation of the whole scan. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Capture exact file identities before building the worker job. | Defer inaccessible source stream discovery to the verified broker. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Ignore verified directory links with no target during size calculations. | Keep stale links separate from unavailable directory data. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Enumerate directory sizes using extended UTF-16 paths. | Read genuine long directories without mistaking them for missing entries. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Skip compatibility aliases during directory-size scans. | Keep deliberate link denials separate from protected folders. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Use one size consent for the verified tree. | Reuse elevation automatically while keeping the live dialog owner. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Offer size elevation for one folder or the selected tree. | Keep the active consent owner and avoid repeated elevation within the approved scope. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Keep the protected size dialog open through Windows consent. | Return activation before reading or asking about another subtree. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Remember foreground after the size broker launches. | Defer focus restoration while the panel is disabled. | #731 | GPT-6.1 Sol |
 // | 2026-11-12 | Keep packed-file panels visible during shell launch. | Parent the transparent shell helper beside the owner-drawn list instead of over it. | | openai/gpt-6-luna-pro |
 // | 2026-11-10 | Transfer clipboard source lease to disk copy script. | Preserve staged files until asynchronous copy work completes. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
+// | 2026-11-10 | Preserve exact paths for permanent directory removal. | Discover denied descendants during tree traversal and never sweep unreadable content. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Build verified protected metadata from its checked attributes. | Avoid masking a denied attribute lookup as filesystem flags. | #731 | GPT-6.1 Sol (Codex) |
+// | 2026-11-10 | Keep measuring accessible folders after a protected subtree is skipped. | Preserve accurate per-folder sizes and explicit elevation scope. | #731 | Codex |
+// | 2026-11-09 | Mark selected files independently of recursive transfers. | Defer denied source access only for files selected in the panel. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Allow the larger F6 budget during source preparation. | Use the cross-volume limit before handing denied reads to the worker. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Defer inaccessible cross-volume move sources to the worker. | Allow the existing broker retry after ordinary ADS discovery cannot open the file. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Allow eligible encrypted sources in batch discovery. | Defer blocked reads to the authorized transfer job. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Queue eligible protected EFS sources for F5. | Preserve EFS when ordinary stream discovery is denied. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Retain exact selected paths for each direct directory item. | Prevent batch script position from changing the verified target. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Merge protected and ordinary Ctrl+Q measurements. | Keep the per-file logical sizes available even when a disk metric is unavailable. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Use the common protected read confirmation. | Share the same prompt with the internal viewer. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Offer protected counting from Ctrl+Q as well as Space. | Ctrl+Q normally calculates allocated disk space. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Count a denied subtree through its verified read-only broker. | Keep Ctrl+Q and Space totals complete when access is approved. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Explain EFS failures during copy planning. | Keep the no-decryption boundary visible before any broker offer. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Keep the eligible protected security copy in source planning. | Defer inaccessible source validation to the verified broker. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Pass the exact selected directory-link path to the delete pilot. | Use the panel Unicode path without changing recursive planning. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Defer ADS discovery for eligible compressed copies. | Use the same UAC eligibility for inaccessible sources and targets. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Keep eligible sparse files when initial source access is denied. | Let the F5 broker verify the source when ADS discovery could not open it. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Carry the exact selected directory path for basic metadata. | Use the panel wide path for the directory timestamp request. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-06 | Combine drop scheduling with owned Unicode source paths. | Preserve upstream fixes and Branch View path and lifetime contracts. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
+// | 2026-11-08 | Defer inaccessible source metadata to the verified copy. | A protected file cannot proceed without broker validation. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Share the transfer eligibility flag with F6. | Keep deferred ADS discovery restricted to F5. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -18,6 +79,8 @@
 #include "fileswnd.h"
 #include "dialogs.h"
 #include "worker.h"
+#include "uacbroker/f7pilot.h"
+#include "uacbroker/compatjunction.h"
 #include "workerpath.h"
 #include "branch_view_text.h"
 #include "cache.h"
@@ -199,11 +262,11 @@ void CFilesWindow::Activate(BOOL shares)
 }
 
 BOOL CFilesWindow::MakeFileList(HANDLE hFile, BOOL recursively,
-                                const char* outputFileName)
+                                const char* outputFileName, const CFileListExclusion* exclusion)
 {
     CALL_STACK_MESSAGE_NONE
     if (recursively)
-        return MakeFileListRecursive(hFile, outputFileName);
+        return MakeFileListRecursive(hFile, outputFileName, exclusion);
 
     BOOL ret = TRUE;
 
@@ -1290,6 +1353,64 @@ void CFilesWindow::DropCopyMove(BOOL copy, char* targetPath, CCopyMoveData* data
     }
 }
 
+struct CSizeBatchConsent
+{
+    bool ElevationDeclined = false;
+};
+
+struct CSizeScanScope
+{
+    std::wstring Root;
+    UacF7::ListingSession Session;
+    std::optional<DWORD> StartResult;
+    bool Scanned = false;
+    bool ElevationDeclined = false;
+    bool ExactFile = false;
+    bool ReuseOnly = false;
+    CSizeBatchConsent* Batch = nullptr;
+
+    bool WasElevationDeclined() const { return ElevationDeclined || (Batch && Batch->ElevationDeclined); }
+    void DeclineElevation()
+    {
+        ElevationDeclined = true;
+        if (Batch) Batch->ElevationDeclined = true;
+    }
+};
+
+static bool PrepareListedDeleteSource(COperations& script, UacF7::ListingSession& listing,
+                                      const std::wstring& path, DWORD attributes)
+{
+    const bool directory = (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+    const bool plainDirectory = UacF7::IsEligibleDeleteDirectory(attributes);
+    if (path.empty() || (script.PreparedDeleteRequest && path == script.PreparedDeletePath) ||
+        (!plainDirectory && !UacF7::IsEligibleDeleteFile(attributes) && !UacF7::IsEligibleDeleteLink(attributes, directory)))
+        return true;
+
+    const auto& root = listing.GetRoot();
+    if (root.empty() || path.size() <= root.size() || path.compare(0, root.size(), root) != 0 ||
+        (root.back() != L'\\' && path[root.size()] != L'\\'))
+        return true;
+
+    const DWORD deleteAccess = DELETE | ((attributes & FILE_ATTRIBUTE_READONLY) ? FILE_WRITE_ATTRIBUTES : 0);
+    if (ProbeLocalElevationAccess(path, deleteAccess, directory) != ERROR_ACCESS_DENIED &&
+        (!plainDirectory || ProbeLocalElevationAccess(path, FILE_LIST_DIRECTORY, true) != ERROR_ACCESS_DENIED))
+        return true;
+
+    try
+    {
+        auto request = std::make_unique<UacF7::PreparedLeaf>();
+        const DWORD error = listing.IsOpen() ? listing.PrepareDeleteLeaf(path, attributes, *request) : ERROR_BROKEN_PIPE;
+        if (!script.ProtectedFileSources)
+            script.ProtectedFileSources.emplace();
+        script.ProtectedFileSources->emplace(path, COperations::ProtectedFileSource{error ? nullptr : std::move(request), error});
+        return true;
+    }
+    catch (const std::bad_alloc&)
+    {
+        return false;
+    }
+}
+
 BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                                    char* targetPath, char* mask, int selCount,
                                    int* selection, CFileData* oneFile,
@@ -1302,6 +1423,7 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
     // otherwise selection contains indexes of the count selected items in the filebox
     if (!script->IsGood())
         return FALSE;
+    CSizeBatchConsent sizeBatchConsent;
     script->TotalSize = CQuadWord(0, 0);
     script->CompressedSize = CQuadWord(0, 0);
     script->OccupiedSpace = CQuadWord(0, 0);
@@ -1413,7 +1535,18 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
 
     CPathBuffer sourcePathStorage(4 * SAL_MAX_PATH);
     char* sourcePath = sourcePathStorage.Data();
-    strcpy(sourcePath, GetPath());
+    const bool permanentDelete = type == atDelete && script->AllowPermanentDeletePilot;
+    if (type == atCountSize || permanentDelete)
+    {
+        const auto widePath = GetPathW() && *GetPathW() ? std::wstring(GetPathW())
+                                                       : SalMultiByteToWidePathUtf8OrAcp(GetPath());
+        const auto pathUtf8 = SalWideToMultiBytePath(widePath.c_str(), CP_UTF8);
+        if (pathUtf8.size() >= static_cast<size_t>(sourcePathStorage.Capacity()))
+            return FALSE;
+        strcpy(sourcePath, pathUtf8.c_str());
+    }
+    else
+        strcpy(sourcePath, GetPath());
 
     BOOL sourceSupADS = FALSE;
     BOOL targetSupADS = FALSE;
@@ -1426,7 +1559,14 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                        IsPathOnVolumeSupADS(sourcePath, NULL);
         //    BOOL targetSupEFS;
         targetSupADS = IsPathOnVolumeSupADS(targetPath, &targetIsFAT32);
-        targetPathState = GetTargetPathState(targetPathState, targetPath);
+        if (script->DeferredTransferTarget)
+        {
+            const auto ancestor = SalWideToMultiBytePath(script->DeferredTransferTarget->ancestor.c_str(), CP_UTF8);
+            const auto state = GetTargetPathState(tpsUnknown, ancestor.c_str());
+            targetPathState = state == tpsEncryptedExisting ? tpsEncryptedNotExisting : tpsNotEncryptedNotExisting;
+        }
+        else
+            targetPathState = GetTargetPathState(targetPathState, targetPath);
         script->TargetPathSupADS = targetSupADS;
         //    script->TargetPathSupEFS = targetSupEFS;
         srcAndTgtPathsFlags |= GetPathFlagsForCopyOp(sourcePath, OPFL_SRCPATH_IS_NET, OPFL_SRCPATH_IS_FAST) |
@@ -1463,7 +1603,7 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
 
     char* useName = (oneFile != NULL ? oneFile->Name : NULL);
     char* useDOSName = (oneFile != NULL ? oneFile->DosName : NULL);
-    if (!IsBranchView() && type == atDelete && selCount <= 1 && oneFile != NULL && oneFile->DosName != NULL)
+    if (!IsBranchView() && type == atDelete && !permanentDelete && selCount <= 1 && oneFile != NULL && oneFile->DosName != NULL)
     {
         char* s = sourcePath + strlen(sourcePath);
         char* end = s;
@@ -1511,6 +1651,8 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                 useDOSName = oneFile->DosName;
             }
             std::string branchName;
+            std::wstring branchPath;
+            const wchar_t* fileWideName = oneFile->UseWideName() ? oneFile->NameW : nullptr;
             if (IsBranchView())
             {
                 if ((type != atCopy && type != atMove && type != atDelete && type != atChangeAttrs) || GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*oneFile)) != oneFile)
@@ -1527,8 +1669,14 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                 }
                 sourcePath = sourcePathStorage.Data();
                 memcpy(sourcePath, parent.c_str(), parent.size() + 1);
-                const std::wstring fullPath = GetItemFullPathW(*oneFile);
-                branchName = SalWideToMultiBytePath(SalPathFindFileNameW(fullPath.c_str()), CP_UTF8);
+                branchPath = GetItemFullPathW(*oneFile);
+                if (branchPath.empty())
+                {
+                    SetCurrentDirectoryToSystem();
+                    return FALSE;
+                }
+                fileWideName = SalPathFindFileNameW(branchPath.c_str());
+                branchName = SalWideToMultiBytePath(fileWideName, CP_UTF8);
                 useName = (char*)branchName.c_str();
                 useDOSName = NULL;
                 if (type == atCopy || type == atMove)
@@ -1546,6 +1694,27 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                     }
                 }
             }
+            std::wstring deleteItemPath;
+            std::string deleteItemName;
+            if (permanentDelete)
+            {
+                deleteItemPath = SalPathRemoveExtendedPrefixW(
+                    (branchPath.empty() ? GetItemFullPathW(*oneFile) : branchPath).c_str());
+                if (!deleteItemPath.empty())
+                {
+                    fileWideName = SalPathFindFileNameW(deleteItemPath.c_str());
+                    deleteItemName = SalWideToMultiBytePath(fileWideName, CP_UTF8);
+                    useName = deleteItemName.data();
+                    useDOSName = nullptr;
+                }
+                if (ProtectedListing && !PrepareListedDeleteSource(*script, *ProtectedListing, deleteItemPath, oneFile->Attr))
+                {
+                    SalMessageBox(HWindow, GetErrorText(ERROR_NOT_ENOUGH_MEMORY), LoadStr(IDS_ERRORTITLE),
+                                  MB_OK | MB_ICONEXCLAMATION);
+                    SetCurrentDirectoryToSystem();
+                    return FALSE;
+                }
+            }
             i++;
             // oneFile points to the selected or caret item in the filebox
             if (oneFile->Attr & FILE_ATTRIBUTE_DIRECTORY) // jde o ptDisk
@@ -1555,21 +1724,58 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                     if (countSize)
                     {
                         oldTotalSize = script->TotalSize;
+                        script->CountSizeIncomplete = false;
+                        oneFile->SizeValid = 0;
+                        oneFile->PluginData = DiskItemNoPluginData;
                     }
+                    std::optional<CSizeScanScope> sizeScope;
+                    std::string unicodeName;
+                    if (countSize)
+                    {
+                        sizeScope.emplace();
+                        sizeScope->Batch = &sizeBatchConsent;
+                    }
+                    const bool useWideName = countSize || script->AllowTreeTransfer || permanentDelete;
+                    if (useWideName)
+                    {
+                        const auto wideName = oneFile->UseWideName() ? std::wstring(oneFile->NameW)
+                                                                    : SalMultiByteToWidePathUtf8OrAcp(useName);
+                        unicodeName = SalWideToMultiBytePath(wideName.c_str(), CP_UTF8);
+                    }
+                    const int firstItemOperation = script->Count;
                     if (!BuildScriptDir(script, type, sourcePath, sourceSupADS, targetPath,
                                         targetPathState, targetSupADS, targetIsFAT32, mask,
-                                        useName, useDOSName, attrsData, NULL, oneFile->Attr,
-                                        chCaseData, TRUE, onlySize, fastDirectoryMove,
+                                        useWideName ? unicodeName.data() : useName, useWideName ? nullptr : useDOSName,
+                                        attrsData, NULL, oneFile->Attr, chCaseData, TRUE, onlySize, fastDirectoryMove,
                                         filterCriteria, NULL, &oneFile->LastWrite,
-                                        srcAndTgtPathsFlags))
+                                        srcAndTgtPathsFlags, sizeScope ? &*sizeScope : nullptr))
                     {
                         SetCurrentDirectoryToSystem();
                         return FALSE;
                     }
+                    if (script->Count == firstItemOperation + 1)
+                    {
+                        auto& operation = script->At(firstItemOperation);
+                        const bool directoryDelete = type == atDelete && script->AllowPermanentDeletePilot &&
+                                                     (operation.Opcode == ocDeleteDirLink || operation.Opcode == ocDeleteDir);
+                        const bool directoryMetadata = type == atChangeAttrs && !attrsData->SubDirs && !IsBranchView() &&
+                                                       operation.Opcode == ocChangeAttrs;
+                        if (directoryDelete || directoryMetadata)
+                        {
+                            const auto path = GetItemFullPathW(*oneFile);
+                            if (!path.empty())
+                                operation.SetSourceNameW(path.c_str());
+                        }
+                    }
                     if (countSize)
                     {
-                        oneFile->SizeValid = 1;
-                        oneFile->Size = script->TotalSize - oldTotalSize;
+                        script->CountSizeAnyIncomplete |= script->CountSizeIncomplete;
+                        oneFile->SizeValid = !script->CountSizeIncomplete;
+                        const bool partial = script->CountSizeIncomplete && sizeScope->Scanned;
+                        if (partial)
+                            oneFile->PluginData = DiskDirectoryPartialSizeMarker;
+                        if (oneFile->SizeValid || partial)
+                            oneFile->Size = script->TotalSize - oldTotalSize;
                     }
                 }
                 else // change-case: selected directories without recurse-sub-dirs
@@ -1628,6 +1834,7 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                     std::vector<int> branchCreatedDirectories;
                     const CQuadWord branchSizeBefore = script->TotalFileSize;
                     char* itemTargetPath = targetPath;
+                    CTargetPathState itemTargetState = targetPathState;
                     if (IsBranchView() && keepBranchPaths && (type == atCopy || type == atMove))
                     {
                         std::wstring relative = GetItemRelativePathW(*oneFile);
@@ -1646,7 +1853,8 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                             SalPathAppendW(sourceDirectory, component.c_str());
                             SalPathAppendW(targetDirectory, component.c_str());
                             const std::wstring targetApi = SalPathAddExtendedPrefixW(targetDirectory.c_str());
-                            if (GetFileAttributesW(targetApi.c_str()) == INVALID_FILE_ATTRIBUTES)
+                            const DWORD targetAttributes = GetFileAttributesW(targetApi.c_str());
+                            if (targetAttributes == INVALID_FILE_ATTRIBUTES)
                             {
                                 COperation create;
                                 create.Opcode = ocCreateDir;
@@ -1673,18 +1881,35 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                                     return FALSE;
                                 }
                                 branchCreatedDirectories.push_back(createIndex);
+                                itemTargetState = itemTargetState == tpsEncryptedExisting ||
+                                                  itemTargetState == tpsEncryptedNotExisting
+                                    ? tpsEncryptedNotExisting : tpsNotEncryptedNotExisting;
                             }
+                            else
+                                itemTargetState = (targetAttributes & FILE_ATTRIBUTE_ENCRYPTED)
+                                    ? tpsEncryptedExisting : tpsNotEncryptedExisting;
                             begin = slash + 1;
                         }
                         branchTarget = SalWideToMultiBytePath(targetDirectory.c_str(), CP_UTF8);
                         itemTargetPath = (char*)branchTarget.c_str();
                     }
+                    const DWORD itemFlags = srcAndTgtPathsFlags |
+                                            (script->AllowTransferPilot ? OPFL_UAC_TRANSFER_ELIGIBLE : 0);
+                    std::optional<CSizeScanScope> selectedSizeScope;
+                    if (countSize && (selCount <= 1 || ProtectedListing))
+                    {
+                        selectedSizeScope.emplace();
+                        selectedSizeScope->ReuseOnly = selCount > 1;
+                        selectedSizeScope->Batch = &sizeBatchConsent;
+                        selectedSizeScope->Root = SalPathRemoveExtendedPrefixW(GetItemFullPathW(*oneFile).c_str());
+                        selectedSizeScope->ExactFile = true;
+                    }
                     if (!BuildScriptFile(script, type, sourcePath, sourceSupADS, itemTargetPath,
-                                         keepBranchPaths ? GetTargetPathState(tpsUnknown, itemTargetPath) : targetPathState,
+                                         itemTargetState,
                                          targetSupADS, targetIsFAT32, mask,
                                          useName, useDOSName, oneFile->Size, attrsData, NULL,
                                          oneFile->Attr, chCaseData, onlySize, NULL,
-                                         srcAndTgtPathsFlags, oneFile->UseWideName() ? oneFile->NameW : NULL))
+                                         itemFlags, fileWideName, selectedSizeScope ? &*selectedSizeScope : nullptr))
                     {
                         SetCurrentDirectoryToSystem();
                         return FALSE;
@@ -1786,6 +2011,210 @@ void GetADSStreamsNames(char* listBuf, int bufSize, char* fileName, BOOL isDir)
     }
 }
 
+class CProtectedOperationConsentDialog : public CMessageBox
+{
+    UacF7::ListingSession* Session = nullptr;
+    UacF7::PreparedTransfer* Copy = nullptr;
+    UacF7::TransferJobSession* Job = nullptr;
+    bool Starting = false;
+
+public:
+    DWORD Error = ERROR_CANCELLED;
+
+    CProtectedOperationConsentDialog(HWND owner, DWORD flags, const char* message, const char* aliases,
+                                    UacF7::ListingSession& session)
+        : CMessageBox(owner, flags, LoadStr(IDS_UAC_INVENTORY_TITLE), message, NULL, NULL, NULL,
+                      0, NULL, aliases, NULL, NULL), Session(&session)
+    {
+    }
+
+    CProtectedOperationConsentDialog(HWND owner, DWORD flags, const char* message, const char* aliases,
+                                    UacF7::PreparedTransfer& copy, UacF7::TransferJobSession& job)
+        : CMessageBox(owner, flags, LoadStr(IDS_COPY), message, NULL, NULL, NULL,
+                      0, NULL, aliases, NULL, NULL), Copy(&copy), Job(&job)
+    {
+    }
+
+protected:
+    INT_PTR DialogProc(UINT message, WPARAM wParam, LPARAM lParam) override
+    {
+        // ShellExecute can dispatch messages. Keep the dialog alive and accept
+        // at most one launch while Windows is handling this consent.
+        if (Starting && (message == WM_COMMAND || message == WM_CLOSE))
+            return TRUE;
+        if (message == WM_COMMAND && LOWORD(wParam) == IDOK)
+        {
+            Starting = true;
+            if (Session)
+                Error = Session->Start(HWindow);
+            else
+            {
+                const auto opened = Copy->Execute(HWindow, nullptr, Job);
+                Error = opened.unknown ? ERROR_BROKEN_PIPE : opened.error;
+            }
+            Starting = false;
+        }
+        return CMessageBox::DialogProc(message, wParam, lParam);
+    }
+};
+
+static HANDLE OpenDirectoryLinkForSize(const char* path, DWORD access)
+{
+    const auto wide = SalPathAddExtendedPrefixIfNeededW(SalMultiByteToWidePath(path, CP_UTF8));
+    return HANDLES_Q(CreateFileW(wide.c_str(), access | FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+}
+
+static bool IsCompatibilityLinkForSize(const char* path)
+{
+    const HANDLE link = OpenDirectoryLinkForSize(path, READ_CONTROL);
+    if (link == INVALID_HANDLE_VALUE)
+        return false;
+    const bool compatible = UacListing::IsCompatibilityLink(link);
+    HANDLES(CloseHandle(link));
+    return compatible;
+}
+
+static bool IsDanglingDirectoryLinkForSize(const char* path)
+{
+    const HANDLE link = OpenDirectoryLinkForSize(path, 0);
+    if (link == INVALID_HANDLE_VALUE)
+        return false;
+    FILE_ATTRIBUTE_TAG_INFO attributes{};
+    const bool missingTarget = GetFileInformationByHandleEx(link, FileAttributeTagInfo, &attributes, sizeof(attributes)) &&
+        (attributes.FileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
+        (attributes.ReparseTag == IO_REPARSE_TAG_MOUNT_POINT || attributes.ReparseTag == IO_REPARSE_TAG_SYMLINK);
+    HANDLES(CloseHandle(link));
+    return missingTarget;
+}
+
+static int ConfirmProtectedSize(HWND owner, const std::wstring& path,
+                                UacF7::ListingSession& session, DWORD& error, bool exactFile = false)
+{
+    std::string message = std::string(LoadStr(exactFile ? IDS_UAC_SIZE_FILE_CONFIRM : IDS_UAC_SIZE_CONFIRM)) + "\n\n" +
+                                SalWideToMultiBytePath(path.c_str(), CP_UTF8);
+    if (session.GetRoot() != path)
+        message += std::string("\n\n") + LoadStr(IDS_UAC_SIZE_CONSENT_SCOPE) + "\n" +
+                   SalWideToMultiBytePath(session.GetRoot().c_str(), CP_UTF8);
+    const std::string aliases = std::to_string(IDYES) + "\t" + LoadStr(IDS_MSGBOXBTN_SKIP) +
+                                "\t" + std::to_string(IDNO) + "\t" + LoadStr(IDS_MSGBOXBTN_SKIPALL) +
+                                "\t" + std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
+    const DWORD buttons = MSGBOXEX_YESNOOKCANCEL | MSGBOXEX_DEFBUTTON4;
+    CProtectedOperationConsentDialog consent(owner, buttons | MSGBOXEX_ICONQUESTION | MSGBOXEX_SHIELDONOKBTN,
+                                        message.c_str(), aliases.c_str(), session);
+    const int choice = consent.Execute();
+    error = consent.Error;
+    return choice;
+}
+
+static int ReadProtectedCopyDirectory(HWND owner, COperations& script, const std::wstring& path,
+                                       std::vector<UacF7::TreeCopySourceEntry>& rows, DWORD& error)
+{
+    if (!error)
+        error = ERROR_NOT_SUPPORTED;
+    if (!script.CopySource)
+        return IDRETRY;
+    auto& plan = *script.CopySource;
+    if (plan.ElevationDeclined)
+        return IDYES;
+    if (path != plan.Root && (path.size() <= plan.Root.size() || path[plan.Root.size()] != L'\\' ||
+                             path.compare(0, plan.Root.size(), plan.Root) != 0))
+        return IDRETRY;
+    const auto key = SalPathAddExtendedPrefixIfNeededW(path);
+    std::unique_ptr<UacF7::PreparedLeaf> prepared;
+    UacF7::MoveFileIdentity identity{};
+    const COperations::ProtectedFileSource* reviewed = nullptr;
+    if (script.ProtectedFileSources)
+    {
+        const auto found = script.ProtectedFileSources->find(key);
+        if (found != script.ProtectedFileSources->end())
+            reviewed = &found->second;
+    }
+    if (reviewed)
+    {
+        if (reviewed->Error || !reviewed->Request || !reviewed->Request->CopyDirectoryIdentity(identity))
+            return IDRETRY;
+    }
+    else
+    {
+        prepared = std::make_unique<UacF7::PreparedLeaf>();
+        if (!prepared->PrepareCopyDirectory(path) || !prepared->CopyDirectoryIdentity(identity))
+            return IDRETRY;
+    }
+
+    if (!plan.Session)
+    {
+        UacF7::PreparedTransfer opening;
+        if (!UacF7::CanOfferElevation())
+            return IDRETRY;
+        const auto target = SalPathAddExtendedPrefixIfNeededW(plan.Destination);
+        const DWORD attributes = GetFileAttributesW(target.c_str());
+        const bool missing = attributes == INVALID_FILE_ATTRIBUTES && GetLastError() == ERROR_FILE_NOT_FOUND;
+        const bool preparedScope = missing ? opening.PrepareTreePlan(plan.Root, plan.Destination) :
+                                             opening.PrepareTreeMerge(plan.Root, plan.Destination);
+        if (!preparedScope)
+            return IDRETRY;
+        auto job = std::make_unique<UacF7::TransferJobSession>();
+        int choice = IDOK;
+        DWORD consentError = ERROR_SUCCESS;
+        ShowSafeWaitWindow(FALSE);
+        if (script.ShieldedTransferTarget && opening.MatchesTargetDirectory(*script.ShieldedTransferTarget))
+        {
+            script.ShieldedTransferTarget.reset();
+            const auto opened = opening.Execute(owner, nullptr, job.get());
+            consentError = opened.unknown ? ERROR_BROKEN_PIPE : opened.error;
+        }
+        else
+        {
+            const auto sourceText = SalWideToMultiBytePath(plan.Root.c_str(), CP_UTF8);
+            const auto targetText = SalWideToMultiBytePath(plan.Destination.c_str(), CP_UTF8);
+            const std::string message = std::string(LoadStr(IDS_UAC_TREE_COPY_CONFIRM)) + "\n\n" +
+                                        sourceText + "\n -> " + targetText;
+            const std::string aliases = std::to_string(IDYES) + "\t" + LoadStr(IDS_MSGBOXBTN_SKIP) + "\t" +
+                                        std::to_string(IDNO) + "\t" + LoadStr(IDS_MSGBOXBTN_SKIPALL) + "\t" +
+                                        std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
+            CProtectedOperationConsentDialog consent(owner, MSGBOXEX_YESNOOKCANCEL | MSGBOXEX_DEFBUTTON4 |
+                MSGBOXEX_ICONQUESTION | MSGBOXEX_SHIELDONOKBTN, message.c_str(), aliases.c_str(), opening, *job);
+            choice = consent.Execute();
+            consentError = consent.Error;
+        }
+        ShowSafeWaitWindow(TRUE);
+        if (choice != IDOK)
+            return choice;
+        if (consentError)
+        {
+            error = consentError;
+            plan.ElevationDeclined = error == ERROR_CANCELLED;
+            return plan.ElevationDeclined ? IDYES : IDRETRY;
+        }
+        plan.Session = std::move(job);
+    }
+
+    const auto relative = path == plan.Root ? std::wstring_view{} :
+        std::wstring_view(path).substr(plan.Root.size() + 1);
+    error = plan.Session->ListTreeSource(relative, identity, rows);
+    if (error)
+        return IDRETRY;
+    if (!script.ProtectedFileSources)
+        script.ProtectedFileSources.emplace();
+    auto& sources = *script.ProtectedFileSources;
+    if (prepared)
+        sources.insert_or_assign(key, COperations::ProtectedFileSource{std::move(prepared), ERROR_SUCCESS});
+    for (const auto& row : rows)
+    {
+        std::wstring child = path;
+        SalPathAppendW(child, row.data.cFileName);
+        auto source = std::make_unique<UacF7::PreparedLeaf>();
+        const bool supported = plan.Session->PrepareTreeSource(relative, identity, row, *source);
+        if (!supported)
+            source.reset();
+        sources.insert_or_assign(SalPathAddExtendedPrefixIfNeededW(child),
+            COperations::ProtectedFileSource{std::move(source), static_cast<DWORD>(supported ? ERROR_SUCCESS : ERROR_NOT_SUPPORTED)});
+    }
+    return IDOK;
+}
+
 BOOL CFilesWindow::BuildScriptDir(COperations* script, CActionType type, char* sourcePath,
                                   BOOL sourcePathSupADS, char* targetPath,
                                   CTargetPathState targetPathState, BOOL targetPathSupADS,
@@ -1794,7 +2223,7 @@ BOOL CFilesWindow::BuildScriptDir(COperations* script, CActionType type, char* s
                                   DWORD sourceDirAttr, CChangeCaseData* chCaseData, BOOL firstLevelDir,
                                   BOOL onlySize, BOOL fastDirectoryMove, CCriteriaData* filterCriteria,
                                   BOOL* canDelUpperDirAfterMove, FILETIME* sourceDirTime,
-                                  DWORD srcAndTgtPathsFlags)
+                                  DWORD srcAndTgtPathsFlags, CSizeScanScope* sizeScope)
 {
     SLOW_CALL_STACK_MESSAGE16("CFilesWindow::BuildScriptDir(, %d, %s, %d, %s, %d, %d, %d, %s, %s, , , %s, 0x%X, , %d, %d, %d, , , , 0x%X)",
                               type, sourcePath, sourcePathSupADS, targetPath,
@@ -1807,6 +2236,10 @@ BOOL CFilesWindow::BuildScriptDir(COperations* script, CActionType type, char* s
     char* text = textBuffer.Data();
     char finalName[2 * MAX_PATH + 200];                                      // +200 is a reserve (Windows creates paths longer than MAX_PATH)
     BOOL sourcePathIsNet = (srcAndTgtPathsFlags & OPFL_SRCPATH_IS_NET) != 0; // valid only for atCopy and atMove
+    const bool verifyDelete = type == atDelete && script->AllowPermanentDeletePilot;
+    const bool copyTreeEntry = type == atCopy && script->AllowTreeTransfer;
+    if (copyTreeEntry)
+        srcAndTgtPathsFlags |= OPFL_UAC_TREE_ENTRY | OPFL_UAC_TRANSFER_ELIGIBLE;
 
     script->DirsCount++;
     COperation op;
@@ -1867,6 +2300,8 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
             if (msgRes == DIALOG_OK /* Focus */)
                 MainWindow->PostFocusNameInPanel(PANEL_SOURCE, sourcePath, dirName);
         }
+        if (skip && verifyDelete && canDelUpperDirAfterMove)
+            *canDelUpperDirAfterMove = FALSE;
         return skip;
     }
     while (*s != 0)
@@ -1949,6 +2384,24 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
         targetPathState = GetTargetPathState(targetPathState, targetPath);
     }
     //---
+    if (copyTreeEntry && firstLevelDir)
+    {
+#if defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_PLANNED_PROTOTYPE)
+        try { script->CopySource.emplace(); }
+        catch (const std::bad_alloc&) { TRACE_E(LOW_MEMORY); return FALSE; }
+#else
+        script->CopySource.emplace();
+#endif
+        script->CopySource->Root = SalPathRemoveExtendedPrefixW(SalMultiByteToWidePath(sourcePath, CP_UTF8).c_str());
+        script->CopySource->Destination = SalPathRemoveExtendedPrefixW(SalMultiByteToWidePath(targetPath, CP_UTF8).c_str());
+    }
+    const auto copySourcePath = copyTreeEntry ? SalMultiByteToWidePath(sourcePath, CP_UTF8) : std::wstring{};
+    const auto copySourceKey = copyTreeEntry ? SalPathAddExtendedPrefixIfNeededW(copySourcePath) : std::wstring{};
+    const bool reviewedCopySource = copyTreeEntry && script->ProtectedFileSources &&
+                                   script->ProtectedFileSources->find(copySourceKey) != script->ProtectedFileSources->end();
+    const std::wstring deletePath = !verifyDelete ? std::wstring{} :
+        firstLevelDir && script->PreparedDeleteRequest ? script->PreparedDeletePath :
+        SalPathRemoveExtendedPrefixW(SalMultiByteToWidePathUtf8OrAcp(sourcePath).c_str());
     if (type == atDelete && (sourceDirAttr & FILE_ATTRIBUTE_REPARSE_POINT))
     { // deleting links (volume mount points + junction points + symlinks)
         op.Opcode = ocDeleteDirLink;
@@ -1960,6 +2413,8 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
             *sourceEnd = 0; // restoring sourcePath
             return FALSE;
         }
+        if (!deletePath.empty())
+            op.SetSourceNameW(SalPathAddExtendedPrefixIfNeededW(deletePath).c_str());
         op.TargetName = NULL;
         *sourceEnd = 0; // restoring sourcePath
         script->Add(op);
@@ -1973,13 +2428,17 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
             return TRUE;
     }
     //---
-    if (type == atCountSize && Configuration.CountSizeStayOnFileSystem &&
-        (sourceDirAttr & FILE_ATTRIBUTE_REPARSE_POINT))
+    const bool verifyListedAlias = type == atCountSize && firstLevelDir &&
+        UacListing::HasCompatibilityLinkAttributes(sourceDirAttr) && ProtectedListing &&
+        ProtectedListing->Contains(SalPathRemoveExtendedPrefixW(SalMultiByteToWidePath(sourcePath, CP_UTF8).c_str()));
+    if (type == atCountSize && (sourceDirAttr & FILE_ATTRIBUTE_REPARSE_POINT) && !verifyListedAlias &&
+        (Configuration.CountSizeStayOnFileSystem ||
+         (UacListing::HasCompatibilityLinkAttributes(sourceDirAttr) && IsCompatibilityLinkForSize(sourcePath))))
     {
         *sourceEnd = 0; // restoring sourcePath
         if (targetEnd != NULL)
             *targetEnd = 0; // restoring targetPath
-        return TRUE; // do not follow directory links/reparse points while calculating occupied space
+        return TRUE; // skip configured directory links and Windows compatibility aliases
     }
 
     //---
@@ -2056,6 +2515,18 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                     free(op.SourceName);
                     goto _ERROR;
                 }
+                if (firstLevelDir && script->AllowTransferPilot && !script->CopyAttrs && !script->CopySecurity &&
+                    !(sourceDirAttr & FILE_ATTRIBUTE_REPARSE_POINT))
+                {
+                    const auto source = SalMultiByteToWidePathUtf8OrAcp(sourcePath);
+                    const auto destination = SalMultiByteToWidePathUtf8OrAcp(targetPath);
+                    if (!source.empty() && !destination.empty())
+                    {
+                        op.SetSourceNameW(SalPathAddExtendedPrefixW(source.c_str()).c_str());
+                        op.SetTargetNameW(SalPathAddExtendedPrefixW(destination.c_str()).c_str());
+                        op.OpFlags |= OPFL_UAC_TRANSFER_ELIGIBLE;
+                    }
+                }
                 *sourceEnd = 0; // restoring sourcePath
                 *targetEnd = 0; // restoring targetPath
                 script->Add(op);
@@ -2085,7 +2556,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
         }
 
         BOOL dirCreated = FALSE;
-        if (sourcePathSupADS)
+        if (!reviewedCopySource && sourcePathSupADS)
         {
             if ((targetPathState == tpsEncryptedNotExisting || targetPathState == tpsNotEncryptedNotExisting) && // target directory does not exist
                 (targetPathSupADS || !ConfirmADSLossAll))                                                        // if ADS should not be ignored
@@ -2183,7 +2654,9 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                 }
                 else // an error occurred or no ADS
                 {
-                    if (adsWinError != NO_ERROR &&                                                                    // an error occurred
+                    const bool deniedCopyDirectory = copyTreeEntry && adsWinError == ERROR_ACCESS_DENIED &&
+                        ProbeLocalElevationAccess(copySourcePath, FILE_LIST_DIRECTORY, true) == ERROR_ACCESS_DENIED;
+                    if (!deniedCopyDirectory && adsWinError != NO_ERROR &&                                                                    // an error occurred
                         (adsWinError != ERROR_INVALID_FUNCTION || StrNICmp(sourcePath, "\\\\tsclient\\", 11) != 0) && // paths to local disks in Terminal Server do not support listing ADS (even though ADS is otherwise supported)
                         (adsWinError != ERROR_INVALID_PARAMETER && adsWinError != ERROR_NO_MORE_ITEMS ||
                          !sourcePathIsNet)) // mounted FAT/FAT32 disk cannot be reliably detected on a network disk (e.g. \petr\f\drive_c) plus a Novell NetWare volume browsed via NDS appears to be NTFS so we try to read ADS, which reports this error
@@ -2299,6 +2772,21 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                 free(op.SourceName);
                 goto _ERROR;
             }
+            if (copyTreeEntry && sourceDirAttr == FILE_ATTRIBUTE_DIRECTORY && !(op.OpFlags & OPFL_AS_ENCRYPTED))
+            {
+                const auto source = SalMultiByteToWidePath(sourcePath, CP_UTF8);
+                const auto target = SalMultiByteToWidePath(targetPath, CP_UTF8);
+                if (!source.empty() && !target.empty())
+                {
+                    op.SetSourceNameW(SalPathAddExtendedPrefixIfNeededW(source).c_str());
+                    op.SetTargetNameW(SalPathAddExtendedPrefixIfNeededW(target).c_str());
+                    op.OpFlags |= OPFL_UAC_TREE_ENTRY | OPFL_UAC_TRANSFER_ELIGIBLE;
+                    if (firstLevelDir)
+                        op.OpFlags |= OPFL_UAC_TREE_ROOT;
+                    if (reviewedCopySource)
+                        op.OpFlags |= OPFL_UAC_TRANSFER_LISTED;
+                }
+            }
             createDirIndex = script->Add(op);
             if (!script->IsGood())
             {
@@ -2401,33 +2889,239 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
     //---  build the path to sourceDirName and start searching for contained files
     BOOL delDirectory = TRUE;       // delete a non-empty directory?
     BOOL delDirectoryReturn = TRUE; // return value when a non-empty directory isn't removed
+    bool directoryDeleteIncomplete = false;
+    const bool wideSizeScan = type == atCountSize;
+    const bool wideTraversal = wideSizeScan || copyTreeEntry || (verifyDelete && filterCriteria == nullptr);
+    const auto sizePath = [sourcePath] {
+        return SalPathRemoveExtendedPrefixW(SalMultiByteToWidePath(sourcePath, CP_UTF8).c_str());
+    };
+    if (sizeScope && firstLevelDir)
+        sizeScope->Root = sizePath();
     BOOL canDelDirAfterMove = TRUE; // Move only: FALSE if not everything is moved (filter skipped something), source directory can't be removed (won't be empty)
     if (!copyMoveDirIsLink || !copyMoveSkipLinkContent)
     {
         WIN32_FIND_DATA f;
+        WIN32_FIND_DATAW sizeRow;
         strcpy(st, "\\*");
-        HANDLE search = HANDLES_Q(FindFirstFile(sourcePath, &f));
-        *st = 0; // remove "\\*"
-        if (search == INVALID_HANDLE_VALUE)
+        HANDLE search;
+        if (verifyListedAlias)
+            search = INVALID_HANDLE_VALUE; // only the existing protected session can verify this alias
+        else if (wideTraversal)
         {
-            DWORD err = GetLastError();
-            if (err == ERROR_PATH_NOT_FOUND && type == atCountSize && dirDOSName != NULL && strcmp(dirName, dirDOSName) != 0)
-            { // workaround for computing the size of a directory that must be accessed via DOS-name when we can't handle the UNICODE name (the multibyte version converted back to UNICODE doesn't match the original)
-                lstrcpyn(finalName, sourcePath, 2 * MAX_PATH + 200);
-                if (CutDirectory(finalName) &&
-                    SalPathAppend(finalName, dirDOSName, 2 * MAX_PATH + 200) &&
-                    SalPathAppend(finalName, "*", 2 * MAX_PATH + 200))
+            const auto path = SalMultiByteToWidePath(sourcePath, CP_UTF8);
+            const auto pattern = verifyDelete ? SalPathAddExtendedPrefixW(path.c_str()) : SalPathAddExtendedPrefixIfNeededW(path);
+            search = HANDLES_Q(FindFirstFileW(pattern.c_str(), &sizeRow));
+        }
+        else
+            search = HANDLES_Q(FindFirstFile(sourcePath, &f));
+        const DWORD listError = search == INVALID_HANDLE_VALUE ? GetLastError() : ERROR_SUCCESS;
+        *st = 0; // remove "\\*"
+        std::vector<UacF7::TreeCopySourceEntry> copyRows;
+        bool copyListing = false;
+        DWORD copyListError = listError;
+        if (copyTreeEntry && !ErrListDirSkipAll && sourceDirAttr == FILE_ATTRIBUTE_DIRECTORY &&
+            (reviewedCopySource || (search == INVALID_HANDLE_VALUE && listError == ERROR_ACCESS_DENIED)))
+        {
+            if (search != INVALID_HANDLE_VALUE)
+            {
+                HANDLES(FindClose(search));
+                search = INVALID_HANDLE_VALUE;
+            }
+            const auto path = SalPathRemoveExtendedPrefixW(copySourcePath.c_str());
+            const int choice = ReadProtectedCopyDirectory(MainWindow->HWindow, *script, path, copyRows, copyListError);
+            if (choice == IDCANCEL)
+            {
+                *sourceEnd = 0;
+                if (targetEnd)
+                    *targetEnd = 0;
+                return FALSE;
+            }
+            if (choice == IDYES || choice == IDNO)
+            {
+                if (choice == IDNO)
+                    ErrListDirSkipAll = TRUE;
+                if (createDirIndex >= 0 && createDirIndex == script->Count - 1)
                 {
-                    search = HANDLES_Q(FindFirstFile(finalName, &f));
-                    if (search != INVALID_HANDLE_VALUE)
+                    free(script->At(createDirIndex).SourceName);
+                    free(script->At(createDirIndex).TargetName);
+                    script->Delete(createDirIndex);
+                    if (!script->IsGood())
+                        script->ResetState();
+                }
+                *sourceEnd = 0;
+                if (targetEnd)
+                    *targetEnd = 0;
+                return TRUE;
+            }
+            copyListing = choice == IDOK;
+            if (copyListing && createDirIndex >= 0)
+                script->At(createDirIndex).OpFlags |= OPFL_UAC_TRANSFER_LISTED;
+        }
+        if (search == INVALID_HANDLE_VALUE && !copyListing)
+        {
+            DWORD err = verifyListedAlias ? ERROR_ACCESS_DENIED : copyListError;
+            if (wideSizeScan && err == ERROR_PATH_NOT_FOUND && (sourceDirAttr & FILE_ATTRIBUTE_REPARSE_POINT) &&
+                IsDanglingDirectoryLinkForSize(sourcePath))
+            {
+                *sourceEnd = 0;
+                return TRUE; // there is no target data to count
+            }
+            if (wideSizeScan && err == ERROR_ACCESS_DENIED && !ErrListDirSkipAll &&
+                (!(sourceDirAttr & FILE_ATTRIBUTE_REPARSE_POINT) || verifyListedAlias))
+            {
+                const auto path = sizePath();
+                UacF7::ListingSession temporary;
+                auto* session = ProtectedListing && ProtectedListing->Contains(path) ? ProtectedListing.get() : nullptr;
+                const bool ownSession = !session && sizeScope && sizeScope->Session.IsOpen() &&
+                                        sizeScope->Session.Contains(path);
+                if (ownSession)
+                    session = &sizeScope->Session;
+                const bool canElevate = !verifyListedAlias && !session && sizeScope && !sizeScope->WasElevationDeclined() &&
+                    (sizeScope->Session.IsOpen() || UacF7::CanOfferElevation());
+                const bool scoped = ownSession || (canElevate &&
+                    (!sizeScope->Session.GetRoot().empty() || sizeScope->Session.PrepareInventory(sizeScope->Root)));
+                if (scoped)
+                    session = &sizeScope->Session;
+                if (!session && canElevate && temporary.PrepareInventory(path))
+                    session = &temporary;
+                if (!session && sizeScope && sizeScope->WasElevationDeclined())
+                {
+                    *sourceEnd = 0;
+                    script->CountSizeIncomplete = true;
+                    return TRUE;
+                }
+                if (session)
+                {
+                    ShowSafeWaitWindow(FALSE);
+                    DWORD inventoryError = ERROR_SUCCESS;
+                    int choice = IDOK;
+                    bool consentDeclined = false;
+                    if (scoped && sizeScope->StartResult)
+                        inventoryError = *sizeScope->StartResult;
+                    else if (!session->IsOpen())
                     {
-                        strcpy(*sourceEnd == '\\' ? sourceEnd + 1 : sourceEnd, dirDOSName); // modify sourcePath (it's used further for handling found files and directories)
-                        goto BROWSE_DIR;
+                        choice = ConfirmProtectedSize(HWindow, path, *session, inventoryError);
+                        consentDeclined = choice == IDOK && inventoryError == ERROR_CANCELLED;
+                        if (scoped && choice == IDOK)
+                            sizeScope->StartResult = inventoryError;
+                    }
+                    UacF7::DirectoryInventory inventory;
+                    UacF7::DirectorySizeDetails details;
+                    std::wstring firstSkipped;
+                    if (choice == IDOK && !inventoryError)
+                    {
+                        inventoryError = session->IsOpen() ? session->Inventory(path, inventory, onlySize ? nullptr : &details, &firstSkipped)
+                                                          : ERROR_BROKEN_PIPE;
+                        // A live broker denied this selected subtree. Record it
+                        // and continue, just as for a denied descendant.
+                        if (inventoryError == ERROR_ACCESS_DENIED && session->IsOpen())
+                        {
+                            inventory.firstOmission = inventoryError;
+                            inventoryError = ERROR_SUCCESS;
+                        }
+                    }
+                    ShowSafeWaitWindow(TRUE);
+                    if (choice != IDOK || inventoryError == ERROR_CANCELLED)
+                    {
+                        *sourceEnd = 0;
+                        if (targetEnd != NULL)
+                            *targetEnd = 0;
+                        if (choice == IDCANCEL)
+                            return FALSE;
+                        if (choice == IDNO)
+                            ErrListDirSkipAll = TRUE;
+                        if (consentDeclined && sizeScope)
+                            sizeScope->DeclineElevation();
+                        script->CountSizeIncomplete = true;
+                        return TRUE;
+                    }
+                    if (inventoryError)
+                        err = inventoryError; // offer the normal skip or cancel choices for this path
+                    else
+                    {
+                        *sourceEnd = 0;
+                        if (targetEnd != NULL)
+                            *targetEnd = 0;
+                        if (inventory.flags & UacF7::inventoryCompatibilityAlias)
+                        {
+                            script->CountSizeAliasSkipped |= firstLevelDir != FALSE;
+                            return TRUE;
+                        }
+                        if (inventory.firstOmission)
+                        {
+                            script->CountSizeIncomplete = true;
+                            if (!script->CountSizeFirstOmission)
+                            {
+                                script->CountSizeFirstOmission = inventory.firstOmission;
+                                script->CountSizeFirstOmissionPath = path;
+                                if (!firstSkipped.empty())
+                                    SalPathAppendW(script->CountSizeFirstOmissionPath, firstSkipped.c_str());
+                            }
+                        }
+                        if (sizeScope && (!inventory.firstOmission || inventory.files || inventory.directories))
+                            sizeScope->Scanned = true;
+                        CQuadWord size;
+                        size.Value = inventory.bytes;
+                        script->CountSizeUsedBroker = true;
+                        script->TotalSize += size;
+                        script->FilesCount += inventory.files;
+                        script->DirsCount += inventory.directories;
+                        if (!onlySize)
+                        {
+                            const auto merge = [](CQuadWord& total, ULONGLONG value, bool& unavailable) {
+                                if (value >= UacF7::unavailableSize - total.Value)
+                                    unavailable = true;
+                                else
+                                    total.Value += value;
+                            };
+                            merge(script->CompressedSize, details.disk.compressed, script->CountSizeCompressionUnavailable);
+                            merge(script->OccupiedSpace, details.disk.occupied, script->CountSizeOccupiedUnavailable);
+                            for (const auto bytes : details.fileSizes)
+                            {
+                                if (!script->Sizes.IsGood())
+                                    break;
+                                size.Value = bytes;
+                                script->Sizes.Add(size);
+                            }
+                        }
+                        return TRUE;
                     }
                 }
             }
+            if (verifyDelete && err == ERROR_ACCESS_DENIED && !ErrListDirSkipAll &&
+                UacF7::IsEligibleDeleteDirectory(sourceDirAttr))
+            {
+                // No children were observed. The verified operation below can remove only
+                // an empty directory and must leave a nonempty, unreadable directory intact.
+                UacF7::PreparedLeaf candidate;
+                const auto* listed = [&]() -> const COperations::ProtectedFileSource* {
+                    if (!script->ProtectedFileSources)
+                        return nullptr;
+                    const auto& sources = *script->ProtectedFileSources;
+                    const auto found = sources.find(deletePath);
+                    return found == sources.end() ? nullptr : &found->second;
+                }();
+                if ((script->PreparedDeleteRequest && deletePath == script->PreparedDeletePath) ||
+                    (listed ? listed->Request != nullptr : candidate.PrepareDeleteLeaf(deletePath, sourceDirAttr)))
+                    err = ERROR_FILE_NOT_FOUND;
+            }
+            if (wideSizeScan)
+            {
+                if (err != ERROR_FILE_NOT_FOUND && err != ERROR_NO_MORE_FILES)
+                {
+                    script->CountSizeIncomplete = true;
+                    if (!script->CountSizeFirstOmission)
+                    {
+                        script->CountSizeFirstOmission = err;
+                        script->CountSizeFirstOmissionPath = sizePath();
+                    }
+                }
+                else if (sizeScope)
+                    sizeScope->Scanned = true;
+            }
             if (err != ERROR_FILE_NOT_FOUND && err != ERROR_NO_MORE_FILES)
             {
+                directoryDeleteIncomplete = true;
                 if (!Salamander::LocalizedText::Write(text, static_cast<size_t>(textBuffer.Capacity()),
                                                      LoadStr(IDS_CANNOTREADDIR), sourcePath, GetErrorText(err)))
                 {
@@ -2473,6 +3167,15 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                 if (!skip)
                     return FALSE;
                 UpdateWindow(MainWindow->HWindow);
+                if (copyTreeEntry && createDirIndex >= 0 && createDirIndex == script->Count - 1)
+                {
+                    free(script->At(createDirIndex).SourceName);
+                    free(script->At(createDirIndex).TargetName);
+                    script->Delete(createDirIndex);
+                    if (!script->IsGood())
+                        script->ResetState();
+                    return TRUE; // A skipped unreadable branch must not create an empty destination.
+                }
             }
             else
             {
@@ -2484,17 +3187,37 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
         else
         {
 
-        BROWSE_DIR:
+            if (wideSizeScan && sizeScope)
+                sizeScope->Scanned = true;
 
             //---  browse the directory
             BOOL askDirDelete = (type == atDelete && firstLevelDir && Configuration.CnfrmNEDirDel);
             BOOL testFindNextErr = TRUE;
-            do
+            size_t copyRow = 0;
+            const bool hasEntries = !copyListing || !copyRows.empty();
+            while (hasEntries)
             {
-                if (f.cFileName[0] == '.' &&
-                        (f.cFileName[1] == 0 || (f.cFileName[1] == '.' && f.cFileName[2] == 0)) ||
-                    f.cFileName[0] == 0)
-                    continue; // "." and ".." plus empty names (would lead to infinite recursion)
+                if (copyListing)
+                    sizeRow = copyRows[copyRow].data;
+                std::string sizeName;
+                if (wideTraversal)
+                {
+                    sizeName = SalWideToMultiBytePath(sizeRow.cFileName, CP_UTF8);
+                    f.dwFileAttributes = sizeRow.dwFileAttributes;
+                    f.nFileSizeLow = sizeRow.nFileSizeLow;
+                    f.nFileSizeHigh = sizeRow.nFileSizeHigh;
+                    f.ftLastWriteTime = sizeRow.ftLastWriteTime;
+                    f.cAlternateFileName[0] = 0;
+                }
+                char* childName = wideTraversal ? sizeName.data() : f.cFileName;
+                if (childName[0] == '.' &&
+                        (childName[1] == 0 || (childName[1] == '.' && childName[2] == 0)) ||
+                    childName[0] == 0)
+                {
+                    if (copyListing ? ++copyRow == copyRows.size() : !(wideTraversal ? FindNextFileW(search, &sizeRow) : FindNextFile(search, &f)))
+                        break;
+                    continue; // Skip dot entries while advancing the active listing.
+                }
 
                 if (askDirDelete)
                 {
@@ -2542,14 +3265,15 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                 {
                     if (!BuildScriptDir(script, copyMoveDirIsLink ? atCopy : type, sourcePath, sourcePathSupADS, targetPath,
                                         targetPathState, targetPathSupADS, targetPathIsFAT32,
-                                        NULL, f.cFileName,
+                                        NULL, childName,
                                         f.cAlternateFileName[0] != 0 ? f.cAlternateFileName : NULL,
                                         attrsData, NULL, f.dwFileAttributes, chCaseData, FALSE,
                                         onlySize, fastDirectoryMove, filterCriteria, &canDelDirAfterMove,
-                                        &f.ftLastWriteTime, srcAndTgtPathsFlags))
+                                        &f.ftLastWriteTime, srcAndTgtPathsFlags, sizeScope))
                     {
                     BUILD_ERROR:
-                        HANDLES(FindClose(search));
+                        if (search != INVALID_HANDLE_VALUE)
+                            HANDLES(FindClose(search));
                         *sourceEnd = 0; // restoring sourcePath
                         if (targetEnd != NULL)
                             *targetEnd = 0; // restoring targetPath
@@ -2558,23 +3282,29 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                 }
                 else
                 {
-                    if (filterCriteria == NULL || filterCriteria->AgreeMasksAndAdvanced(&f))
+                    if (wideSizeScan || filterCriteria == NULL || filterCriteria->AgreeMasksAndAdvanced(&f))
                     {
+                        const int firstFileOperation = script->Count;
                         if (!BuildScriptFile(script, copyMoveDirIsLink ? atCopy : type, sourcePath, sourcePathSupADS, targetPath,
                                              targetPathState, targetPathSupADS, targetPathIsFAT32,
-                                             NULL, f.cFileName,
+                                             NULL, childName,
                                              f.cAlternateFileName[0] != 0 ? f.cAlternateFileName : NULL,
                                              CQuadWord(f.nFileSizeLow, f.nFileSizeHigh), attrsData, NULL,
                                              f.dwFileAttributes, chCaseData, onlySize, &f.ftLastWriteTime,
-                                             srcAndTgtPathsFlags))
+                                             srcAndTgtPathsFlags, wideTraversal ? sizeRow.cFileName : nullptr, sizeScope))
                             goto BUILD_ERROR;
+                        if (verifyDelete && script->Count == firstFileOperation)
+                            directoryDeleteIncomplete = true;
                     }
                     else
                         canDelDirAfterMove = FALSE; // not everything is being moved (filter skipped something); the source directory cannot be deleted (it would not be empty)
                 }
-            } while (FindNextFile(search, &f));
-            DWORD err = GetLastError();
-            HANDLES(FindClose(search));
+                if (copyListing ? ++copyRow == copyRows.size() : !(wideTraversal ? FindNextFileW(search, &sizeRow) : FindNextFile(search, &f)))
+                    break;
+            }
+            DWORD err = copyListing ? ERROR_NO_MORE_FILES : GetLastError();
+            if (search != INVALID_HANDLE_VALUE)
+                HANDLES(FindClose(search));
 
             *sourceEnd = 0; // restoring sourcePath
             if (targetEnd != NULL)
@@ -2582,6 +3312,9 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
 
             if (testFindNextErr && err != ERROR_NO_MORE_FILES)
             {
+                directoryDeleteIncomplete = true;
+                if (wideSizeScan)
+                    script->CountSizeIncomplete = true;
                 if (!Salamander::LocalizedText::Write(text, static_cast<size_t>(textBuffer.Capacity()),
                                                      LoadStr(IDS_CANNOTREADDIR), sourcePath, GetErrorText(err)))
                 {
@@ -2668,6 +3401,9 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
             }
         }
     }
+    // A permanent delete cannot remove ancestors of a skipped enumeration.
+    if (verifyDelete && directoryDeleteIncomplete)
+        canDelDirAfterMove = FALSE;
     // if this directory contains a skipped item, the parent directory cannot be deleted
     // if it's just a link to a directory, delete it regardless of remaining content
     if (!copyMoveDirIsLink && canDelUpperDirAfterMove != NULL && !canDelDirAfterMove)
@@ -2719,6 +3455,8 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
         {
             if (type == atDelete && !delDirectory)
                 return delDirectoryReturn; // CANCEL / NO
+            if (verifyDelete && !canDelDirAfterMove)
+                return TRUE; // The readable siblings remain in the script.
 
             op.Opcode = copyMoveDirIsLink && type == atMove ? ocDeleteDirLink : ocDeleteDir;
             op.OpFlags = 0;
@@ -2736,7 +3474,9 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
             }
             if (!skipTooLongSrcNameErr)
             {
-                op.TargetName = NULL;
+                op.TargetName = nullptr;
+                if (!deletePath.empty())
+                    op.SetSourceNameW(SalPathAddExtendedPrefixIfNeededW(deletePath).c_str());
                 script->Add(op);
                 if (!script->IsGood())
                 {
@@ -2826,7 +3566,7 @@ BOOL CFilesWindow::BuildScriptFile(COperations* script, CActionType type, char* 
                                    CAttrsData* attrsData, char* mapName, DWORD sourceFileAttr,
                                    CChangeCaseData* chCaseData, BOOL onlySize,
                                    FILETIME* fileLastWriteTime, DWORD srcAndTgtPathsFlags,
-                                   const wchar_t* fileNameW)
+                                   const wchar_t* fileNameW, CSizeScanScope* sizeScope)
 {
     SLOW_CALL_STACK_MESSAGE14("CFilesWindow::BuildScriptFile(, %d, %s, %d, %s, %d, %d, %d, %s, %s, , , , %s, 0x%X, , %d, , 0x%X)",
                               type, sourcePath, sourcePathSupADS, targetPath, targetPathState, targetPathSupADS,
@@ -2967,6 +3707,46 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
         {
             op.OpFlags &= ~OPFL_AS_ENCRYPTED;
         }
+        const auto listedPath = ProtectedListing && (script->TransferFromProtectedListing ||
+                                                        ((op.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) && IsBranchView()))
+            ? SalPathRemoveExtendedPrefixW(op.SourceNameW.c_str()) : std::wstring{};
+        const DWORD readAccess = type == atMove ? GENERIC_READ | DELETE : GENERIC_READ;
+        const bool treeSource = script->CopySource && script->CopySource->Session && script->ProtectedFileSources &&
+                                script->ProtectedFileSources->find(op.SourceNameW) != script->ProtectedFileSources->end();
+        const bool listedSource = treeSource || script->TransferFromProtectedListing ||
+            (!listedPath.empty() && ProtectedListing->Contains(listedPath) &&
+             ProbeLocalElevationAccess(listedPath, readAccess, false) == ERROR_ACCESS_DENIED);
+        if (treeSource)
+            op.OpFlags |= OPFL_UAC_TRANSFER_SOURCE | OPFL_UAC_TRANSFER_LISTED;
+        else if (listedSource)
+        {
+            try
+            {
+                DWORD error = ERROR_NOT_SUPPORTED;
+                std::unique_ptr<UacF7::PreparedLeaf> source;
+                if (script->AllowTransferPilot && !(op.OpFlags & OPFL_AS_ENCRYPTED) && !listedPath.empty())
+                {
+                    source = std::make_unique<UacF7::PreparedLeaf>();
+                    const auto operation = UacF7::FileTransferOperation(op.Attr, type == atMove, script->CopyAttrs,
+                                                                        script->IgnoreTransferAds, script->CopySecurity);
+                    error = ProtectedListing->PrepareTransferSource(listedPath, op.Attr, operation, *source);
+                    if (error)
+                        source.reset();
+                }
+                if (!script->ProtectedFileSources)
+                    script->ProtectedFileSources.emplace();
+                script->ProtectedFileSources->emplace(op.SourceNameW, COperations::ProtectedFileSource{std::move(source), error});
+            }
+            catch (const std::bad_alloc&)
+            {
+                SalMessageBox(HWindow, GetErrorText(ERROR_NOT_ENOUGH_MEMORY),
+                              LoadStr(type == atCopy ? IDS_ERRORCOPY : IDS_ERRORMOVE), MB_OK | MB_ICONEXCLAMATION);
+                free(op.SourceName);
+                free(op.TargetName);
+                return FALSE;
+            }
+            op.OpFlags |= OPFL_UAC_TRANSFER_SOURCE | OPFL_UAC_TRANSFER_LISTED;
+        }
         if (type == atCopy || op.Opcode == ocMoveFile && (op.OpFlags & OPFL_AS_ENCRYPTED) ||
             script->SameRootButDiffVolume || !HasTheSameRootPath(sourcePath, targetPath))
         {
@@ -3039,7 +3819,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
             else
                 op.Size = COPY_MIN_FILE_SIZE; // zero/small files take at least as long as files of size COPY_MIN_FILE_SIZE
 
-            if (sourcePathSupADS &&                       // if there's a chance that ADS will be found and
+            if (!listedSource && sourcePathSupADS &&                       // if there's a chance that ADS will be found and
                 (targetPathSupADS || !ConfirmADSLossAll)) // if ADS should not be ignored
             {
                 CQuadWord adsSize;
@@ -3161,14 +3941,38 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                             DWORD err = GetLastError();
                             if (invalidSrcName)
                                 err = ERROR_INVALID_NAME;
+                            const bool protectedCopy = type == atCopy &&
+                                (err == ERROR_ACCESS_DENIED ||
+                                 (UacF7::IsEncryptedCopyFile(op.Attr) && UacF7::IsEfsCopyFailure(op.Attr, err))) &&
+                                (UacF7::IsEligibleFileCopy(op.Attr, script->CopyAttrs, script->IgnoreTransferAds, script->CopySecurity)
+#if defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_REOPEN_PROTOTYPE)
+                                 || (script->CopyAttrs && !script->IgnoreTransferAds && !script->CopySecurity &&
+                                     UacF7::IsNativePlainCopyFile(op.Attr))
+#endif
+                                );
+                            const bool protectedMove = type == atMove && err == ERROR_ACCESS_DENIED &&
+                                !(op.OpFlags & OPFL_AS_ENCRYPTED) &&
+                                UacF7::IsEligibleMoveFile(op.Attr, script->CopyAttrs, script->CopySecurity);
+                            // A relative Branch View target may be created by earlier script entries.
+                            // The broker verifies an earlier worker-created parent or its own deferred target.
+                            const bool ordinaryTarget = targetPathState == tpsNotEncryptedExisting ||
+                                ((IsBranchView() || script->DeferredTransferTarget) && targetPathState == tpsNotEncryptedNotExisting);
+                            if ((protectedCopy || protectedMove) && (op.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) &&
+                                !script->OverwriteOlder && ordinaryTarget &&
+                                op.FileSize.Value <= (protectedMove ? UacF7::maxCrossVolumeMoveBytes :
+                                    UacF7::IsEncryptedCopyFile(op.Attr) ? UacF7::maxPilotCopyBytes : UacF7::maxNativeCopyBytes))
+                            {
+                                op.OpFlags |= OPFL_UAC_TRANSFER_SOURCE;
+                                goto ADS_DISCOVERY_COMPLETE;
+                            }
                             int res;
                             if (ErrFileSkipAll)
                                 res = IDB_SKIP;
                             else
                             {
-                                res = (int)CFileErrorDlg(HWindow, LoadStr(IDS_ERROROPENINGFILE), op.SourceName,
-                                                         GetErrorText(err))
-                                          .Execute();
+                                const std::string message = type == atCopy && UacF7::IsEfsCopyFailure(op.Attr, err)
+                                                          ? LoadStr(IDS_UAC_COPY_EFS_UNSUPPORTED) : GetErrorText(err);
+                                res = (int)CFileErrorDlg(HWindow, LoadStr(IDS_ERROROPENINGFILE), op.SourceName, message.c_str()).Execute();
                             }
                             switch (res)
                             {
@@ -3196,6 +4000,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                 }
             }
 
+        ADS_DISCOVERY_COMPLETE:
             if (script->BytesPerCluster == 0)
                 TRACE_E("How is it possible that script->BytesPerCluster is not yet set???");
             else
@@ -3227,7 +4032,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
     case atDelete:
     {
         op.Opcode = ocDeleteFile;
-        op.OpFlags = 0;
+        op.OpFlags = script->AllowPermanentDeletePilot && IsBranchView() ? OPFL_UAC_BRANCH_DELETE : 0;
         op.Size = DELETE_FILE_SIZE;
         op.Attr = sourceFileAttr;
         BOOL skip;
@@ -3273,11 +4078,95 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
         nameW = SalPathAddExtendedPrefixW(nameW.c_str());
         CQuadWord s;
         DWORD err = NO_ERROR;
+        bool allocationDeclined = false;
         if (FileBasedCompression && !onlySize &&                                         // if compression is even possible
             (sourceFileAttr & (FILE_ATTRIBUTE_COMPRESSED | FILE_ATTRIBUTE_SPARSE_FILE))) // if the file is compressed or sparse (sparse file)
         {
-            s.LoDWord = GetCompressedFileSizeW(nameW.c_str(), &s.HiDWord);
-            err = GetLastError();
+            ULONGLONG ordinarySize = 0;
+            err = UacF7::QueryCompressedSize([&](DWORD* high) { return GetCompressedFileSizeW(nameW.c_str(), high); }, ordinarySize);
+            if (!err)
+                s.SetUI64(ordinarySize);
+            else
+                s.LoDWord = INVALID_FILE_SIZE;
+            if (s.LoDWord == 0xffffffff && err == ERROR_ACCESS_DENIED && sizeScope &&
+                !(sourceFileAttr & FILE_ATTRIBUTE_REPARSE_POINT) && !script->SkipAllCountSizeErrors)
+            {
+                const auto path = SalPathRemoveExtendedPrefixW(nameW.c_str());
+                UacF7::PreparedLeaf file;
+                const auto* panelRoot = ProtectedListing ? &ProtectedListing->GetRoot() : nullptr;
+                // This lexical check only detects a lost session; authorization
+                // still requires the live pipe and the broker's identity checks.
+                const bool listed = panelRoot && !panelRoot->empty() && path.size() > panelRoot->size() &&
+                    path.compare(0, panelRoot->size(), *panelRoot) == 0 &&
+                    (panelRoot->back() == L'\\' || path[panelRoot->size()] == L'\\');
+                const bool ownSession = sizeScope->Session.IsOpen() && sizeScope->Session.Contains(path);
+                if (sizeScope->WasElevationDeclined() && !listed && !ownSession)
+                    allocationDeclined = true;
+                else
+                {
+                    // The standalone confirmation names the original selected row.
+                    // Never authorize a differently reconstructed path under it.
+                    const bool exactPathMatches = !sizeScope->ExactFile || path == sizeScope->Root;
+                    DWORD preparationError = exactPathMatches ? ERROR_SUCCESS : ERROR_FILE_INVALID;
+                    const bool prepared = exactPathMatches && (!sizeScope->ReuseOnly || listed) && (listed ?
+                        ((preparationError = ProtectedListing->IsOpen() ?
+                            ProtectedListing->PrepareViewer(path, file, sourceFileAttr) : ERROR_BROKEN_PIPE) == ERROR_SUCCESS) :
+                        file.PrepareView(nameW));
+                    if (preparationError)
+                        err = preparationError;
+                    UacF7::FileAllocationRequest identity{};
+                    if (prepared && file.CopyAllocationIdentity(fileSizeLoc.Value, sourceFileAttr, identity))
+                    {
+                        UacF7::ListingSession* session = listed ? ProtectedListing.get() : nullptr;
+                        if (!session && ownSession)
+                            session = &sizeScope->Session;
+                        if (!session && !sizeScope->ReuseOnly && !sizeScope->WasElevationDeclined() && UacF7::CanOfferElevation() &&
+                            (!sizeScope->Session.GetRoot().empty() ||
+                             (sizeScope->ExactFile ? sizeScope->Session.PrepareAllocationFile(sizeScope->Root, file) :
+                                                     sizeScope->Session.PrepareInventory(sizeScope->Root))))
+                            session = &sizeScope->Session;
+                        if (session)
+                        {
+                            DWORD allocationError = ERROR_SUCCESS;
+                            int choice = IDOK;
+                            bool consentDeclined = false;
+                            ShowSafeWaitWindow(FALSE);
+                            if (!session->IsOpen() && sizeScope->ReuseOnly)
+                                allocationError = ERROR_BROKEN_PIPE;
+                            else if (!session->IsOpen() && session == &sizeScope->Session && sizeScope->StartResult.has_value())
+                                allocationError = *sizeScope->StartResult ? *sizeScope->StartResult : ERROR_BROKEN_PIPE;
+                            else if (!session->IsOpen())
+                            {
+                                choice = ConfirmProtectedSize(HWindow, sizeScope->Root, *session, allocationError, sizeScope->ExactFile);
+                                consentDeclined = choice == IDOK && allocationError == ERROR_CANCELLED;
+                                if (session == &sizeScope->Session && choice == IDOK)
+                                    sizeScope->StartResult = allocationError;
+                            }
+                            ULONGLONG allocated = 0;
+                            if (choice == IDOK && !allocationError)
+                                allocationError = session->IsOpen() ? session->MeasureFileAllocation(path, identity, allocated) : ERROR_BROKEN_PIPE;
+                            ShowSafeWaitWindow(TRUE);
+                            if (choice == IDCANCEL)
+                                return FALSE;
+                            if (choice == IDNO)
+                                script->SkipAllCountSizeErrors = true;
+                            if (choice != IDOK || consentDeclined)
+                            {
+                                if (consentDeclined)
+                                    sizeScope->DeclineElevation();
+                                allocationDeclined = true;
+                            }
+                            else if (!allocationError)
+                            {
+                                s.SetUI64(allocated);
+                                err = NO_ERROR;
+                            }
+                            else
+                                err = allocationError;
+                        }
+                    }
+                }
+            }
         }
         else
         {
@@ -3285,7 +4174,9 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
         }
         if (s.LoDWord == 0xFFFFFFFF && err != NO_ERROR)
         {
-            if (!script->SkipAllCountSizeErrors)
+            script->CountSizeCompressionUnavailable = true;
+            script->CountSizeOccupiedUnavailable = true;
+            if (!allocationDeclined && !script->SkipAllCountSizeErrors)
             {
                 const std::string errorMessage = Salamander::BranchViewText::FormatCompressedSizeError(
                     LoadStr(IDS_GETCOMPRFILESIZEERROR), name.c_str(), GetErrorText(err));
@@ -3296,6 +4187,8 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
             s = fileSizeLoc; // cannot determine compressed size, we settle for the normal size
         }
 
+        if (!onlySize && script->BytesPerCluster == 0 && s.Value != 0)
+            script->CountSizeOccupiedUnavailable = true;
         script->Sizes.Add(fileSizeLoc); // the output dialog is prepared for the case when this array is in an error state
         script->TotalSize += fileSizeLoc;
         if (script->BytesPerCluster != 0)
@@ -3376,7 +4269,10 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
             sourceW = SalMultiByteToWidePathUtf8OrAcp(op.SourceName);
         sourceW = SalPathAddExtendedPrefixW(sourceW.c_str());
         op.SetSourceNameW(sourceW.c_str());
-        op.TargetName = (char*)(DWORD_PTR)((GetFileAttributesW(sourceW.c_str()) & attrsData->AttrAnd) | attrsData->AttrOr);
+        // A protected singleton has already been checked against its listing identity by the UI.
+        // Do not turn a denied normal-token lookup (INVALID_FILE_ATTRIBUTES) into an attribute mask.
+        const DWORD currentAttributes = script->ProtectedMetadataRequest ? sourceFileAttr : GetFileAttributesW(sourceW.c_str());
+        op.TargetName = (char*)(DWORD_PTR)((currentAttributes & attrsData->AttrAnd) | attrsData->AttrOr);
         script->Add(op);
         if (!script->IsGood())
         {
@@ -3447,6 +4343,11 @@ void CFilesWindow::ExecuteFromArchive(int index, BOOL edit, HWND editWithMenuPar
                                       const POINT* editWithMenuPoint)
 {
     CALL_STACK_MESSAGE3("CFilesWindow::ExecuteFromArchive(%d, %d)", index, edit);
+    if (IsProtectedZip())
+    {
+        SalMessageBox(HWindow, LoadStr(IDS_UAC_ZIP_LIST_ONLY), LoadStr(IDS_UAC_ZIP_TITLE), MB_OK | MB_ICONINFORMATION);
+        return;
+    }
     if (CheckPath(TRUE) != ERROR_SUCCESS)
         return;
 

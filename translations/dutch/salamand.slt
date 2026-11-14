@@ -4369,9 +4369,123 @@ SLGINCOMPLETE,""
 14611,1,"Geen van de processen die dit bestand gebruiken, kan worden beëindigd."
 
 [STRINGTABLE 193]
-14991,1,"Associaties worden uit de bestandopslag gelezen, even geduld..."
+14624,1,"Toegang geweigerd. Deze map als beheerder maken?"
+14625,1,"De verbinding met het hulpproces is verbroken voordat het resultaat kon worden bevestigd. Controleer het doel voordat u het opnieuw probeert."
+14626,1,"Toegang geweigerd. Dit bestand hernoemen als administrator? Eerst staat het huidige pad, daarna het nieuwe pad."
+14627,1,"Toegang geweigerd. De gevraagde kenmerken en tijden als administrator op dit bestand toepassen?"
+14628,1,"De verbinding met het hulpproces werd verbroken voordat het resultaat was bevestigd. Controleer de kenmerken en tijden van het bestand voordat u het opnieuw probeert."
+14629,1,"Toegang geweigerd. Dit bestand als administrator permanent verwijderen?"
+14630,1,"De verbinding met het hulpproces werd verbroken voordat het verwijderen was bevestigd. Controleer of het bestand nog bestaat voordat u het opnieuw probeert."
+14631,1,"Toegang geweigerd. Deze map en de submappen als administrator weergeven?"
+14632,1,"Administratorweergave"
+14633,1,"Toegang geweigerd. Dit bestand met de alternatieve gegevensstromen als beheerder kopiëren?"
+14634,1,"De voltooiing van het kopiëren kon niet worden bevestigd. Controleer de bestemming voordat u het opnieuw probeert."
+14635,1,"Toegang geweigerd. Dit bestand als administrator verplaatsen?"
+14636,1,"De voltooiing van het verplaatsen kon niet worden bevestigd. Controleer de bron en de bestemming voordat u het opnieuw probeert."
+14637,1,"Inventaris van beschermde submappen"
+14639,1,"De berekening van de mapgrootte kon niet de volledige mappenstructuur doorlopen."
 
 [STRINGTABLE 194]
+14640,1,"Bestanden: "
+14641,1,"Submappen: "
+14642,1,"Logische grootte (bytes): "
+14643,1,"Deze map en de inhoud als beheerder kopiëren?"
+14644,1,"Het kopiëren of opruimen kon niet worden bevestigd. Controleer de bestemming voordat u het opnieuw probeert."
+14645,1,"Toegang geweigerd. De gevraagde tijdstempels van deze map als beheerder instellen?"
+14646,1,"De verbinding met het hulpproces werd verbroken voordat het resultaat was bevestigd. Controleer de tijdstempels van de map voordat u het opnieuw probeert."
+14647,1,"Toegang geweigerd. De gevraagde kenmerken en eventuele geselecteerde tijdstempels als beheerder op deze map toepassen?"
+14648,1,"De verbinding met het hulpproces werd verbroken voordat het resultaat was bevestigd. Controleer de kenmerken en tijdstempels van de map voordat u het opnieuw probeert."
+14649,1,"Toegang geweigerd. Dit bestand zonder de alternatieve gegevensstromen als beheerder kopiëren?"
+14650,1,"Toegang geweigerd. Dit bestand als beheerder kopiëren met behoud van NTFS-compressie?"
+14651,1,"Toegang geweigerd. Deze symbolische koppeling als beheerder hernoemen?"
+14652,1,"Toegang geweigerd. Deze mapverbinding (junction) als beheerder hernoemen?"
+14653,1,"Toegang geweigerd. Deze symbolische koppeling als beheerder definitief verwijderen? Het gekoppelde bestand blijft behouden."
+14654,1,"Toegang geweigerd. Deze symbolische koppeling naar een map als beheerder definitief verwijderen? De gekoppelde map blijft behouden."
+14655,1,"Toegang geweigerd. Deze mapverbinding (junction) als beheerder definitief verwijderen? De gekoppelde map blijft behouden."
+
+[STRINGTABLE 195]
+14656,1,"Toegang geweigerd. Dit bestand als beheerder kopiëren met behoud van de NTFS-eigenaar, groep en expliciete machtigingen?"
+14657,1,"Het kopiëren van dit EFS-versleutelde bestand kon niet worden voltooid. In de beheerdersmodus kan de EFS-versleuteling bij deze bewerking niet worden behouden."
+14658,1,"Windows heeft niet bevestigd dat alle items naar de Prullenbak zijn verplaatst. Controleer de oorspronkelijke locatie en de Prullenbak voordat u het opnieuw probeert."
+14659,1,"Toegang geweigerd. De grootte van deze map en de submappen als beheerder berekenen?"
+14660,1,"Toegang geweigerd. In deze map als beheerder zoeken op namen en metagegevens? Het zoeken gaat door in toegankelijke mappen terwijl u beslist."
+14661,1,"Wachten op beheerderstoegang tot een beveiligde map…"
+14662,1,"De goedgekeurde map wordt doorzocht met beheerdersrechten."
+14663,1,"Niet beschikbaar"
+14664,1,"Toegang geweigerd. Een alleen-lezen kopie van dit bestand als beheerder openen in de interne viewer? De kopie is beperkt tot 16 MB."
+14665,1,"Kopie geopend met beheerdersrechten"
+14666,1,"Deze kopie is alleen-lezen. Ga terug naar het paneel om een nieuwe kopie aan te vragen."
+14667,1,"Het beveiligde bestand kon niet worden geopend in de interne viewer."
+14668,1,"Bewerken als beheerder"
+14669,1,"Toegang geweigerd. Het oorspronkelijke bestand als beheerder openen in de ingestelde editor? Windows vraagt om toestemming voor de hieronder getoonde editor."
+14670,1,"In de beheerdersmodus moet het uitvoerbare bestand van de editor in een beveiligde map van Windows of Program Files staan."
+14671,1,"Inhoud van een beveiligd ZIP-archief"
+
+[STRINGTABLE 196]
+14672,1,"Toegang geweigerd. De inhoud van dit ZIP-archief als beheerder lezen? Het archief wordt alleen-lezen geopend."
+14673,1,"Gebruik F3 om een bestand te bekijken of F5 om het uit te pakken. Openen in een externe toepassing is niet beschikbaar."
+14674,1,"Toegang geweigerd. De geselecteerde ZIP-bestanden en -mappen als beheerder uitpakken naar de getoonde bestemming?"
+14675,1,"Selecteer een bestaande lokale doelmap voor de geselecteerde items in dit beveiligde ZIP-archief."
+14676,1,"Het uitpakken is gestopt nadat een deel van de geselecteerde ZIP-items was gemaakt. Controleer de bestemming voordat u het opnieuw probeert."
+14677,1,"Beveiligd ZIP-archief bijwerken"
+14678,1,"De voorbereide wijzigingen in dit ZIP-archief als beheerder opslaan?"
+14679,1,"Windows heeft de voltooiing van de ZIP-wijzigingen niet bevestigd. Controleer het archief en eventuele achtergebleven back-ups in de archiefmap voordat u het opnieuw probeert."
+14680,1,"Het ZIP-archief is bijgewerkt. Vernieuw het archiefpaneel om de nieuwe inhoud te zien."
+14681,1,"Toegang geweigerd. Dit bestaande bestand als beheerder vervangen met behoud van de machtigingen van de bestemming?"
+14682,1,"De toestemming geldt voor dit item. Bij annulering worden de overige items niet verwerkt. Voltooide wijzigingen blijven behouden."
+14683,1,"Toegang geweigerd. De bestandsinhoud in deze map als beheerder lezen voor de huidige zoekopdracht? Het zoeken gaat door in toegankelijke mappen terwijl u beslist."
+14684,1,"Toegang geweigerd. Dit bestand als beheerder lezen voor de huidige zoekopdracht?"
+14685,1,"Toegang geweigerd. Dit bestand als beheerder kopiëren met behoud van EFS-versleuteling?"
+14686,1,"De toestemming geldt tot het einde van deze bewerking ook voor andere bestanden in de hieronder vermelde mappen die aan de voorwaarden voldoen."
+14687,1,"De toestemming geldt tot het einde van deze bewerking ook voor andere items in de hieronder vermelde map die aan de voorwaarden voldoen."
+
+[STRINGTABLE 197]
+14688,1,"Toegang geweigerd. Dit bestand als beheerder naar uw Prullenbak verplaatsen?"
+14689,1,"Toegang geweigerd. Dit bestand als beheerder kopiëren met behoud van NTFS-compressie, eigenaar, groep en expliciete machtigingen?"
+14694,1,"Deze toestemming geldt ook voor beschermde mappen onder:"
+14695,1,"Toegang geweigerd. Bestandsinhoud onder dit pad als administrator lezen voor deze vergelijking?"
+14696,1,"Deze Windows-compatibiliteitskoppeling is overgeslagen. Ze telt voor 0 bytes mee in het totaal."
+
+14698,1,"De bewerking kon niet als voltooid worden bevestigd. Er kan een werkback-up of journaal zijn achtergebleven. Controleer de bron, de bestemming en eventuele back-up voordat u opnieuw probeert."
+
+14699,1,"Toegang geweigerd. Dit bestand als administrator vervangen met behoud van de doelmachtigingen? Het vervangende bestand bevat geen alternatieve gegevensstromen."
+
+14700,1,"De limiet voor beheerderstoegang is bereikt (%s beveiligde items). Dit item is niet doorzocht; de resultaten zijn mogelijk onvolledig."
+14701,1,"Onvolledig (beheerlimiet)"
+
+14702,1,"Een eerdere zoekopdracht in deze resultaten bereikte de limiet voor beheerderstoegang (%s beveiligde items). Sommige items zijn niet doorzocht."
+
+14703,1,"Een beveiligde map met beheerdersrechten naar de Prullenbak verplaatsen wordt nog niet ondersteund."
+
+[STRINGTABLE 198]
+14704,1,"Onvolledig (zie logboek)"
+14705,1,"Een maplijst overschreed de capaciteit. Sommige items zijn niet doorzocht."
+14706,1,"Een beveiligde substructuur overschreed de itemlimiet. Sommige items zijn niet doorzocht."
+14707,1,"Een beveiligde substructuur overschreed de dieptelimiet. Sommige items zijn niet doorzocht."
+14708,1,"Sommige doelen van koppelingen zijn niet doorzocht."
+14709,1,"Toegang tot een deel van een beveiligde structuur is niet goedgekeurd of mislukt. Sommige items zijn niet doorzocht."
+
+14710,1,"De gekozen viewer kan dit geverifieerde resultaat nog niet veilig openen. Gebruik de interne viewer."
+14711,1,"Dit resultaat is gekoppeld aan een eerder geverifieerde identiteit. Een alleen-lezenmomentopname als beheerder in de interne viewer openen? De momentopname is beperkt tot 16 MB."
+
+14712,1,"De geverifieerde identiteit van dit beveiligde resultaat is niet beschikbaar. Het bestand kan niet veilig worden geopend; probeer de zoekopdracht opnieuw uit te voeren."
+14713,1,"View With kan de geverifieerde identiteit van dit beveiligde resultaat nog niet veilig behouden. Gebruik in plaats daarvan F3."
+
+14714,1,"De inhoud en tags van dit beveiligde resultaat kunnen bij het verfijnen momenteel niet veilig met de eerder geverifieerde identiteit worden gelezen. Dit item is niet geverifieerd."
+14715,1,"Toegang is geweigerd. Deze bestandslijst als administrator maken?"
+
+14716,1,"De identiteit van sommige beveiligde mappen kan niet worden gecontroleerd. Ze zijn niet geopend; de lijst is onvolledig. Eerste map:"
+14717,1,"Een beveiligde map bevat meer dan 4096 items. De lijst is onvolledig."
+
+14719,1,"Branch View - %I64u bestanden; resultaat mogelijk onvolledig"
+14720,1,"De maplijst is onderbroken en hervat. Bestanden kunnen intussen zijn gewijzigd; de lijst kan onvolledig zijn. Vernieuw om dit te controleren."
+
+14721,1,"Toegang geweigerd. Dit bestand als beheerder kopiëren? Bestanden met alternatieve gegevensstromen worden in deze modus niet ondersteund."
+
+[STRINGTABLE 199]
+14991,1,"Associaties worden uit de bestandopslag gelezen, even geduld..."
+
+[STRINGTABLE 200]
 14992,1,"Configuratie wordt in de bestandopslag opgeslagen, even geduld..."
 14993,1,"Oude configuratie wordt uit de bestandopslag verwijderd, even geduld..."
 14994,1,"Associaties worden uit de bestandopslag gelezen..."

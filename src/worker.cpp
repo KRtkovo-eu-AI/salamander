@@ -2,7 +2,134 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Preserve native CopyAttrs handling on scoped file handles. | Reuse the F5 worker for attribute-aware copies. | #731 | GPT-6 |
+// | 2026-11-14 | Preserve the requested archive attribute on scoped completion. | Match native CopyAttrs semantics before enabling the option. | #731 | GPT-6 |
+// | 2026-11-14 | Observe broker loss while paused during F5 completion. | Preserve uncertain targets even when cancellation coincides with disconnection. | #731 | GPT-6 |
+// | 2026-11-14 | Recheck thin-session liveness while finishing an F5 item. | Stop metadata updates after a detected broker loss. | #731 | GPT-6 |
+// | 2026-11-14 | Preserve scoped partial targets after terminal session loss. | Do not truncate broker-owned data when cleanup can no longer be verified. | #731 | GPT-6 |
+// | 2026-11-14 | Inject one overwrite denial in the unelevated laboratory build. | Exercise real scoped F5 overwrite without changing fixture ACLs. | #731 | GPT-6 |
+// | 2026-11-14 | Distinguish session loss from uncertain privileged cleanup. | Keep ordinary target cleanup and error reporting native. | #731 | gpt-6.1-terra |
+// | 2026-11-14 | Observe thin-session loss while waiting for async I/O. | Cancel and drain issued operations before returning to the worker. | #731 | gpt-6.1-terra |
+// | 2026-11-14 | Check remaining async pause paths for thin-session loss. | Preserve issued I/O until its native cancel drain completes. | #731 | gpt-6.1-terra |
+// | 2026-11-14 | Observe thin session loss at native synchronous pause points. | Stop an approved copy without changing ordinary pause behavior. | #731 | gpt-6.1-terra |
+// | 2026-11-14 | Check the thin session during an async pause wait. | Drain pending I/O if the broker exits before resume. | #731 | gpt-6.1-terra |
+// | 2026-11-14 | Preserve native handling of locally created targets. | Elevated source access must not restrict ordinary target Retry or cleanup. | #731 | gpt-6.1-terra |
+// | 2026-11-14 | Check the thin job between native copy operations. | Stop after detected broker loss and drain issued async I/O. | #731 | gpt-6.1-terra |
+// | 2026-11-14 | Probe inaccessible Scan Ahead targets through the approved job. | Reach the native conflict path without treating access denial as a replacement. | #731 | gpt-6.1-terra |
+// | 2026-11-14 | Recheck Scan Ahead evidence after UAC consent. | Preserve native deferred overwrite decisions without a general revision check. | #731 | gpt-6.1-terra |
+// | 2026-11-14 | Route plain protected F5 overwrites through the native worker. | Use scoped file handles while retaining native conflict and transfer handling. | #731 | gpt-6.1-terra |
+// | 2026-11-14 | Track write-only reopened target handles. | Preserve target identity and cleanup ownership for native overwrite checks. | #731 | gpt-6.1-terra |
+// | 2026-11-14 | Read protected overwrite attributes through the approved session. | Preserve the native hidden and system overwrite confirmations. | #731 | gpt-6.1-terra |
+// | 2026-11-14 | Track broker-opened overwrite handles in the native copy worker. | Apply existing cancellation and cleanup ownership to the new target open. | #731 | gpt-6.1-terra |
+// | 2026-11-14 | Recheck transient identity failures on native Retry. | Preserve approved identities without treating an unavailable probe as a permanent substitution. | #731 | GPT-6 |
+// | 2026-11-14 | Preserve native overwrite for an unprivileged target. | Keep protected-source copies on the original worker without elevating target mutations. | #731 | GPT-6 |
+// | 2026-11-13 | Preserve target identity loss across Retry. | Prevent later opens from clearing the cleanup guard. | #731 | gpt-6.1-terra |
+// | 2026-11-13 | Reject unobservable cancellation after handle delivery. | Close received handles when the worker cannot check cancellation. | #731 | GPT-6 |
+// | 2026-11-13 | Retain displayed batch consent after proven prelaunch failure. | Avoid repeating approval on the next matching native F5 item. | #731 | GPT-6 |
+// | 2026-11-13 | Give experimental F5 item custody of the planned job. | Preserve scope and lifetime across native worker I/O. | #731 | GPT-6 |
+// | 2026-11-13 | Preserve consent after proven pre-probe failure. | Allow native retry without reviving a started broker scope. | #731 | GPT-6 |
+// | 2026-11-13 | Propagate transfer prompt allocation failures. | Keep refusal and native operation errors distinct. | #731 | GPT-6 |
+// | 2026-11-13 | Handle thin-copy prompt allocation failure. | Preserve earlier sessions and return the actual low-memory error. | #731 | GPT-6 |
+// | 2026-11-13 | Reuse the exact scoped target after a verified preallocation reset. | Preserve native incremental copying without deleting an uncertain pathname. | #731 | GPT-6 |
+// | 2026-11-13 | Wait for native resume before thin F5 elevation. | Honor pause and cancellation before prompts and broker requests. | #731 | GPT-6 |
+// | 2026-11-13 | Preserve ordinary Retry before any elevated scope. | Track lost source continuity without imposing UAC identity rules on local copying. | #731 | GPT-6 |
+// | 2026-11-13 | Respect prior skip and cancellation before scoped opens. | Preserve native batch decisions without suppressing Retry or conflict probes. | #731 | GPT-6 |
+// | 2026-11-13 | Preserve native plain-copy attribute failure behavior. | Do not fail a completed scoped copy when ordinary attribute setting is ignored. | #731 | GPT-6 |
+// | 2026-11-13 | Release the broker's retained target after completed F5. | Preserve the native worker's per-item handle lifetime. | #731 | GPT-6 |
+// | 2026-11-13 | Track issued asynchronous copy I/O before observing cancellation. | Drain pending reads and writes before releasing their buffers and file handles. | #731 | GPT-6 |
+// | 2026-11-13 | Inject a write fault only after completed test I/O. | Exercise Retry after partial native transfer without changing production behavior. | #731 | GPT-6 |
+// | 2026-11-13 | Preserve uncertain thin-copy targets and report unknown completion. | Avoid unsafe cleanup and duplicate dialogs. | #731 | GPT-6 |
+// | 2026-11-13 | Distinguish experimental thin copy consent. | Avoid claiming support for alternate streams. | #731 | GPT-6 |
+// | 2026-11-12 | Observe test-only native read fault and Retry. | Distinguish injected failure from a worker-accepted Retry without changing production flow. | #731 | GPT-6 |
+// | 2026-11-12 | Keep target Retry on its recorded identity. | Do not assume a missing broker target was recreated. | #731 | GPT-6 |
+// | 2026-11-12 | Defer target cleanup when cancelling a source open. | Let the copy worker close its live output before verified discard. | #731 | GPT-6 |
+// | 2026-11-12 | Keep experimental scoped-copy cleanup identity-bound. | Preserve targets when close or cleanup cannot be verified. | #731 | GPT-6 |
+// | 2026-11-12 | Record test-only denied and broker-open events. | Prove each side of the real worker experiment without changing its error flow. | #731 | GPT-6 |
+// | 2026-11-12 | Observe test-only overlapped I/O completion. | Distinguish issued, completed and drained worker states without changing the production path. | #731 | GPT-6 |
+// | 2026-11-12 | Inject target denial before native creation in test builds. | Keep the real worker fixture free of premature files and leaked handles. | #731 | GPT-6 |
+// | 2026-11-12 | Add isolated native copy acceptance instrumentation. | Exercise the original worker, both I/O loops and Retry without affecting production builds. | #731 | GPT-6 |
+// | 2026-11-12 | Make parallel conflict preflight allocation-safe. | Preserve the destination and release coordinator resources on failure. | #731 | GPT-6 (Codex) |
+// | 2026-11-12 | Allocate the parallel copy buffer before opening the target. | Preserve an existing target and its links when buffer allocation fails. | #731 | GPT-6 (Codex) |
+// | 2026-11-12 | Probe an unreadable existing singleton F5 target before its conflict dialog. | Offer a scoped UAC choice only after a concrete access denial. | #731 | GPT-6 (Codex) |
+// | 2026-11-12 | Route eligible singleton F5 overwrite through a scoped probe. | Keep this UAC slice reviewable and fail closed. | #731 | GPT-6 (Codex) |
+// | 2026-11-11 | Retry one denied F5 overwrite through a reviewed probe. | Preserve scoped consent and the native conflict dialog. | #731 | GPT-6 (Codex) |
+// | 2026-11-11 | Apply conflict choices atomically against their captured snapshot. | Reject stale modal results and keep Apply All scoped to the current conflict. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Permit a verified late F6 retry after an ordinary Overwrite Older copy. | Preserve the native local deletion and ignored-time decisions. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Route ignored-stream F5 overwrites through typed UAC. | Keep the approved conflict and copy only the default stream. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Verify the singleton special-file timestamp request. | Reject attribute edits and preserve existing compression, sparsity and encryption. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Show a listed target revision in native overwrite confirmation. | Offer a verified retry when opening the target for metadata is denied. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Route native overwrites and protected read-only moves through one transaction. | Keep conflict decisions and prevent separate elevated target deletion. | | GPT-6.1 Sol |
+// | 2026-11-11 | Route native large-file transfers through shared eligibility. | Offer UAC without applying snapshot limits to streamed file copies. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Pass explicit retry to the leaf consent dialog. | Allow the user to reconsider a previous refusal from the usual error dialog. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Use prepared delete identities for all direct selection types. | Keep a failed identity preparation in the error flow and allow only exact verified retry. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Remove a permanent-delete directory by its owned wide name. | Keep Unicode and long paths through the normal attempt and elevated retry. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Create the missing approved tree root through the worker. | Keep collisions in the normal error flow and do not merge a newly appeared root. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Honor a declined tree copy in the transfer worker. | Return to the normal error flow without a second consent prompt. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Reuse the broker opened during F5 source analysis. | Keep exact listed identities, one consent and session cleanup through the worker. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Start scoped F5 merge on the first denied child. | Capture the confirmed root identity and retain normal merge and overwrite choices. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Retry denied tree entries within one broker job. | Create a verified root and preserve ordinary file progress and conflict handling. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Route deferred directory moves through the transfer broker. | Create the protected target before the atomic rename. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Offer UAC for denied whole-directory moves on the same volume. | Reuse the verified transfer dialog and keep conflict handling in the worker. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Execute deferred target file jobs through the scoped broker. | Use the same destination identity and consent for single-file and sequential batch requests. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Use the listed source only on the matching transfer operation. | Preserve the ordinary worker for other rows and keep F5 overwrite confirmation. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Retry Branch View deletion only after an actual access denial. | Preserve ordinary deletion and sharing-error recovery. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Report an unverified Branch View row through the delete error flow. | Allow Skip or Cancel while keeping that file untouched. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Use the exact prepared Branch View file during permanent deletion. | Keep the existing local check, consent and skip handling in the worker. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Run verified panel transfers in the existing worker path. | Preserve job consent, progress and cancellation while refusing an occupied destination. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Integrate clipboard lease cleanup with UAC worker teardown. | Release staged sources in the existing out-of-line destructor. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Keep staged clipboard sources alive for async disk copies. | Worker operations need their temp source after clipboard replacement. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
+// | 2026-11-10 | Distinguish transfer retries caused by the destination. | Preserve separate consent for a protected source and F6 completion. | #731 | GPT-6 (Codex) |
+// | 2026-11-10 | Reuse shielded Yes only for the exact selected delete. | Ask for protected descendants during the operation and stop before child changes on cancellation. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Forward the metadata shield on the first verified access denial. | Preserve local execution and ordinary retry behavior. | #731 | GPT-6.1 Sol (Codex) |
+// | 2026-11-10 | Execute protected panel metadata through the existing verified worker flow. | Preserve exact choices, confirmation, cancellation and error handling. | #731 | GPT-6.1 Sol (Codex) |
+// | 2026-11-10 | Keep EFS diagnostics and upstream lock recovery in the copy worker | Integrate UAC with current upstream behavior. | #731 | Codex |
+// | 2026-11-09 | Signal Scan Ahead on terminal worker failure. | Stop the scanner when a protected transfer is cancelled. | | Codex |
+// | 2026-11-09 | Reopen the native overwrite dialog for a broker collision. | Require a fresh decision for a file that appeared during elevated F5. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Calculate native transfer progress without overflowing. | Keep the exact bar value for large F6 operations and batch totals. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Mark active elevated transfers in the progress caption. | Keep ordinary transfers on the existing icon. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Show tree and EFS import progress. | Reuse the native transfer bars with an explicit broker total. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Show broker byte counts in the existing progress dialog. | Count completed work only after the terminal result. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Pin the exact copied files before local F6 source retirement. | Detect a substituted source or destination before trying either local or elevated deletion. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Release a closed transfer session immediately. | Avoid keeping dead scope paths during long-running batches. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Route combined compression and permissions to protected F5. | Keep both existing copy options active in the worker retry. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Use item eligibility for protected transfer in the worker. | Keep mixed selections serial on denied direct items and preserve recursive behavior. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Admit named streams to verified F5 overwrite. | Allow the broker to preserve eligible source streams before publication. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Allow verified overwrite when F5 cannot open the source. | Keep the ordinary conflict decision and retry tied to the prepared target. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Bind protected Scan Ahead overwrites to the scanned revision. | Requeue changed targets before the protected retry and leave reviewed overwrites to the serial worker. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Complete Scan Ahead transfer admission and cancellation. | Keep protected retries serial, separate from scanned conflicts, and admit compressed streams to guarded F6. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Keep F6 source retirement retries on the verified path. | Never retry a denied protected delete by name after copying. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Allow large F6 completions after ordinary copying. | Apply the same F6 byte limit before capturing the copy identity. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Allow cross-volume F6 to retain known named streams. | Keep the normal attribute option and same-volume retry within their existing scopes. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Keep preflight-denied F6 requests cross-volume only. | Bind the deferred source read to a verified move between distinct volumes. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Retry exact compressed F6 with the scoped broker. | Honor the existing Copy attributes option before retiring the source. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Offer brokered cross-volume F6 for sparse files. | Limit the new route to a guarded copy that preserves sparse ranges. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Capture the handles used by an ordinary F6 copy. | Complete denied source deletion only for that exact copy. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Route denied cross-volume F6 to the broker. | Avoid removing the source twice after a confirmed move. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Preserve and verify EFS alternate data streams. | Keep the source stream inventory consistent through encrypted export and publication. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Preserve worker error choices for leaf mutations. | Return cancelled elevation to the ordinary retry and skip dialog. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Resume the ordinary transfer error flow after known UAC outcomes. | Preserve skipped items, progress and confirmed overwrite revisions. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Allow protected EFS in the serial transfer batch. | Keep one authorization per compatible scope. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Route eligible encrypted F5 failures to the broker. | Preserve ciphertext and release the normal copy handle before elevation. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Process approved leaves in the existing worker sequence. | Preserve progress and stop the batch on a canceled or unconfirmed elevated operation. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Offer the verified F5 replacement after ordinary access is denied. | Capture the conflict before consent and exclude locally modified targets. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Explain denied protected EFS copies. | Keep ordinary EFS success and existing retry choices available. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Route the explicit F5 security option to the broker. | Keep security copy independent of move and other copy options. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Offer the verified delete path for one eligible junction. | Use the classified request for permanent deletion only. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Route one permanent directory symbolic-link delete to the verified worker. | Keep the recycling policy and unsupported object types on their established paths. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Use the verified delete flow for one file symbolic link. | Keep recycling and directory links on their existing paths. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Allow F5 to preserve supported compressed-file attributes through UAC. | Use a distinct request only with the copy attributes option. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Admit sparse files to the default F5 broker path. | Retain existing eligibility for move and explicit ADS omission. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Admit one-file F5 with planned named streams. | Keep the planned ADS bytes in the copy progress total. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Select the typed main-stream-only copy request. | Keep default copy and move strict about named streams. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Allow a basic attribute update for a selected directory. | Preserve the item type and the existing single-item limits. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Route directory timestamps through the basic metadata worker. | Use the broker only for a single nonrecursive time-only request. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Execute consented tree transfers on the worker thread. | Keep the dialog available for cancellation until the broker replies. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Dispatch the protected tree copy after queue admission. | Count one completion only when the broker confirms publication. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-07 | Run eligible permanent deletion with the verified file executor. | Preserve the original file identity across ordinary attempts and elevated consent. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-07 | Run one-file basic metadata changes through the verified executor. | Offer elevation only after an ordinary access denial and retain worker accounting. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Offer one verified broker copy after ordinary access is denied. | Keep the existing worker lease and only count an acknowledged copy. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Offer a verified same-volume move after access denial. | Complete the existing F6 item only after an authenticated result. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Send typed file-lock recovery dialog data. | Remove the unsafe narrow-to-wide pointer cast reported by CodeQL. | https://github.com/KRtkovo-eu-AI/salamander/pull/842 | GPT-6 (Codex) |
 // | 2026-11-09 | Offer lock-process recovery after delete and overwrite failures. | Make the issue #836 workflow available in core file operations. | https://github.com/KRtkovo-eu-AI/salamander/issues/836 | GPT-6 (Codex) |
 // CommentsTranslationProject: TRANSLATED
@@ -14,11 +141,16 @@
 #include "workerpath.h"
 #include "filelock.h"
 #include "operationrecycle.h"
+
+#include <list>
 #include "common/widepath.h"
+#include "uacbroker/f7pilot.h"
 
 #include <Aclapi.h>
 #include <Ntsecapi.h>
 #include <deque>
+#include <exception>
+#include <new>
 
 // these functions have no header, we must load them dynamically
 NTQUERYINFORMATIONFILE DynNtQueryInformationFile = NULL;
@@ -494,6 +626,9 @@ COperations::COperations(int base, int delta, char* waitInQueueSubject, char* wa
     BytesPerCluster = 0;
     ClearReadonlyMask = 0xFFFFFFFF;
     InvertRecycleBin = FALSE;
+    AllowPermanentDeletePilot = FALSE;
+    AllowTransferPilot = FALSE;
+    IgnoreTransferAds = FALSE;
     CanUseRecycleBin = TRUE;
     SameRootButDiffVolume = FALSE;
     TargetPathSupADS = FALSE;
@@ -563,6 +698,14 @@ COperations::COperations(int base, int delta, char* waitInQueueSubject, char* wa
     LastProgBufLimTestTime = GetTickCount() - 1000;
     LastFileBlockCount = 0;
     LastFileStartTime = GetTickCount();
+}
+
+COperations::~COperations()
+{
+    if (ClipboardLease != NULL)
+        ClipboardLease->Release();
+    HANDLES(DeleteCriticalSection(&ConflictCS));
+    HANDLES(DeleteCriticalSection(&StatusCS));
 }
 
 void COperations::AddStoragePath(const char* path, int access)
@@ -880,20 +1023,45 @@ void COperations::GetDeferredConflicts(std::vector<CCopyMoveConflictSnapshot>& c
     HANDLES(LeaveCriticalSection(&ConflictCS));
 }
 
+void COperations::GetConflictSnapshotLocked(int index, CCopyMoveConflictSnapshot& conflict)
+{
+    conflict.ScriptIndex = index;
+    conflict.Type = At(index).ConflictType;
+    conflict.State = At(index).ConflictState;
+    conflict.OperationId = At(index).ConflictOperationId;
+    conflict.Generation = At(index).ConflictGeneration;
+    conflict.LeaseToken = At(index).ConflictLeaseToken;
+    conflict.DependencyEpoch = At(index).ConflictLeaseDependencyEpoch;
+    conflict.AuthorizedDecision = At(index).ConflictDecision;
+}
+
 BOOL COperations::GetConflictSnapshot(int index, CCopyMoveConflictSnapshot& conflict)
 {
     HANDLES(EnterCriticalSection(&ConflictCS));
     BOOL found = index >= 0 && index < Count && At(index).ConflictState == cmisConflict;
     if (found)
     {
-        conflict.ScriptIndex = index;
-        conflict.Type = At(index).ConflictType;
-        conflict.State = At(index).ConflictState;
-        conflict.OperationId = At(index).ConflictOperationId;
-        conflict.Generation = At(index).ConflictGeneration;
-        conflict.LeaseToken = At(index).ConflictLeaseToken;
-        conflict.DependencyEpoch = At(index).ConflictLeaseDependencyEpoch;
-        conflict.AuthorizedDecision = At(index).ConflictLeaseDecision;
+        GetConflictSnapshotLocked(index, conflict);
+    }
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    return found;
+}
+
+BOOL COperations::GetConflictDecisionSnapshot(int index, CCopyMoveConflictDecisionSnapshot& conflict)
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    const BOOL found = index >= 0 && index < Count && At(index).ConflictState == cmisConflict;
+    if (found)
+    {
+        GetConflictSnapshotLocked(index, conflict.Conflict);
+        conflict.TargetVolumeSerial = At(index).ScannedTargetVolumeSerial;
+        conflict.TargetFileIndex = At(index).ScannedTargetFileIndex;
+        conflict.TargetIdentityValid = At(index).ScannedTargetIdentityValid;
+        conflict.TargetExisted = At(index).ScannedTargetExisted;
+        conflict.TargetAttributes = At(index).ScannedTargetAttributes;
+        conflict.TargetSize = At(index).ScannedTargetSize;
+        conflict.TargetWriteTime = At(index).ScannedTargetWriteTime;
+        conflict.TargetRevision = At(index).ScannedTargetRevision;
     }
     HANDLES(LeaveCriticalSection(&ConflictCS));
     return found;
@@ -1016,18 +1184,15 @@ BOOL COperations::IsConflictItemReadyLocked(int index) const
     return TRUE;
 }
 
-void COperations::RebuildConflictQueuesLocked()
+class CScopedConflictLock
 {
-    ConflictReadyQueue.clear();
-    ConflictPendingQueue.clear();
-    for (int index = 0; index < Count; ++index)
-    {
-        COperation& op = At(index);
-        if (IsConflictItemReadyLocked(index)) ConflictReadyQueue.push_back(index);
-        else if (op.ConflictState == cmisUnscanned || op.ConflictState == cmisConflict || op.ConflictState == cmisBlocked)
-            ConflictPendingQueue.push_back(index);
-    }
-}
+    CRITICAL_SECTION* Lock;
+public:
+    explicit CScopedConflictLock(CRITICAL_SECTION* lock) : Lock(lock) { HANDLES(EnterCriticalSection(Lock)); }
+    ~CScopedConflictLock() { HANDLES(LeaveCriticalSection(Lock)); }
+    CScopedConflictLock(const CScopedConflictLock&) = delete;
+    CScopedConflictLock& operator=(const CScopedConflictLock&) = delete;
+};
 
 void COperations::SuppressConflictSubtreeLocked(int index)
 {
@@ -1223,7 +1388,6 @@ void COperations::InitializeConflictDependencies()
         ConflictDependencies[index].FinalizeStart = At(index).ConflictFinalizeStart;
         ConflictDependencies[index].Finalizer = At(index).ConflictIsFinalizer ? index : -1;
     }
-    RebuildConflictQueuesLocked();
     ConflictListVersion++;
     HANDLES(LeaveCriticalSection(&ConflictCS));
 
@@ -1251,7 +1415,7 @@ BOOL COperations::TransitionConflictItem(int index, CCopyMoveItemState from, CCo
 
 void COperations::PublishConflictScanResult(int index, CCopyMoveConflictType type, DWORD attributes,
                                             ULONGLONG size, const FILETIME& writeTime, DWORD volumeSerial,
-                                            ULONGLONG fileIndex, BOOL identityValid, BOOL existed)
+                                            ULONGLONG fileIndex, BOOL identityValid, BOOL existed, const UacF7::ArchiveRevision& revision)
 {
     HANDLES(EnterCriticalSection(&ConflictCS));
     if (index >= 0 && index < Count)
@@ -1271,6 +1435,7 @@ void COperations::PublishConflictScanResult(int index, CCopyMoveConflictType typ
         op.ScannedTargetFileIndex = fileIndex;
         op.ScannedTargetIdentityValid = identityValid;
         op.ScannedTargetExisted = existed;
+        op.ScannedTargetRevision = revision;
         op.ConflictProbe.Type = type;
         op.ConflictProbe.Attributes = attributes;
         op.ConflictProbe.Size = size;
@@ -1318,7 +1483,6 @@ void COperations::PublishConflictScanResult(int index, CCopyMoveConflictType typ
         }
         else op.ConflictState = cmisReady;
         ConflictScannedCount++;
-        RebuildConflictQueuesLocked();
         ConflictListVersion++;
     }
     HANDLES(LeaveCriticalSection(&ConflictCS));
@@ -1342,23 +1506,53 @@ BOOL COperations::ResolveConflictRequest(const CCopyMoveConflictRequest& request
                                           CCopyMoveConflictDecision decision, BOOL applyAll)
 {
     HANDLES(EnterCriticalSection(&ConflictCS));
-    const BOOL valid = request.ScriptIndex >= 0 && request.ScriptIndex < Count &&
+    const BOOL valid = (decision == cmcdOverwrite || decision == cmcdSkip) &&
+                       request.Type > cmctNone && request.Type <= cmctTypeMismatch &&
+                       request.ScriptIndex >= 0 && request.ScriptIndex < Count &&
                        At(request.ScriptIndex).ConflictOperationId == request.OperationId &&
                        At(request.ScriptIndex).ConflictGeneration == request.Generation &&
                        At(request.ScriptIndex).ConflictState == cmisConflict &&
+                       At(request.ScriptIndex).ConflictType == request.Type &&
                        At(request.ScriptIndex).ScannedTargetVolumeSerial == request.ExpectedTargetVolumeSerial &&
                        At(request.ScriptIndex).ScannedTargetFileIndex == request.ExpectedTargetFileIndex &&
                        At(request.ScriptIndex).ScannedTargetIdentityValid == request.ExpectedTargetIdentityValid &&
                        At(request.ScriptIndex).ConflictDecision == request.AuthorizedDecision;
+    if (valid)
+        SetDeferredConflictDecisionLocked(request.ScriptIndex, decision, applyAll);
     HANDLES(LeaveCriticalSection(&ConflictCS));
-    if (!valid)
-        return FALSE;
-    SetDeferredConflictDecision(request.ScriptIndex, decision, applyAll);
-    return TRUE;
+    if (valid) SignalConflictChanged();
+    return valid;
 }
-void COperations::SetDeferredConflictDecision(int index, CCopyMoveConflictDecision decision, BOOL applyAll)
+
+BOOL COperations::ResolveConflictSnapshot(const CCopyMoveConflictDecisionSnapshot& conflict,
+                                          CCopyMoveConflictDecision decision, BOOL applyAll)
 {
     HANDLES(EnterCriticalSection(&ConflictCS));
+    const auto& basic = conflict.Conflict;
+    const int index = basic.ScriptIndex;
+    const BOOL valid = (decision == cmcdOverwrite || decision == cmcdSkip) &&
+        basic.Type > cmctNone && basic.Type <= cmctTypeMismatch &&
+        index >= 0 && index < Count && basic.State == cmisConflict &&
+        At(index).ConflictState == cmisConflict && At(index).ConflictType == basic.Type &&
+        At(index).ConflictOperationId == basic.OperationId && At(index).ConflictGeneration == basic.Generation &&
+        At(index).ConflictDecision == basic.AuthorizedDecision &&
+        At(index).ScannedTargetVolumeSerial == conflict.TargetVolumeSerial &&
+        At(index).ScannedTargetFileIndex == conflict.TargetFileIndex &&
+        At(index).ScannedTargetIdentityValid == conflict.TargetIdentityValid &&
+        At(index).ScannedTargetExisted == conflict.TargetExisted &&
+        At(index).ScannedTargetAttributes == conflict.TargetAttributes &&
+        At(index).ScannedTargetSize == conflict.TargetSize &&
+        CompareFileTime(&At(index).ScannedTargetWriteTime, &conflict.TargetWriteTime) == 0 &&
+        UacF7::SameFileRevision(At(index).ScannedTargetRevision, conflict.TargetRevision);
+    if (valid)
+        SetDeferredConflictDecisionLocked(index, decision, applyAll);
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    if (valid) SignalConflictChanged();
+    return valid;
+}
+
+void COperations::SetDeferredConflictDecisionLocked(int index, CCopyMoveConflictDecision decision, BOOL applyAll)
+{
     if (index >= 0 && index < Count && At(index).ConflictType != cmctNone)
     {
         CCopyMoveConflictType type = At(index).ConflictType;
@@ -1377,9 +1571,14 @@ void COperations::SetDeferredConflictDecision(int index, CCopyMoveConflictDecisi
                     AdmitConflictSubtreeLocked(item);
             }
         }
-        RebuildConflictQueuesLocked();
         ConflictListVersion++;
     }
+}
+
+void COperations::SetDeferredConflictDecision(int index, CCopyMoveConflictDecision decision, BOOL applyAll)
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    SetDeferredConflictDecisionLocked(index, decision, applyAll);
     HANDLES(LeaveCriticalSection(&ConflictCS));
     SignalConflictChanged();
 }
@@ -1408,7 +1607,6 @@ void COperations::SetOperationWideConflictDecision(CCopyMoveConflictDecision dec
             op.ConflictType == cmctDirectoryExists)
             AdmitConflictSubtreeLocked(item);
     }
-    RebuildConflictQueuesLocked();
     ++ConflictListVersion;
     HANDLES(LeaveCriticalSection(&ConflictCS));
     SignalConflictChanged();
@@ -1418,12 +1616,9 @@ BOOL COperations::GetNextConflictReadyItem(int& index, ULONGLONG& leaseToken)
 {
     leaseToken = 0;
     HANDLES(EnterCriticalSection(&ConflictCS));
-    RebuildConflictQueuesLocked();
     BOOL found = FALSE;
-    while (!ConflictReadyQueue.empty())
+    for (int item = 0; item < Count; ++item)
     {
-        const int item = ConflictReadyQueue.front();
-        ConflictReadyQueue.pop_front();
         if (!IsConflictItemReadyLocked(item)) continue;
         COperation& op = At(item);
         op.ConflictState = cmisRunning;
@@ -1447,14 +1642,13 @@ BOOL COperations::LeaseNextParallelCopy(int& index, ULONGLONG& leaseToken, int s
 {
     leaseToken = 0;
     HANDLES(EnterCriticalSection(&ConflictCS));
-    RebuildConflictQueuesLocked();
     BOOL found = FALSE;
-    for (std::deque<int>::iterator item = ConflictReadyQueue.begin(); item != ConflictReadyQueue.end(); ++item)
+    for (int item = 0; item < Count; ++item)
     {
         // startIndex is only a fairness hint; it must never exclude an older ready item.
-        if (*item < 0 || *item >= Count) continue;
-        COperation& op = At(*item);
-        if (op.Opcode != ocCopyFile || op.ConflictIsFinalizer ||
+        if (!IsConflictItemReadyLocked(item)) continue;
+        COperation& op = At(item);
+        if (op.Opcode != ocCopyFile || op.ConflictIsFinalizer || op.ScannedTargetRevision.attributes ||
             (op.ConflictState != cmisReady && op.ConflictState != cmisOverwrite)) continue;
         op.ConflictState = cmisRunning;
         op.ConflictItemState = ccipLeased;
@@ -1463,7 +1657,7 @@ BOOL COperations::LeaseNextParallelCopy(int& index, ULONGLONG& leaseToken, int s
         if (op.ConflictLeaseToken == 0) op.ConflictLeaseToken = ++NextConflictLeaseToken;
         op.ConflictLeaseDependencyEpoch = op.ConflictGeneration;
         op.ConflictLeaseDecision = op.ConflictDecision;
-        index = *item; leaseToken = op.ConflictLeaseToken; found = TRUE; break;
+        index = item; leaseToken = op.ConflictLeaseToken; found = TRUE; break;
     }
     HANDLES(LeaveCriticalSection(&ConflictCS));
     return found;
@@ -1502,7 +1696,6 @@ CConflictLeaseOutcome COperations::FinishParallelCopyLeaseLocked(int index, ULON
         outcome = ccloReleased;
     }
     op.ConflictGeneration = ++ConflictCoordinatorGeneration;
-    RebuildConflictQueuesLocked();
     ++ConflictListVersion;
     return outcome;
 }
@@ -1528,9 +1721,11 @@ CConflictLeaseOutcome COperations::ReleaseParallelCopyLease(int index, ULONGLONG
 
 CConflictLeaseOutcome COperations::ReblockParallelCopyLease(int index, ULONGLONG leaseToken)
 {
-    HANDLES(EnterCriticalSection(&ConflictCS));
-    CConflictLeaseOutcome outcome = FinishParallelCopyLeaseLocked(index, leaseToken, ccloReblocked);
-    HANDLES(LeaveCriticalSection(&ConflictCS));
+    CConflictLeaseOutcome outcome;
+    {
+        CScopedConflictLock lock(&ConflictCS);
+        outcome = FinishParallelCopyLeaseLocked(index, leaseToken, ccloReblocked);
+    }
     if (outcome != ccloInvalid) SignalConflictChanged();
     return outcome;
 }
@@ -1597,10 +1792,30 @@ void COperations::CompleteConflictItem(int index, BOOL skipped, int throughIndex
                 }
             }
         }
-        RebuildConflictQueuesLocked();
         ConflictListVersion++;
     }
     HANDLES(LeaveCriticalSection(&ConflictCS));
+}
+
+// The ordinary scan may follow a link. Only capture a broker revision from
+// the exact, no-follow object, and bind it to the item the scan displayed.
+static void CaptureScannedOverwriteRevision(const std::wstring& path, const BY_HANDLE_FILE_INFORMATION& observed,
+                                            UacF7::ArchiveRevision& revision)
+{
+    HANDLE file = HANDLES_Q(CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
+                                        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                                        OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    if (file == INVALID_HANDLE_VALUE)
+        return;
+    BY_HANDLE_FILE_INFORMATION current;
+    if (GetFileInformationByHandle(file, &current) &&
+        current.dwVolumeSerialNumber == observed.dwVolumeSerialNumber &&
+        current.nFileIndexHigh == observed.nFileIndexHigh && current.nFileIndexLow == observed.nFileIndexLow &&
+        current.dwFileAttributes == observed.dwFileAttributes &&
+        current.nFileSizeHigh == observed.nFileSizeHigh && current.nFileSizeLow == observed.nFileSizeLow &&
+        CompareFileTime(&current.ftLastWriteTime, &observed.ftLastWriteTime) == 0)
+        UacF7::CaptureOverwriteRevision(file, revision);
+    HANDLES(CloseHandle(file));
 }
 
 BOOL COperations::RevalidateConflictItem(int index, CCopyMoveConflictType& conflictType)
@@ -1608,6 +1823,7 @@ BOOL COperations::RevalidateConflictItem(int index, CCopyMoveConflictType& confl
     conflictType = cmctNone;
     HANDLES(EnterCriticalSection(&ConflictCS));
     BOOL valid = FALSE;
+    bool refreshRevision = false;
     if (index >= 0 && index < Count)
     {
         COperation& op = At(index);
@@ -1619,6 +1835,7 @@ BOOL COperations::RevalidateConflictItem(int index, CCopyMoveConflictType& confl
             HANDLE file = HANDLES_Q(CreateFileW(target.c_str(), FILE_READ_ATTRIBUTES,
                                                 FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                                                 NULL, OPEN_EXISTING,
+                                                op.ScannedTargetRevision.attributes ? FILE_FLAG_OPEN_REPARSE_POINT :
                                                 op.ConflictType == cmctDirectoryExists ? FILE_FLAG_BACKUP_SEMANTICS : 0, NULL));
             if (file != INVALID_HANDLE_VALUE)
             {
@@ -1630,41 +1847,52 @@ BOOL COperations::RevalidateConflictItem(int index, CCopyMoveConflictType& confl
                         info.dwFileAttributes == op.ScannedTargetAttributes &&
                         (((ULONGLONG)info.nFileSizeHigh << 32) | info.nFileSizeLow) == op.ScannedTargetSize &&
                         CompareFileTime(&info.ftLastWriteTime, &op.ScannedTargetWriteTime) == 0;
+                if (valid && op.ScannedTargetRevision.attributes)
+                {
+                    UacF7::ArchiveRevision current;
+                    valid = UacF7::CaptureOverwriteRevision(file, current) &&
+                            UacF7::SameFileRevision(op.ScannedTargetRevision, current);
+                }
                 HANDLES(CloseHandle(file));
             }
             else if (GetLastError() == ERROR_FILE_NOT_FOUND || GetLastError() == ERROR_PATH_NOT_FOUND)
             {
                 op.ConflictDecision = cmcdNone;
                 op.ConflictType = cmctNone;
+                conflictType = cmctNone;
+                op.ScannedTargetRevision = {};
                 op.ConflictState = cmisRunning;
                 valid = TRUE;
             }
         }
-        if (!valid)
+        refreshRevision = !valid && op.ScannedTargetRevision.attributes;
+        if (!valid && !refreshRevision)
         {
             op.ConflictDecision = cmcdNone;
             op.ConflictState = cmisConflict;
             op.ConflictItemState = ccipAwaitingDecision;
             DeferredConflictCount++;
         }
-        RebuildConflictQueuesLocked();
         ConflictListVersion++;
     }
     HANDLES(LeaveCriticalSection(&ConflictCS));
+    if (refreshRevision)
+        RequeueChangedConflictItem(index);
     return valid;
 }
 
 BOOL COperations::RevalidatePreparedConflictAncestors(int index)
 {
     std::vector<int> ancestors;
-    HANDLES(EnterCriticalSection(&ConflictCS));
-    if (index >= 0 && index < Count && index < (int)ConflictDependencies.size())
-        for (int parent = ConflictDependencies[index].Parent; parent >= 0;
-             parent = ConflictDependencies[parent].Parent)
-            if (At(parent).Opcode == ocCreateDir &&
-                (At(parent).ConflictDirectoryPrepared || At(parent).ConflictState != cmisDone))
-                ancestors.push_back(parent);
-    HANDLES(LeaveCriticalSection(&ConflictCS));
+    {
+        CScopedConflictLock lock(&ConflictCS);
+        if (index >= 0 && index < Count && index < (int)ConflictDependencies.size())
+            for (int parent = ConflictDependencies[index].Parent; parent >= 0;
+                 parent = ConflictDependencies[parent].Parent)
+                if (At(parent).Opcode == ocCreateDir &&
+                    (At(parent).ConflictDirectoryPrepared || At(parent).ConflictState != cmisDone))
+                    ancestors.push_back(parent);
+    }
 
     for (std::vector<int>::reverse_iterator item = ancestors.rbegin(); item != ancestors.rend(); ++item)
     {
@@ -1672,13 +1900,15 @@ BOOL COperations::RevalidatePreparedConflictAncestors(int index)
         ULONGLONG expectedIndex;
         BOOL expectedIdentity;
         std::wstring target;
-        HANDLES(EnterCriticalSection(&ConflictCS));
-        const BOOL prepared = IsPreparedParentDirectoryLocked(*item);
-        expectedVolume = At(*item).ScannedTargetVolumeSerial;
-        expectedIndex = At(*item).ScannedTargetFileIndex;
-        expectedIdentity = At(*item).ScannedTargetIdentityValid;
-        target = GetParallelCopyPathW(&At(*item), FALSE);
-        HANDLES(LeaveCriticalSection(&ConflictCS));
+        BOOL prepared;
+        {
+            CScopedConflictLock lock(&ConflictCS);
+            prepared = IsPreparedParentDirectoryLocked(*item);
+            expectedVolume = At(*item).ScannedTargetVolumeSerial;
+            expectedIndex = At(*item).ScannedTargetFileIndex;
+            expectedIdentity = At(*item).ScannedTargetIdentityValid;
+            target = GetParallelCopyPathW(&At(*item), FALSE);
+        }
         if (!target.empty()) target = SalPathAddExtendedPrefixW(target.c_str());
         HANDLE directory = prepared && expectedIdentity && !target.empty() ?
             HANDLES_Q(CreateFileW(target.c_str(), FILE_READ_ATTRIBUTES,
@@ -1695,9 +1925,10 @@ BOOL COperations::RevalidatePreparedConflictAncestors(int index)
         if (!unchanged)
         {
             ULONGLONG leaseToken = 0;
-            HANDLES(EnterCriticalSection(&ConflictCS));
-            if (index >= 0 && index < Count) leaseToken = At(index).ConflictLeaseToken;
-            HANDLES(LeaveCriticalSection(&ConflictCS));
+            {
+                CScopedConflictLock lock(&ConflictCS);
+                if (index >= 0 && index < Count) leaseToken = At(index).ConflictLeaseToken;
+            }
             RequeueChangedConflictItem(*item);
             if (leaseToken != 0) ReblockParallelCopyLease(index, leaseToken);
             return FALSE;
@@ -1718,6 +1949,7 @@ void COperations::RequeueChangedConflictItem(int index)
     DWORD volumeSerial = 0;
     ULONGLONG fileIndex = 0;
     BOOL identityValid = FALSE;
+    UacF7::ArchiveRevision revision;
     HANDLE targetHandle = target.empty() ? INVALID_HANDLE_VALUE :
         HANDLES_Q(CreateFileW(target.c_str(), FILE_READ_ATTRIBUTES,
                               FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
@@ -1733,11 +1965,13 @@ void COperations::RequeueChangedConflictItem(int index)
             volumeSerial = info.dwVolumeSerialNumber;
             fileIndex = ((ULONGLONG)info.nFileIndexHigh << 32) | info.nFileIndexLow;
             identityValid = TRUE;
+            if ((operation.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) && operation.Opcode == ocCopyFile)
+                CaptureScannedOverwriteRevision(target, info, revision);
         }
         HANDLES(CloseHandle(targetHandle));
     }
 
-    HANDLES(EnterCriticalSection(&ConflictCS));
+    CScopedConflictLock lock(&ConflictCS);
     COperation& op = At(index);
     RetractConflictSubtreeLocked(index);
     op.ConflictGeneration = ++ConflictCoordinatorGeneration;
@@ -1749,6 +1983,7 @@ void COperations::RequeueChangedConflictItem(int index)
     op.ScannedTargetFileIndex = fileIndex;
     op.ScannedTargetIdentityValid = identityValid;
     op.ScannedTargetExisted = identityValid;
+    op.ScannedTargetRevision = revision;
     if (!identityValid)
     {
         op.ConflictType = cmctNone;
@@ -1763,9 +1998,7 @@ void COperations::RequeueChangedConflictItem(int index)
         op.ConflictItemState = ccipAwaitingDecision;
         DeferredConflictCount++;
     }
-    RebuildConflictQueuesLocked();
     ConflictListVersion++;
-    HANDLES(LeaveCriticalSection(&ConflictCS));
 }
 
 void COperations::MarkConflictDirectoryPrepared(int index, BOOL created, DWORD volumeSerial,
@@ -1784,7 +2017,6 @@ void COperations::MarkConflictDirectoryPrepared(int index, BOOL created, DWORD v
         op.ScannedTargetAttributes = FILE_ATTRIBUTE_DIRECTORY;
         op.ConflictGeneration = ++ConflictCoordinatorGeneration;
         AdmitConflictSubtreeLocked(index);
-        RebuildConflictQueuesLocked();
         ++ConflictListVersion;
     }
     HANDLES(LeaveCriticalSection(&ConflictCS));
@@ -1808,7 +2040,6 @@ void COperations::RollbackConflictDirectoryPrepared(int index, BOOL removed)
         // If identity-safe removal failed, committed children may own the directory.
         // Keep/adopt it as prepared so coordinator state remains physically truthful.
         op.ConflictGeneration = ++ConflictCoordinatorGeneration;
-        RebuildConflictQueuesLocked();
         ++ConflictListVersion;
     }
     HANDLES(LeaveCriticalSection(&ConflictCS));
@@ -1817,14 +2048,16 @@ void COperations::RollbackConflictDirectoryPrepared(int index, BOOL removed)
 
 BOOL COperations::ValidateParallelCopyLeaseForSideEffect(int index, ULONGLONG leaseToken)
 {
-    HANDLES(EnterCriticalSection(&ConflictCS));
-    BOOL valid = index >= 0 && index < Count && leaseToken != 0 &&
-                 At(index).ConflictState == cmisRunning &&
-                 At(index).ConflictLeaseToken == leaseToken &&
-                 At(index).ConflictLeaseDependencyEpoch == At(index).ConflictGeneration &&
-                 At(index).ConflictLeaseDecision == At(index).ConflictDecision &&
-                 AreConflictAncestorsPreparedLocked(index);
-    HANDLES(LeaveCriticalSection(&ConflictCS));
+    BOOL valid;
+    {
+        CScopedConflictLock lock(&ConflictCS);
+        valid = index >= 0 && index < Count && leaseToken != 0 &&
+                At(index).ConflictState == cmisRunning &&
+                At(index).ConflictLeaseToken == leaseToken &&
+                At(index).ConflictLeaseDependencyEpoch == At(index).ConflictGeneration &&
+                At(index).ConflictLeaseDecision == At(index).ConflictDecision &&
+                AreConflictAncestorsPreparedLocked(index);
+    }
     if (!valid) ReblockParallelCopyLease(index, leaseToken);
     return valid && RevalidatePreparedConflictAncestors(index);
 }
@@ -1869,7 +2102,7 @@ BOOL COperations::HasReadySerialConflictWork()
     for (int index = 0; index < Count && !found; ++index)
         if (IsConflictItemReadyLocked(index) &&
             (At(index).Opcode != ocCopyFile || At(index).ConflictState == cmisSkip ||
-             At(index).ConflictIsFinalizer || !CanUseParallelCopy(this, &At(index))))
+             At(index).ConflictIsFinalizer || At(index).ScannedTargetRevision.attributes || !CanUseParallelCopy(this, &At(index))))
             found = TRUE;
     HANDLES(LeaveCriticalSection(&ConflictCS));
     return found;
@@ -2100,6 +2333,21 @@ struct CProgressDlgData
 {
     HANDLE WorkerNotSuspended;
     BOOL* CancelWorker;
+    HANDLE CancelWorkerEvent;
+    std::list<UacF7::TransferJobSession> TransferJobs;
+#ifdef SAM_UAC_THIN_COPY_TEST
+    // The experimental handle transport stays out of the production build.
+    std::list<UacF7::ThinCopySession> ThinCopyJobs;
+    // Consent, not a broker job: valid only for the displayed exact batch
+    // scope and consumed before attempting another broker launch.
+    std::optional<UacF7::TransferJobScope> PendingThinConsent;
+#endif
+    struct TreeMerge
+    {
+        UacF7::PreparedTransfer Request;
+        std::string Source, Target;
+    };
+    std::optional<TreeMerge> PendingTreeMerge;
     int* OperationProgress;
     int* SummaryProgress;
     BOOL AsyncProgressPublication;
@@ -2167,7 +2415,589 @@ struct CProgressDlgData
     }
 };
 
+#ifdef SAM_UAC_THIN_COPY_TEST
+enum class ThinOpenPhase { Initial, Retry, Probe };
+
+// A successful FILE_CREATE starts a new target lifetime even if this worker
+// previously transferred data before COPY_AGAIN. Retry and overwrite do not
+// establish the same fresh-object guarantee.
+static void ThinCopyAcceptedTarget(bool& transferStarted, UacF7::ThinOpenKind kind)
+{
+    if (kind == UacF7::ThinOpenKind::TargetCreate)
+        transferStarted = false;
+}
+
+// One operation keeps its reviewed identities; sessions live with the batch.
+// The ordinary worker remains responsible for every byte of file I/O.
+struct CThinCopyWorker
+{
+    COperation& operation;
+    COperations& script;
+    CProgressDlgData& dialog;
+    HWND progress;
+    HANDLE* sourceHandle;
+    std::unique_ptr<UacF7::PreparedTransfer> request;
+    UacF7::ThinCopySession* session = nullptr;
+    UacF7::ThinCopySession plannedSession;
+    std::shared_ptr<COperations::ThinCopyPlanAnchor> claimedAnchor;
+    bool plannedTaken = false;
+    int exceptionsAtEntry = std::uncaught_exceptions();
+    UacF7::MoveFileIdentity target{}, earlierSource{};
+    bool active = false;
+    bool earlierSourceRequired = false;
+    bool earlierSourceKnown = false;
+    bool sourceContinuityLost = false;
+    // Remains true once a broker operation may have started. The sole reset
+    // is an explicitly reported pre-probe failure on the first attempt.
+    bool scopeMayHaveStarted = false;
+    bool pendingConsent = false;
+    bool batchScopeApproved = false;
+    bool brokerHandleDelivered = false;
+    bool targetContinuityLost = false;
+    bool targetKnown = false;
+    bool targetCreatedByBroker = false;
+    // Existing targets remain under the worker's ordinary token; this does
+    // not authorize mutation of a broker-created or uncertain target.
+    bool nativeTargetOverwrite = false;
+    bool nativeTargetCreated = false;
+    bool dataTransferStarted = false;
+    bool suppressLocalCleanup = false;
+    bool cleanupUncertain = false;
+    bool sourceVerified = false;
+    bool terminal = false;
+    bool scanProbeError = false;
+    // Test-only injection state belongs to the item, not the whole process.
+    bool labSourceOpenDenied = false;
+    bool labTargetOpenDenied = false;
+
+    CThinCopyWorker(COperation& op, COperations& batch, CProgressDlgData& data, HWND owner, HANDLE* source)
+        : operation(op), script(batch), dialog(data), progress(owner), sourceHandle(source) {}
+
+    ~CThinCopyWorker()
+    {
+        const bool samePlan = claimedAnchor && script.CopySource && script.CopySource->ThinAnchor == claimedAnchor;
+        if (plannedTaken)
+        {
+            // A retained target or stack unwinding cannot leave a live job
+            // for a later item. Closing it does not revoke host file handles.
+            if (targetCreatedByBroker || cleanupUncertain || std::uncaught_exceptions() > exceptionsAtEntry)
+                plannedSession.Close();
+            auto returned = plannedSession.ReturnPlanned();
+            if (samePlan && !script.CopySource->Session)
+                script.CopySource->Session = std::move(returned);
+            else
+            {
+                // Preserve any unexpected new owner and stop the batch; the
+                // checked-out job is destroyed instead of being misassigned.
+                if (returned && returned->IsOpen()) returned->Close();
+                if (dialog.CancelWorker) *dialog.CancelWorker = TRUE;
+                if (dialog.CancelWorkerEvent) SetEvent(dialog.CancelWorkerEvent);
+            }
+        }
+        if (claimedAnchor)
+            InterlockedExchange(&claimedAnchor->Claim, 0);
+    }
+
+    bool ClaimPlan()
+    {
+        if (!script.CopySource) return true;
+        auto* plan = &*script.CopySource;
+        auto anchor = plan->ThinAnchor;
+        if (!anchor)
+        {
+            SetLastError(ERROR_INVALID_DATA);
+            return false;
+        }
+        if (InterlockedCompareExchange(&anchor->Claim, 1, 0) != 0)
+        {
+            SetLastError(ERROR_BUSY);
+            return false;
+        }
+        claimedAnchor = std::move(anchor);
+        return true;
+    }
+
+    bool PlanAvailableForOriginal() const
+    {
+        if (!script.CopySource) return true;
+        const auto anchor = script.CopySource->ThinAnchor;
+        if (!anchor)
+        {
+            SetLastError(ERROR_INVALID_DATA);
+            return false;
+        }
+        if (InterlockedCompareExchange(&anchor->Claim, 0, 0) != 0)
+        {
+            SetLastError(ERROR_BUSY);
+            return false;
+        }
+        return true;
+    }
+
+    bool Configure(bool isMove, bool copyADS, bool encrypted);
+    bool SourceContinuityAllowsElevation() const;
+    bool TargetContinuityAllowsElevation() const;
+    bool EnsurePrepared();
+    HANDLE Open(UacF7::ThinOpenKind kind, bool overlapped);
+    bool CancelBeforeElevation();
+    bool WaitBeforeElevation();
+    DWORD WaitTransferResume() const;
+    HANDLE CancelReceivedHandle(UacF7::ThinOpenKind kind, HANDLE received, DWORD reason = ERROR_CANCELLED);
+    bool RememberSource(HANDLE file, bool force = false);
+    void RememberTarget(HANDLE file, bool force = false);
+    bool ValidateRetriedTarget(HANDLE file);
+    bool Scoped() const { return active && session != nullptr && scopeMayHaveStarted; }
+    DWORD CheckTransferConnection() const
+    {
+        const DWORD previousError = GetLastError();
+        const DWORD result = Scoped() && brokerHandleDelivered ? session->CheckTransport() : ERROR_SUCCESS;
+        if (result == ERROR_SUCCESS) SetLastError(previousError);
+        return result;
+    }
+    bool CheckCompletionConnection(int caption)
+    {
+        const DWORD error = CheckTransferConnection();
+        if (error == ERROR_SUCCESS) return true;
+        ReportTransferLoss(error, caption);
+        return false;
+    }
+    bool WaitCompletionResume(int caption)
+    {
+        const DWORD error = WaitTransferResume();
+        if (error == ERROR_SUCCESS) return true;
+        if (error != ERROR_CANCELLED) ReportTransferLoss(error, caption);
+        return false;
+    }
+    bool NativeOverwrite() const { return nativeTargetOverwrite && !targetCreatedByBroker && !cleanupUncertain && !suppressLocalCleanup; }
+    bool NativeTarget() const { return !targetCreatedByBroker && (nativeTargetCreated || NativeOverwrite()); }
+    bool ScopedTarget() const { return Scoped() && !NativeTarget(); }
+    bool ReportTargetFailure(DWORD error, int caption = IDS_ERRORDELETINGFILE);
+    bool ReportTransferLoss(DWORD error, int caption);
+    bool CloseScopedTarget(HANDLE& file);
+    bool RefuseUnsafeTargetCleanup();
+    bool DiscardTarget();
+    void ReleaseTargetPin();
+};
+
+// Called only before data transfer on the still-open target created for this
+// item. Verify the reset instead of deleting and reopening its pathname.
+static bool ThinCopyResetFailedPreallocation(HANDLE file)
+{
+    LARGE_INTEGER zero{}, position{}, size{};
+    if (!SetFilePointerEx(file, zero, &position, FILE_BEGIN)) return false;
+    if (position.QuadPart != 0) { SetLastError(ERROR_INVALID_DATA); return false; }
+    if (!SetEndOfFile(file) || !GetFileSizeEx(file, &size)) return false;
+    if (size.QuadPart != 0) { SetLastError(ERROR_INVALID_DATA); return false; }
+    if (!SetFilePointerEx(file, zero, &position, FILE_CURRENT)) return false;
+    if (position.QuadPart != 0) { SetLastError(ERROR_INVALID_DATA); return false; }
+    return true;
+}
+
+static void ThinCopyTestSignalPreserve(const wchar_t* variable);
+
+DWORD CThinCopyWorker::WaitTransferResume() const
+{
+    const DWORD saved = GetLastError();
+    if (!Scoped() || !brokerHandleDelivered)
+    {
+        WaitForSingleObject(dialog.WorkerNotSuspended, INFINITE);
+        SetLastError(saved);
+        return ERROR_SUCCESS;
+    }
+    for (;;)
+    {
+        const DWORD wait = WaitForSingleObject(dialog.WorkerNotSuspended, 200);
+        const DWORD waitError = wait == WAIT_FAILED ? GetLastError() : ERROR_GEN_FAILURE;
+        const DWORD error = CheckTransferConnection();
+        if (error != ERROR_SUCCESS) return error;
+        if (*dialog.CancelWorker) return ERROR_CANCELLED;
+        if (wait != WAIT_OBJECT_0 && wait != WAIT_TIMEOUT)
+            return waitError ? waitError : ERROR_GEN_FAILURE;
+        if (wait == WAIT_OBJECT_0)
+        {
+            SetLastError(saved);
+            return ERROR_SUCCESS;
+        }
+    }
+}
+
+bool CThinCopyWorker::CancelBeforeElevation()
+{
+    const DWORD savedError = GetLastError();
+    const bool cancelled = *dialog.CancelWorker ||
+        (dialog.CancelWorkerEvent && WaitForSingleObject(dialog.CancelWorkerEvent, 0) == WAIT_OBJECT_0);
+    if (!cancelled)
+    {
+        SetLastError(savedError);
+        return false;
+    }
+    terminal = true;
+    SetLastError(ERROR_CANCELLED);
+    return true;
+}
+
+bool CThinCopyWorker::WaitBeforeElevation()
+{
+    const DWORD savedError = GetLastError();
+    if (CancelBeforeElevation())
+        return false;
+    // These events belong to the native progress worker. Without both,
+    // neither a paused job nor cancellation can be observed safely.
+    if (!dialog.CancelWorkerEvent || !dialog.WorkerNotSuspended)
+    {
+        SetLastError(ERROR_INVALID_HANDLE);
+        return false;
+    }
+    const HANDLE events[] = {dialog.CancelWorkerEvent, dialog.WorkerNotSuspended};
+    const DWORD wait = WaitForMultipleObjects(2, events, FALSE, INFINITE);
+    if (wait == WAIT_OBJECT_0)
+    {
+        terminal = true;
+        SetLastError(ERROR_CANCELLED);
+        return false;
+    }
+    if (wait != WAIT_OBJECT_0 + 1)
+    {
+        if (wait != WAIT_FAILED)
+            SetLastError(ERROR_GEN_FAILURE);
+        return false;
+    }
+    // Cancel may be signalled alongside resume or just after the wait.
+    if (CancelBeforeElevation())
+        return false;
+    SetLastError(savedError);
+    return true;
+}
+
+static HANDLE ThinCopyOpened(CThinCopyWorker* context, HANDLE local, UacF7::ThinOpenKind kind,
+                             bool overlapped, ThinOpenPhase phase)
+{
+    // LastError is part of the original worker's error flow, including a
+    // successful CREATE_NEW followed by its legacy encryption checks.
+    const DWORD error = GetLastError();
+    if (!context)
+        return local;
+    if (context->active && kind == UacF7::ThinOpenKind::TargetCreate)
+        context->nativeTargetCreated = local != INVALID_HANDLE_VALUE;
+    if (local != INVALID_HANDLE_VALUE)
+    {
+        if (kind == UacF7::ThinOpenKind::Source)
+        {
+            // Keep the original identity even if a query temporarily fails.
+            // Retry can query a fresh handle; it cannot adopt a replacement.
+            const bool identified = context->RememberSource(local, context->earlierSourceRequired);
+            // Once an elevated scope exists, even an ordinary reopening must
+            // not switch the worker to a different same-named object.
+            if (context->active && (context->request || context->session) &&
+                (!identified || !context->sourceVerified))
+            {
+                const DWORD identityError = identified ? ERROR_FILE_INVALID : GetLastError();
+                HANDLES(CloseHandle(local));
+                SetLastError(identityError ? identityError : ERROR_GEN_FAILURE);
+                return INVALID_HANDLE_VALUE;
+            }
+        }
+        if (kind == UacF7::ThinOpenKind::TargetCreate)
+            context->RememberTarget(local);
+        if (kind == UacF7::ThinOpenKind::TargetRetry && context->active && !context->Scoped())
+        {
+            if ((context->request || context->session) && !context->ValidateRetriedTarget(local))
+            {
+                const DWORD identityError = GetLastError();
+                HANDLES(CloseHandle(local));
+                SetLastError(identityError ? identityError : ERROR_GEN_FAILURE);
+                return INVALID_HANDLE_VALUE;
+            }
+            context->RememberTarget(local, true);
+        }
+        if (kind == UacF7::ThinOpenKind::TargetRetry && context->Scoped() &&
+            !context->ValidateRetriedTarget(local))
+        {
+            const DWORD identityError = GetLastError();
+            HANDLES(CloseHandle(local));
+            SetLastError(identityError ? identityError : ERROR_GEN_FAILURE);
+            return INVALID_HANDLE_VALUE;
+        }
+        SetLastError(error);
+        return local;
+    }
+    const bool listedSource = kind == UacF7::ThinOpenKind::Source &&
+        (context->operation.OpFlags & OPFL_UAC_TRANSFER_SOURCE) &&
+        (error == ERROR_PATH_NOT_FOUND || error == ERROR_FILE_NOT_FOUND);
+    if (context->active && (error == ERROR_ACCESS_DENIED || listedSource))
+    {
+        if (context->CancelBeforeElevation())
+            return INVALID_HANDLE_VALUE;
+        if (phase == ThinOpenPhase::Initial &&
+            ((kind == UacF7::ThinOpenKind::Source && context->dialog.SkipAllFileOpenIn) ||
+             ((kind == UacF7::ThinOpenKind::TargetCreate || kind == UacF7::ThinOpenKind::TargetOverwrite) && context->dialog.SkipAllFileOpenOut)))
+        {
+            // Let the ordinary open-error handler account for this skipped
+            // item. Do not close or alter an already approved batch session.
+            SetLastError(error);
+            return INVALID_HANDLE_VALUE;
+        }
+        HANDLE elevated = context->Open(kind, overlapped);
+        if (elevated != INVALID_HANDLE_VALUE && kind == UacF7::ThinOpenKind::Source)
+        {
+            const bool identified = context->RememberSource(elevated);
+            if (!identified || !context->sourceVerified)
+            {
+                const DWORD identityError = identified ? ERROR_FILE_INVALID : GetLastError();
+                CloseHandle(elevated);
+                SetLastError(identityError ? identityError : ERROR_GEN_FAILURE);
+                return INVALID_HANDLE_VALUE;
+            }
+        }
+        if (elevated != INVALID_HANDLE_VALUE && kind != UacF7::ThinOpenKind::TargetCreate)
+        {
+            const DWORD openError = GetLastError();
+            HANDLES_ADD_EX(__otQuiet, TRUE, __htFile, __hoCreateFile, elevated, openError, TRUE);
+            SetLastError(openError);
+        }
+        if (elevated != INVALID_HANDLE_VALUE)
+        {
+            if (kind == UacF7::ThinOpenKind::Source)
+                ThinCopyTestSignalPreserve(L"SAM_UAC_TEST_SOURCE_GRANTED_EVENT");
+            else if (kind == UacF7::ThinOpenKind::TargetCreate || kind == UacF7::ThinOpenKind::TargetOverwrite)
+                ThinCopyTestSignalPreserve(L"SAM_UAC_TEST_TARGET_GRANTED_EVENT");
+        }
+        return elevated;
+    }
+    SetLastError(error);
+    return INVALID_HANDLE_VALUE;
+}
+// An inaccessible target must not silently bypass the native confirmation
+// for hidden or system files. Probe metadata only, with the existing scope.
+static DWORD ThinCopyTargetAttributes(CThinCopyWorker* context, DWORD attributes, bool& attempted)
+{
+    const DWORD error = GetLastError();
+    attempted = false;
+    if (attributes != INVALID_FILE_ATTRIBUTES || error != ERROR_ACCESS_DENIED || !context || !context->active)
+    {
+        SetLastError(error);
+        return attributes;
+    }
+    attempted = true;
+    HANDLE probe = ThinCopyOpened(context, INVALID_HANDLE_VALUE, UacF7::ThinOpenKind::TargetProbe,
+                                  false, ThinOpenPhase::Probe);
+    if (probe == INVALID_HANDLE_VALUE)
+        return INVALID_FILE_ATTRIBUTES;
+    BY_HANDLE_FILE_INFORMATION information{};
+    const BOOL ok = GetFileInformationByHandle(probe, &information);
+    const DWORD probeError = ok ? ERROR_SUCCESS : GetLastError();
+    HANDLES(CloseHandle(probe));
+    SetLastError(probeError);
+    return ok ? information.dwFileAttributes : INVALID_FILE_ATTRIBUTES;
+}
+
+static HANDLE ThinCopyOpenRetry(CThinCopyWorker* context, bool overlapped)
+{
+    HANDLE file = context->Open(UacF7::ThinOpenKind::TargetRetry, overlapped);
+    if (file != INVALID_HANDLE_VALUE)
+    {
+        const DWORD openError = GetLastError();
+        HANDLES_ADD_EX(__otQuiet, TRUE, __htFile, __hoCreateFile, file, openError, TRUE);
+        SetLastError(openError);
+    }
+    return file;
+}
+// Only a compile-time laboratory build may inject an access denial before
+// the real CreateFile expression is evaluated. Each side is injected once.
+static bool ThinCopyTestDenyOpen(CThinCopyWorker* context, bool target)
+{
+    if (!context || !context->active)
+        return false;
+    const DWORD savedError = GetLastError();
+    wchar_t mode[16]{};
+    const DWORD length = GetEnvironmentVariableW(L"SAM_UAC_TEST_DENY_OPEN", mode, _countof(mode));
+    bool injected = false;
+    wchar_t lab[2]{};
+    const bool each = length && length < _countof(mode) &&
+        _wcsicmp(mode, target ? L"target-each" : L"source-each") == 0 &&
+        GetEnvironmentVariableW(L"SAM_UAC_THIN_UNELEVATED_TEST", lab, _countof(lab)) == 1 && lab[0] == L'1';
+    if (each)
+    {
+        bool& denied = target ? context->labTargetOpenDenied : context->labSourceOpenDenied;
+        injected = !denied;
+        denied = true;
+    }
+    else if (length && length < _countof(mode) &&
+        (_wcsicmp(mode, L"both") == 0 || _wcsicmp(mode, target ? L"target" : L"source") == 0))
+    {
+        static volatile LONG sourceInjected = 0;
+        static volatile LONG targetInjected = 0;
+        injected = InterlockedCompareExchange(target ? &targetInjected : &sourceInjected, 1, 0) == 0;
+    }
+    if (injected)
+        ThinCopyTestSignalPreserve(target ? L"SAM_UAC_TEST_TARGET_DENIED_EVENT" :
+                                           L"SAM_UAC_TEST_SOURCE_DENIED_EVENT");
+    SetLastError(savedError);
+    return injected;
+}
+
+// Exercise the native overwrite path with an asInvoker laboratory peer. The
+// actual target remains writable by that peer; no ACL or production behavior
+// is changed. Inject before CREATE_ALWAYS so the original object stays intact.
+static bool ThinCopyTestDenyOverwrite(CThinCopyWorker* context)
+{
+    if (!context || !context->active)
+        return false;
+    const DWORD savedError = GetLastError();
+    wchar_t lab[2]{}, enabled[2]{};
+    const bool selected = GetEnvironmentVariableW(L"SAM_UAC_THIN_UNELEVATED_TEST", lab, _countof(lab)) == 1 &&
+                          lab[0] == L'1' &&
+                          GetEnvironmentVariableW(L"SAM_UAC_TEST_DENY_OVERWRITE", enabled, _countof(enabled)) == 1 &&
+                          enabled[0] == L'1';
+    static volatile LONG injected = 0;
+    const bool deny = selected && InterlockedCompareExchange(&injected, 1, 0) == 0;
+    if (deny)
+        ThinCopyTestSignalPreserve(L"SAM_UAC_TEST_OVERWRITE_DENIED_EVENT");
+    SetLastError(savedError);
+    return deny;
+}
+
+// Force a retry-only denial without changing fixture ACLs: the separate
+// asInvoker test peer must still be able to inspect the source fixture.
+static bool ThinCopyTestDenyReopen(CThinCopyWorker* context, bool target)
+{
+    if (!context || !context->active)
+        return false;
+    wchar_t mode[16]{};
+    const DWORD length = GetEnvironmentVariableW(L"SAM_UAC_TEST_DENY_REOPEN", mode, _countof(mode));
+    return length && length < _countof(mode) &&
+        (_wcsicmp(mode, L"both") == 0 || _wcsicmp(mode, target ? L"target" : L"source") == 0);
+}
+
+static HANDLE ThinCopyTestDeniedHandle()
+{
+    SetLastError(ERROR_ACCESS_DENIED);
+    return INVALID_HANDLE_VALUE;
+}
+
+// A local target previously created by this worker must never be recreated
+// before its captured identity has been checked. OPEN_ALWAYS could create a
+// new unrelated file while masquerading as a harmless reopen.
+static HANDLE ThinCopyOpenLocalRetry(CThinCopyWorker* context, bool overlapped)
+{
+    const auto& op = context->operation;
+    return ThinCopyOpened(context,
+        ThinCopyTestDenyReopen(context, true) ? ThinCopyTestDeniedHandle() :
+        HANDLES_Q(CreateFileW(WorkerOperationPathW(op.TargetName, op.TargetNameWValid ? op.TargetNameW.c_str() : NULL).c_str(),
+                              GENERIC_WRITE | GENERIC_READ, 0, NULL, OPEN_EXISTING,
+                              FILE_FLAG_SEQUENTIAL_SCAN | (overlapped ? FILE_FLAG_OVERLAPPED : 0), NULL)),
+        UacF7::ThinOpenKind::TargetRetry, overlapped, ThinOpenPhase::Retry);
+}
+
+#define THIN_REMEMBER_SOURCE(ctx, file) do { if (ctx) (ctx)->RememberSource((file), true); } while (0)
+#define THIN_SCOPED_TARGET(ctx) ((ctx)->ScopedTarget())
+#define THIN_REMEMBER_TARGET(ctx, file) do { if (ctx) (ctx)->RememberTarget((file), true); } while (0)
+#define THIN_OPEN_SOURCE(ctx, local, overlapped) ThinCopyOpened((ctx), ThinCopyTestDenyOpen((ctx), false) ? ThinCopyTestDeniedHandle() : (local), UacF7::ThinOpenKind::Source, (overlapped), ThinOpenPhase::Initial)
+#define THIN_OPEN_TARGET_CREATE(ctx, local, overlapped) ThinCopyOpened((ctx), (local), UacF7::ThinOpenKind::TargetCreate, (overlapped), ThinOpenPhase::Initial)
+#define THIN_OPEN_TARGET_OVERWRITE(ctx, local, overlapped) ThinCopyOpened((ctx), (local), UacF7::ThinOpenKind::TargetOverwrite, (overlapped), ThinOpenPhase::Initial)
+#define THIN_OPEN_SOURCE_RETRY(ctx, local, overlapped) ThinCopyOpened((ctx), ThinCopyTestDenyReopen((ctx), false) ? ThinCopyTestDeniedHandle() : (local), UacF7::ThinOpenKind::Source, (overlapped), ThinOpenPhase::Retry)
+#define THIN_OPEN_TARGET_RETRY(ctx, local, overlapped) \
+    ((ctx) && (ctx)->NativeTarget() ? (local) : \
+    ((ctx) && (ctx)->targetCreatedByBroker ? \
+        ThinCopyOpenRetry((ctx), (overlapped)) : \
+        ((ctx) && ((ctx)->request || (ctx)->session) ? ThinCopyOpenLocalRetry((ctx), (overlapped)) : \
+        ThinCopyOpened((ctx), ThinCopyTestDenyReopen((ctx), true) ? ThinCopyTestDeniedHandle() : (local), UacF7::ThinOpenKind::TargetRetry, (overlapped), ThinOpenPhase::Retry))))
+#define THIN_OPEN_TARGET_PROBE(ctx, local) ThinCopyOpened((ctx), (local), UacF7::ThinOpenKind::TargetProbe, false, ThinOpenPhase::Probe)
+#define THIN_TARGET_ATTRIBUTES(ctx, local, attempted) ThinCopyTargetAttributes((ctx), (local), (attempted))
+#define THIN_DELETE_TARGET(ctx, local) \
+    ((ctx) && (ctx)->NativeTarget() ? (local) : \
+    ((ctx) && (ctx)->suppressLocalCleanup ? (ctx)->RefuseUnsafeTargetCleanup() : \
+        ((ctx) && (ctx)->targetCreatedByBroker ? (ctx)->DiscardTarget() : \
+        ((ctx) && ((ctx)->request || (ctx)->session) ? (ctx)->RefuseUnsafeTargetCleanup() : (local)))))
+#else
+#define THIN_REMEMBER_SOURCE(ctx, file) ((void)0)
+#define THIN_SCOPED_TARGET(ctx) false
+#define THIN_REMEMBER_TARGET(ctx, file) ((void)0)
+#define THIN_OPEN_SOURCE(ctx, local, overlapped) (local)
+#define THIN_OPEN_SOURCE_RETRY(ctx, local, overlapped) (local)
+#define THIN_OPEN_TARGET_CREATE(ctx, local, overlapped) (local)
+#define THIN_OPEN_TARGET_OVERWRITE(ctx, local, overlapped) (local)
+#define THIN_OPEN_TARGET_RETRY(ctx, local, overlapped) (local)
+#define THIN_OPEN_TARGET_PROBE(ctx, local) (local)
+#define THIN_TARGET_ATTRIBUTES(ctx, local, attempted) (local)
+#define THIN_DELETE_TARGET(ctx, local) (local)
+#endif
+
 static BOOL ValidateInjectedTargetIdentity(COperation* operation, CProgressDlgData& dialogData);
+static BOOL ValidateInjectedLegacyIdentity(COperation* operation, CProgressDlgData& dialogData)
+{
+    DWORD volume = 0;
+    ULONGLONG index = 0;
+    const std::wstring path = SalPathAddExtendedPrefixW(GetParallelCopyPathW(operation, FALSE).c_str());
+    if (!GetParallelFileIdentity(path, volume, index)) return FALSE;
+    const bool matches = volume == dialogData.InjectedTargetVolumeSerial && index == dialogData.InjectedTargetFileIndex;
+    if (!matches) SetLastError(ERROR_FILE_INVALID);
+    return matches;
+}
+#ifdef SAM_UAC_THIN_COPY_TEST
+static BOOL ThinValidateInjectedTarget(CThinCopyWorker* thin, COperation* operation,
+                                       CProgressDlgData& dialogData, bool legacyOnly)
+{
+    if (thin) thin->scanProbeError = false;
+    if (!dialogData.ConflictDecisionInjected || !dialogData.InjectedTargetIdentityValid) return TRUE;
+    if (!legacyOnly)
+    {
+        SetLastError(ERROR_SUCCESS);
+        if (ValidateInjectedTargetIdentity(operation, dialogData)) return TRUE;
+        if (GetLastError() != ERROR_ACCESS_DENIED || !thin || !thin->active) return FALSE;
+    }
+    else
+    {
+        SetLastError(ERROR_SUCCESS);
+        if (ValidateInjectedLegacyIdentity(operation, dialogData)) return TRUE;
+        if (GetLastError() != ERROR_ACCESS_DENIED || !thin || !thin->active) return FALSE;
+    }
+    SetLastError(ERROR_ACCESS_DENIED);
+    HANDLE probe = ThinCopyOpened(thin, INVALID_HANDLE_VALUE, UacF7::ThinOpenKind::TargetProbe,
+                                  false, ThinOpenPhase::Probe);
+    if (probe == INVALID_HANDLE_VALUE)
+    {
+        const DWORD error = GetLastError();
+        if (error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND)
+        {
+            SetLastError(ERROR_FILE_INVALID);
+            return FALSE; // The previously observed target is gone.
+        }
+        thin->scanProbeError = true;
+        return FALSE;
+    }
+    bool matches = false, read = false;
+    if (!legacyOnly && operation->ScannedTargetRevision.attributes)
+    {
+        UacF7::ArchiveRevision current{};
+        read = UacF7::CaptureOverwriteRevision(probe, current);
+        matches = read && UacF7::SameFileRevision(operation->ScannedTargetRevision, current);
+    }
+    else
+    {
+        BY_HANDLE_FILE_INFORMATION info{};
+        read = GetFileInformationByHandle(probe, &info) != FALSE;
+        const ULONGLONG index = (static_cast<ULONGLONG>(info.nFileIndexHigh) << 32) | info.nFileIndexLow;
+        matches = read && info.dwVolumeSerialNumber == dialogData.InjectedTargetVolumeSerial &&
+                  index == dialogData.InjectedTargetFileIndex;
+    }
+    const DWORD error = read ? ERROR_SUCCESS : GetLastError();
+    HANDLES(CloseHandle(probe));
+    if (!read)
+    {
+        thin->scanProbeError = true;
+        SetLastError(error ? error : ERROR_GEN_FAILURE);
+    }
+    return matches;
+}
+#define THIN_VALIDATE_SCAN(ctx, op, dialog, legacy) ThinValidateInjectedTarget((ctx), (op), (dialog), (legacy))
+#define THIN_SCAN_PROBE_ERROR(ctx) ((ctx)->scanProbeError)
+#define THIN_SCAN_TERMINAL(ctx) ((ctx)->terminal)
+#else
+#define THIN_VALIDATE_SCAN(ctx, op, dialog, legacy) ((legacy) ? ValidateInjectedLegacyIdentity((op), (dialog)) : ValidateInjectedTargetIdentity((op), (dialog)))
+#define THIN_SCAN_PROBE_ERROR(ctx) false
+#define THIN_SCAN_TERMINAL(ctx) false
+#endif
 
 struct CProgressOwnedData
 {
@@ -2241,7 +3071,31 @@ void SetProgressDialog(HWND hProgressDlg, CProgressData* data, CProgressDlgData&
 
 int CaclProg(const CQuadWord& progressCurrent, const CQuadWord& progressTotal)
 {
-    return progressCurrent >= progressTotal ? (progressTotal.Value == 0 ? 0 : 1000) : (int)((progressCurrent * CQuadWord(1000, 0)) / progressTotal).Value;
+    constexpr ULONGLONG scale = 1000;
+    const ULONGLONG current = progressCurrent.Value;
+    const ULONGLONG total = progressTotal.Value;
+    if (!total)
+        return 0;
+    if (current >= total)
+        return static_cast<int>(scale);
+    if (current <= MAXULONGLONG / scale)
+        return static_cast<int>(current * scale / total);
+
+    // Find the greatest bar value whose rounded-up byte threshold has been reached.
+    const ULONGLONG quotient = total / scale;
+    const ULONGLONG remainder = total % scale;
+    ULONGLONG low = 0;
+    ULONGLONG high = scale;
+    while (high - low > 1)
+    {
+        const ULONGLONG middle = (low + high) / 2;
+        const ULONGLONG threshold = quotient * middle + (remainder * middle + scale - 1) / scale;
+        if (current >= threshold)
+            low = middle;
+        else
+            high = middle;
+    }
+    return static_cast<int>(low);
 }
 
 void SetProgress(HWND hProgressDlg, int operation, int summary, CProgressDlgData& dlgData)
@@ -2320,6 +3174,33 @@ void GetFileOverwriteInfo(char* buff, int buffLen, HANDLE file, const char* file
     else
         number[0] = 0; // error - size unknown
 
+    _snprintf_s(buff, buffLen, _TRUNCATE, "%s, %s, %s%s", number, date, time, attr);
+}
+
+// A parent listing can provide a complete approved revision even when opening
+// the child for attributes is denied. Show those same facts in the native
+// overwrite dialog; the broker independently rechecks the revision.
+static void GetOverwriteRevisionInfo(char* buff, int buffLen, const UacF7::ArchiveRevision& revision)
+{
+    ULARGE_INTEGER value{};
+    value.QuadPart = static_cast<ULONGLONG>(revision.modified);
+    const FILETIME lastWrite{value.LowPart, value.HighPart};
+    FILETIME local{};
+    SYSTEMTIME system{};
+    char date[50]{}, time[50]{}, number[50]{}, attr[30] = ", ";
+    if (FileTimeToLocalFileTime(&lastWrite, &local) && FileTimeToSystemTime(&local, &system))
+    {
+        if (!GetTimeFormat(LOCALE_USER_DEFAULT, 0, &system, nullptr, time, 50))
+            sprintf(time, "%u:%02u:%02u", system.wHour, system.wMinute, system.wSecond);
+        if (!GetDateFormat(LOCALE_USER_DEFAULT, DATE_SHORTDATE, &system, nullptr, date, 50))
+            sprintf(date, "%u.%u.%u", system.wDay, system.wMonth, system.wYear);
+    }
+    GetAttrsString(attr + 2, revision.attributes);
+    if (strlen(attr) == 2)
+        attr[0] = 0;
+    CQuadWord size;
+    size.Value = static_cast<unsigned __int64>(revision.size);
+    NumberToStr(number, size);
     _snprintf_s(buff, buffLen, _TRUNCATE, "%s, %s, %s%s", number, date, time, attr);
 }
 
@@ -4243,13 +5124,21 @@ BOOL SyncOrAsyncDeviceIoControl(CAsyncCopyParams* asyncPar, HANDLE hDevice, DWOR
 }
 
 void SetCompressAndEncryptedAttrs(const char* name, DWORD attr, HANDLE* out, BOOL openAlsoForRead,
-                                  BOOL* encryptionNotSupported, CAsyncCopyParams* asyncPar)
+                                  BOOL* encryptionNotSupported, CAsyncCopyParams* asyncPar, bool scopedTarget = false)
 {
     const std::wstring nameW = WorkerOperationPathW(name);
     if (*out != INVALID_HANDLE_VALUE)
     {
         DWORD err = NO_ERROR;
-        DWORD curAttr = GetFileAttributesW(nameW.c_str());
+        DWORD curAttr = INVALID_FILE_ATTRIBUTES;
+        if (scopedTarget)
+        {
+            FILE_BASIC_INFO basic{};
+            if (GetFileInformationByHandleEx(*out, FileBasicInfo, &basic, sizeof(basic)))
+                curAttr = basic.FileAttributes;
+        }
+        else
+            curAttr = GetFileAttributesW(nameW.c_str());
         if ((curAttr == INVALID_FILE_ATTRIBUTES ||
              (attr & FILE_ATTRIBUTE_COMPRESSED) != (curAttr & FILE_ATTRIBUTE_COMPRESSED)) &&
             (attr & FILE_ATTRIBUTE_COMPRESSED) == 0)
@@ -4262,8 +5151,8 @@ void SetCompressAndEncryptedAttrs(const char* name, DWORD attr, HANDLE* out, BOO
                 TRACE_I("SetCompressAndEncryptedAttrs(): Unable to set Compressed attribute for " << name << "! error=" << GetErrorText(err));
             }
         }
-        if (curAttr == INVALID_FILE_ATTRIBUTES ||
-            (attr & FILE_ATTRIBUTE_ENCRYPTED) != (curAttr & FILE_ATTRIBUTE_ENCRYPTED))
+        if (!scopedTarget && (curAttr == INVALID_FILE_ATTRIBUTES ||
+            (attr & FILE_ATTRIBUTE_ENCRYPTED) != (curAttr & FILE_ATTRIBUTE_ENCRYPTED)))
         { // SalCreateFileEx above likely failed
             err = NO_ERROR;
             HANDLES(CloseHandle(*out)); // close the file; otherwise we cannot change its encrypted attribute
@@ -4344,44 +5233,289 @@ void SetTFSandPSforSkippedFile(COperation* op, CQuadWord& lastTransferredFileSiz
     script->SetTFSandProgressSize(lastTransferredFileSize, pSize);
 }
 
+// The acceptance build uses the original copy implementation. Its opt-in
+// hooks merely select the existing I/O mode, signal entry and inject one I/O
+// failure; ordinary builds contain neither environment reads nor fault logic.
+#ifdef SAM_UAC_THIN_COPY_TEST
+static void ThinCopyTestSignal(const wchar_t* variable)
+{
+    wchar_t name[256]{};
+    DWORD length = GetEnvironmentVariableW(variable, name, _countof(name));
+    if (!length || length >= _countof(name))
+        return;
+    HANDLE event = OpenEventW(EVENT_MODIFY_STATE, FALSE, name);
+    if (event)
+    {
+        SetEvent(event);
+        CloseHandle(event);
+    }
+}
+
+// Event observation must not change the error consumed by the worker.
+static void ThinCopyTestSignalPreserve(const wchar_t* variable)
+{
+    const DWORD savedError = GetLastError();
+    ThinCopyTestSignal(variable);
+    SetLastError(savedError);
+}
+
+// Test-only scheduling window: the real UI may cancel before the worker
+// takes ownership. Never wait indefinitely or ignore its cancel event.
+static void ThinCopyTestHandleGate(UacF7::ThinOpenKind kind, HANDLE cancel)
+{
+    wchar_t role[16]{};
+    const DWORD roleLength = GetEnvironmentVariableW(L"SAM_UAC_TEST_HANDLE_ROLE", role, _countof(role));
+    if (!roleLength || roleLength >= _countof(role))
+        return;
+    const bool matches = kind == UacF7::ThinOpenKind::Source ? _wcsicmp(role, L"source") == 0 :
+        (kind == UacF7::ThinOpenKind::TargetCreate || kind == UacF7::ThinOpenKind::TargetRetry || kind == UacF7::ThinOpenKind::TargetReopenWrite ||
+         kind == UacF7::ThinOpenKind::TargetOverwrite) &&
+        _wcsicmp(role, L"target") == 0;
+    if (!matches)
+        return;
+    wchar_t name[256]{};
+    const DWORD length = GetEnvironmentVariableW(L"SAM_UAC_TEST_HANDLE_RELEASE", name, _countof(name));
+    if (!length || length >= _countof(name))
+        return;
+    HANDLE gate = OpenEventW(SYNCHRONIZE, FALSE, name);
+    if (!gate)
+        return;
+    ThinCopyTestSignal(L"SAM_UAC_TEST_HANDLE_EVENT");
+    HANDLE handles[] = {gate, cancel};
+    WaitForMultipleObjects(cancel ? 2 : 1, handles, FALSE, 30000);
+    CloseHandle(gate);
+}
+
+// Deterministic test-only race window after the old handle is closed.
+static void ThinCopyTestRetryGate(const wchar_t* expected, HANDLE cancel)
+{
+    wchar_t role[16]{};
+    const DWORD roleLength = GetEnvironmentVariableW(L"SAM_UAC_TEST_RETRY_ROLE", role, _countof(role));
+    if (!roleLength || roleLength >= _countof(role) || _wcsicmp(role, expected) != 0)
+        return;
+    wchar_t name[256]{};
+    const DWORD length = GetEnvironmentVariableW(L"SAM_UAC_TEST_RETRY_RELEASE", name, _countof(name));
+    if (!length || length >= _countof(name))
+        return;
+    HANDLE gate = OpenEventW(SYNCHRONIZE, FALSE, name);
+    if (!gate)
+        return;
+    ThinCopyTestSignal(L"SAM_UAC_TEST_RETRY_EVENT");
+    HANDLE handles[] = {gate, cancel};
+    WaitForMultipleObjects(cancel ? 2 : 1, handles, FALSE, 30000);
+    CloseHandle(gate);
+}
+
+static bool ThinCopyTestFailure(const wchar_t* expected, volatile LONG* once)
+{
+    const DWORD savedError = GetLastError();
+    wchar_t mode[32]{};
+    DWORD length = GetEnvironmentVariableW(L"SAM_UAC_TEST_FAIL", mode, _countof(mode));
+    const bool failed = length && length < _countof(mode) && _wcsicmp(mode, expected) == 0 &&
+                        InterlockedCompareExchange(once, 1, 0) == 0;
+    SetLastError(savedError);
+    return failed;
+}
+
+// Observation must not change the error seen by the existing I/O state machine.
+static void ThinCopyTestObserve(const wchar_t* name)
+{
+    const DWORD error = GetLastError();
+    ThinCopyTestSignal(name);
+    SetLastError(error);
+}
+
+// A completed nonzero write arms post-write faults in either I/O direction.
+// This flag is test-only and must not treat an issued request as completion.
+static volatile LONG thinTestWriteCompleted = 0;
+
+static BOOL ThinCopyTestReadFile(HANDLE file, void* buffer, DWORD size, DWORD* read, OVERLAPPED* overlapped)
+{
+    static volatile LONG failed = 0;
+    if (ThinCopyTestFailure(L"read", &failed) ||
+        (InterlockedCompareExchange(&thinTestWriteCompleted, 0, 0) != 0 &&
+         ThinCopyTestFailure(L"read-after-write", &failed)))
+    {
+        SetLastError(ERROR_READ_FAULT);
+        ThinCopyTestObserve(overlapped ? L"SAM_UAC_TEST_ASYNC_READ_FAULT_EVENT" :
+                                      L"SAM_UAC_TEST_SYNC_READ_FAULT_EVENT");
+        return FALSE;
+    }
+    const BOOL result = ReadFile(file, buffer, size, read, overlapped);
+    const DWORD error = GetLastError();
+    if (!overlapped && result && read && *read != 0)
+        ThinCopyTestObserve(L"SAM_UAC_TEST_SYNC_READ_COMPLETED_EVENT");
+    if (overlapped && (result || error == ERROR_IO_PENDING))
+    {
+        ThinCopyTestObserve(L"SAM_UAC_TEST_ASYNC_READ_ISSUED_EVENT");
+        ThinCopyTestObserve(result ? L"SAM_UAC_TEST_ASYNC_READ_INLINE_EVENT" :
+                                   L"SAM_UAC_TEST_ASYNC_READ_PENDING_EVENT");
+    }
+    SetLastError(error);
+    return result;
+}
+
+// This marker describes a full nonzero write completed by the operating
+// system, never just an issued or pending asynchronous request. It is
+// process-wide: acceptance needs a fresh process and one copy operation.
+// Async writes can complete out of order; the marker does not establish
+// a contiguous prefix or that all other outstanding I/O has drained.
+static void ThinCopyTestMarkWriteCompleted(bool overlapped)
+{
+    const DWORD savedError = GetLastError();
+    InterlockedExchange(&thinTestWriteCompleted, 1);
+    ThinCopyTestObserve(overlapped ? L"SAM_UAC_TEST_ASYNC_WRITE_COMPLETED_EVENT" :
+                                    L"SAM_UAC_TEST_SYNC_WRITE_COMPLETED_EVENT");
+    SetLastError(savedError);
+}
+
+static BOOL ThinCopyTestWriteFile(HANDLE file, const void* buffer, DWORD size, DWORD* written, OVERLAPPED* overlapped)
+{
+    static volatile LONG failed = 0;
+    if (ThinCopyTestFailure(L"write", &failed) ||
+        (InterlockedCompareExchange(&thinTestWriteCompleted, 0, 0) != 0 &&
+         ThinCopyTestFailure(L"write-after-completion", &failed)))
+    {
+        SetLastError(ERROR_WRITE_FAULT);
+        ThinCopyTestObserve(L"SAM_UAC_TEST_WRITE_FAULT_EVENT");
+        return FALSE;
+    }
+    const BOOL result = WriteFile(file, buffer, size, written, overlapped);
+    const DWORD error = GetLastError();
+    if (!overlapped && result && written && size != 0 && *written == size)
+        ThinCopyTestMarkWriteCompleted(false);
+    if (overlapped && (result || error == ERROR_IO_PENDING))
+    {
+        ThinCopyTestObserve(L"SAM_UAC_TEST_ASYNC_WRITE_ISSUED_EVENT");
+        ThinCopyTestObserve(result ? L"SAM_UAC_TEST_ASYNC_WRITE_INLINE_EVENT" :
+                                   L"SAM_UAC_TEST_ASYNC_WRITE_PENDING_EVENT");
+    }
+    SetLastError(error);
+    return result;
+}
+#define THIN_COPY_READ ThinCopyTestReadFile
+#define THIN_COPY_WRITE ThinCopyTestWriteFile
+#else
+#define THIN_COPY_READ ReadFile
+#define THIN_COPY_WRITE WriteFile
+#endif
+
+#ifdef SAM_UAC_THIN_COPY_TEST
+#define THIN_SYNC_PAUSE(ctx, data, failure) do { \
+    const DWORD pauseError = (ctx) ? (ctx)->WaitTransferResume() : \
+        (WaitForSingleObject((data).WorkerNotSuspended, INFINITE), ERROR_SUCCESS); \
+    if (pauseError != ERROR_SUCCESS) { \
+        if (pauseError != ERROR_CANCELLED) (ctx)->ReportTransferLoss(pauseError, IDS_ERRORREADINGFILE); \
+        (failure) = TRUE; return; \
+    } \
+} while (0)
+#else
+#define THIN_SYNC_PAUSE(ctx, data, failure) WaitForSingleObject((data).WorkerNotSuspended, INFINITE)
+#endif
+
 void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferSize,
                         COperations* script, CProgressDlgData& dlgData, BOOL wholeFileAllocated,
                         COperation* op, const CQuadWord& totalDone, BOOL& copyError, BOOL& skipCopy,
                         HWND hProgressDlg, CQuadWord& operationDone, CQuadWord& fileSize,
-                        int bufferSize, int& allocWholeFileOnStart, BOOL& copyAgain)
+                        int bufferSize, int& allocWholeFileOnStart, BOOL& copyAgain
+#ifdef SAM_UAC_THIN_COPY_TEST
+                        , CThinCopyWorker* thin
+#endif
+                        )
 {
+#ifdef SAM_UAC_THIN_COPY_TEST
+    ThinCopyTestSignal(L"SAM_UAC_TEST_SYNC_EVENT");
+#endif
     int autoRetryAttemptsSNAP = 0;
     DWORD read;
     DWORD written;
     while (1)
     {
-        if (ReadFile(in, buffer, limitBufferSize, &read, NULL))
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (thin)
+        {
+            const DWORD error = thin->CheckTransferConnection();
+            if (error != ERROR_SUCCESS)
+            {
+                thin->ReportTransferLoss(error, IDS_ERRORREADINGFILE);
+                copyError = TRUE;
+                return;
+            }
+        }
+#endif
+        if (THIN_COPY_READ(in, buffer, limitBufferSize, &read, NULL))
         {
             autoRetryAttemptsSNAP = 0;
+#ifdef SAM_UAC_THIN_COPY_TEST
+            if (thin)
+            {
+                const DWORD error = thin->CheckTransferConnection();
+                if (error != ERROR_SUCCESS)
+                {
+                    thin->ReportTransferLoss(error, IDS_ERRORREADINGFILE);
+                    copyError = TRUE;
+                    return;
+                }
+            }
+#endif
             if (read == 0)
                 break;                                                     // EOF
             if (!script->ChangeSpeedLimit)                                 // when the speed limit can change, this is not a suitable wait point
-                WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+                THIN_SYNC_PAUSE(thin, dlgData, copyError); // if we should be in suspend mode, wait ...
             if (*dlgData.CancelWorker)
             {
                 copyError = TRUE; // goto COPY_ERROR
                 return;
             }
 
+#ifdef SAM_UAC_THIN_COPY_TEST
+            if (thin)
+            {
+                const DWORD error = thin->CheckTransferConnection();
+                if (error != ERROR_SUCCESS)
+                {
+                    thin->ReportTransferLoss(error, IDS_ERRORREADINGFILE);
+                    copyError = TRUE;
+                    return;
+                }
+            }
+#endif
+
             while (1)
             {
-                if (WriteFile(out, buffer, read, &written, NULL) &&
+#ifdef SAM_UAC_THIN_COPY_TEST
+                // Retry can return from a user dialog after the broker has
+                // exited. Recheck before every write, not only before the
+                // initial attempt, while the transferred handles still work.
+                if (thin)
+                {
+                    const DWORD error = thin->CheckTransferConnection();
+                    if (error != ERROR_SUCCESS)
+                    {
+                        thin->ReportTransferLoss(error, IDS_ERRORWRITINGFILE);
+                        copyError = TRUE;
+                        return;
+                    }
+                }
+#endif
+                if (THIN_COPY_WRITE(out, buffer, read, &written, NULL) &&
                     read == written)
                 {
                     break;
                 }
 
             WRITE_ERROR:
-
+#ifdef SAM_UAC_THIN_COPY_TEST
+                if (thin && thin->terminal)
+                {
+                    copyError = TRUE;
+                    return;
+                }
+#endif
                 DWORD err;
                 err = GetLastError();
 
-                WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+                THIN_SYNC_PAUSE(thin, dlgData, copyError); // if we should be in suspend mode, wait ...
                 if (*dlgData.CancelWorker)
                 {
                     copyError = TRUE; // goto COPY_ERROR
@@ -4408,14 +5542,37 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
                 {
                 case IDRETRY: // on a network we must reopen the handle; local access forbids it due to sharing
                 {
+#ifdef SAM_UAC_THIN_COPY_TEST
+                    if (thin)
+                    {
+                        const DWORD connectionError = thin->CheckTransferConnection();
+                        if (connectionError != ERROR_SUCCESS)
+                        {
+                            thin->ReportTransferLoss(connectionError, IDS_ERRORWRITINGFILE);
+                            copyError = TRUE;
+                            return;
+                        }
+                    }
+#endif
                     if (out != NULL)
                     {
+                        THIN_REMEMBER_TARGET(thin, out);
                         if (wholeFileAllocated)
                             SetEndOfFile(out);     // otherwise on a floppy the remaining bytes would be written
-                        HANDLES(CloseHandle(out)); // close the invalid handle
+#ifdef SAM_UAC_THIN_COPY_TEST
+                        if (thin && thin->ScopedTarget())
+                        {
+                            if (!thin->CloseScopedTarget(out)) { copyError = TRUE; return; }
+                        }
+                        else
+#endif
+                            HANDLES(CloseHandle(out)); // close the invalid handle
                     }
-                    out = HANDLES_Q(CreateFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), GENERIC_WRITE | GENERIC_READ, 0, NULL,
-                                               OPEN_ALWAYS, FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+#ifdef SAM_UAC_THIN_COPY_TEST
+                    ThinCopyTestRetryGate(L"target", dlgData.CancelWorkerEvent);
+#endif
+                    out = THIN_OPEN_TARGET_RETRY(thin, HANDLES_Q(CreateFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), GENERIC_WRITE | GENERIC_READ, 0, NULL,
+                                               OPEN_ALWAYS, FILE_FLAG_SEQUENTIAL_SCAN, NULL)), false);
                     if (out != INVALID_HANDLE_VALUE) // opened successfully; now adjust the offset
                     {
                         LONG lo, hi;
@@ -4427,8 +5584,26 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
                             !CheckTailOfOutFile(NULL, in, out, operationDone, operationDone + CQuadWord(read, 0), FALSE))
                         { // restart the whole operation
                             HANDLES(CloseHandle(in));
-                            HANDLES(CloseHandle(out));
-                            DeleteFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str());
+#ifdef SAM_UAC_THIN_COPY_TEST
+                            if (thin && thin->ScopedTarget())
+                            {
+                                in = NULL;
+                                if (!thin->CloseScopedTarget(out)) { copyError = TRUE; return; }
+                            }
+                            else
+#endif
+                                HANDLES(CloseHandle(out));
+                            const bool discarded = THIN_DELETE_TARGET(thin, DeleteFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str()));
+#ifdef SAM_UAC_THIN_COPY_TEST
+                            if (!discarded && thin && thin->terminal)
+                            {
+                                in = out = NULL;
+                                copyError = TRUE;
+                                return;
+                            }
+#else
+                            (void)discarded;
+#endif
                             copyAgain = TRUE; // goto COPY_AGAIN;
                             return;
                         }
@@ -4457,7 +5632,7 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
                 }
             }
             if (!script->ChangeSpeedLimit)                                 // when the speed limit can change, this is not a suitable wait point
-                WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+                THIN_SYNC_PAUSE(thin, dlgData, copyError); // if we should be in suspend mode, wait ...
             if (*dlgData.CancelWorker)
             {
                 copyError = TRUE; // goto COPY_ERROR
@@ -4467,24 +5642,30 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
             script->AddBytesToSpeedMetersAndTFSandPS(read, FALSE, bufferSize, &limitBufferSize);
 
             if (!script->ChangeSpeedLimit)                                 // when the speed limit can change, this is not a suitable wait point
-                WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+                THIN_SYNC_PAUSE(thin, dlgData, copyError); // if we should be in suspend mode, wait ...
             operationDone += CQuadWord(read, 0);
             SetProgressWithoutSuspend(hProgressDlg, CaclProg(operationDone, op->Size),
                                       CaclProg(totalDone + operationDone, script->TotalSize), dlgData);
 
             if (script->ChangeSpeedLimit)                                  // speed limit may change; this is the right place to wait until the
             {                                                              // worker resumes and fetches a fresh copy buffer size
-                WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+                THIN_SYNC_PAUSE(thin, dlgData, copyError); // if we should be in suspend mode, wait ...
                 script->GetNewBufSize(&limitBufferSize, bufferSize);
             }
         }
         else
         {
         READ_ERROR:
-
+#ifdef SAM_UAC_THIN_COPY_TEST
+            if (thin && thin->terminal)
+            {
+                copyError = TRUE;
+                return;
+            }
+#endif
             DWORD err;
             err = GetLastError();
-            WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+            THIN_SYNC_PAUSE(thin, dlgData, copyError); // if we should be in suspend mode, wait ...
             if (*dlgData.CancelWorker)
             {
                 copyError = TRUE; // goto COPY_ERROR
@@ -4515,13 +5696,37 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
             {
             case IDRETRY:
             {
+#ifdef SAM_UAC_THIN_COPY_TEST
+                if (err == ERROR_READ_FAULT)
+                    ThinCopyTestObserve(L"SAM_UAC_TEST_SYNC_READ_RETRY_EVENT");
+#endif
             RETRY_COPY:
 
+#ifdef SAM_UAC_THIN_COPY_TEST
+                if (thin)
+                {
+                    const DWORD connectionError = thin->CheckTransferConnection();
+                    if (connectionError != ERROR_SUCCESS)
+                    {
+                        thin->ReportTransferLoss(connectionError, IDS_ERRORREADINGFILE);
+                        copyError = TRUE;
+                        return;
+                    }
+                }
+#endif
                 if (in != NULL)
+                {
+                    THIN_REMEMBER_SOURCE(thin, in);
                     HANDLES(CloseHandle(in)); // close the invalid handle
-                in = HANDLES_Q(CreateFileW(WorkerOperationPathW(op->SourceName, op->SourceNameWValid ? op->SourceNameW.c_str() : NULL).c_str(), GENERIC_READ,
+                    in = NULL;
+                }
+#ifdef SAM_UAC_THIN_COPY_TEST
+                THIN_REMEMBER_TARGET(thin, out);
+                ThinCopyTestRetryGate(L"source", dlgData.CancelWorkerEvent);
+#endif
+                in = THIN_OPEN_SOURCE_RETRY(thin, HANDLES_Q(CreateFileW(WorkerOperationPathW(op->SourceName, op->SourceNameWValid ? op->SourceNameW.c_str() : NULL).c_str(), GENERIC_READ,
                                           FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-                                          OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+                                          OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL)), false);
                 if (in != INVALID_HANDLE_VALUE) // opened successfully; now adjust the offset
                 {
                     LONG lo, hi;
@@ -4533,8 +5738,26 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
                         HANDLES(CloseHandle(in));
                         if (wholeFileAllocated)
                             SetEndOfFile(out); // otherwise on a floppy the remaining bytes would be written
-                        HANDLES(CloseHandle(out));
-                        DeleteFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str());
+#ifdef SAM_UAC_THIN_COPY_TEST
+                        if (thin && thin->ScopedTarget())
+                        {
+                            in = NULL;
+                            if (!thin->CloseScopedTarget(out)) { copyError = TRUE; return; }
+                        }
+                        else
+#endif
+                            HANDLES(CloseHandle(out));
+                        const bool discarded = THIN_DELETE_TARGET(thin, DeleteFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str()));
+#ifdef SAM_UAC_THIN_COPY_TEST
+                        if (!discarded && thin && thin->terminal)
+                        {
+                            in = out = NULL;
+                            copyError = TRUE;
+                            return;
+                        }
+#else
+                        (void)discarded;
+#endif
                         copyAgain = TRUE; // goto COPY_AGAIN;
                         return;
                     }
@@ -4605,6 +5828,20 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
 #endif
                 allocWholeFileOnStart = 2 /* no */; // skip further attempts on this target disk
 
+#ifdef SAM_UAC_THIN_COPY_TEST
+                if (thin && thin->ScopedTarget())
+                {
+                    if (!thin->CloseScopedTarget(out) || !THIN_DELETE_TARGET(thin, FALSE))
+                    {
+                        copyError = TRUE;
+                        return;
+                    }
+                    HANDLES(CloseHandle(in));
+                    in = NULL;
+                    copyAgain = TRUE;
+                    return;
+                }
+#endif
                 HANDLES(CloseHandle(out));
                 out = NULL;
                 WorkerClearReadOnlyW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL)); // if it somehow became read-only (should never happen), so we know how to handle it
@@ -4672,11 +5909,22 @@ struct CCopy_Context
     CQuadWord* OperationDone;
     const CQuadWord* TotalDone;
     const CQuadWord* LastTransferredFileSize;
+#ifdef SAM_UAC_THIN_COPY_TEST
+    CThinCopyWorker* Thin;
+    DWORD PauseFailure = ERROR_SUCCESS;
+#endif
 
     CCopy_Context(CAsyncCopyParams* asyncPar, int numOfBlocks, CProgressDlgData* dlgData, COperation* op,
                   HWND hProgressDlg, HANDLE* in, HANDLE* out, BOOL wholeFileAllocated, COperations* script,
-                  CQuadWord* operationDone, const CQuadWord* totalDone, const CQuadWord* lastTransferredFileSize)
+                  CQuadWord* operationDone, const CQuadWord* totalDone, const CQuadWord* lastTransferredFileSize
+#ifdef SAM_UAC_THIN_COPY_TEST
+                  , CThinCopyWorker* thin
+#endif
+                  )
     {
+#ifdef SAM_UAC_THIN_COPY_TEST
+        Thin = thin;
+#endif
         AsyncPar = asyncPar;
         ForceOp = fopNotUsed;
         ReadingDone = FALSE;
@@ -4729,10 +5977,16 @@ struct CCopy_Context
     // WARNING: frees unnecessary blocks; only those with data read from the input file remain, and they still
     //          follow WriteOffset (usable for retry)
     void CancelOpPhase2(int errBlkIndex);
+#ifdef SAM_UAC_THIN_COPY_TEST
+    BOOL FinishPauseFailure(BOOL* copyError, int caption);
+#endif
     BOOL RetryCopyReadErr(DWORD* err, BOOL* copyAgain, BOOL* errAgain);
     BOOL RetryCopyWriteErr(DWORD* err, BOOL* copyAgain, BOOL* errAgain, const CQuadWord& allocFileSize,
                            const CQuadWord& maxWriteOffset);
-    BOOL HandleSuspModeAndCancel(BOOL* copyError);
+    BOOL HandleSuspModeAndCancel(BOOL* copyError, BOOL forceWait = FALSE);
+#ifdef SAM_UAC_THIN_COPY_TEST
+    BOOL WaitForPendingTransfer(HANDLE file, OVERLAPPED* overlapped, DWORD* bytes, BOOL* copyError);
+#endif
 };
 
 BOOL DisableLocalBuffering(CAsyncCopyParams* asyncPar, HANDLE file, DWORD* err)
@@ -4768,7 +6022,7 @@ BOOL CCopy_Context::StartReading(int blkIndex, DWORD readSize, DWORD* err, BOOL 
     TRACE_I(sss);
 #endif // ASYNC_COPY_DEBUG_MSG
 
-    if (!ReadFile(*In, AsyncPar->Buffers[blkIndex], readSize, NULL,
+    if (!THIN_COPY_READ(*In, AsyncPar->Buffers[blkIndex], readSize, NULL,
                   AsyncPar->InitOverlappedWithOffset(blkIndex, ReadOffset)) &&
         GetLastError() != ERROR_IO_PENDING)
     { // a read error occurred; handle it
@@ -4787,14 +6041,8 @@ BOOL CCopy_Context::StartReading(int blkIndex, DWORD readSize, DWORD* err, BOOL 
     TRACE_I("ReadFile result: " << (opCompleted ? "DONE" : "ASYNC"));
 #endif // ASYNC_COPY_DEBUG_MSG
 
-    if (opCompleted && !Script->ChangeSpeedLimit)                   // when the speed limit can change, this is not a suitable wait point
-        WaitForSingleObject(DlgData->WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
-    if (*DlgData->CancelWorker)
-    {
-        *err = ERROR_CANCELLED;
-        return FALSE; // cancellation will be handled in the error-handling
-    }
-
+    // Once issued, even a pending request must be visible to the cancel
+    // drain before we can return. Its OVERLAPPED and buffer remain in use.
     BlockOffset[blkIndex] = ReadOffset;
     BlockDataLen[blkIndex] = readSize;
     if (!testEOF) // block was cbsFree before calling this method
@@ -4807,6 +6055,28 @@ BOOL CCopy_Context::StartReading(int blkIndex, DWORD readSize, DWORD* err, BOOL 
     BlockTime[blkIndex] = CurTime++;
     FreeBlocks--;
     ReadingBlocks++;
+    if (opCompleted && !Script->ChangeSpeedLimit)                   // when the speed limit can change, this is not a suitable wait point
+    {
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (Thin)
+        {
+            const DWORD pauseError = Thin->WaitTransferResume();
+            if (pauseError != ERROR_SUCCESS)
+            {
+                PauseFailure = pauseError;
+                *err = pauseError;
+                return FALSE; // request is tracked; the caller must drain it
+            }
+        }
+        else
+#endif
+            WaitForSingleObject(DlgData->WorkerNotSuspended, INFINITE);
+    }
+    if (*DlgData->CancelWorker)
+    {
+        *err = ERROR_CANCELLED;
+        return FALSE; // cancellation will be handled in the error-handling
+    }
     return TRUE;
 }
 
@@ -4818,7 +6088,7 @@ BOOL CCopy_Context::StartWriting(int blkIndex, DWORD* err)
     TRACE_I(sss);
 #endif // ASYNC_COPY_DEBUG_MSG
 
-    if (!WriteFile(*Out, AsyncPar->Buffers[blkIndex], BlockDataLen[blkIndex], NULL,
+    if (!THIN_COPY_WRITE(*Out, AsyncPar->Buffers[blkIndex], BlockDataLen[blkIndex], NULL,
                    AsyncPar->InitOverlappedWithOffset(blkIndex, WriteOffset)) &&
         GetLastError() != ERROR_IO_PENDING)
     { // a write error occurred; handle it
@@ -4834,18 +6104,33 @@ BOOL CCopy_Context::StartWriting(int blkIndex, DWORD* err)
     TRACE_I("WriteFile result: " << (opCompleted ? "DONE" : "ASYNC"));
 #endif // ASYNC_COPY_DEBUG_MSG
 
+    // Track the request before cancellation can divert control to the drain.
+    WriteOffset.Value += BlockDataLen[blkIndex];
+    BlockState[blkIndex] = cbsWriting; // block was cbsRead before calling this method
+    BlockTime[blkIndex] = CurTime++;
+    WritingBlocks++;
     if (opCompleted && !Script->ChangeSpeedLimit)                   // when the speed limit can change, this is not a suitable wait point
-        WaitForSingleObject(DlgData->WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+    {
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (Thin)
+        {
+            const DWORD pauseError = Thin->WaitTransferResume();
+            if (pauseError != ERROR_SUCCESS)
+            {
+                PauseFailure = pauseError;
+                *err = pauseError;
+                return FALSE; // request is tracked; the caller must drain it
+            }
+        }
+        else
+#endif
+            WaitForSingleObject(DlgData->WorkerNotSuspended, INFINITE);
+    }
     if (*DlgData->CancelWorker)
     {
         *err = ERROR_CANCELLED;
         return FALSE; // cancellation will be handled in the error-handling
     }
-
-    WriteOffset.Value += BlockDataLen[blkIndex];
-    BlockState[blkIndex] = cbsWriting; // block was cbsRead before calling this method
-    BlockTime[blkIndex] = CurTime++;
-    WritingBlocks++;
     return TRUE;
 }
 
@@ -5003,13 +6288,34 @@ void CCopy_Context::CancelOpPhase2(int errBlkIndex)
     }
 }
 
+#ifdef SAM_UAC_THIN_COPY_TEST
+BOOL CCopy_Context::FinishPauseFailure(BOOL* copyError, int caption)
+{
+    if (!Thin || PauseFailure == ERROR_SUCCESS) return FALSE;
+    const DWORD pauseError = PauseFailure;
+    PauseFailure = ERROR_SUCCESS;
+    CancelOpPhase2(-1);
+    if (pauseError != ERROR_CANCELLED) Thin->ReportTransferLoss(pauseError, caption);
+    *copyError = TRUE;
+    return TRUE;
+}
+#endif
+
 BOOL CCopy_Context::RetryCopyReadErr(DWORD* err, BOOL* copyAgain, BOOL* errAgain)
 {
     if (*In != NULL)
+    {
+        THIN_REMEMBER_SOURCE(Thin, *In);
         HANDLES(CloseHandle(*In)); // close the invalid handle
-    *In = HANDLES_Q(CreateFileW(WorkerOperationPathW(Op->SourceName, Op->SourceNameWValid ? Op->SourceNameW.c_str() : NULL).c_str(), GENERIC_READ,
+        *In = NULL;
+    }
+#ifdef SAM_UAC_THIN_COPY_TEST
+    THIN_REMEMBER_TARGET(Thin, *Out);
+    ThinCopyTestRetryGate(L"source", DlgData->CancelWorkerEvent);
+#endif
+    *In = THIN_OPEN_SOURCE_RETRY(Thin, HANDLES_Q(CreateFileW(WorkerOperationPathW(Op->SourceName, Op->SourceNameWValid ? Op->SourceNameW.c_str() : NULL).c_str(), GENERIC_READ,
                                FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-                               OPEN_EXISTING, AsyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+                               OPEN_EXISTING, AsyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN, NULL)), AsyncPar->UseAsyncAlg != FALSE);
     if (*In != INVALID_HANDLE_VALUE) // opened successfully; now adjust the offset
     {
         CQuadWord size;
@@ -5040,8 +6346,26 @@ BOOL CCopy_Context::RetryCopyReadErr(DWORD* err, BOOL* copyAgain, BOOL* errAgain
         HANDLES(CloseHandle(*In));
         if (WholeFileAllocated)
             SetEndOfFile(*Out); // otherwise on a floppy the remaining bytes would be written
-        HANDLES(CloseHandle(*Out));
-        DeleteFileW(WorkerOperationPathW(Op->TargetName, Op->TargetNameWValid ? Op->TargetNameW.c_str() : NULL).c_str());
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (Thin && Thin->ScopedTarget())
+        {
+            *In = NULL;
+            if (!Thin->CloseScopedTarget(*Out)) { *errAgain = TRUE; return FALSE; }
+        }
+        else
+#endif
+            HANDLES(CloseHandle(*Out));
+        const bool discarded = THIN_DELETE_TARGET(Thin, DeleteFileW(WorkerOperationPathW(Op->TargetName, Op->TargetNameWValid ? Op->TargetNameW.c_str() : NULL).c_str()));
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (!discarded && Thin && Thin->terminal)
+        {
+            *In = *Out = NULL;
+            *errAgain = TRUE;
+            return FALSE;
+        }
+#else
+        (void)discarded;
+#endif
         *copyAgain = TRUE; // goto COPY_AGAIN;
         return FALSE;
     }
@@ -5060,9 +6384,27 @@ BOOL CCopy_Context::HandleReadingErr(int blkIndex, DWORD err, BOOL* copyError, B
 
     CancelOpPhase1();
 
+#ifdef SAM_UAC_THIN_COPY_TEST
+    if (FinishPauseFailure(copyError, IDS_ERRORREADINGFILE)) return FALSE;
+#endif
+
     while (1)
     {
-        WaitForSingleObject(DlgData->WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (Thin)
+        {
+            const DWORD pauseError = Thin->WaitTransferResume();
+            if (pauseError != ERROR_SUCCESS)
+            {
+                CancelOpPhase2(blkIndex);
+                if (pauseError != ERROR_CANCELLED) Thin->ReportTransferLoss(pauseError, IDS_ERRORREADINGFILE);
+                *copyError = TRUE;
+                return FALSE;
+            }
+        }
+        else
+#endif
+            WaitForSingleObject(DlgData->WorkerNotSuspended, INFINITE);
         if (*DlgData->CancelWorker)
         {
             CancelOpPhase2(blkIndex);
@@ -5098,10 +6440,29 @@ BOOL CCopy_Context::HandleReadingErr(int blkIndex, DWORD err, BOOL* copyError, B
         {
         case IDRETRY:
         {
+#ifdef SAM_UAC_THIN_COPY_TEST
+            if (Thin)
+            {
+                const DWORD connectionError = Thin->CheckTransferConnection();
+                if (connectionError != ERROR_SUCCESS)
+                {
+                    Thin->ReportTransferLoss(connectionError, IDS_ERRORREADINGFILE);
+                    *copyError = TRUE;
+                    return FALSE;
+                }
+            }
+#endif
             if (RetryCopyReadErr(&err, copyAgain, &errAgain))
                 return TRUE; // retry
             else
             {
+#ifdef SAM_UAC_THIN_COPY_TEST
+                if (errAgain && Thin && Thin->terminal)
+                {
+                    *copyError = TRUE;
+                    return FALSE;
+                }
+#endif
                 if (errAgain)
                     break;    // same problem again; repeat the message
                 return FALSE; // copyAgain==TRUE, goto COPY_AGAIN;
@@ -5134,12 +6495,23 @@ BOOL CCopy_Context::RetryCopyWriteErr(DWORD* err, BOOL* copyAgain, BOOL* errAgai
 {
     if (*Out != NULL)
     {
+        THIN_REMEMBER_TARGET(Thin, *Out);
         if (WholeFileAllocated)
             SetEndOfFile(*Out);     // otherwise on a floppy the remaining bytes would be written
-        HANDLES(CloseHandle(*Out)); // close the invalid handle
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (Thin && Thin->ScopedTarget())
+        {
+            if (!Thin->CloseScopedTarget(*Out)) { *errAgain = TRUE; return FALSE; }
+        }
+        else
+#endif
+            HANDLES(CloseHandle(*Out)); // close the invalid handle
     }
-    *Out = HANDLES_Q(CreateFileW(WorkerOperationPathW(Op->TargetName, Op->TargetNameWValid ? Op->TargetNameW.c_str() : NULL).c_str(), GENERIC_WRITE | GENERIC_READ, 0, NULL,
-                                OPEN_ALWAYS, AsyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+#ifdef SAM_UAC_THIN_COPY_TEST
+    ThinCopyTestRetryGate(L"target", DlgData->CancelWorkerEvent);
+#endif
+    *Out = THIN_OPEN_TARGET_RETRY(Thin, HANDLES_Q(CreateFileW(WorkerOperationPathW(Op->TargetName, Op->TargetNameWValid ? Op->TargetNameW.c_str() : NULL).c_str(), GENERIC_WRITE | GENERIC_READ, 0, NULL,
+                                OPEN_ALWAYS, AsyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN, NULL)), AsyncPar->UseAsyncAlg != FALSE);
     if (*Out != INVALID_HANDLE_VALUE) // opened successfully; now adjust the offset
     {
         BOOL ok = TRUE;
@@ -5165,8 +6537,26 @@ BOOL CCopy_Context::RetryCopyWriteErr(DWORD* err, BOOL* copyAgain, BOOL* errAgai
         if (!ok || !CheckTailOfOutFile(AsyncPar, *In, *Out, WriteOffset, WriteOffset, FALSE))
         {
             HANDLES(CloseHandle(*In));
-            HANDLES(CloseHandle(*Out));
-            DeleteFileW(WorkerOperationPathW(Op->TargetName, Op->TargetNameWValid ? Op->TargetNameW.c_str() : NULL).c_str());
+#ifdef SAM_UAC_THIN_COPY_TEST
+            if (Thin && Thin->ScopedTarget())
+            {
+                *In = NULL;
+                if (!Thin->CloseScopedTarget(*Out)) { *errAgain = TRUE; return FALSE; }
+            }
+            else
+#endif
+                HANDLES(CloseHandle(*Out));
+            const bool discarded = THIN_DELETE_TARGET(Thin, DeleteFileW(WorkerOperationPathW(Op->TargetName, Op->TargetNameWValid ? Op->TargetNameW.c_str() : NULL).c_str()));
+#ifdef SAM_UAC_THIN_COPY_TEST
+            if (!discarded && Thin && Thin->terminal)
+            {
+                *In = *Out = NULL;
+                *errAgain = TRUE;
+                return FALSE;
+            }
+#else
+            (void)discarded;
+#endif
             *copyAgain = TRUE; // goto COPY_AGAIN;
             return FALSE;
         }
@@ -5193,9 +6583,27 @@ BOOL CCopy_Context::HandleWritingErr(int blkIndex, DWORD err, BOOL* copyError, B
 
     CancelOpPhase1();
 
+#ifdef SAM_UAC_THIN_COPY_TEST
+    if (FinishPauseFailure(copyError, IDS_ERRORWRITINGFILE)) return FALSE;
+#endif
+
     while (1)
     {
-        WaitForSingleObject(DlgData->WorkerNotSuspended, INFINITE); // if we are supposed to be in suspend mode, wait ...
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (Thin)
+        {
+            const DWORD pauseError = Thin->WaitTransferResume();
+            if (pauseError != ERROR_SUCCESS)
+            {
+                CancelOpPhase2(blkIndex);
+                if (pauseError != ERROR_CANCELLED) Thin->ReportTransferLoss(pauseError, IDS_ERRORWRITINGFILE);
+                *copyError = TRUE;
+                return FALSE;
+            }
+        }
+        else
+#endif
+            WaitForSingleObject(DlgData->WorkerNotSuspended, INFINITE);
         if (*DlgData->CancelWorker)
         {
             CancelOpPhase2(blkIndex);
@@ -5229,10 +6637,29 @@ BOOL CCopy_Context::HandleWritingErr(int blkIndex, DWORD err, BOOL* copyError, B
         {
         case IDRETRY:
         {
+#ifdef SAM_UAC_THIN_COPY_TEST
+            if (Thin)
+            {
+                const DWORD connectionError = Thin->CheckTransferConnection();
+                if (connectionError != ERROR_SUCCESS)
+                {
+                    Thin->ReportTransferLoss(connectionError, IDS_ERRORWRITINGFILE);
+                    *copyError = TRUE;
+                    return FALSE;
+                }
+            }
+#endif
             if (RetryCopyWriteErr(&err, copyAgain, &errAgain, allocFileSize, maxWriteOffset))
                 return TRUE; // retry
             else
             {
+#ifdef SAM_UAC_THIN_COPY_TEST
+                if (errAgain && Thin && Thin->terminal)
+                {
+                    *copyError = TRUE;
+                    return FALSE;
+                }
+#endif
                 if (errAgain)
                     break;    // same problem again, repeat the message
                 return FALSE; // copyAgain==TRUE, goto COPY_AGAIN;
@@ -5260,10 +6687,27 @@ BOOL CCopy_Context::HandleWritingErr(int blkIndex, DWORD err, BOOL* copyError, B
     }
 }
 
-BOOL CCopy_Context::HandleSuspModeAndCancel(BOOL* copyError)
+BOOL CCopy_Context::HandleSuspModeAndCancel(BOOL* copyError, BOOL forceWait)
 {
-    if (!Script->ChangeSpeedLimit)                                  // if the speed limit cannot change (otherwise this is not a "suitable" place to wait)
-        WaitForSingleObject(DlgData->WorkerNotSuspended, INFINITE); // if we are supposed to be in suspend mode, wait ...
+    if (!Script->ChangeSpeedLimit || forceWait)
+    {
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (Thin)
+        {
+            const DWORD pauseError = Thin->WaitTransferResume();
+            if (pauseError != ERROR_SUCCESS)
+            {
+                CancelOpPhase1();
+                CancelOpPhase2(-1);
+                if (pauseError != ERROR_CANCELLED) Thin->ReportTransferLoss(pauseError, IDS_ERRORREADINGFILE);
+                *copyError = TRUE;
+                return TRUE;
+            }
+        }
+        else
+#endif
+            WaitForSingleObject(DlgData->WorkerNotSuspended, INFINITE); // native pause when no handle was elevated
+    }
     if (*DlgData->CancelWorker)
     {
         CancelOpPhase1();
@@ -5271,15 +6715,76 @@ BOOL CCopy_Context::HandleSuspModeAndCancel(BOOL* copyError)
         *copyError = TRUE; // goto COPY_ERROR
         return TRUE;
     }
+#ifdef SAM_UAC_THIN_COPY_TEST
+    if (Thin)
+    {
+        const DWORD connectionError = Thin->CheckTransferConnection();
+        if (connectionError != ERROR_SUCCESS)
+        {
+            CancelOpPhase1();
+            CancelOpPhase2(-1);
+            Thin->ReportTransferLoss(connectionError, IDS_ERRORREADINGFILE);
+            *copyError = TRUE;
+            return TRUE;
+        }
+    }
+#endif
     return FALSE;
 }
+
+#ifdef SAM_UAC_THIN_COPY_TEST
+BOOL CCopy_Context::WaitForPendingTransfer(HANDLE file, OVERLAPPED* overlapped, DWORD* bytes, BOOL* copyError)
+{
+    if (!Thin || !Thin->Scoped() || !Thin->brokerHandleDelivered)
+    {
+        GetOverlappedResult(file, overlapped, bytes, TRUE);
+        return FALSE;
+    }
+    for (;;)
+    {
+        if (HasOverlappedIoCompleted(overlapped))
+        {
+            GetOverlappedResult(file, overlapped, bytes, TRUE);
+            return FALSE;
+        }
+        const DWORD wait = WaitForSingleObject(overlapped->hEvent, 200);
+        if (*DlgData->CancelWorker)
+        {
+            CancelOpPhase1();
+            CancelOpPhase2(-1);
+            *copyError = TRUE;
+            return TRUE;
+        }
+        DWORD error = wait == WAIT_OBJECT_0 || wait == WAIT_TIMEOUT ? Thin->CheckTransferConnection() :
+            wait == WAIT_FAILED ? GetLastError() : ERROR_GEN_FAILURE;
+        if (wait != WAIT_OBJECT_0 && wait != WAIT_TIMEOUT && error == ERROR_SUCCESS) error = ERROR_GEN_FAILURE;
+        if (error != ERROR_SUCCESS)
+        {
+            CancelOpPhase1();
+            CancelOpPhase2(-1);
+            Thin->ReportTransferLoss(error, IDS_ERRORREADINGFILE);
+            *copyError = TRUE;
+            return TRUE;
+        }
+        // A stale signalled event must not turn the poll into a busy loop.
+        if (wait == WAIT_OBJECT_0 && !HasOverlappedIoCompleted(overlapped)) Sleep(1);
+    }
+}
+#endif
 
 void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, void* buffer, int& limitBufferSize,
                          COperations* script, CProgressDlgData& dlgData, BOOL wholeFileAllocated, COperation* op,
                          const CQuadWord& totalDone, BOOL& copyError, BOOL& skipCopy, HWND hProgressDlg,
                          CQuadWord& operationDone, CQuadWord& fileSize, int bufferSize,
-                         int& allocWholeFileOnStart, BOOL& copyAgain, const CQuadWord& lastTransferredFileSize)
+                         int& allocWholeFileOnStart, BOOL& copyAgain, const CQuadWord& lastTransferredFileSize
+#ifdef SAM_UAC_THIN_COPY_TEST
+                         , CThinCopyWorker* thin
+#endif
+                         )
 {
+#ifdef SAM_UAC_THIN_COPY_TEST
+    ThinCopyTestSignal(L"SAM_UAC_TEST_ASYNC_EVENT");
+#endif
     CQuadWord allocFileSize = fileSize;
     DWORD err = NO_ERROR;
     DWORD bytes = 0; // helper DWORD - how many bytes were read/written in the block
@@ -5296,10 +6801,28 @@ void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, vo
 
     // Copy operation context (prevents passing heaps of parameters to helper functions, now context methods)
     CCopy_Context ctx(asyncPar, numOfBlocks, &dlgData, op, hProgressDlg, &in, &out, wholeFileAllocated, script,
-                      &operationDone, &totalDone, &lastTransferredFileSize);
+                      &operationDone, &totalDone, &lastTransferredFileSize
+#ifdef SAM_UAC_THIN_COPY_TEST
+                      , thin
+#endif
+                      );
     BOOL doCopy = TRUE;
     while (doCopy)
     {
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (thin)
+        {
+            const DWORD connectionError = thin->CheckTransferConnection();
+            if (connectionError != ERROR_SUCCESS)
+            {
+                ctx.CancelOpPhase1();
+                ctx.CancelOpPhase2(-1);
+                thin->ReportTransferLoss(connectionError, IDS_ERRORREADINGFILE);
+                copyError = TRUE;
+                return;
+            }
+        }
+#endif
         if (ctx.ForceOp != fopWriting && ctx.FreeBlocks > 0 && !ctx.ReadingDone && ctx.ReadingBlocks < (numOfBlocks + 1) / 2) // read in parallel at most up to half of the blocks
         {
             DWORD toRead = ctx.ReadOffset + CQuadWord(limitBufferSize, 0) <= fileSize ? limitBufferSize : (fileSize - ctx.ReadOffset).LoDWord;
@@ -5343,6 +6866,10 @@ void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, vo
 #endif // ASYNC_COPY_DEBUG_MSG
 
                         BOOL res = GetOverlappedResult(in, asyncPar->GetOverlapped(i), &bytes, TRUE);
+#ifdef SAM_UAC_THIN_COPY_TEST
+                        if (res && bytes != 0)
+                            ThinCopyTestObserve(L"SAM_UAC_TEST_ASYNC_READ_COMPLETED_EVENT");
+#endif
                         if (testingEOF && res && bytes == 0)
                         {
                             res = FALSE; // MSDN says it should return FALSE and ERROR_HANDLE_EOF at EOF, so enforce that (Novell Netware 6.5 disk returns TRUE)
@@ -5407,6 +6934,10 @@ void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, vo
 #endif // ASYNC_COPY_DEBUG_MSG
 
                         BOOL res = GetOverlappedResult(out, asyncPar->GetOverlapped(i), &bytes, TRUE);
+#ifdef SAM_UAC_THIN_COPY_TEST
+                        if (res && bytes != 0 && bytes == ctx.BlockDataLen[i])
+                            ThinCopyTestMarkWriteCompleted(true);
+#endif
                         if (!res || bytes != ctx.BlockDataLen[i]) // error
                         {
                             err = GetLastError();
@@ -5425,14 +6956,16 @@ void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, vo
                         script->AddBytesToSpeedMetersAndTFSandPS(bytes, FALSE, bufferSize, &limitBufferSize);
 
                         if (!script->ChangeSpeedLimit)                                 // if the speed limit can change, this is not a "suitable" place to wait
-                            WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+                        {
+                            if (ctx.HandleSuspModeAndCancel(&copyError, TRUE)) return;
+                        }
                         operationDone += CQuadWord(bytes, 0);
                         SetProgressWithoutSuspend(hProgressDlg, CaclProg(operationDone, op->Size),
                                                   CaclProg(totalDone + operationDone, script->TotalSize), dlgData);
 
                         if (script->ChangeSpeedLimit)                                  // the speed limit is likely to change, this is a "suitable" place to wait until the
                         {                                                              // worker resumes so we can get the buffer size for copying again
-                            WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+                            if (ctx.HandleSuspModeAndCancel(&copyError, TRUE)) return;
                             script->GetNewBufSize(&limitBufferSize, bufferSize);
                         }
 
@@ -5515,8 +7048,14 @@ void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, vo
             // wait for the oldest pending asynchronous operation to complete here
             // for the source file ('in') this covers: cbsReading, cbsTestingEOF, and cbsDiscarded
             // for the target file ('out') this covers only cbsWriting
+#ifdef SAM_UAC_THIN_COPY_TEST
+            if (ctx.WaitForPendingTransfer(ctx.BlockState[oldestBlockIndex] == cbsWriting ? out : in,
+                                           asyncPar->GetOverlapped(oldestBlockIndex), &bytes, &copyError))
+                return;
+#else
             GetOverlappedResult(ctx.BlockState[oldestBlockIndex] == cbsWriting ? out : in,
                                 asyncPar->GetOverlapped(oldestBlockIndex), &bytes, TRUE);
+#endif
 
 #ifdef ASYNC_COPY_DEBUG_MSG
             char sss[1000];
@@ -5528,6 +7067,20 @@ void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, vo
                 return; // cancel
         }
     }
+#ifdef SAM_UAC_THIN_COPY_TEST
+    if (thin)
+    {
+        const DWORD connectionError = thin->CheckTransferConnection();
+        if (connectionError != ERROR_SUCCESS)
+        {
+            ctx.CancelOpPhase1();
+            ctx.CancelOpPhase2(-1);
+            thin->ReportTransferLoss(connectionError, IDS_ERRORREADINGFILE);
+            copyError = TRUE;
+            return;
+        }
+    }
+#endif
     if (ctx.ReadOffset != ctx.WriteOffset || operationDone != ctx.WriteOffset)
         TRACE_C("DoCopyFileLoopAsync(): unexpected situation after copy: ReadOffset != WriteOffset || operationDone != ctx.WriteOffset");
 
@@ -5587,6 +7140,20 @@ void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, vo
 
                 while (1)
                 {
+#ifdef SAM_UAC_THIN_COPY_TEST
+                    if (thin && thin->ScopedTarget())
+                    {
+                        if (!thin->CloseScopedTarget(out) || !THIN_DELETE_TARGET(thin, FALSE))
+                        {
+                            copyError = TRUE;
+                            return;
+                        }
+                        HANDLES(CloseHandle(in));
+                        in = NULL;
+                        copyAgain = TRUE;
+                        return;
+                    }
+#endif
                     HANDLES(CloseHandle(out));
                     out = NULL;
                     WorkerClearReadOnlyW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL)); // in case it was created as read-only (should never happen) so we can handle it
@@ -5606,6 +7173,1248 @@ void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, vo
             }
         }
     }
+#ifdef SAM_UAC_THIN_COPY_TEST
+    bool allBlocksFree = true;
+    for (const auto state : ctx.BlockState)
+        allBlocksFree = allBlocksFree && state == cbsFree;
+    if (ctx.IsOperationDone(numOfBlocks) && allBlocksFree && ctx.ReadingBlocks == 0 && ctx.WritingBlocks == 0 &&
+        !copyError && !skipCopy && !copyAgain && !*dlgData.CancelWorker &&
+        ctx.ReadOffset == ctx.WriteOffset && operationDone == ctx.WriteOffset)
+        ThinCopyTestObserve(L"SAM_UAC_TEST_ASYNC_DRAINED_EVENT");
+#endif
+}
+
+static UacF7::Result ExecuteWithNativeTransferProgress(const UacF7::PreparedTransfer& request, HWND progress,
+                                                       HANDLE cancel, UacF7::TransferJobSession* job,
+                                                       const COperation& op, COperations& script,
+                                                       CProgressDlgData& dlgData, const CQuadWord& totalDone)
+{
+    struct NativeTransferProgress
+    {
+        HWND dialog;
+        const COperation& operation;
+        COperations& script;
+        CProgressDlgData& data;
+        CQuadWord completed;
+        bool verifyingMove;
+        CQuadWord transferred{0, 0};
+        bool shown = false;
+    } state{progress, op, script, dlgData, totalDone, request.IsMoveCompletion()};
+    script.GetTFS(&state.transferred);
+    const auto updateProgress = [](void* context, ULONGLONG bytes, ULONGLONG total) {
+        auto& state = *static_cast<NativeTransferProgress*>(context);
+        if (state.verifyingMove)
+        {
+            // The normal copy already contributed these bytes to the job.
+            const auto& size = state.operation.FileSize;
+            const auto checked = CQuadWord().SetUI64((std::min)(bytes, size.Value));
+            SetProgressWithoutSuspend(state.dialog, (std::min)(999, CaclProg(checked, size)),
+                                      CaclProg(state.completed, state.script.TotalSize), state.data);
+            state.shown = true;
+            return;
+        }
+        const ULONGLONG operationSize = state.operation.Size.Value;
+        CQuadWord current = CQuadWord().SetUI64((std::min)(bytes, operationSize));
+        int item = CaclProg(current, state.operation.Size);
+        if (total)
+        {
+            // A tree's work unit and the raw encrypted stream's byte count
+            // differ from the ordinary logical byte counter.
+            const double fraction = static_cast<double>(bytes) / static_cast<double>(total);
+            item = static_cast<int>(1000 * fraction);
+            current.SetUI64(static_cast<ULONGLONG>(operationSize * fraction));
+        }
+        else
+            state.script.SetTFSandProgressSize(state.transferred + current, state.completed + current);
+        item = (std::min)(999, item);
+        const int summary = state.operation.Opcode == ocCopyProtectedTree ? item
+            : (std::min)(999, CaclProg(state.completed + current, state.script.TotalSize));
+        SetProgressWithoutSuspend(state.dialog, item, summary, state.data);
+        state.shown = true;
+    };
+    const auto result = request.Execute(progress, cancel, job, updateProgress, &state, NotifyNativeBrokerActivity);
+    if (state.shown)
+    {
+        // Advisory progress must not count as completed work or be added twice.
+        if (!state.verifyingMove)
+            script.SetTFSandProgressSize(state.transferred, totalDone);
+        if (state.verifyingMove || result.error != ERROR_SUCCESS || result.unknown)
+            SetProgressWithoutSuspend(progress, 0, CaclProg(totalDone, script.TotalSize), dlgData);
+    }
+    return result;
+}
+
+struct CreateOnlySourceReceipt
+{
+    UacF7::MoveFileIdentity source{}, parent{};
+    UacF7::TransferJobSession* session = nullptr;
+    ULONGLONG opening = 0;
+};
+
+static bool ExecuteWorkerTransfer(HWND progress, const COperation& op, COperations& script,
+                                  CQuadWord& totalDone, CProgressDlgData& dlgData, BOOL& success,
+                                  UacF7::PreparedTransfer& request, DWORD& error, bool targetDenied = false,
+                                  CreateOnlySourceReceipt* receipt = nullptr)
+{
+    if (receipt) *receipt = {};
+    const bool moving = request.IsMove();
+    success = FALSE;
+    WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE);
+    if (*dlgData.CancelWorker)
+        return true;
+    if (script.CopySource && script.CopySource->ElevationDeclined)
+        return false; // Keep the original error after Windows refused this copy job.
+    const auto sourceDisplay = SalPathRemoveExtendedPrefixW(op.SourceNameW.c_str());
+    const auto targetDisplay = SalPathRemoveExtendedPrefixW(op.TargetNameW.c_str());
+    const auto sourceText = SalWideToMultiBytePath(sourceDisplay.c_str(), CP_UTF8);
+    const auto targetText = SalWideToMultiBytePath(targetDisplay.c_str(), CP_UTF8);
+    // Keep the create-only job for the supported single-file F5 probe: a
+    // racing existing target must be reviewed on this same scoped session.
+    const bool singleProbeJob = script.Count == 1 && op.Opcode == ocCopyFile &&
+        (op.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) && !(op.OpFlags & OPFL_AS_ENCRYPTED) &&
+        !(op.Attr & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)) &&
+        UacF7::IsNativePlainCopyFile(op.Attr) && !request.IsOverwrite() && !request.IsTree() &&
+        !request.IsDirectoryCopyEntry() && !request.PreservesSecurity() && !request.PreservesCompression() &&
+        !request.PreservesEncryption() && !script.OverwriteOlder && !script.CopySecurity && !script.CopyAttrs &&
+        script.CopyMoveConflictMode != CMCM_SCAN_AHEAD && dlgData.CnfrmFileOver &&
+        !dlgData.OverwriteAll && !dlgData.SkipAllOverwrite && !dlgData.ConflictDecisionInjected;
+    const bool shareJob = (script.Count > 1 || request.HasDeferredTarget() || request.IsDirectoryCopyEntry() ||
+                           singleProbeJob) && request.CanShareJob();
+    auto& jobs = dlgData.TransferJobs;
+    auto existing = shareJob ? std::find_if(jobs.begin(), jobs.end(), [&](const auto& job) { return request.IsInJob(job); })
+                             : jobs.end();
+    auto* planned = script.CopySource && script.CopySource->Session ? script.CopySource->Session.get() : nullptr;
+    if (planned && (!planned->IsOpen() || !request.IsInJob(*planned)))
+    {
+        error = planned->IsOpen() ? ERROR_FILE_INVALID : ERROR_BROKEN_PIPE;
+        return false;
+    }
+    const bool merge = !planned && existing == jobs.end() && (op.OpFlags & OPFL_UAC_TREE_ENTRY) &&
+                       !(op.OpFlags & OPFL_UAC_TREE_ROOT);
+    auto& pending = dlgData.PendingTreeMerge;
+    if (merge && (!pending || !pending->Request.AllowsTreeEntry(request)))
+        return false; // Descendants cannot widen the tree or reopen an ended session.
+    if (!planned && existing == jobs.end())
+    {
+        UacF7::TransferPrompt prompt{merge ? pending->Request : request,
+            merge ? pending->Source.c_str() : sourceText.c_str(),
+            merge ? pending->Target.c_str() : targetText.c_str(), !merge && targetDenied};
+        SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER, reinterpret_cast<LPARAM>(&prompt));
+        if (*dlgData.CancelWorker)
+        {
+            jobs.clear();
+            error = ERROR_CANCELLED;
+            return true;
+        }
+        const DWORD promptWait = dlgData.CancelWorkerEvent ? WaitForSingleObject(dlgData.CancelWorkerEvent, 0) : WAIT_FAILED;
+        const DWORD promptWaitError = !dlgData.CancelWorkerEvent ? ERROR_INVALID_HANDLE :
+            promptWait == WAIT_FAILED ? GetLastError() : ERROR_INVALID_HANDLE;
+        if (promptWait == WAIT_OBJECT_0)
+        {
+            jobs.clear();
+            error = ERROR_CANCELLED;
+            return true;
+        }
+        if (promptWait != WAIT_TIMEOUT)
+        {
+            error = promptWaitError ? promptWaitError : ERROR_INVALID_HANDLE;
+            return false;
+        }
+        if (prompt.promptError != ERROR_SUCCESS)
+        {
+            error = prompt.promptError;
+            return false;
+        }
+        if (!prompt.approved)
+        {
+            jobs.clear();
+            error = ERROR_CANCELLED;
+            return true;
+        }
+    }
+    const HANDLE cancel = dlgData.CancelWorkerEvent;
+    if (WaitForSingleObject(cancel, 0) == WAIT_OBJECT_0)
+    {
+        jobs.clear();
+        return true;
+    }
+    if (!planned && shareJob && existing == jobs.end())
+        existing = jobs.emplace(jobs.end());
+    const auto result = [&] {
+        if (merge)
+        {
+            const auto opened = pending->Request.Execute(progress, cancel, &*existing, nullptr, nullptr, NotifyNativeBrokerActivity);
+            pending.reset();
+            // Opening scope makes no filesystem changes. Never launch an item
+            // separately if that session did not open or does not contain it.
+            if (opened.error || opened.unknown || !request.IsInJob(*existing))
+                return UacF7::Result{opened.error ? opened.error : ERROR_BROKEN_PIPE, false};
+        }
+        return ExecuteWithNativeTransferProgress(request, progress, cancel,
+            planned ? planned : existing != jobs.end() ? &*existing : nullptr, op, script, dlgData, totalDone);
+    }();
+    const bool cancelled = WaitForSingleObject(cancel, 0) == WAIT_OBJECT_0 ||
+                           *dlgData.CancelWorker || result.error == ERROR_CANCELLED;
+    if (cancelled || result.unknown)
+    {
+        jobs.clear();
+        existing = jobs.end();
+        if (planned)
+            planned->Close();
+    }
+    else if (existing != jobs.end() && !existing->IsOpen())
+    {
+        jobs.erase(existing);
+        existing = jobs.end();
+    }
+    if (result.unknown)
+    {
+        const WPARAM message = request.NeedsDiskRecoveryWarning(result) ?
+            WORKER_DIALOG_UAC_DISK_RECOVERY_UNKNOWN : WORKER_DIALOG_UAC_TRANSFER_UNKNOWN;
+        SendMessage(progress, WM_USER_DIALOG, message, moving);
+        return true;
+    }
+    if (result.error != ERROR_SUCCESS)
+    {
+        error = cancelled ? ERROR_CANCELLED : result.error;
+        if (!cancelled && receipt && singleProbeJob && (error == ERROR_FILE_EXISTS || error == ERROR_ALREADY_EXISTS))
+        {
+            auto* used = planned ? planned : existing != jobs.end() ? &*existing : nullptr;
+            if (used && used->OpeningGeneration() && request.IsInJob(*used))
+            {
+                request.SourceIdentities(receipt->source, receipt->parent);
+                receipt->session = used;
+                receipt->opening = used->OpeningGeneration();
+            }
+        }
+        if (error == ERROR_FILE_INVALID && request.IsOverwrite() && dlgData.ConflictDecisionInjected)
+        {
+            dlgData.ConflictTargetChanged = TRUE;
+            success = TRUE; // Dispatch requeues the conflict without accounting for a completed file.
+            return true;
+        }
+        return error == ERROR_CANCELLED || *dlgData.CancelWorker != FALSE;
+    }
+    if (request.IsMoveCompletion() || request.IsDirectoryCopyEntry())
+    {
+        success = TRUE; // The owning worker path accounts for the item.
+        return true;
+    }
+    totalDone += op.Size;
+    if (!moving || request.IsCrossVolumeMove())
+    {
+        const CQuadWord mainWork = max(op.FileSize, COPY_MIN_FILE_SIZE);
+        const CQuadWord namedBytes = (op.OpFlags & OPFL_COPY_ADS) != 0 && op.Size > mainWork ? op.Size - mainWork : CQuadWord(0, 0);
+        script.AddBytesToTFSandSetProgressSize(op.FileSize + namedBytes, totalDone);
+    }
+    SetProgress(progress, 0, CaclProg(totalDone, script.TotalSize), dlgData);
+    success = TRUE;
+    return true;
+}
+
+static const COperations::ProtectedFileSource* ListedTransferSource(const COperation& op, const COperations& script)
+{
+    if (!(op.OpFlags & OPFL_UAC_TRANSFER_LISTED) || !script.ProtectedFileSources)
+        return nullptr;
+    const auto& sources = *script.ProtectedFileSources;
+    const auto listed = sources.find(op.SourceNameW);
+    return listed != sources.end() ? &listed->second : nullptr;
+}
+
+#ifdef SAM_UAC_THIN_COPY_TEST
+bool CThinCopyWorker::Configure(bool isMove, bool copyADS, bool encrypted)
+{
+    // This check performs no allocation or I/O: ordinary copies should not
+    // become dependent on preparing an elevation request.
+    active = !isMove && !copyADS && !encrypted && !script.CopySecurity &&
+#ifndef SAM_UAC_THIN_REOPEN_PROTOTYPE
+        !script.CopyAttrs &&
+#endif
+        !script.IgnoreTransferAds && !script.OverwriteOlder && !script.DeferredTransferTarget &&
+        (operation.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) &&
+        !(operation.OpFlags & OPFL_AS_ENCRYPTED) && operation.SourceNameWValid &&
+        operation.TargetNameWValid && (UacF7::IsNativePlainCopyFile(operation.Attr) ||
+            (script.CopyAttrs && UacF7::IsNativeCompressedCopyFile(operation.Attr))) &&
+        !(script.CopySource && script.CopySource->ElevationDeclined);
+    return active;
+}
+
+bool CThinCopyWorker::SourceContinuityAllowsElevation() const
+{
+    if (sourceContinuityLost || (earlierSourceRequired && !earlierSourceKnown))
+    {
+        SetLastError(ERROR_FILE_INVALID);
+        return false;
+    }
+    return true;
+}
+
+bool CThinCopyWorker::TargetContinuityAllowsElevation() const
+{
+    if (targetContinuityLost)
+    {
+        SetLastError(ERROR_FILE_INVALID);
+        return false;
+    }
+    return true;
+}
+
+bool CThinCopyWorker::EnsurePrepared()
+{
+    if (terminal || cleanupUncertain)
+    {
+        SetLastError(ERROR_OPERATION_ABORTED);
+        return false;
+    }
+    // A failed metadata query is not a substitution. Recheck the currently
+    // open source before applying the gate, including on an existing request.
+    if (sourceHandle && *sourceHandle && *sourceHandle != INVALID_HANDLE_VALUE &&
+        !RememberSource(*sourceHandle, true))
+        return false;
+    if (!SourceContinuityAllowsElevation() || !TargetContinuityAllowsElevation())
+        return false;
+    if (request)
+        return true;
+    try
+    {
+        const auto* listed = ListedTransferSource(operation, script);
+        if ((operation.OpFlags & OPFL_UAC_TRANSFER_LISTED) && (!listed || !listed->Request))
+        {
+            SetLastError(ERROR_FILE_INVALID);
+            return false;
+        }
+        auto candidate = std::make_unique<UacF7::PreparedTransfer>();
+        if (!candidate->Prepare(operation.SourceNameW, operation.TargetNameW, operation.FileSize.Value,
+                                UacF7::Operation::Copy, listed ? listed->Request.get() : nullptr, nullptr))
+        {
+            SetLastError(ERROR_FILE_INVALID);
+            return false;
+        }
+        if (earlierSourceKnown)
+        {
+            UacF7::MoveFileIdentity expected{}, parent{};
+            candidate->SourceIdentities(expected, parent);
+            sourceVerified = earlierSource.serial == expected.serial &&
+                             std::memcmp(earlierSource.id, expected.id, sizeof(expected.id)) == 0;
+            if (!sourceVerified)
+            {
+                sourceContinuityLost = true;
+                SetLastError(ERROR_FILE_INVALID);
+                return false;
+            }
+        }
+        // Publish only a completely prepared and identity-checked request.
+        request = std::move(candidate);
+        return true;
+    }
+    catch (const std::bad_alloc&)
+    {
+        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+        return false;
+    }
+}
+
+HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
+{
+    if (!active || terminal)
+    {
+        SetLastError(ERROR_OPERATION_ABORTED);
+        return INVALID_HANDLE_VALUE;
+    }
+    if (!WaitBeforeElevation())
+        return INVALID_HANDLE_VALUE;
+    if (!EnsurePrepared())
+        return INVALID_HANDLE_VALUE;
+    if (session && !session->IsOpen() && !(pendingConsent && !scopeMayHaveStarted))
+    {
+        terminal = true;
+        SetLastError(ERROR_BROKEN_PIPE);
+        return INVALID_HANDLE_VALUE;
+    }
+    // The source handle observed by the worker must be the exact object in
+    // the request, including when an overwrite dialog temporarily closed it.
+    if (kind != UacF7::ThinOpenKind::Source &&
+        (!sourceVerified || !sourceHandle || !*sourceHandle || *sourceHandle == INVALID_HANDLE_VALUE))
+    {
+        SetLastError(ERROR_FILE_INVALID);
+        return INVALID_HANDLE_VALUE;
+    }
+    if (kind == UacF7::ThinOpenKind::TargetRetry && !targetKnown)
+    {
+        SetLastError(ERROR_FILE_INVALID);
+        return INVALID_HANDLE_VALUE;
+    }
+#ifdef SAM_UAC_THIN_PLANNED_PROTOTYPE
+    if (!session)
+    {
+        if (claimedAnchor && (!script.CopySource || script.CopySource->ThinAnchor != claimedAnchor))
+        {
+            SetLastError(ERROR_FILE_INVALID);
+            return INVALID_HANDLE_VALUE;
+        }
+        if (claimedAnchor && script.CopySource->Session)
+        {
+            try
+            {
+                if (!plannedSession.TakePlanned(script.CopySource->Session, *request))
+                {
+                    SetLastError(ERROR_FILE_INVALID);
+                    return INVALID_HANDLE_VALUE;
+                }
+            }
+            catch (const std::bad_alloc&)
+            {
+                SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+                return INVALID_HANDLE_VALUE;
+            }
+            plannedTaken = true;
+            session = &plannedSession;
+            scopeMayHaveStarted = true;
+        }
+    }
+#endif
+    if (!session)
+    {
+        auto& sessions = dialog.ThinCopyJobs;
+        decltype(sessions.begin()) it;
+        try
+        {
+            it = std::find_if(sessions.begin(), sessions.end(),
+                [&](const UacF7::ThinCopySession& item) { return item.IsOpen() && item.Matches(*request); });
+        }
+        catch (const std::bad_alloc&)
+        {
+            SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+            return INVALID_HANDLE_VALUE;
+        }
+        bool newlyApproved = false;
+        if (it == sessions.end())
+        {
+            try { it = sessions.emplace(sessions.end()); }
+            catch (const std::bad_alloc&) { SetLastError(ERROR_NOT_ENOUGH_MEMORY); return INVALID_HANDLE_VALUE; }
+            auto* planned = script.CopySource && script.CopySource->Session
+                ? script.CopySource->Session.get() : nullptr;
+            if (planned && (!planned->IsOpen() || !it->Attach(*planned, *request)))
+            {
+                sessions.erase(it);
+                SetLastError(ERROR_FILE_INVALID);
+                return INVALID_HANDLE_VALUE;
+            }
+            if (!planned)
+            {
+                if (!WaitBeforeElevation())
+                {
+                    const DWORD waitError = GetLastError();
+                    sessions.erase(it);
+                    SetLastError(waitError);
+                    return INVALID_HANDLE_VALUE;
+                }
+                try
+                {
+                    if (dialog.PendingThinConsent)
+                    {
+                        const bool eligible = script.Count > 1 && request->CanShareJob() && !request->IsScopedTree();
+                        const bool matches = eligible && dialog.PendingThinConsent->Matches(request->ThinBatchScope());
+                        // Never carry consent across a different scope.
+                        dialog.PendingThinConsent.reset();
+                        if (matches)
+                        {
+                            batchScopeApproved = true;
+                            newlyApproved = true;
+                        }
+                    }
+                    if (!newlyApproved)
+                    {
+                        const auto source = SalWideToMultiBytePath(
+                            SalPathRemoveExtendedPrefixW(operation.SourceNameW.c_str()).c_str(), CP_UTF8);
+                        const auto targetPath = SalWideToMultiBytePath(
+                            SalPathRemoveExtendedPrefixW(operation.TargetNameW.c_str()).c_str(), CP_UTF8);
+                        UacF7::TransferPrompt prompt{*request, source.c_str(), targetPath.c_str(),
+                            kind != UacF7::ThinOpenKind::Source};
+                        prompt.kind = UacF7::TransferPromptKind::ThinPlainCopy;
+                        SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER,
+                                    reinterpret_cast<LPARAM>(&prompt));
+                        if (CancelBeforeElevation())
+                        {
+                            sessions.erase(it);
+                            SetLastError(ERROR_CANCELLED);
+                            return INVALID_HANDLE_VALUE;
+                        }
+                        const DWORD consentWait = dialog.CancelWorkerEvent ? WaitForSingleObject(dialog.CancelWorkerEvent, 0) : WAIT_FAILED;
+                        const DWORD consentWaitError = !dialog.CancelWorkerEvent ? ERROR_INVALID_HANDLE :
+                            consentWait == WAIT_FAILED ? GetLastError() : ERROR_INVALID_HANDLE;
+                        if (consentWait == WAIT_OBJECT_0)
+                        {
+                            sessions.erase(it);
+                            terminal = true;
+                            SetLastError(ERROR_CANCELLED);
+                            return INVALID_HANDLE_VALUE;
+                        }
+                        if (consentWait != WAIT_TIMEOUT)
+                        {
+                            sessions.erase(it);
+                            SetLastError(consentWaitError ? consentWaitError : ERROR_INVALID_HANDLE);
+                            return INVALID_HANDLE_VALUE;
+                        }
+                        if (prompt.promptError != ERROR_SUCCESS)
+                        {
+                            sessions.erase(it);
+                            SetLastError(prompt.promptError);
+                            return INVALID_HANDLE_VALUE;
+                        }
+                        if (!prompt.approved)
+                        {
+                            sessions.erase(it);
+                            terminal = true;
+                            SetLastError(ERROR_CANCELLED);
+                            return INVALID_HANDLE_VALUE;
+                        }
+                        batchScopeApproved = prompt.batchScopeShownAndApproved;
+                        newlyApproved = true;
+                    }
+                }
+                catch (const std::bad_alloc&)
+                {
+                    // No broker has been started for this new entry. Preserve
+                    // other batch sessions and report allocation failure.
+                    dialog.PendingThinConsent.reset();
+                    sessions.erase(it);
+                    SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+                    return INVALID_HANDLE_VALUE;
+                }
+            }
+        }
+        session = &*it;
+        pendingConsent = newlyApproved;
+        if (!newlyApproved)
+            scopeMayHaveStarted = true;
+    }
+    // Pause or cancellation may arrive while the native dialog is open.
+    // Do not start the broker until the worker is resumed and not cancelled.
+    if (!WaitBeforeElevation())
+        return INVALID_HANDLE_VALUE;
+    const HANDLE openedSource = kind == UacF7::ThinOpenKind::Source
+        ? INVALID_HANDLE_VALUE : *sourceHandle;
+    const bool hadStarted = scopeMayHaveStarted;
+    // From this point on a launch may have happened. A matching approval can
+    // be restored only for an explicitly proven pre-probe failure below.
+    dialog.PendingThinConsent.reset();
+    scopeMayHaveStarted = true;
+    pendingConsent = false;
+    UacF7::ThinScanEvidence scan{};
+    const bool scanOverwrite = kind == UacF7::ThinOpenKind::TargetOverwrite &&
+                               dialog.ConflictDecisionInjected && dialog.InjectedTargetIdentityValid;
+    if (scanOverwrite)
+    {
+        if (operation.ScannedTargetRevision.attributes)
+        {
+            scan.kind = UacF7::ThinScanEvidence::Kind::Revision;
+            scan.revision = operation.ScannedTargetRevision;
+        }
+        else
+        {
+            scan.kind = UacF7::ThinScanEvidence::Kind::LegacyIdentity;
+            scan.legacyVolume = dialog.InjectedTargetVolumeSerial;
+            scan.legacyIndex = dialog.InjectedTargetFileIndex;
+        }
+    }
+    const bool copyAttrsOpen = script.CopyAttrs && (kind == UacF7::ThinOpenKind::TargetCreate ||
+                                                     kind == UacF7::ThinOpenKind::TargetOverwrite);
+    auto result = session->Open(progress, *request, kind, overlapped, copyAttrsOpen,
+        (kind == UacF7::ThinOpenKind::TargetRetry || kind == UacF7::ThinOpenKind::TargetReopenWrite) ? &target : nullptr,
+        UacF7::ThinOpenedSource{openedSource}, UacF7::ThinCancelEvent{dialog.CancelWorkerEvent},
+        scanOverwrite ? &scan : nullptr);
+    // Native CREATE_NEW retries without read access when it was requested
+    // only for attributes. Do not retry a declined or uncertain request.
+    if (copyAttrsOpen && kind == UacF7::ThinOpenKind::TargetCreate &&
+        result.error == ERROR_ACCESS_DENIED && !result.unknown && !result.declined && session->IsOpen())
+        result = session->Open(progress, *request, kind, overlapped, false, nullptr,
+            UacF7::ThinOpenedSource{openedSource}, UacF7::ThinCancelEvent{dialog.CancelWorkerEvent}, nullptr);
+    if (!hadStarted && !brokerHandleDelivered && !targetCreatedByBroker &&
+        result.preProbeFailure && result.error != ERROR_SUCCESS && result.error != ERROR_CANCELLED &&
+        result.file == INVALID_HANDLE_VALUE &&
+        !result.unknown && !result.declined && !session->IsOpen())
+    {
+        if (CancelBeforeElevation())
+            return INVALID_HANDLE_VALUE;
+        const DWORD pendingWait = dialog.CancelWorkerEvent ? WaitForSingleObject(dialog.CancelWorkerEvent, 0) : WAIT_FAILED;
+        const DWORD pendingWaitError = !dialog.CancelWorkerEvent ? ERROR_INVALID_HANDLE :
+            pendingWait == WAIT_FAILED ? GetLastError() : ERROR_INVALID_HANDLE;
+        if (pendingWait == WAIT_OBJECT_0)
+        {
+            terminal = true;
+            SetLastError(ERROR_CANCELLED);
+            return INVALID_HANDLE_VALUE;
+        }
+        if (pendingWait != WAIT_TIMEOUT)
+        {
+            SetLastError(pendingWaitError ? pendingWaitError : ERROR_INVALID_HANDLE);
+            return INVALID_HANDLE_VALUE;
+        }
+        scopeMayHaveStarted = false;
+        pendingConsent = true;
+        if (batchScopeApproved && script.Count > 1 && request->CanShareJob() && !request->IsScopedTree())
+        {
+            try { dialog.PendingThinConsent = request->ThinBatchScope(); }
+            catch (const std::bad_alloc&) { dialog.PendingThinConsent.reset(); }
+        }
+    }
+    if (result.unknown)
+    {
+        // A lost reply can also mean the broker created the target. Preserve
+        // it and report an unknown result rather than guessing cleanup is safe.
+        ReportTargetFailure(ERROR_PARTIAL_COPY);
+        SetLastError(ERROR_PARTIAL_COPY);
+        return INVALID_HANDLE_VALUE;
+    }
+    if (result.declined || result.error == ERROR_CANCELLED)
+    {
+        terminal = true;
+        SetLastError(ERROR_CANCELLED);
+        return INVALID_HANDLE_VALUE;
+    }
+    if (result.error != ERROR_SUCCESS || result.file == INVALID_HANDLE_VALUE)
+    {
+        SetLastError(result.error ? result.error : ERROR_INVALID_HANDLE);
+        return INVALID_HANDLE_VALUE;
+    }
+    brokerHandleDelivered = true;
+    if (kind == UacF7::ThinOpenKind::TargetCreate || kind == UacF7::ThinOpenKind::TargetRetry || kind == UacF7::ThinOpenKind::TargetReopenWrite ||
+        kind == UacF7::ThinOpenKind::TargetOverwrite)
+    {
+        // The broker returns the created target identity or the same
+        // previously recorded identity after a successful reopen.
+        target = result.targetIdentity;
+        targetKnown = true;
+        targetCreatedByBroker = true;
+        if (kind == UacF7::ThinOpenKind::TargetOverwrite)
+            nativeTargetOverwrite = false;
+    }
+    // A valid handle may arrive while cancellation is being signalled. Until
+    // it is returned, this method owns it and must release it exactly once.
+    ThinCopyTestHandleGate(kind, dialog.CancelWorkerEvent);
+    const DWORD cancelWait = dialog.CancelWorkerEvent ? WaitForSingleObject(dialog.CancelWorkerEvent, 0) : WAIT_FAILED;
+    const DWORD cancelError = !dialog.CancelWorkerEvent ? ERROR_INVALID_HANDLE :
+        cancelWait == WAIT_FAILED ? GetLastError() : ERROR_INVALID_HANDLE;
+    if (*dialog.CancelWorker || cancelWait != WAIT_TIMEOUT)
+    {
+        const DWORD reason = *dialog.CancelWorker || cancelWait == WAIT_OBJECT_0 ? ERROR_CANCELLED :
+                             cancelError ? cancelError : ERROR_INVALID_HANDLE;
+        return CancelReceivedHandle(kind, result.file, reason);
+    }
+    ThinCopyAcceptedTarget(dataTransferStarted, kind);
+    return result.file;
+}
+
+HANDLE CThinCopyWorker::CancelReceivedHandle(UacF7::ThinOpenKind kind, HANDLE received, DWORD reason)
+{
+    // This handle has not yet been registered with HANDLES. Close it exactly
+    // once before deciding whether it was the worker's target itself.
+    if (!CloseHandle(received))
+    {
+        const DWORD closeError = GetLastError();
+        ReportTargetFailure(closeError);
+        SetLastError(ERROR_PARTIAL_COPY);
+        return INVALID_HANDLE_VALUE;
+    }
+    const bool receivedWasTarget = kind == UacF7::ThinOpenKind::TargetCreate ||
+                                   kind == UacF7::ThinOpenKind::TargetRetry || kind == UacF7::ThinOpenKind::TargetReopenWrite ||
+                                   kind == UacF7::ThinOpenKind::TargetOverwrite;
+    // During a source reopen, or metadata probe, the copy worker can still
+    // own an exclusive writable output. Its COPY_ERROR path must close it and
+    // then perform the identity-bound cleanup; do not race that live handle.
+    const bool discarded = !receivedWasTarget || !targetCreatedByBroker || DiscardTarget();
+    terminal = true;
+    SetLastError(discarded ? reason : ERROR_PARTIAL_COPY);
+    return INVALID_HANDLE_VALUE;
+}
+
+bool CThinCopyWorker::RememberSource(HANDLE file, bool force)
+{
+    sourceVerified = false;
+    if (!active || !file || file == INVALID_HANDLE_VALUE || (!force && !request))
+        return !sourceContinuityLost;
+    if (force)
+        earlierSourceRequired = true;
+    UacF7::MoveFileIdentity actual{};
+    if (!UacF7::CaptureMoveFileIdentity(file, actual))
+        return false;
+    if (earlierSourceKnown && (actual.serial != earlierSource.serial ||
+        std::memcmp(actual.id, earlierSource.id, sizeof(actual.id)) != 0))
+        sourceContinuityLost = true;
+    if (sourceContinuityLost)
+    {
+        SetLastError(ERROR_FILE_INVALID);
+        return false;
+    }
+    earlierSource = actual;
+    earlierSourceKnown = true;
+    if (!request)
+        return true;
+    UacF7::MoveFileIdentity expected{}, parent{};
+    request->SourceIdentities(expected, parent);
+    sourceVerified = earlierSource.serial == expected.serial &&
+                     std::memcmp(earlierSource.id, expected.id, sizeof(expected.id)) == 0;
+    if (!sourceVerified)
+    {
+        sourceContinuityLost = true;
+        SetLastError(ERROR_FILE_INVALID);
+    }
+    return sourceVerified;
+}
+
+void CThinCopyWorker::RememberTarget(HANDLE file, bool force)
+{
+    if (active && file && file != INVALID_HANDLE_VALUE && !targetCreatedByBroker && !NativeTarget() &&
+        (force || request))
+    {
+        UacF7::MoveFileIdentity actual{};
+        if (!UacF7::CaptureMoveFileIdentity(file, actual))
+        {
+            if (request || session) suppressLocalCleanup = true;
+            return; // keep the last verified identity, never an empty result
+        }
+        if (targetKnown && (actual.serial != target.serial ||
+            std::memcmp(actual.id, target.id, sizeof(actual.id)) != 0))
+            targetContinuityLost = true;
+        if (targetContinuityLost)
+        {
+            if (request || session) suppressLocalCleanup = true;
+            return; // a known replacement cannot become the new authority
+        }
+        targetKnown = true;
+        target = actual;
+        if (!terminal && !cleanupUncertain) suppressLocalCleanup = false;
+    }
+}
+
+bool CThinCopyWorker::ValidateRetriedTarget(HANDLE file)
+{
+    UacF7::MoveFileIdentity actual{};
+    if (!targetKnown)
+    {
+        suppressLocalCleanup = true;
+        SetLastError(ERROR_FILE_INVALID);
+        return false;
+    }
+    if (!UacF7::CaptureMoveFileIdentity(file, actual))
+    {
+        suppressLocalCleanup = true;
+        return false; // Retry may still prove the unchanged recorded object
+    }
+    if (actual.serial != target.serial || std::memcmp(actual.id, target.id, sizeof(target.id)) != 0)
+        targetContinuityLost = true;
+    if (targetContinuityLost || terminal || cleanupUncertain)
+    {
+        suppressLocalCleanup = true;
+        SetLastError(targetContinuityLost ? ERROR_FILE_INVALID : ERROR_OPERATION_ABORTED);
+        return false;
+    }
+    suppressLocalCleanup = false;
+    return true;
+}
+
+bool CThinCopyWorker::ReportTargetFailure(DWORD error, int caption)
+{
+    if (cleanupUncertain) return false;
+    cleanupUncertain = true;
+    terminal = true;
+    const bool cancelled = *dialog.CancelWorker ||
+        (dialog.CancelWorkerEvent && WaitForSingleObject(dialog.CancelWorkerEvent, 0) == WAIT_OBJECT_0);
+    // No request may follow a terminal uncertainty. Drop all broker-owned
+    // pins even when the failure occurred before a discard was accepted.
+    // Host duplicates, if any, retain their independent lifetime.
+    if (session) session->Close();
+    if (error == ERROR_PARTIAL_COPY || cancelled)
+    {
+        // Ordinary errors are suppressed after cancellation; always deliver
+        // the native unknown-result warning when cleanup is uncertain.
+        SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER_UNKNOWN, FALSE);
+    }
+    else
+    {
+        const CThinTerminalFileError details{error == ERROR_SUCCESS || error == ERROR_CANCELLED
+                                                ? ERROR_GEN_FAILURE : error,
+                                            caption, operation.TargetName, true};
+        SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_THIN_TERMINAL,
+                    reinterpret_cast<LPARAM>(&details));
+    }
+    return false;
+}
+
+bool CThinCopyWorker::ReportTransferLoss(DWORD error, int caption)
+{
+    if (!NativeTarget()) return ReportTargetFailure(error, caption);
+    if (terminal) return false;
+    terminal = true;
+    if (session) session->Close();
+    const bool cancelled = *dialog.CancelWorker ||
+        (dialog.CancelWorkerEvent && WaitForSingleObject(dialog.CancelWorkerEvent, 0) == WAIT_OBJECT_0);
+    if (!cancelled)
+    {
+        const CThinTerminalFileError details{error == ERROR_SUCCESS || error == ERROR_CANCELLED
+                                                ? ERROR_GEN_FAILURE : error,
+                                            caption, operation.TargetName, false};
+        SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_THIN_TERMINAL,
+                    reinterpret_cast<LPARAM>(&details));
+    }
+    return false;
+}
+
+bool CThinCopyWorker::CloseScopedTarget(HANDLE& file)
+{
+    const bool closed = HANDLES(CloseHandle(file)) != FALSE;
+    const DWORD error = closed ? ERROR_SUCCESS : GetLastError();
+    // A failing CloseHandle cannot safely be reused, closed twice or used as
+    // authority to unlink a pathname. Leave any uncertain object untouched.
+    file = NULL;
+    return closed || ReportTargetFailure(error);
+}
+
+bool CThinCopyWorker::RefuseUnsafeTargetCleanup()
+{
+    return ReportTargetFailure(ERROR_FILE_INVALID);
+}
+
+bool CThinCopyWorker::DiscardTarget()
+{
+    if (cleanupUncertain) return false;
+    if (!targetCreatedByBroker)
+        return true;
+    const DWORD error = session && request && targetKnown ? session->DiscardTarget(*request, target) : ERROR_PARTIAL_COPY;
+    if (error != ERROR_SUCCESS)
+    {
+        return ReportTargetFailure(error);
+    }
+    targetCreatedByBroker = false;
+    targetKnown = false;
+    return true;
+}
+
+void CThinCopyWorker::ReleaseTargetPin()
+{
+    if (!targetCreatedByBroker || !targetKnown)
+        return;
+    const DWORD error = session && request ? session->ReleaseTarget(*request, target) : ERROR_BROKEN_PIPE;
+    // Releasing the broker's reference does not revoke host duplicates.
+    // A lost reply is resolved by closing the job, without retrying by name.
+    if (error && session)
+        session->Close();
+    targetCreatedByBroker = false;
+    targetKnown = false;
+}
+#endif
+
+static bool TryTransferWithBroker(HWND progress, const COperation& op, COperations& script,
+                              CQuadWord& totalDone, CProgressDlgData& dlgData, BOOL& success, DWORD& error,
+                              HANDLE* input = nullptr, bool targetDenied = false, CreateOnlySourceReceipt* receipt = nullptr)
+{
+    if (receipt) *receipt = {};
+    const bool directory = op.Opcode == ocMoveDir;
+    const bool directoryCopy = op.Opcode == ocCreateDir;
+    const bool moving = op.Opcode == ocMoveFile || directory;
+    const bool eligibleMove = directory
+        ? (op.Attr & FILE_ATTRIBUTE_DIRECTORY) && !(op.Attr & FILE_ATTRIBUTE_REPARSE_POINT) &&
+              !script.CopyAttrs && !script.CopySecurity
+        : UacF7::IsEligibleMoveFile(op.Attr, script.CopyAttrs, script.CopySecurity);
+    const bool encrypted = !moving && UacF7::IsEncryptedCopyFile(op.Attr);
+    if (!(op.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) || script.OverwriteOlder || dlgData.ConflictDecisionInjected ||
+        ((op.OpFlags & OPFL_AS_ENCRYPTED) != 0 && !encrypted) ||
+        !op.SourceNameWValid || !op.TargetNameWValid ||
+        (directoryCopy ? (op.Attr != FILE_ATTRIBUTE_DIRECTORY || (op.OpFlags & OPFL_COPY_ADS)) :
+         moving ? !eligibleMove
+                : (!UacF7::IsEligibleFileCopy(op.Attr, script.CopyAttrs, script.IgnoreTransferAds, script.CopySecurity) ||
+                   op.FileSize.Value > (encrypted ? UacF7::maxPilotCopyBytes : UacF7::maxNativeCopyBytes))))
+        return false;
+
+    BOOL limited = FALSE;
+    DWORD limit = 0;
+    script.GetSpeedLimit(&limited, &limit);
+    if (limited)
+        return false;
+
+    const UacF7::PreparedLeaf* listedSource = nullptr;
+    if (op.OpFlags & OPFL_UAC_TRANSFER_LISTED)
+    {
+        const auto* listed = ListedTransferSource(op, script);
+        if (!listed || !listed->Request)
+        {
+            error = listed ? listed->Error : ERROR_FILE_INVALID;
+            return false;
+        }
+        listedSource = listed->Request.get();
+    }
+    const auto* deferred = script.DeferredTransferTarget ? &*script.DeferredTransferTarget : nullptr;
+    const bool plannedRoot = (op.OpFlags & OPFL_UAC_TREE_ROOT) && script.CopySource &&
+                             script.CopySource->Session && script.CopySource->Session->NeedsTreeRoot();
+    if (!deferred && !plannedRoot)
+    {
+        const std::wstring targetPath = WorkerOperationPathW(op.TargetName, op.TargetNameW.c_str());
+        if (GetFileAttributesW(targetPath.c_str()) != INVALID_FILE_ATTRIBUTES)
+        {
+            if (listedSource)
+                error = ERROR_ALREADY_EXISTS;
+            return false;
+        }
+        const DWORD targetError = GetLastError();
+        if (targetError != ERROR_FILE_NOT_FOUND && targetError != ERROR_ACCESS_DENIED)
+            return false;
+    }
+
+    auto operation = UacF7::FileTransferOperation(op.Attr, moving, script.CopyAttrs,
+                                                 script.IgnoreTransferAds, script.CopySecurity);
+    if (directoryCopy)
+        operation = UacF7::Operation::CopyDirectoryEntry;
+    else if (directory)
+        operation = UacF7::Operation::MoveDirectory;
+    UacF7::PreparedTransfer request;
+    const ULONGLONG expectedSize = directoryCopy ? 0 : op.FileSize.Value;
+    if (!request.Prepare(op.SourceNameW, op.TargetNameW, expectedSize, operation, listedSource, deferred) ||
+        (moving && !directory && !request.IsCrossVolumeMove() && !listedSource &&
+         !UacF7::IsNativePlainCopyFile(op.Attr)))
+    {
+        if (listedSource || deferred)
+            error = ERROR_NOT_SUPPORTED;
+        return false;
+    }
+    if ((encrypted || request.IsCrossVolumeMove()) && input && *input != INVALID_HANDLE_VALUE)
+    {
+        // Raw export and the sealed source guard need the ordinary copy
+        // handle closed before the elevated operation starts.
+        HANDLES(CloseHandle(*input));
+        *input = INVALID_HANDLE_VALUE;
+    }
+    return ExecuteWorkerTransfer(progress, op, script, totalDone, dlgData, success, request, error, targetDenied, receipt);
+}
+
+static bool PrepareWorkerOverwrite(const COperation& op, COperations& script,
+                                   const CProgressDlgData& dlgData, UacF7::PreparedTransfer& request)
+{
+    if ((op.Opcode != ocCopyFile && op.Opcode != ocMoveFile) || !(op.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) ||
+        script.OverwriteOlder || script.CopySecurity || script.CopyAttrs ||
+        (script.IgnoreTransferAds && op.Opcode != ocCopyFile) ||
+        (dlgData.ConflictDecisionInjected &&
+         (dlgData.InjectedConflictType != cmctFileExists || !op.ScannedTargetRevision.attributes)) ||
+        !op.SourceNameWValid || !op.TargetNameWValid ||
+        (op.OpFlags & OPFL_AS_ENCRYPTED) || !UacF7::IsNativePlainCopyFile(op.Attr))
+        return false;
+    BOOL limited = FALSE;
+    DWORD limit = 0;
+    script.GetSpeedLimit(&limited, &limit);
+    const auto* listed = ListedTransferSource(op, script);
+    if ((op.OpFlags & OPFL_UAC_TRANSFER_LISTED) && (!listed || !listed->Request))
+        return false;
+    return !limited && request.PrepareOverwrite(op.SourceNameW, op.TargetNameW, op.FileSize.Value,
+                                                 listed ? listed->Request.get() : nullptr, op.Opcode == ocMoveFile,
+                                                 script.IgnoreTransferAds != FALSE) &&
+           (!dlgData.ConflictDecisionInjected ||
+            UacF7::SameFileRevision(op.ScannedTargetRevision, request.Approval().revision));
+}
+
+enum class SourceOverwriteResult { Unavailable, Failed, Finished, Skipped, Cancelled };
+
+// Narrow pilot: one ordinary F5 item, no scan-ahead or operation-wide
+// decisions. The broker observes the exact target before the native choice.
+struct SingleProbedOverwritePrompt
+{
+    HWND window;
+    BOOL* cancel;
+    HANDLE cancelEvent, workerNotSuspended;
+    std::string sourceName, targetName;
+    DWORD waitError = ERROR_SUCCESS;
+};
+
+static UacF7::ProbedOverwriteDecision PromptSingleProbedOverwrite(void* raw, const UacF7::OverwriteProbeReply& reply)
+{
+    auto& context = *static_cast<SingleProbedOverwritePrompt*>(raw);
+    using Decision = UacF7::ProbedOverwriteDecision;
+    if (*context.cancel) return Decision::Cancel;
+    if (!IsWindow(context.window)) return Decision::Disconnected;
+    if (reply.target.attributes & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_READONLY))
+        return Decision::Unavailable; // Preserve the original special-attribute path.
+    CUacOverwriteProbePrompt prompt{};
+    prompt.singleItem = TRUE;
+    prompt.sourceName = context.sourceName;
+    prompt.targetName = context.targetName;
+    char sourceInfo[101], targetInfo[101];
+    GetOverwriteRevisionInfo(sourceInfo, _countof(sourceInfo), reply.source);
+    GetOverwriteRevisionInfo(targetInfo, _countof(targetInfo), reply.target);
+    prompt.sourceInfo = sourceInfo;
+    prompt.targetInfo = targetInfo;
+    SendMessage(context.window, WM_USER_DIALOG, WORKER_DIALOG_UAC_OVERWRITE_PROBE, reinterpret_cast<LPARAM>(&prompt));
+    if (*context.cancel) return Decision::Cancel;
+    if (!IsWindow(context.window)) return Decision::Disconnected;
+    if (prompt.error) { context.waitError = prompt.error; return Decision::Failed; }
+    if (prompt.result == IDYES)
+    {
+        HANDLE waits[2] = {context.cancelEvent, context.workerNotSuspended};
+        const DWORD wait = WaitForMultipleObjects(2, waits, FALSE, INFINITE);
+        if (wait == WAIT_OBJECT_0 || *context.cancel) return Decision::Cancel;
+        if (wait != WAIT_OBJECT_0 + 1)
+        {
+            context.waitError = wait == WAIT_FAILED ? GetLastError() : ERROR_INVALID_HANDLE;
+            return Decision::Failed;
+        }
+        return IsWindow(context.window) ? Decision::Yes : Decision::Disconnected;
+    }
+    if (prompt.result == IDNO || prompt.result == IDB_SKIP) return Decision::Skip;
+    return Decision::Cancel;
+}
+
+static SourceOverwriteResult TrySingleProbedOverwrite(HWND progress, COperation& op, COperations& script,
+                                                       CQuadWord& totalDone, CProgressDlgData& data,
+                                                       const UacF7::OverwriteApproval& prior, DWORD& error,
+                                                       bool targetDenied, bool previousUserDecision, const CreateOnlySourceReceipt* receipt = nullptr)
+{
+    using Outcome = SourceOverwriteResult;
+    if (!targetDenied || previousUserDecision || prior.captured || !data.CnfrmFileOver ||
+        script.Count != 1 || script.CopyMoveConflictMode == CMCM_SCAN_AHEAD ||
+        data.ConflictDecisionInjected || op.Opcode != ocCopyFile || !(op.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) ||
+        !op.SourceNameWValid || !op.TargetNameWValid || script.OverwriteOlder || script.CopySecurity || script.CopyAttrs ||
+        data.OverwriteAll || data.SkipAllOverwrite || data.OverwriteHiddenAll || data.SkipAllSystemOrHidden ||
+        (op.Attr & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)) || (op.OpFlags & OPFL_AS_ENCRYPTED) ||
+        !UacF7::IsNativePlainCopyFile(op.Attr)) return Outcome::Unavailable;
+    HANDLE waits[2] = {data.CancelWorkerEvent, data.WorkerNotSuspended};
+    const DWORD waitResult = WaitForMultipleObjects(2, waits, FALSE, INFINITE);
+    if (waitResult == WAIT_OBJECT_0 || *data.CancelWorker) { error = ERROR_CANCELLED; return Outcome::Cancelled; }
+    if (waitResult != WAIT_OBJECT_0 + 1) { error = waitResult == WAIT_FAILED ? GetLastError() : ERROR_INVALID_HANDLE; return Outcome::Failed; }
+    if (script.CopySource && script.CopySource->ElevationDeclined) return Outcome::Unavailable;
+    BOOL limited = FALSE; DWORD limit = 0; script.GetSpeedLimit(&limited, &limit);
+    if (limited) return Outcome::Unavailable;
+    const auto* listed = ListedTransferSource(op, script);
+    if ((op.OpFlags & OPFL_UAC_TRANSFER_LISTED) && (!listed || !listed->Request)) return Outcome::Unavailable;
+    try
+    {
+        UacF7::PreparedTransfer request;
+        if (!request.PrepareOverwriteProbe(op.SourceNameW, op.TargetNameW, op.FileSize.Value,
+                                           listed ? listed->Request.get() : nullptr, script.IgnoreTransferAds != FALSE))
+        {
+            if (receipt) { error = ERROR_FILE_INVALID; return Outcome::Failed; }
+            return Outcome::Unavailable;
+        }
+        if (receipt && !request.MatchesSourceIdentity(receipt->source, receipt->parent))
+        {
+            error = ERROR_FILE_INVALID;
+            return Outcome::Failed;
+        }
+        auto& jobs = data.TransferJobs;
+        auto existing = std::find_if(jobs.begin(), jobs.end(), [&](const auto& job) { return request.IsInJob(job); });
+        auto* planned = script.CopySource && script.CopySource->Session ? script.CopySource->Session.get() : nullptr;
+        if (receipt)
+        {
+            auto* current = planned ? planned : existing != jobs.end() ? &*existing : nullptr;
+            if (!current || current != receipt->session || !receipt->opening ||
+                current->OpeningGeneration() != receipt->opening || !request.IsInJob(*current))
+            {
+                error = ERROR_FILE_INVALID;
+                return Outcome::Failed;
+            }
+        }
+        if (planned && (!planned->IsOpen() || !request.IsInJob(*planned))) return Outcome::Unavailable;
+        const auto sourceDisplay = SalPathRemoveExtendedPrefixW(op.SourceNameW.c_str());
+        const auto targetDisplay = SalPathRemoveExtendedPrefixW(op.TargetNameW.c_str());
+        const auto sourceText = SalWideToMultiBytePath(sourceDisplay.c_str(), CP_UTF8);
+        const auto targetText = SalWideToMultiBytePath(targetDisplay.c_str(), CP_UTF8);
+        if (!planned && existing == jobs.end())
+        {
+            UacF7::TransferPrompt consent{request, sourceText.c_str(), targetText.c_str(), true};
+            SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER, reinterpret_cast<LPARAM>(&consent));
+            if (*data.CancelWorker)
+            { error = ERROR_CANCELLED; return Outcome::Cancelled; }
+            const DWORD consentWait = data.CancelWorkerEvent ? WaitForSingleObject(data.CancelWorkerEvent, 0) : WAIT_FAILED;
+            const DWORD consentWaitError = !data.CancelWorkerEvent ? ERROR_INVALID_HANDLE :
+                consentWait == WAIT_FAILED ? GetLastError() : ERROR_INVALID_HANDLE;
+            if (consentWait == WAIT_OBJECT_0) { error = ERROR_CANCELLED; return Outcome::Cancelled; }
+            if (consentWait != WAIT_TIMEOUT)
+            { error = consentWaitError ? consentWaitError : ERROR_INVALID_HANDLE; return Outcome::Failed; }
+            if (consent.promptError != ERROR_SUCCESS) { error = consent.promptError; return Outcome::Failed; }
+            if (!consent.approved) { error = ERROR_CANCELLED; return Outcome::Cancelled; }
+            existing = jobs.emplace(jobs.end());
+        }
+        auto* job = planned ? planned : &*existing;
+        SingleProbedOverwritePrompt prompt{progress, data.CancelWorker, data.CancelWorkerEvent, data.WorkerNotSuspended,
+                                          op.SourceName ? op.SourceName : "", op.TargetName ? op.TargetName : ""};
+        struct Progress
+        {
+            HWND dialog; COperations& script; CProgressDlgData& data; const COperation& op;
+            CQuadWord completed, transferred; bool shown = false;
+        } state{progress, script, data, op, totalDone, CQuadWord(0, 0)};
+        script.GetTFS(&state.transferred);
+        const auto update = [](void* raw, ULONGLONG bytes, ULONGLONG total)
+        {
+            auto& value = *static_cast<Progress*>(raw);
+            CQuadWord current = CQuadWord().SetUI64((std::min)(bytes, value.op.Size.Value));
+            int item = CaclProg(current, value.op.Size);
+            if (total)
+            {
+                const double fraction = static_cast<double>(bytes) / static_cast<double>(total);
+                item = static_cast<int>(1000 * fraction);
+                current.SetUI64(static_cast<ULONGLONG>(value.op.Size.Value * fraction));
+            }
+            else value.script.SetTFSandProgressSize(value.transferred + current, value.completed + current);
+            const int summary = (std::min)(999, CaclProg(value.completed + current, value.script.TotalSize));
+            SetProgressWithoutSuspend(value.dialog, (std::min)(999, item), summary, value.data);
+            value.shown = true;
+        };
+        const auto outcome = request.ExecuteProbedOverwrite(progress, *job, PromptSingleProbedOverwrite, &prompt,
+            data.CancelWorkerEvent, update, &state, NotifyNativeBrokerActivity);
+        if (state.shown)
+        {
+            script.SetTFSandProgressSize(state.transferred, totalDone);
+            if (outcome.transfer.error || outcome.transfer.unknown)
+                SetProgressWithoutSuspend(progress, 0, CaclProg(totalDone, script.TotalSize), data);
+        }
+        if (!planned && existing != jobs.end() && !existing->IsOpen()) jobs.erase(existing);
+        if (outcome.transfer.unknown)
+        {
+            SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_DISK_RECOVERY_UNKNOWN, FALSE);
+            return Outcome::Cancelled;
+        }
+        if (outcome.decision == UacF7::ProbedOverwriteDecision::Unavailable && !outcome.transfer.error)
+            return Outcome::Unavailable;
+        if (outcome.decision == UacF7::ProbedOverwriteDecision::Skip && !outcome.transfer.error)
+            return Outcome::Skipped;
+        if (outcome.transfer.error)
+        {
+            error = prompt.waitError ? prompt.waitError : outcome.transfer.error;
+            return error == ERROR_CANCELLED ? Outcome::Cancelled : Outcome::Failed;
+        }
+        if (outcome.decision != UacF7::ProbedOverwriteDecision::Yes) return Outcome::Cancelled;
+        totalDone += op.Size;
+        const CQuadWord mainWork = max(op.FileSize, COPY_MIN_FILE_SIZE);
+        const CQuadWord namedBytes = (op.OpFlags & OPFL_COPY_ADS) != 0 && op.Size > mainWork ? op.Size - mainWork : CQuadWord(0, 0);
+        script.AddBytesToTFSandSetProgressSize(op.FileSize + namedBytes, totalDone);
+        SetProgress(progress, 0, CaclProg(totalDone, script.TotalSize), data);
+        return Outcome::Finished;
+    }
+    catch (const std::bad_alloc&) { error = ERROR_NOT_ENOUGH_MEMORY; return Outcome::Failed; }
+}
+
+// Use the existing Hidden/System conflict dialog for both ordinary targets and
+// identity-bound broker replacements. No elevated operation skips this choice.
+static SourceOverwriteResult ConfirmBrokerOverwriteAttributes(HWND progress, const COperation& op,
+                                                              CProgressDlgData& data, DWORD attributes)
+{
+    using Outcome = SourceOverwriteResult;
+    if (!(attributes & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)) ||
+        data.OverwriteHiddenAll || !data.CnfrmSHFileOver)
+        return Outcome::Finished;
+    WaitForSingleObject(data.WorkerNotSuspended, INFINITE);
+    if (*data.CancelWorker)
+        return Outcome::Cancelled;
+    if (data.SkipAllSystemOrHidden)
+        return Outcome::Skipped;
+    int answer = IDCANCEL;
+    char* details[] = {reinterpret_cast<char*>(&answer), LoadStr(IDS_CONFIRMFILEOVERWRITING),
+                      op.TargetName, LoadStr(IDS_WANTOVERWRITESHFILE)};
+    SendMessage(progress, WM_USER_DIALOG, 2, reinterpret_cast<LPARAM>(details));
+    if (answer == IDB_ALL)
+        data.OverwriteHiddenAll = TRUE;
+    if (answer == IDYES || answer == IDB_ALL)
+        return Outcome::Finished;
+    if (answer == IDB_SKIPALL)
+        data.SkipAllSystemOrHidden = TRUE;
+    return answer == IDB_SKIP || answer == IDB_SKIPALL ? Outcome::Skipped : Outcome::Cancelled;
+}
+
+static SourceOverwriteResult TryOverwriteDeniedSource(HWND progress, COperation& op, COperations& script,
+                                                      CQuadWord& totalDone, CProgressDlgData& dlgData,
+                                                      UacF7::OverwriteApproval& approval, DWORD& error, bool targetDenied = false,
+                                                      bool previousUserDecision = false)
+{
+    using Outcome = SourceOverwriteResult;
+    if (dlgData.SkipAllFileOpenOut)
+        return Outcome::Unavailable;
+    if (dlgData.ConflictDecisionInjected && op.ScannedTargetRevision.attributes &&
+        !ValidateInjectedTargetIdentity(&op, dlgData))
+    {
+        dlgData.ConflictTargetChanged = TRUE;
+        return Outcome::Finished; // The coordinator requeues this item without advancing progress.
+    }
+
+    UacF7::PreparedTransfer overwrite;
+    if (!PrepareWorkerOverwrite(op, script, dlgData, overwrite))
+        return TrySingleProbedOverwrite(progress, op, script, totalDone, dlgData, approval, error, targetDenied, previousUserDecision);
+    if (!dlgData.ConflictDecisionInjected && dlgData.SkipAllOverwrite)
+        return Outcome::Skipped;
+
+    const bool targetChanged = approval.captured && !overwrite.MatchesApproval(approval);
+    if (targetChanged || (!approval.captured && !dlgData.OverwriteAll && dlgData.CnfrmFileOver))
+    {
+        const auto targetPath = WorkerOperationPathW(op.TargetName, op.TargetNameW.c_str());
+        HANDLE target = HANDLES_Q(CreateFileW(targetPath.c_str(), FILE_READ_ATTRIBUTES,
+                                              FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                                              OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+        char targetInfo[101];
+        if (target == INVALID_HANDLE_VALUE)
+        {
+            if (GetLastError() != ERROR_ACCESS_DENIED)
+                return Outcome::Unavailable;
+            GetOverwriteRevisionInfo(targetInfo, _countof(targetInfo), overwrite.Approval().revision);
+        }
+        else
+        {
+            const bool sameTarget = overwrite.MatchesOverwriteTarget(target);
+            if (!sameTarget)
+            {
+                HANDLES(CloseHandle(target));
+                return Outcome::Unavailable;
+            }
+            GetFileOverwriteInfo(targetInfo, _countof(targetInfo), target, op.TargetName, nullptr, nullptr);
+            HANDLES(CloseHandle(target));
+        }
+
+        const auto sourcePath = WorkerOperationPathW(op.SourceName, op.SourceNameW.c_str());
+        HANDLE source = HANDLES_Q(CreateFileW(sourcePath.c_str(), FILE_READ_ATTRIBUTES,
+                                              FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                                              OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+        char sourceInfo[101];
+        GetFileOverwriteInfo(sourceInfo, _countof(sourceInfo), source, op.SourceName, nullptr, nullptr);
+        if (source != INVALID_HANDLE_VALUE)
+            HANDLES(CloseHandle(source));
+
+        int answer = IDCANCEL;
+        char* details[] = {reinterpret_cast<char*>(&answer), op.TargetName, targetInfo, op.SourceName, sourceInfo};
+        SendMessage(progress, WM_USER_DIALOG, 1, reinterpret_cast<LPARAM>(details));
+        if (answer == IDB_SKIPALL)
+            dlgData.SkipAllOverwrite = TRUE;
+        if (answer == IDB_SKIPALL || answer == IDB_SKIP)
+            return Outcome::Skipped;
+        if (answer != IDYES && answer != IDB_ALL)
+            return Outcome::Cancelled;
+        if (answer == IDB_ALL)
+            dlgData.OverwriteAll = TRUE;
+    }
+
+    if (!approval.captured || targetChanged)
+    {
+        const auto attributes = ConfirmBrokerOverwriteAttributes(progress, op, dlgData, overwrite.Approval().revision.attributes);
+        if (attributes != Outcome::Finished)
+            return attributes;
+    }
+    approval = overwrite.Approval();
+    BOOL success = FALSE;
+    if (!ExecuteWorkerTransfer(progress, op, script, totalDone, dlgData, success, overwrite, error, targetDenied))
+        return Outcome::Failed;
+    return success ? Outcome::Finished : Outcome::Cancelled;
+}
+
+struct MoveCopyReceipt
+{
+    UacF7::MoveFileIdentity source{}, target{};
+    bool sourceCaptured = false;
+    bool captured = false;
+};
+
+// Scan Ahead retries this operation after a conflict changes. Release the
+// source first, including a handle delegated by the elevated helper.
+static BOOL ReturnCopyConflictChanged(HANDLE& input, CProgressDlgData& dialog)
+{
+    if (input && input != INVALID_HANDLE_VALUE)
+        HANDLES(CloseHandle(input));
+    input = NULL;
+    dialog.ConflictTargetChanged = TRUE;
+    return TRUE;
 }
 
 BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
@@ -5613,7 +8422,7 @@ BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
                 DWORD clearReadonlyMask, BOOL* skip, BOOL lantasticCheck,
                 int& mustDeleteFileBeforeOverwrite, int& allocWholeFileOnStart,
                 CProgressDlgData& dlgData, BOOL copyADS, BOOL copyAsEncrypted,
-                BOOL isMove, CAsyncCopyParams*& asyncPar)
+                BOOL isMove, CAsyncCopyParams*& asyncPar, MoveCopyReceipt* moveReceipt = nullptr)
 {
     if (script->CopyAttrs && copyAsEncrypted)
         TRACE_E("DoCopyFile(): unexpected parameter value: copyAsEncrypted is TRUE when script->CopyAttrs is TRUE!");
@@ -5622,6 +8431,82 @@ BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
     // CreateFile would trim the spaces/dots and copy a different file or under a different name
     BOOL invalidSrcName = FileNameIsInvalid(op->SourceName, TRUE);
     BOOL invalidTgtName = FileNameIsInvalid(op->TargetName, TRUE);
+
+#ifdef SAM_UAC_THIN_COPY_TEST
+    HANDLE in = INVALID_HANDLE_VALUE;
+    CThinCopyWorker thin(*op, *script, dlgData, hProgressDlg, &in);
+    thin.Configure(isMove != FALSE, copyADS != FALSE, copyAsEncrypted != FALSE);
+#ifdef SAM_UAC_THIN_PLANNED_PROTOTYPE
+    if (thin.active ? !thin.ClaimPlan() : !thin.PlanAvailableForOriginal())
+    {
+        return FALSE;
+    }
+#endif
+    ThinCopyTestSignal(L"SAM_UAC_TEST_ENTER_EVENT");
+    const bool originalTransfer = !thin.active;
+#else
+    const bool originalTransfer = true;
+#endif
+    UacF7::OverwriteApproval approvedOverwrite{};
+    CreateOnlySourceReceipt createOnlyReceipt{};
+    bool previousNativeOverwriteConfirmed = false;
+    const bool deferred = script->DeferredTransferTarget.has_value();
+    if (originalTransfer && (deferred || (op->OpFlags & OPFL_UAC_TRANSFER_SOURCE) != 0))
+    {
+        BOOL& skipAll = deferred ? dlgData.SkipAllFileOpenOut : dlgData.SkipAllFileOpenIn;
+        int answer;
+        do
+        {
+            WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE);
+            if (*dlgData.CancelWorker)
+                return FALSE;
+            if (skipAll)
+                break;
+            const bool listedSource = (op->OpFlags & OPFL_UAC_TRANSFER_LISTED) != 0;
+            const auto* preparedSource = ListedTransferSource(*op, *script);
+            DWORD error = listedSource && preparedSource && preparedSource->Error ? preparedSource->Error :
+                          (listedSource || deferred ? ERROR_NOT_SUPPORTED : ERROR_ACCESS_DENIED);
+            if (!invalidSrcName && !invalidTgtName)
+            {
+                const auto outcome = !deferred && !copyAsEncrypted
+                    ? TryOverwriteDeniedSource(hProgressDlg, *op, *script, totalDone, dlgData, approvedOverwrite, error)
+                    : SourceOverwriteResult::Unavailable;
+                if (outcome == SourceOverwriteResult::Finished || outcome == SourceOverwriteResult::Cancelled)
+                {
+                    if (outcome == SourceOverwriteResult::Finished && isMove && skip)
+                        *skip = TRUE; // Includes a requeued conflict; never retire the source here.
+                    return outcome == SourceOverwriteResult::Finished;
+                }
+                if (outcome == SourceOverwriteResult::Skipped)
+                    break;
+                BOOL success = FALSE;
+                if (outcome == SourceOverwriteResult::Unavailable &&
+                    TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success, error, nullptr, deferred))
+                {
+                    if (success && isMove && skip)
+                        *skip = TRUE; // The broker already removed the source.
+                    return success;
+                }
+            }
+            answer = IDCANCEL;
+            char* data[] = {reinterpret_cast<char*>(&answer), LoadStr(isMove ? IDS_ERRORMOVE : IDS_ERRORCOPY),
+                            deferred || error == ERROR_ALREADY_EXISTS ? op->TargetName : op->SourceName, GetErrorText(error)};
+            SendMessage(hProgressDlg, WM_USER_DIALOG, 0, reinterpret_cast<LPARAM>(data));
+            if (answer == IDCANCEL)
+                return FALSE;
+            if (answer == IDB_SKIPALL)
+                skipAll = TRUE;
+        } while (answer == IDRETRY);
+
+        CQuadWord transferred;
+        script->GetTFSandResetTrSpeedIfNeeded(&transferred);
+        totalDone += op->Size;
+        SetTFSandPSforSkippedFile(op, transferred, script, totalDone);
+        SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
+        if (skip != NULL)
+            *skip = TRUE;
+        return TRUE;
+    }
 
     // optimization: skipping all "older and identical" files is about 4x faster,
     // slowing down when the file is newer is 5%, so it should be well worth it
@@ -5690,6 +8575,17 @@ BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
                        ((op->OpFlags & OPFL_SRCPATH_IS_NET) && ((op->OpFlags & OPFL_TGTPATH_IS_NET) ||
                                                                 (op->OpFlags & OPFL_TGTPATH_IS_FAST)) ||
                         (op->OpFlags & OPFL_TGTPATH_IS_NET) && (op->OpFlags & OPFL_SRCPATH_IS_FAST));
+#ifdef SAM_UAC_THIN_COPY_TEST
+    wchar_t testMode[16]{};
+    const DWORD testModeLength = GetEnvironmentVariableW(L"SAM_UAC_TEST_COPY_MODE", testMode, _countof(testMode));
+    if (testModeLength && testModeLength < _countof(testMode))
+    {
+        if (_wcsicmp(testMode, L"sync") == 0)
+            useAsyncAlg = FALSE;
+        else if (_wcsicmp(testMode, L"async") == 0 && op->FileSize.Value > 0)
+            useAsyncAlg = TRUE;
+    }
+#endif
 
     if (asyncPar == NULL)
         asyncPar = new CAsyncCopyParams;
@@ -5708,9 +8604,15 @@ BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
     script->GetTFSandResetTrSpeedIfNeeded(&lastTransferredFileSize);
 
 COPY_AGAIN:
+        if (moveReceipt)
+            *moveReceipt = {};
 
     operationDone = CQuadWord(0, 0);
+#ifndef SAM_UAC_THIN_COPY_TEST
     HANDLE in;
+#else
+    in = INVALID_HANDLE_VALUE;
+#endif
 
     if (skip != NULL)
         *skip = FALSE;
@@ -5737,9 +8639,9 @@ COPY_AGAIN:
     {
         if (!invalidSrcName && !asyncPar->Failed())
         {
-            in = HANDLES_Q(CreateFileW(WorkerOperationPathW(op->SourceName, op->SourceNameWValid ? op->SourceNameW.c_str() : NULL).c_str(),
+            in = THIN_OPEN_SOURCE(&thin, HANDLES_Q(CreateFileW(WorkerOperationPathW(op->SourceName, op->SourceNameWValid ? op->SourceNameW.c_str() : NULL).c_str(),
                                           GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-                                          OPEN_EXISTING, asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+                                          OPEN_EXISTING, asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN, NULL)), asyncPar->UseAsyncAlg != FALSE);
         }
         else
         {
@@ -5750,11 +8652,14 @@ COPY_AGAIN:
             CQuadWord fileSize = op->FileSize;
 
             HANDLE out;
+            DWORD transferError;
             BOOL lossEncryptionAttr = FALSE;
             BOOL skipAllocWholeFileOnStart = FALSE;
             while (1)
             {
             OPEN_TGT_FILE:
+
+                transferError = ERROR_SUCCESS;
 
                 BOOL encryptionNotSupported = FALSE;
                 DWORD fileAttrs = asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN |
@@ -5763,6 +8668,13 @@ COPY_AGAIN:
                 if (!invalidTgtName)
                 {
                     // GENERIC_READ for 'out' slows asynchronous copying from disk to network (measured 95 MB/s instead of 111 MB/s on Win7 x64 GLAN)
+#ifdef SAM_UAC_THIN_COPY_TEST
+                    // The denial must precede either real CREATE_NEW path: a
+                    // locally-created file or handle must never be discarded.
+                    if (thin.active && ThinCopyTestDenyOpen(&thin, true))
+                        out = ThinCopyTestDeniedHandle();
+                    else
+#endif
                     if (op->TargetNameWValid)
                     {
                         // Both branches register out once in HANDLES_ADD_EX below.
@@ -5777,6 +8689,36 @@ COPY_AGAIN:
                             out = SalCreateFileEx(op->TargetName, GENERIC_WRITE, 0, fileAttrs, &encryptionNotSupported);
                     }
 
+#ifdef SAM_UAC_THIN_COPY_TEST
+                    if (thin.active)
+                    {
+                        out = THIN_OPEN_TARGET_CREATE(&thin, out, asyncPar->UseAsyncAlg != FALSE);
+                        if (thin.terminal)
+                        {
+                            if (in != INVALID_HANDLE_VALUE)
+                                HANDLES(CloseHandle(in));
+                            return FALSE;
+                        }
+                    }
+#endif
+                    if (originalTransfer && out == INVALID_HANDLE_VALUE && !invalidTgtName &&
+                        (!copyAsEncrypted || UacF7::IsEncryptedCopyFile(op->Attr)) &&
+                        !dlgData.SkipAllFileOpenOut && GetLastError() == ERROR_ACCESS_DENIED)
+                    {
+                        BOOL success = FALSE;
+                        if (TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success, transferError, &in, true, &createOnlyReceipt))
+                        {
+                            if (in != INVALID_HANDLE_VALUE)
+                                HANDLES(CloseHandle(in));
+                            if (success && isMove && skip)
+                                *skip = TRUE; // The broker already removed the source.
+                            return success;
+                        }
+                        if (transferError)
+                            goto CREATE_ERROR;
+                        SetLastError(ERROR_ACCESS_DENIED);
+                    }
+
                     if (out == INVALID_HANDLE_VALUE && encryptionNotSupported && dlgData.FileOutLossEncrAll && !lossEncryptionAttr)
                     { // the user agreed to lose the Encrypted attribute for all problematic files, so make that happen here
                         lossEncryptionAttr = TRUE;
@@ -5787,7 +8729,7 @@ COPY_AGAIN:
                     if (script->CopyAttrs)
                     {
                         fileAttrs = lossEncryptionAttr ? (op->Attr & ~FILE_ATTRIBUTE_ENCRYPTED) : op->Attr;
-                        SetCompressAndEncryptedAttrs(op->TargetName, fileAttrs, &out, TRUE, NULL, asyncPar);
+                        SetCompressAndEncryptedAttrs(op->TargetName, fileAttrs, &out, TRUE, NULL, asyncPar, THIN_SCOPED_TARGET(&thin));
                     }
 
                     if (out != INVALID_HANDLE_VALUE && (fileAttrs & FILE_ATTRIBUTE_ENCRYPTED))
@@ -5891,20 +8833,54 @@ COPY_AGAIN:
                                 allocWholeFileOnStart = 2 /* no */; // we will forego further attempts on this target disk
                             }
 
-                            // try truncating the file to zero so closing it does not trigger any unnecessary writes
-                            SetFilePointer(out, 0, NULL, FILE_BEGIN);
-                            SetEndOfFile(out);
-
-                            HANDLES(CloseHandle(out));
-                            out = INVALID_HANDLE_VALUE;
-                            WorkerClearReadOnlyW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL)); // in case it was created as read-only (should never happen) so we can handle it
-                            if (DeleteFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str()))
+#ifdef SAM_UAC_THIN_COPY_TEST
+                            if (thin.ScopedTarget())
                             {
-                                skipAllocWholeFileOnStart = TRUE;
-                                goto OPEN_TGT_FILE;
+                                // Reuse only before data reaches this freshly
+                                // created target. Keep its exact handle; require
+                                // verified reset and no cancellation.
+                                bool cancelled = thin.CancelBeforeElevation();
+                                bool reset = false;
+                                if (!thin.dataTransferStarted && !cancelled)
+                                {
+                                    reset = ThinCopyResetFailedPreallocation(out);
+                                    cancelled = thin.CancelBeforeElevation();
+                                }
+                                if (reset && !cancelled)
+                                    skipAllocWholeFileOnStart = TRUE;
+                                else
+                                {
+                                    // A successful discard removes only the verified
+                                    // owned object. Retry through the ordinary target
+                                    // open, which must handle a new conflict again.
+                                    const bool closed = thin.CloseScopedTarget(out);
+                                    const bool discarded = closed && THIN_DELETE_TARGET(&thin, FALSE);
+                                    if (discarded && !cancelled && !thin.CancelBeforeElevation())
+                                    {
+                                        skipAllocWholeFileOnStart = TRUE;
+                                        goto OPEN_TGT_FILE;
+                                    }
+                                    HANDLES(CloseHandle(in));
+                                    return FALSE;
+                                }
                             }
                             else
-                                goto CREATE_ERROR;
+#endif
+                            {
+                                // try truncating the file to zero so closing it does not trigger any unnecessary writes
+                                SetFilePointer(out, 0, NULL, FILE_BEGIN);
+                                SetEndOfFile(out);
+                                HANDLES(CloseHandle(out));
+                                out = INVALID_HANDLE_VALUE;
+                                WorkerClearReadOnlyW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL)); // in case it was created as read-only (should never happen) so we can handle it
+                                if (DeleteFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str()))
+                                {
+                                    skipAllocWholeFileOnStart = TRUE;
+                                    goto OPEN_TGT_FILE;
+                                }
+                                else
+                                    goto CREATE_ERROR;
+                            }
                         }
                     }
 
@@ -5913,11 +8889,20 @@ COPY_AGAIN:
                     BOOL copyError = FALSE;
                     BOOL skipCopy = FALSE;
                     BOOL copyAgain = FALSE;
+#ifdef SAM_UAC_THIN_COPY_TEST
+                    // Reuse is permitted only before the first transfer to
+                    // this particular broker-created target.
+                    thin.dataTransferStarted = true;
+#endif
                     if (useAsyncAlg)
                     {
                         DoCopyFileLoopAsync(asyncPar, in, out, buffer, limitBufferSize, script, dlgData, wholeFileAllocated, op,
                                             totalDone, copyError, skipCopy, hProgressDlg, operationDone, fileSize,
-                                            bufferSize, allocWholeFileOnStart, copyAgain, lastTransferredFileSize);
+                                            bufferSize, allocWholeFileOnStart, copyAgain, lastTransferredFileSize
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                            , &thin
+#endif
+                                            );
                         // NOTE: neither 'in' nor 'out' has the file pointer (SetFilePointer) positioned at the end of the file,
                         //       'out' has it set only when (copyError || skipCopy)
                     }
@@ -5925,7 +8910,11 @@ COPY_AGAIN:
                     {
                         DoCopyFileLoopOrig(in, out, buffer, limitBufferSize, script, dlgData, wholeFileAllocated, op,
                                            totalDone, copyError, skipCopy, hProgressDlg, operationDone, fileSize,
-                                           bufferSize, allocWholeFileOnStart, copyAgain);
+                                           bufferSize, allocWholeFileOnStart, copyAgain
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                           , &thin
+#endif
+                                           );
                     }
 
                     if (copyError)
@@ -5936,11 +8925,22 @@ COPY_AGAIN:
                             HANDLES(CloseHandle(in));
                         if (out != NULL)
                         {
-                            if (wholeFileAllocated)
+                            if (wholeFileAllocated
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                && (!thin.terminal || thin.NativeTarget())
+#endif
+                                )
                                 SetEndOfFile(out); // otherwise on a floppy the remaining part of the file would be written
-                            HANDLES(CloseHandle(out));
+#ifdef SAM_UAC_THIN_COPY_TEST
+                            if (thin.ScopedTarget())
+                            {
+                                if (!thin.CloseScopedTarget(out)) return FALSE;
+                            }
+                            else
+#endif
+                                HANDLES(CloseHandle(out));
                         }
-                        DeleteFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str());
+                        THIN_DELETE_TARGET(&thin, DeleteFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str()));
                         return FALSE;
                     }
                     if (skipCopy)
@@ -5954,19 +8954,46 @@ COPY_AGAIN:
                             HANDLES(CloseHandle(in));
                         if (out != NULL)
                         {
-                            if (wholeFileAllocated)
+                            if (wholeFileAllocated
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                && (!thin.terminal || thin.NativeTarget())
+#endif
+                                )
                                 SetEndOfFile(out); // otherwise on a floppy the remaining part of the file would be written
-                            HANDLES(CloseHandle(out));
+#ifdef SAM_UAC_THIN_COPY_TEST
+                            if (thin.ScopedTarget())
+                            {
+                                if (!thin.CloseScopedTarget(out)) return FALSE;
+                            }
+                            else
+#endif
+                                HANDLES(CloseHandle(out));
                         }
-                        DeleteFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str());
+                        const bool discarded = THIN_DELETE_TARGET(&thin, DeleteFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str()));
+#ifdef SAM_UAC_THIN_COPY_TEST
+                        if (!discarded && thin.terminal)
+                            return FALSE;
+#else
+                        (void)discarded;
+#endif
                         SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
                         if (skip != NULL)
                             *skip = TRUE;
                         return TRUE;
                     }
                     if (copyAgain)
+                    {
+#ifdef SAM_UAC_THIN_COPY_TEST
+                        if (thin.terminal)
+                            return FALSE;
+#endif
                         goto COPY_AGAIN;
+                    }
 
+#ifdef SAM_UAC_THIN_COPY_TEST
+                    if (!thin.CheckCompletionConnection(IDS_ERRORREADINGFILE))
+                        goto COPY_ERROR;
+#endif
                     if (lantasticCheck)
                     {
                         CQuadWord inSize, outSize;
@@ -5974,7 +9001,12 @@ COPY_AGAIN:
                         outSize.LoDWord = GetFileSize(out, &outSize.HiDWord);
                         if (inSize != outSize)
                         {                                                              // Lantastic 7.0: everything seems fine, but the result is wrong
-                            WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+#ifdef SAM_UAC_THIN_COPY_TEST
+                            if (!thin.WaitCompletionResume(IDS_ERRORWRITINGFILE))
+                                goto COPY_ERROR;
+#else
+                            WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE);
+#endif
                             if (*dlgData.CancelWorker)
                                 goto COPY_ERROR;
 
@@ -5992,6 +9024,10 @@ COPY_AGAIN:
                             {
                             case IDRETRY:
                             {
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                if (!thin.CheckCompletionConnection(IDS_ERRORWRITINGFILE))
+                                    goto COPY_ERROR;
+#endif
                                 operationDone = CQuadWord(0, 0);
                                 script->SetTFSandProgressSize(lastTransferredFileSize, totalDone);
                                 SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
@@ -6014,12 +9050,22 @@ COPY_AGAIN:
 
                     FILETIME /*creation, lastAccess,*/ lastWrite;
                     BOOL ignoreGetFileTimeErr = FALSE;
-                    while (!ignoreGetFileTimeErr &&
-                           !GetFileTime(in, NULL /*&creation*/, NULL /*&lastAccess*/, &lastWrite))
+                    while (!ignoreGetFileTimeErr)
                     {
+#ifdef SAM_UAC_THIN_COPY_TEST
+                        if (!thin.CheckCompletionConnection(IDS_ERRORGETTINGFILETIME))
+                            goto COPY_ERROR;
+#endif
+                        if (GetFileTime(in, NULL /*&creation*/, NULL /*&lastAccess*/, &lastWrite))
+                            break;
                         DWORD err = GetLastError();
 
-                        WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+#ifdef SAM_UAC_THIN_COPY_TEST
+                        if (!thin.WaitCompletionResume(IDS_ERRORGETTINGFILETIME))
+                            goto COPY_ERROR;
+#else
+                        WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE);
+#endif
                         if (*dlgData.CancelWorker)
                             goto COPY_ERROR;
 
@@ -6062,6 +9108,8 @@ COPY_AGAIN:
                         }
                     }
 
+                    if (moveReceipt)
+                        moveReceipt->sourceCaptured = UacF7::CaptureMoveFileIdentity(in, moveReceipt->source, true);
                     HANDLES(CloseHandle(in));
                     in = NULL;
 
@@ -6069,6 +9117,10 @@ COPY_AGAIN:
                         script->AddBytesToSpeedMetersAndTFSandPS((DWORD)(COPY_MIN_FILE_SIZE - operationDone).Value, TRUE, 0, NULL, MAX_OP_FILESIZE);
 
                     DWORD attr = op->Attr & clearReadonlyMask;
+#ifdef SAM_UAC_THIN_COPY_TEST
+                    DWORD scopedFinishedAttrs = INVALID_FILE_ATTRIBUTES;
+                    bool scopedFinishedTarget = false;
+#endif
                     if (copyADS) // copy ADS streams if needed
                     {
                         SetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), FILE_ATTRIBUTE_ARCHIVE); // probably unnecessary, it hardly slows copying; reason: the file must not be read-only to work with it
@@ -6097,15 +9149,25 @@ COPY_AGAIN:
 
                     if (out != NULL)
                     {
+                        BOOL ignoreSetFileTimeErr = FALSE;
                         if (!ignoreGetFileTimeErr) // only if we did not ignore the error while reading the file time (nothing to set otherwise)
                         {
-                            BOOL ignoreSetFileTimeErr = FALSE;
-                            while (!ignoreSetFileTimeErr &&
-                                   !SetFileTime(out, NULL /*&creation*/, NULL /*&lastAccess*/, &lastWrite))
+                            while (!ignoreSetFileTimeErr)
                             {
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                if (!thin.CheckCompletionConnection(IDS_ERRORSETTINGFILETIME))
+                                    goto COPY_ERROR;
+#endif
+                                if (SetFileTime(out, NULL /*&creation*/, NULL /*&lastAccess*/, &lastWrite))
+                                    break;
                                 DWORD err = GetLastError();
 
-                                WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                if (!thin.WaitCompletionResume(IDS_ERRORSETTINGFILETIME))
+                                    goto COPY_ERROR;
+#else
+                                WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE);
+#endif
                                 if (*dlgData.CancelWorker)
                                     goto COPY_ERROR;
 
@@ -6148,10 +9210,51 @@ COPY_AGAIN:
                                 }
                             }
                         }
+                        // The newly supported Overwrite Older retry cannot
+                        // prove a deliberately ignored timestamp outcome.
+                        if (moveReceipt && moveReceipt->sourceCaptured &&
+                            (!script->OverwriteOlder || (!ignoreGetFileTimeErr && !ignoreSetFileTimeErr)))
+                            moveReceipt->captured = UacF7::CaptureMoveFileIdentity(out, moveReceipt->target, true);
+#ifdef SAM_UAC_THIN_COPY_TEST
+                        if (!thin.CheckCompletionConnection(IDS_ERRORCHANGINGATTRS))
+                            goto COPY_ERROR;
+                        const bool thinScopedAttributes = thin.ScopedTarget();
+                        scopedFinishedTarget = thinScopedAttributes;
+                        if (thinScopedAttributes)
+                        {
+                            // Set metadata on the still-open exact object;
+                            // never follow the pathname after closing it.
+                            FILE_BASIC_INFO basic{};
+                            // Zero means "leave unchanged" for FileBasicInfo,
+                            // while SetFileAttributesW(path, 0) clears the
+                            // displayed attributes and yields NORMAL.
+                            basic.FileAttributes = script->CopyAttrs ? (attr ? attr : FILE_ATTRIBUTE_NORMAL) :
+                                                                      (attr | FILE_ATTRIBUTE_ARCHIVE);
+                            SetFileInformationByHandle(out, FileBasicInfo, &basic, sizeof(basic));
+                            if (script->CopyAttrs)
+                            {
+                                FILE_BASIC_INFO actual{};
+                                if (GetFileInformationByHandleEx(out, FileBasicInfo, &actual, sizeof(actual)))
+                                    scopedFinishedAttrs = actual.FileAttributes;
+                            }
+                            // For an ordinary copy the original pathname attribute
+                            // update below deliberately ignores failure. Preserve
+                            // that behavior while addressing the exact opened object.
+                        }
+#endif
                         if (!HANDLES(CloseHandle(out)))
                         {
                             out = NULL;
                             DWORD err = GetLastError();
+#ifdef SAM_UAC_THIN_COPY_TEST
+                            if (thinScopedAttributes)
+                            {
+                                // A failed close leaves ownership uncertain;
+                                // never delete or restart using the name.
+                                thin.ReportTargetFailure(err);
+                                return FALSE;
+                            }
+#endif
                             WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
                             if (*dlgData.CancelWorker)
                                 goto COPY_ERROR;
@@ -6188,13 +9291,26 @@ COPY_AGAIN:
                             }
                         }
 
-                        SetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), script->CopyAttrs ? attr : (attr | FILE_ATTRIBUTE_ARCHIVE));
+#ifdef SAM_UAC_THIN_COPY_TEST
+                        if (!script->CopyAttrs)
+                            thin.ReleaseTargetPin();
+#endif
+
+#ifdef SAM_UAC_THIN_COPY_TEST
+                        if (!thinScopedAttributes)
+#endif
+                            SetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), script->CopyAttrs ? attr : (attr | FILE_ATTRIBUTE_ARCHIVE));
                     }
 
                     if (script->CopyAttrs) // verify whether the source file attributes were preserved
                     {
                         DWORD curAttrs;
-                        curAttrs = GetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str());
+#ifdef SAM_UAC_THIN_COPY_TEST
+                        curAttrs = scopedFinishedTarget ? scopedFinishedAttrs :
+#else
+                        curAttrs =
+#endif
+                            GetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str());
                         if (curAttrs == INVALID_FILE_ATTRIBUTES || (curAttrs & DISPLAYED_ATTRIBUTES) != (attr & DISPLAYED_ATTRIBUTES))
                         {                                                              // attributes probably were not preserved, warn the user
                             WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
@@ -6225,13 +9341,19 @@ COPY_AGAIN:
                             {
                             COPY_ERROR_2:
 
-                                WorkerClearReadOnlyW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL)); // the file must not be read-only if it is to be deleted
-                                DeleteFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str());
+                                if (!THIN_SCOPED_TARGET(&thin))
+                                    WorkerClearReadOnlyW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL));
+                                THIN_DELETE_TARGET(&thin, DeleteFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str()));
                                 return FALSE;
                             }
                             }
                         }
                     }
+
+#ifdef SAM_UAC_THIN_COPY_TEST
+                    if (script->CopyAttrs)
+                        thin.ReleaseTargetPin();
+#endif
 
                     if (script->CopySecurity) // should we copy NTFS security permissions?
                     {
@@ -6308,7 +9430,8 @@ COPY_AGAIN:
                             totalDone += op->Size;
                             SetTFSandPSforSkippedFile(op, lastTransferredFileSize, script, totalDone);
 
-                            HANDLES(CloseHandle(in));
+                            if (in != INVALID_HANDLE_VALUE)
+                                HANDLES(CloseHandle(in));
                             SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
                             if (skip != NULL)
                                 *skip = TRUE;
@@ -6319,7 +9442,8 @@ COPY_AGAIN:
                         {
                         CANCEL_OPEN2:
 
-                            HANDLES(CloseHandle(in));
+                            if (in != INVALID_HANDLE_VALUE)
+                                HANDLES(CloseHandle(in));
                             return FALSE;
                         }
                         }
@@ -6328,36 +9452,149 @@ COPY_AGAIN:
                     {
                     CREATE_ERROR:
 
-                        DWORD err = GetLastError();
+                        DWORD err = transferError ? transferError : GetLastError();
                         if (invalidTgtName)
                             err = ERROR_INVALID_NAME;
                         BOOL errDeletingFile = FALSE;
-                        if (err == ERROR_FILE_EXISTS || // overwrite the file?
-                            err == ERROR_ALREADY_EXISTS)
+                        UacF7::PreparedTransfer overwrite;
+                        const bool targetExists = err == ERROR_FILE_EXISTS || err == ERROR_ALREADY_EXISTS;
+                        // A broker copy to a free name never authorizes a newly found target.
+                        const bool brokerTargetAppeared = transferError && targetExists && !isMove && in != INVALID_HANDLE_VALUE;
+                        if (brokerTargetAppeared)
+                            transferError = ERROR_SUCCESS;
+                        bool canElevateOverwrite = originalTransfer && !transferError && !isMove && !copyAsEncrypted && !dlgData.SkipAllFileOpenOut &&
+                                                   mustDeleteFileBeforeOverwrite != 1 &&
+                                                   (targetExists || err == ERROR_ACCESS_DENIED) &&
+                                                   PrepareWorkerOverwrite(*op, *script, dlgData, overwrite);
+                        const DWORD existingAttributes = isMove && targetExists && op->TargetNameWValid
+                            ? GetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameW.c_str()).c_str())
+                            : INVALID_FILE_ATTRIBUTES;
+                        const bool protectedExistingMoveTarget = isMove && targetExists && op->TargetNameWValid &&
+                            ((existingAttributes != INVALID_FILE_ATTRIBUTES && (existingAttributes & FILE_ATTRIBUTE_READONLY) &&
+                              ProbeLocalElevationAccess(op->TargetNameW, FILE_WRITE_ATTRIBUTES, false) == ERROR_ACCESS_DENIED) ||
+                             (existingAttributes != INVALID_FILE_ATTRIBUTES && !(existingAttributes & FILE_ATTRIBUTE_READONLY) &&
+                              ProbeLocalElevationAccess(op->TargetNameW, FILE_WRITE_DATA, false) == ERROR_ACCESS_DENIED &&
+                              ProbeLocalElevationAccess(op->TargetNameW, DELETE, false) == ERROR_ACCESS_DENIED));
+                        const bool protectedExistingMove = isMove && targetExists &&
+                            (protectedExistingMoveTarget || (op->SourceNameWValid &&
+                             ProbeLocalElevationAccess(op->SourceNameW,
+                                 DELETE | ((op->Attr & FILE_ATTRIBUTE_READONLY) ? FILE_WRITE_ATTRIBUTES : 0), false) == ERROR_ACCESS_DENIED));
+                        if (originalTransfer && !transferError && !copyAsEncrypted && (err == ERROR_ACCESS_DENIED || protectedExistingMove) && !dlgData.SkipAllFileOpenOut)
                         {
-                            if (!dlgData.OverwriteAll && (dlgData.CnfrmFileOver || script->OverwriteOlder))
+                            // F6 needs an exclusive source seal, so release the ordinary read
+                            // handle before the one transaction that replaces and retires it.
+                            if (isMove && in != INVALID_HANDLE_VALUE)
+                            {
+                                HANDLES(CloseHandle(in));
+                                in = INVALID_HANDLE_VALUE;
+                            }
+                            const auto outcome = TryOverwriteDeniedSource(hProgressDlg, *op, *script, totalDone,
+                                                                          dlgData, approvedOverwrite, err,
+                                                                          err == ERROR_ACCESS_DENIED || protectedExistingMoveTarget,
+                                                                          previousNativeOverwriteConfirmed);
+                            if (outcome == SourceOverwriteResult::Finished || outcome == SourceOverwriteResult::Cancelled)
+                            {
+                                if (in != INVALID_HANDLE_VALUE)
+                                    HANDLES(CloseHandle(in));
+                                if (outcome == SourceOverwriteResult::Finished && isMove && skip)
+                                    *skip = TRUE;
+                                return outcome == SourceOverwriteResult::Finished;
+                            }
+                            if (outcome == SourceOverwriteResult::Skipped)
+                            {
+                                if (in != INVALID_HANDLE_VALUE)
+                                    HANDLES(CloseHandle(in));
+                                goto SKIP_OPEN;
+                            }
+                            if (outcome == SourceOverwriteResult::Failed || isMove)
+                                goto NORMAL_ERROR;
+                        }
+                        if (transferError)
+                            goto NORMAL_ERROR;
+                        if (dlgData.ConflictDecisionInjected && op->ScannedTargetRevision.attributes &&
+                            !THIN_VALIDATE_SCAN(&thin, op, dlgData, false))
+                        {
+                            if (THIN_SCAN_PROBE_ERROR(&thin))
+                            {
+                                err = GetLastError();
+                                if (THIN_SCAN_TERMINAL(&thin))
+                                {
+                                    if (in != NULL && in != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(in));
+                                    return FALSE;
+                                }
+                                goto NORMAL_ERROR;
+                            }
+                            return ReturnCopyConflictChanged(in, dlgData);
+                        }
+                        if (targetExists || canElevateOverwrite)
+                        {
+                            if (brokerTargetAppeared ||
+                                (!dlgData.OverwriteAll && (dlgData.CnfrmFileOver || script->OverwriteOlder) &&
+                                 (!canElevateOverwrite || !overwrite.MatchesApproval(approvedOverwrite))))
                             {
                                 char sAttr[101], tAttr[101];
                                 BOOL getTimeFailed;
                                 getTimeFailed = FALSE;
                                 FILETIME sFileTime, tFileTime;
                                 GetFileOverwriteInfo(sAttr, _countof(sAttr), in, op->SourceName, &sFileTime, &getTimeFailed);
-                                HANDLES(CloseHandle(in));
-                                in = NULL;
-                                out = HANDLES_Q(CreateFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-                                                           OPEN_EXISTING, 0, NULL));
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                if (!thin.active)
+#endif
+                                {
+                                    HANDLES(CloseHandle(in));
+                                    in = NULL;
+                                }
+                                out = THIN_OPEN_TARGET_PROBE(&thin, HANDLES_Q(CreateFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+                                                           OPEN_EXISTING, 0, NULL)));
                                 if (out != INVALID_HANDLE_VALUE)
                                 {
+                                    canElevateOverwrite = canElevateOverwrite && overwrite.MatchesOverwriteTarget(out);
                                     GetFileOverwriteInfo(tAttr, _countof(tAttr), out, op->TargetName, &tFileTime, &getTimeFailed);
                                     HANDLES(CloseHandle(out));
                                 }
                                 else
                                 {
+                                    const DWORD targetOpenError = GetLastError();
+                                    // CREATE_NEW can report FILE_EXISTS before checking the
+                                    // existing file's ACL. Only the actual metadata open's
+                                    // denial justifies the scoped, pre-dialog broker probe.
+                                    if (originalTransfer && targetExists && !transferError && !isMove && !copyAsEncrypted &&
+                                        targetOpenError == ERROR_ACCESS_DENIED &&
+                                        (!brokerTargetAppeared || createOnlyReceipt.opening))
+                                    {
+                                        DWORD probeError = ERROR_SUCCESS;
+                                        const auto result = TrySingleProbedOverwrite(hProgressDlg, *op, *script,
+                                            totalDone, dlgData, approvedOverwrite, probeError, true,
+                                            previousNativeOverwriteConfirmed,
+                                            brokerTargetAppeared ? &createOnlyReceipt : nullptr);
+                                        if (result == SourceOverwriteResult::Finished)
+                                            return TRUE;
+                                        if (result == SourceOverwriteResult::Skipped)
+                                            goto SKIP_OPEN;
+                                        if (result == SourceOverwriteResult::Cancelled)
+                                            goto CANCEL_OPEN;
+                                        if (result == SourceOverwriteResult::Failed)
+                                        {
+                                            in = INVALID_HANDLE_VALUE; // the source handle was already closed
+                                            err = probeError;
+                                            goto NORMAL_ERROR;
+                                        }
+                                    }
+                                    canElevateOverwrite = false;
                                     getTimeFailed = TRUE;
                                     strcpy(tAttr, LoadStr(IDS_ERR_FILEOPEN));
                                 }
                                 out = NULL;
-
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                if (thin.active && in != NULL && in != INVALID_HANDLE_VALUE)
+                                {
+                                    THIN_REMEMBER_SOURCE(&thin, in);
+                                    HANDLES(CloseHandle(in));
+                                    in = NULL;
+                                }
+                                if (thin.terminal)
+                                    return FALSE;
+#endif
                                 WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
                                 if (*dlgData.CancelWorker)
                                     goto CANCEL_OPEN;
@@ -6395,11 +9632,12 @@ COPY_AGAIN:
                                 case IDB_ALL:
                                     dlgData.OverwriteAll = TRUE;
                                 case IDYES:
+                                    previousNativeOverwriteConfirmed = true;
                                 default: // for safety (to prevent exiting this block with the 'in' handle closed)
                                 {
-                                    in = HANDLES_Q(CreateFileW(WorkerOperationPathW(op->SourceName, op->SourceNameWValid ? op->SourceNameW.c_str() : NULL).c_str(), GENERIC_READ,
+                                    in = THIN_OPEN_SOURCE(&thin, HANDLES_Q(CreateFileW(WorkerOperationPathW(op->SourceName, op->SourceNameWValid ? op->SourceNameW.c_str() : NULL).c_str(), GENERIC_READ,
                                                               FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-                                                              OPEN_EXISTING, asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+                                                              OPEN_EXISTING, asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN, NULL)), asyncPar->UseAsyncAlg != FALSE);
                                     if (in == INVALID_HANDLE_VALUE)
                                         goto OPEN_IN_ERROR;
                                     break;
@@ -6429,27 +9667,66 @@ COPY_AGAIN:
                                 }
                             }
 
-                            DWORD attr = GetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str());
+                            if (!targetExists)
+                            {
+                                // CREATE_NEW denied access before the ordinary conflict path.
+                                if (!canElevateOverwrite)
+                                    goto NORMAL_ERROR;
+                                const auto decision = ConfirmBrokerOverwriteAttributes(hProgressDlg, *op, dlgData,
+                                                                                       overwrite.Approval().revision.attributes);
+                                if (decision != SourceOverwriteResult::Finished)
+                                {
+                                    HANDLES(CloseHandle(in));
+                                    if (decision == SourceOverwriteResult::Skipped)
+                                        goto SKIP_OPEN;
+                                    goto CANCEL_OPEN;
+                                }
+                                BOOL success = FALSE;
+                                if (ExecuteWorkerTransfer(hProgressDlg, *op, *script, totalDone, dlgData, success, overwrite, err, true))
+                                {
+                                    HANDLES(CloseHandle(in));
+                                    return success;
+                                }
+                                approvedOverwrite = overwrite.Approval();
+                                goto NORMAL_ERROR;
+                            }
+
+#ifdef SAM_UAC_THIN_COPY_TEST
+                            bool attributeProbeAttempted = false;
+#endif
+                            DWORD attr = THIN_TARGET_ATTRIBUTES(&thin, GetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str()), attributeProbeAttempted);
+#ifdef SAM_UAC_THIN_COPY_TEST
+                            if (attributeProbeAttempted && attr == INVALID_FILE_ATTRIBUTES && GetLastError() != ERROR_FILE_NOT_FOUND &&
+                                GetLastError() != ERROR_PATH_NOT_FOUND)
+                            {
+                                err = GetLastError();
+                                if (thin.terminal) goto CANCEL_OPEN;
+                                goto NORMAL_ERROR;
+                            }
+#endif
                             if (dlgData.ConflictDecisionInjected && dlgData.InjectedConflictType == cmctFileExists &&
                                 dlgData.InjectedTargetIdentityValid)
                             {
-                                DWORD openedVolumeSerial;
-                                ULONGLONG openedFileIndex;
-                                std::wstring openedTarget = SalPathAddExtendedPrefixW(GetParallelCopyPathW(op, FALSE).c_str());
-                                if (!GetParallelFileIdentity(openedTarget, openedVolumeSerial, openedFileIndex) ||
-                                    openedVolumeSerial != dlgData.InjectedTargetVolumeSerial ||
-                                    openedFileIndex != dlgData.InjectedTargetFileIndex)
+                                if (!THIN_VALIDATE_SCAN(&thin, op, dlgData, true))
                                 {
-                                    HANDLES(CloseHandle(in));
-                                    in = NULL;
-                                    dlgData.ConflictTargetChanged = TRUE;
-                                    return TRUE;
+                                    if (THIN_SCAN_PROBE_ERROR(&thin))
+                                    {
+                                        err = GetLastError();
+                                        if (THIN_SCAN_TERMINAL(&thin))
+                                        {
+                                            if (in != NULL && in != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(in));
+                                            return FALSE;
+                                        }
+                                        goto NORMAL_ERROR;
+                                    }
+                                    return ReturnCopyConflictChanged(in, dlgData);
                                 }
                             }
                             if (attr != INVALID_FILE_ATTRIBUTES && (attr & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)))
                             {
                                 if (!dlgData.OverwriteHiddenAll && dlgData.CnfrmSHFileOver) // ignore script->OverwriteOlder here; user wants to see that this is a SYSTEM or HIDDEN file even with the option enabled
                                 {
+                                    THIN_REMEMBER_SOURCE(&thin, in);
                                     HANDLES(CloseHandle(in));
                                     in = NULL;
 
@@ -6474,12 +9751,21 @@ COPY_AGAIN:
                                     case IDYES:
                                     default: // for safety (to prevent exiting this block with the 'in' handle closed)
                                     {
-                                        in = HANDLES_Q(CreateFileW(WorkerOperationPathW(op->SourceName, op->SourceNameWValid ? op->SourceNameW.c_str() : NULL).c_str(), GENERIC_READ,
+                                        in = THIN_OPEN_SOURCE(&thin, HANDLES_Q(CreateFileW(WorkerOperationPathW(op->SourceName, op->SourceNameWValid ? op->SourceNameW.c_str() : NULL).c_str(), GENERIC_READ,
                                                                   FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-                                                                  OPEN_EXISTING, asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+                                                                  OPEN_EXISTING, asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN, NULL)), asyncPar->UseAsyncAlg != FALSE);
                                         if (in == INVALID_HANDLE_VALUE)
                                             goto OPEN_IN_ERROR;
-                                        attr = GetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str()); // refresh attributes in case the user changed them
+                                        attr = THIN_TARGET_ATTRIBUTES(&thin, GetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str()), attributeProbeAttempted); // refresh attributes in case the user changed them
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                        if (attributeProbeAttempted && attr == INVALID_FILE_ATTRIBUTES && GetLastError() != ERROR_FILE_NOT_FOUND &&
+                                            GetLastError() != ERROR_PATH_NOT_FOUND)
+                                        {
+                                            err = GetLastError();
+                                            if (thin.terminal) goto CANCEL_OPEN;
+                                            goto NORMAL_ERROR;
+                                        }
+#endif
                                         break;
                                     }
 
@@ -6494,15 +9780,41 @@ COPY_AGAIN:
                                 }
                             }
 
+#ifdef SAM_UAC_THIN_COPY_TEST
+                            if (thin.Scoped())
+                            {
+                                // Continue only with the original worker's
+                                // ordinary-token target operations. Broker-created
+                                // or uncertain targets keep the fail-closed path.
+                                thin.nativeTargetOverwrite = true;
+                                if (!thin.NativeOverwrite())
+                                {
+                                    if (in != NULL && in != INVALID_HANDLE_VALUE)
+                                        HANDLES(CloseHandle(in));
+                                    in = NULL;
+                                    thin.ReportTargetFailure(ERROR_NOT_SUPPORTED, IDS_ERROROPENINGFILE);
+                                    return FALSE;
+                                }
+                            }
+#endif
                             BOOL targetCannotOpenForWrite = FALSE;
                             while (1)
                             {
                                 if (targetCannotOpenForWrite || mustDeleteFileBeforeOverwrite == 1 /* yes */)
                                 { // the file must be deleted first
-                                    if (!ValidateInjectedTargetIdentity(op, dlgData))
+                                    if (!THIN_VALIDATE_SCAN(&thin, op, dlgData, false))
                                     {
-                                        dlgData.ConflictTargetChanged = TRUE;
-                                        return TRUE;
+                                        if (THIN_SCAN_PROBE_ERROR(&thin))
+                                        {
+                                            err = GetLastError();
+                                            if (THIN_SCAN_TERMINAL(&thin))
+                                            {
+                                                if (in != NULL && in != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(in));
+                                                return FALSE;
+                                            }
+                                            goto NORMAL_ERROR;
+                                        }
+                                        return ReturnCopyConflictChanged(in, dlgData);
                                     }
                                     BOOL chAttr = WorkerClearReadOnlyW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL), attr);
 
@@ -6519,6 +9831,33 @@ COPY_AGAIN:
                                         err = GetLastError();
                                         if (chAttr)
                                             SetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), attr);
+                                        if (originalTransfer && err == ERROR_ACCESS_DENIED && !copyAsEncrypted && !dlgData.SkipAllFileOpenOut)
+                                        {
+                                            // A successful attribute clear invalidates the earlier
+                                            // revision. Prepare it again after restoring attributes;
+                                            // a changed target still requires the native confirmation.
+                                            if (isMove && in != INVALID_HANDLE_VALUE)
+                                            {
+                                                HANDLES(CloseHandle(in));
+                                                in = INVALID_HANDLE_VALUE;
+                                            }
+                                            const auto outcome = TryOverwriteDeniedSource(hProgressDlg, *op, *script, totalDone,
+                                                                                          dlgData, approvedOverwrite, err, true, true);
+                                            if (outcome == SourceOverwriteResult::Finished || outcome == SourceOverwriteResult::Cancelled)
+                                            {
+                                                if (in != INVALID_HANDLE_VALUE)
+                                                    HANDLES(CloseHandle(in));
+                                                if (outcome == SourceOverwriteResult::Finished && isMove && skip)
+                                                    *skip = TRUE;
+                                                return outcome == SourceOverwriteResult::Finished;
+                                            }
+                                            if (outcome == SourceOverwriteResult::Skipped)
+                                            {
+                                                if (in != INVALID_HANDLE_VALUE)
+                                                    HANDLES(CloseHandle(in));
+                                                goto SKIP_OPEN;
+                                            }
+                                        }
                                         errDeletingFile = TRUE;
                                         goto NORMAL_ERROR;
                                     }
@@ -6545,31 +9884,88 @@ COPY_AGAIN:
                                     if (attr != INVALID_FILE_ATTRIBUTES &&
                                         (attr & (FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)))
                                     { // CREATE_ALWAYS does not play well with read-only, hidden, or system attributes, so drop them if needed
-                                        if (!ValidateInjectedTargetIdentity(op, dlgData))
+                                        if (!THIN_VALIDATE_SCAN(&thin, op, dlgData, false))
                                         {
-                                            dlgData.ConflictTargetChanged = TRUE;
-                                            return TRUE;
+                                            if (THIN_SCAN_PROBE_ERROR(&thin))
+                                            {
+                                                err = GetLastError();
+                                                if (THIN_SCAN_TERMINAL(&thin))
+                                                {
+                                                    if (in != NULL && in != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(in));
+                                                    return FALSE;
+                                                }
+                                                goto NORMAL_ERROR;
+                                            }
+                                            return ReturnCopyConflictChanged(in, dlgData);
                                         }
-                                        chAttr = TRUE;
-                                        SetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), 0);
+                                        chAttr = SetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), 0);
+                                        if (chAttr)
+                                            canElevateOverwrite = false; // A successful metadata change invalidates the captured revision.
                                     }
                                     // GENERIC_READ for 'out' slows asynchronous copying from disk to network (measured 95 MB/s instead of 111 MB/s on Win7 x64 GLAN)
                                     DWORD access = GENERIC_WRITE | (script->CopyAttrs ? GENERIC_READ : 0);
                                     fileAttrs = asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN |
                                                 (!lossEncryptionAttr && copyAsEncrypted ? FILE_ATTRIBUTE_ENCRYPTED : 0) | // setting attributes during CREATE_ALWAYS works since XP and is the only way to apply Encrypted attribute when the file denies read access
                                                 (script->CopyAttrs ? (op->Attr & (FILE_ATTRIBUTE_COMPRESSED | (lossEncryptionAttr ? 0 : FILE_ATTRIBUTE_ENCRYPTED))) : 0);
-                                    if (!ValidateInjectedTargetIdentity(op, dlgData))
+                                    if (!THIN_VALIDATE_SCAN(&thin, op, dlgData, false))
                                     {
-                                        dlgData.ConflictTargetChanged = TRUE;
-                                        return TRUE;
+                                        if (THIN_SCAN_PROBE_ERROR(&thin))
+                                        {
+                                            err = GetLastError();
+                                            if (THIN_SCAN_TERMINAL(&thin))
+                                            {
+                                                if (in != NULL && in != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(in));
+                                                return FALSE;
+                                            }
+                                            goto NORMAL_ERROR;
+                                        }
+                                        return ReturnCopyConflictChanged(in, dlgData);
                                     }
-                                    out = HANDLES_Q(CreateFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), access, 0, NULL, CREATE_ALWAYS, fileAttrs, NULL));
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                    if (thin.active && !thin.targetCreatedByBroker)
+                                        thin.nativeTargetOverwrite = true;
+#endif
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                    out = ThinCopyTestDenyOverwrite(&thin) ? ThinCopyTestDeniedHandle() :
+#else
+                                    out =
+#endif
+                                        HANDLES_Q(CreateFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), access, 0, NULL, CREATE_ALWAYS, fileAttrs, NULL));
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                    if (thin.active && out == INVALID_HANDLE_VALUE && GetLastError() == ERROR_ACCESS_DENIED)
+                                    {
+                                        out = THIN_OPEN_TARGET_OVERWRITE(&thin, out, asyncPar->UseAsyncAlg != FALSE);
+                                        if (out == INVALID_HANDLE_VALUE)
+                                        {
+                                            err = GetLastError();
+                                            if (err == ERROR_REVISION_MISMATCH && dlgData.ConflictDecisionInjected)
+                                            {
+                                                return ReturnCopyConflictChanged(in, dlgData);
+                                            }
+                                            if (thin.terminal)
+                                            {
+                                                HANDLES(CloseHandle(in));
+                                                return FALSE;
+                                            }
+                                            goto NORMAL_ERROR;
+                                        }
+                                    }
+#endif
                                     if (out == INVALID_HANDLE_VALUE && fileAttrs != (asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN))
                                     {
-                                        if (!ValidateInjectedTargetIdentity(op, dlgData))
+                                        if (!THIN_VALIDATE_SCAN(&thin, op, dlgData, false))
                                         {
-                                            dlgData.ConflictTargetChanged = TRUE;
-                                            return TRUE;
+                                            if (THIN_SCAN_PROBE_ERROR(&thin))
+                                            {
+                                                err = GetLastError();
+                                                if (THIN_SCAN_TERMINAL(&thin))
+                                                {
+                                                    if (in != NULL && in != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(in));
+                                                    return FALSE;
+                                                }
+                                                goto NORMAL_ERROR;
+                                            }
+                                            return ReturnCopyConflictChanged(in, dlgData);
                                         }
                                         // The target disk may reject creation with the requested encryption attributes.
                                         out = HANDLES_Q(CreateFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), access, 0, NULL, CREATE_ALWAYS, asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN, NULL));
@@ -6577,18 +9973,36 @@ COPY_AGAIN:
                                     if (script->CopyAttrs && out == INVALID_HANDLE_VALUE)
                                     { // if read access to the directory is denied (we added it only for setting the Compressed attribute), try opening the file for write only
                                         access = GENERIC_WRITE;
-                                        if (!ValidateInjectedTargetIdentity(op, dlgData))
+                                        if (!THIN_VALIDATE_SCAN(&thin, op, dlgData, false))
                                         {
-                                            dlgData.ConflictTargetChanged = TRUE;
-                                            return TRUE;
+                                            if (THIN_SCAN_PROBE_ERROR(&thin))
+                                            {
+                                                err = GetLastError();
+                                                if (THIN_SCAN_TERMINAL(&thin))
+                                                {
+                                                    if (in != NULL && in != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(in));
+                                                    return FALSE;
+                                                }
+                                                goto NORMAL_ERROR;
+                                            }
+                                            return ReturnCopyConflictChanged(in, dlgData);
                                         }
                                         out = HANDLES_Q(CreateFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), access, 0, NULL, CREATE_ALWAYS, fileAttrs, NULL));
                                         if (out == INVALID_HANDLE_VALUE && fileAttrs != (asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN))
                                         {
-                                            if (!ValidateInjectedTargetIdentity(op, dlgData))
+                                            if (!THIN_VALIDATE_SCAN(&thin, op, dlgData, false))
                                             {
-                                                dlgData.ConflictTargetChanged = TRUE;
-                                                return TRUE;
+                                                if (THIN_SCAN_PROBE_ERROR(&thin))
+                                                {
+                                                    err = GetLastError();
+                                                    if (THIN_SCAN_TERMINAL(&thin))
+                                                    {
+                                                        if (in != NULL && in != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(in));
+                                                        return FALSE;
+                                                    }
+                                                    goto NORMAL_ERROR;
+                                                }
+                                                return ReturnCopyConflictChanged(in, dlgData);
                                             }
                                             // Retry without optional creation attributes, still against the authorized identity.
                                             out = HANDLES_Q(CreateFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), access, 0, NULL, CREATE_ALWAYS, asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN, NULL));
@@ -6605,10 +10019,19 @@ COPY_AGAIN:
                                         //  the "read-only" attribute because the current user is not the owner)
                                         if (chAttr)
                                         {
-                                            if (!ValidateInjectedTargetIdentity(op, dlgData))
+                                            if (!THIN_VALIDATE_SCAN(&thin, op, dlgData, false))
                                             {
-                                                dlgData.ConflictTargetChanged = TRUE;
-                                                return TRUE;
+                                                if (THIN_SCAN_PROBE_ERROR(&thin))
+                                                {
+                                                    err = GetLastError();
+                                                    if (THIN_SCAN_TERMINAL(&thin))
+                                                    {
+                                                        if (in != NULL && in != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(in));
+                                                        return FALSE;
+                                                    }
+                                                    goto NORMAL_ERROR;
+                                                }
+                                                return ReturnCopyConflictChanged(in, dlgData);
                                             }
                                             SetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), attr);
                                         }
@@ -6616,17 +10039,40 @@ COPY_AGAIN:
                                         continue;
                                     }
 
+                                    canElevateOverwrite = false;
                                     // on target paths that support ADS also delete ADS on the target file (CREATE_ALWAYS should remove them, but on home W2K and XP they simply stay; no idea why, W2K and XP in VMWare delete ADS normally)
                                     if (script->TargetPathSupADS && !DeleteAllADS(out, op->TargetName))
                                     {
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                        if (thin.targetCreatedByBroker)
+                                        {
+                                            err = GetLastError();
+                                            if (!thin.CloseScopedTarget(out) || !thin.DiscardTarget())
+                                            {
+                                                HANDLES(CloseHandle(in));
+                                                return FALSE;
+                                            }
+                                            if (!err) err = ERROR_GEN_FAILURE;
+                                            goto NORMAL_ERROR;
+                                        }
+#endif
                                         HANDLES(CloseHandle(out));
                                         out = INVALID_HANDLE_VALUE;
                                         if (chAttr)
                                         {
-                                            if (!ValidateInjectedTargetIdentity(op, dlgData))
+                                            if (!THIN_VALIDATE_SCAN(&thin, op, dlgData, false))
                                             {
-                                                dlgData.ConflictTargetChanged = TRUE;
-                                                return TRUE;
+                                                if (THIN_SCAN_PROBE_ERROR(&thin))
+                                                {
+                                                    err = GetLastError();
+                                                    if (THIN_SCAN_TERMINAL(&thin))
+                                                    {
+                                                        if (in != NULL && in != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(in));
+                                                        return FALSE;
+                                                    }
+                                                    goto NORMAL_ERROR;
+                                                }
+                                                return ReturnCopyConflictChanged(in, dlgData);
                                             }
                                             SetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), attr);
                                         }
@@ -6637,8 +10083,38 @@ COPY_AGAIN:
                                     // if we have not yet tested truncating the file to zero, obtain the new file size
                                     if (mustDeleteFileBeforeOverwrite == 0 /* need test */)
                                     {
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                        if (thin.targetCreatedByBroker)
+                                        {
+                                            if (!thin.CloseScopedTarget(out))
+                                            {
+                                                HANDLES(CloseHandle(in));
+                                                return FALSE;
+                                            }
+                                            out = thin.Open(UacF7::ThinOpenKind::TargetReopenWrite, asyncPar->UseAsyncAlg != FALSE);
+                                            if (out != INVALID_HANDLE_VALUE)
+                                            {
+                                                const DWORD openError = GetLastError();
+                                                HANDLES_ADD_EX(__otQuiet, TRUE, __htFile, __hoCreateFile, out, openError, TRUE);
+                                                SetLastError(openError);
+                                            }
+                                            else
+                                            {
+                                                err = GetLastError();
+                                                if (!thin.DiscardTarget() || thin.terminal)
+                                                {
+                                                    HANDLES(CloseHandle(in));
+                                                    return FALSE;
+                                                }
+                                                goto NORMAL_ERROR;
+                                            }
+                                        }
+                                        else
+#endif
+                                        {
                                         HANDLES(CloseHandle(out));
                                         out = HANDLES_Q(CreateFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), access, 0, NULL, OPEN_ALWAYS, asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+                                        }
                                         if (out == INVALID_HANDLE_VALUE) // cannot reopen the target file we just opened, unlikely, try deleting and recreating it
                                         {
                                             targetCannotOpenForWrite = TRUE;
@@ -6654,6 +10130,18 @@ COPY_AGAIN:
                                         }
                                         else
                                         {
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                            if (thin.targetCreatedByBroker)
+                                            {
+                                                err = ERROR_WRITE_FAULT;
+                                                if (!thin.CloseScopedTarget(out) || !thin.DiscardTarget())
+                                                {
+                                                    HANDLES(CloseHandle(in));
+                                                    return FALSE;
+                                                }
+                                                goto NORMAL_ERROR;
+                                            }
+#endif
                                             HANDLES(CloseHandle(out));
                                             out = INVALID_HANDLE_VALUE;
                                             mustDeleteFileBeforeOverwrite = 1 /* yes */; // on error or when the size is non-zero, play it safe...
@@ -6665,7 +10153,7 @@ COPY_AGAIN:
                                     {
                                         encryptionNotSupported = FALSE;
                                         SetCompressAndEncryptedAttrs(op->TargetName, (!lossEncryptionAttr && copyAsEncrypted ? FILE_ATTRIBUTE_ENCRYPTED : 0) | (script->CopyAttrs ? (op->Attr & (FILE_ATTRIBUTE_COMPRESSED | (lossEncryptionAttr ? 0 : FILE_ATTRIBUTE_ENCRYPTED))) : 0),
-                                                                     &out, script->CopyAttrs, &encryptionNotSupported, asyncPar);
+                                                                     &out, script->CopyAttrs, &encryptionNotSupported, asyncPar, THIN_SCOPED_TARGET(&thin));
                                         if (encryptionNotSupported) // unable to apply the Encrypted attribute, ask the user what to do...
                                         {
                                             if (dlgData.FileOutLossEncrAll)
@@ -6727,7 +10215,9 @@ COPY_AGAIN:
                             ret = IDCANCEL;
                             std::wstring lockPath = WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL);
                             char* caption = LoadStr(errDeletingFile ? IDS_ERRORDELETINGFILE : IDS_ERROROPENINGFILE);
-                            if (IsLockRecoveryError(err))
+                            const DWORD encryption = op->Attr | (copyAsEncrypted ? FILE_ATTRIBUTE_ENCRYPTED : 0);
+                            const bool efsUnsupported = !isMove && !errDeletingFile && UacF7::IsEfsCopyFailure(encryption, err);
+                            if (!efsUnsupported && IsLockRecoveryError(err))
                             {
                                 CFileLockRecoveryDialogData data = { &ret, caption, op->TargetName,
                                                                     GetErrorText(err), lockPath.c_str() };
@@ -6735,12 +10225,15 @@ COPY_AGAIN:
                             }
                             else
                             {
-                                char* data[4] = { (char*)&ret, caption, op->TargetName, GetErrorText(err) };
+                                std::string message = efsUnsupported ? LoadStr(IDS_UAC_COPY_EFS_UNSUPPORTED) : GetErrorText(err);
+                                char* data[4] = { (char*)&ret, caption, op->TargetName, message.data() };
                                 SendMessage(hProgressDlg, WM_USER_DIALOG, 0, (LPARAM)data);
                             }
                             switch (ret)
                             {
                             case IDRETRY:
+                                if (in == INVALID_HANDLE_VALUE)
+                                    goto COPY_AGAIN;
                                 break;
 
                             case IDB_SKIPALL:
@@ -6769,17 +10262,50 @@ COPY_AGAIN:
             if (*dlgData.CancelWorker)
                 return FALSE;
 
+#ifdef SAM_UAC_THIN_COPY_TEST
+            if (thin.terminal)
+                return FALSE;
+#endif
+            if (originalTransfer && !invalidTgtName && !dlgData.SkipAllFileOpenIn &&
+                ((!copyAsEncrypted && err == ERROR_ACCESS_DENIED) ||
+                 (!isMove && UacF7::IsEncryptedCopyFile(op->Attr) && UacF7::IsEfsCopyFailure(op->Attr, err))))
+            {
+                const auto outcome = !copyAsEncrypted
+                    ? TryOverwriteDeniedSource(hProgressDlg, *op, *script, totalDone, dlgData, approvedOverwrite, err)
+                    : SourceOverwriteResult::Unavailable;
+                if (outcome == SourceOverwriteResult::Finished || outcome == SourceOverwriteResult::Cancelled)
+                {
+                    if (outcome == SourceOverwriteResult::Finished && isMove && skip)
+                        *skip = TRUE; // Includes a requeued conflict; never retire the source here.
+                    return outcome == SourceOverwriteResult::Finished;
+                }
+                if (outcome == SourceOverwriteResult::Skipped)
+                    goto SKIP_OPEN_IN;
+                BOOL success = FALSE;
+                if (outcome == SourceOverwriteResult::Unavailable &&
+                    TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success, err))
+                {
+                    if (success && isMove && skip)
+                        *skip = TRUE; // The broker already removed the source.
+                    return success;
+                }
+            }
+
             if (dlgData.SkipAllFileOpenIn)
                 goto SKIP_OPEN_IN;
 
             int ret;
             ret = IDCANCEL;
-            char* data[4];
-            data[0] = (char*)&ret;
-            data[1] = LoadStr(IDS_ERROROPENINGFILE);
-            data[2] = op->SourceName;
-            data[3] = GetErrorText(err);
-            SendMessage(hProgressDlg, WM_USER_DIALOG, 0, (LPARAM)data);
+            {
+                char* data[4];
+                data[0] = (char*)&ret;
+                std::string message = !isMove && UacF7::IsEfsCopyFailure(op->Attr, err)
+                                          ? LoadStr(IDS_UAC_COPY_EFS_UNSUPPORTED) : GetErrorText(err);
+                data[1] = LoadStr(IDS_ERROROPENINGFILE);
+                data[2] = op->SourceName;
+                data[3] = message.data();
+                SendMessage(hProgressDlg, WM_USER_DIALOG, 0, (LPARAM)data);
+            }
             switch (ret)
             {
             case IDRETRY:
@@ -6826,6 +10352,12 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
     BOOL invalidName = FileNameIsInvalid(op->SourceName, TRUE, dir) ||
                        FileNameIsInvalid(op->TargetName, TRUE, dir && ignInvalidName);
 
+    if (script->DeferredTransferTarget ||
+        (!dir && (op->OpFlags & OPFL_UAC_TRANSFER_LISTED)))
+        return DoCopyFile(op, hProgressDlg, buffer, script, totalDone, clearReadonlyMask, nullptr,
+                          lantasticCheck, mustDeleteFileBeforeOverwrite, allocWholeFileOnStart,
+                          dlgData, copyADS, copyAsEncrypted, TRUE, asyncPar);
+
     if (!copyAsEncrypted && !script->SameRootButDiffVolume && HasTheSameRootPath(op->SourceName, op->TargetName))
     {
         // if the path ends with a space or dot, we must append '\\', otherwise GetNamedSecurityInfo,
@@ -6838,6 +10370,7 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
         MakeCopyWithBackslashIfNeeded(targetNameMvDir, targetNameMvDirCopy);
 
         int autoRetryAttempts = 0;
+        UacF7::OverwriteApproval approvedMoveOverwrite{};
         CSrcSecurity srcSecurity;
         BOOL srcSecurityErr = FALSE;
         if (!invalidName && script->CopySecurity) // should we copy NTFS security permissions?
@@ -7033,6 +10566,41 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
                 DWORD err = GetLastError();
                 if (invalidName)
                     err = ERROR_INVALID_NAME;
+                bool elevatedAttemptFailed = false;
+                if (!dir && !invalidName && !*novellRenamePatch && !dlgData.SkipAllMoveErrors &&
+                    (err == ERROR_ACCESS_DENIED ||
+                     ((err == ERROR_FILE_EXISTS || err == ERROR_ALREADY_EXISTS) && op->TargetNameWValid && op->SourceNameWValid &&
+                      (ProbeLocalElevationAccess(op->TargetNameW, DELETE, false) == ERROR_ACCESS_DENIED ||
+                       ProbeLocalElevationAccess(op->SourceNameW, DELETE, false) == ERROR_ACCESS_DENIED))))
+                {
+                    const auto outcome = TryOverwriteDeniedSource(hProgressDlg, *op, *script, totalDone, dlgData,
+                                                                   approvedMoveOverwrite, err, true);
+                    if (outcome == SourceOverwriteResult::Finished || outcome == SourceOverwriteResult::Cancelled)
+                        return outcome == SourceOverwriteResult::Finished;
+                    if (outcome == SourceOverwriteResult::Skipped)
+                        goto SKIP_OPEN;
+                    if (outcome == SourceOverwriteResult::Failed)
+                    {
+                        elevatedAttemptFailed = true;
+                        goto NORMAL_ERROR;
+                    }
+                }
+                if (err == ERROR_ACCESS_DENIED && !invalidName && !*novellRenamePatch && !dlgData.SkipAllMoveErrors)
+                {
+                    DWORD transferError = ERROR_SUCCESS;
+                    BOOL success = FALSE;
+                    const bool sourceCanMove = (op->OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) && op->SourceNameWValid &&
+                        ProbeLocalElevationAccess(op->SourceNameW, DELETE, dir != FALSE) == ERROR_SUCCESS;
+                    if (TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success, transferError,
+                                              nullptr, sourceCanMove))
+                        return success;
+                    if (transferError)
+                    {
+                        elevatedAttemptFailed = true;
+                        err = transferError;
+                        goto NORMAL_ERROR;
+                    }
+                }
                 // Novell patch - before calling MoveFile we need to drop the read-only attribute
                 if (!invalidName && *novellRenamePatch || err == ERROR_ACCESS_DENIED)
                 {
@@ -7282,6 +10850,9 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
                         dlgData.ConflictTargetChanged = TRUE;
                         return TRUE;
                     }
+                    UacF7::PreparedTransfer moveOverwrite;
+                    if (PrepareWorkerOverwrite(*op, *script, dlgData, moveOverwrite))
+                        approvedMoveOverwrite = moveOverwrite.Approval();
                     WorkerClearReadOnlyW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL), attr); // make sure it can be deleted ...
                     while (1)
                     {
@@ -7295,6 +10866,17 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
                         else
                         {
                             DWORD err2 = GetLastError();
+                            if (err2 == ERROR_ACCESS_DENIED && !dlgData.SkipAllOverwriteErr)
+                            {
+                                const auto outcome = TryOverwriteDeniedSource(hProgressDlg, *op, *script, totalDone, dlgData,
+                                                                               approvedMoveOverwrite, err2, true);
+                                if (outcome == SourceOverwriteResult::Finished || outcome == SourceOverwriteResult::Cancelled)
+                                    return outcome == SourceOverwriteResult::Finished;
+                                if (outcome == SourceOverwriteResult::Skipped)
+                                    goto SKIP_OVERWRITE_ERROR;
+                                if (outcome == SourceOverwriteResult::Failed)
+                                    elevatedAttemptFailed = true;
+                            }
                             if (err2 == ERROR_FILE_NOT_FOUND)
                                 break; // if the user already deleted the file manually, everything is fine
 
@@ -7350,7 +10932,7 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
                     if (dlgData.SkipAllMoveErrors)
                         goto SKIP_MOVE_ERROR;
 
-                    if (err == ERROR_SHARING_VIOLATION && ++autoRetryAttempts <= 2)
+                    if (!elevatedAttemptFailed && err == ERROR_SHARING_VIOLATION && ++autoRetryAttempts <= 2)
                     {               // auto-retry added to handle move errors while directory icons are being read (SHGetFileInfo running in parallel with MoveFile)
                         Sleep(100); // wait a moment before the next attempt
                     }
@@ -7397,21 +10979,69 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
             return FALSE;
         }
 
+        if (!copyAsEncrypted && (op->Attr & FILE_ATTRIBUTE_READONLY) && op->SourceNameWValid &&
+            ProbeLocalElevationAccess(op->SourceNameW, DELETE | FILE_WRITE_ATTRIBUTES, false) == ERROR_ACCESS_DENIED &&
+            !dlgData.SkipAllMoveErrors)
+        {
+            DWORD error = ERROR_ACCESS_DENIED;
+            UacF7::OverwriteApproval approval{};
+            const auto outcome = TryOverwriteDeniedSource(hProgressDlg, *op, *script, totalDone, dlgData, approval, error);
+            if (outcome == SourceOverwriteResult::Finished || outcome == SourceOverwriteResult::Cancelled)
+                return outcome == SourceOverwriteResult::Finished;
+            BOOL success = FALSE;
+            if (outcome == SourceOverwriteResult::Unavailable &&
+                TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success, error))
+                return success;
+            if (outcome != SourceOverwriteResult::Unavailable)
+            {
+                if (outcome == SourceOverwriteResult::Skipped)
+                {
+                    totalDone += op->Size;
+                    script->SetProgressSize(totalDone);
+                    SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
+                    return TRUE;
+                }
+                // An attempted transaction must never fall through to an ordinary
+                // copy followed by deletion of an unverified source.
+                SendMessage(hProgressDlg, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER_UNKNOWN, TRUE);
+                return FALSE;
+            }
+        }
         BOOL skip;
+        MoveCopyReceipt receipt;
+        const bool capture = (op->OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) && !script->CopyAttrs && !script->CopySecurity &&
+                             !copyADS && !copyAsEncrypted &&
+                             !(op->OpFlags & (OPFL_SRCPATH_IS_NET | OPFL_TGTPATH_IS_NET)) &&
+                             op->SourceNameWValid && op->TargetNameWValid && UacF7::IsPlainDeleteFile(op->Attr) &&
+                             op->FileSize.Value <= UacF7::maxCrossVolumeMoveBytes;
         BOOL notError = DoCopyFile(op, hProgressDlg, buffer, script, totalDone,
                                    clearReadonlyMask, &skip, lantasticCheck,
                                    mustDeleteFileBeforeOverwrite, allocWholeFileOnStart,
-                                   dlgData, copyADS, copyAsEncrypted, TRUE, asyncPar);
+                                   dlgData, copyADS, copyAsEncrypted, TRUE, asyncPar, capture ? &receipt : nullptr);
         if (notError && !skip) // still need to clean up the file from the source
         {
-            WorkerClearReadOnlyW(WorkerOperationPathW(op->SourceName, op->SourceNameWValid ? op->SourceNameW.c_str() : NULL)); // ensure it can be deleted
+            const auto sourcePath = WorkerOperationPathW(op->SourceName, op->SourceNameWValid ? op->SourceNameW.c_str() : NULL);
+            const bool verified = receipt.captured && receipt.source.serial != receipt.target.serial;
+            // Overwrite Older did not previously use the receipt on the local
+            // path. Preserve that path and use the receipt only after denial.
+            const bool verifyLocalDeletion = verified && !script->OverwriteOlder;
+            if (!verifyLocalDeletion)
+                WorkerClearReadOnlyW(sourcePath);
+            bool protectedCompletion = false;
             while (1)
             {
-                if (DeleteFileW(WorkerOperationPathW(op->SourceName, op->SourceNameWValid ? op->SourceNameW.c_str() : NULL).c_str()))
-                    break;
+                DWORD err = ERROR_ACCESS_DENIED;
+                if (!protectedCompletion)
                 {
-                    DWORD err = GetLastError();
-
+                    if (verifyLocalDeletion)
+                        err = UacF7::DeleteCopiedMoveSource(sourcePath, WorkerOperationPathW(op->TargetName, op->TargetNameW.c_str()),
+                                                            receipt.source, receipt.target);
+                    else
+                        err = DeleteFileW(sourcePath.c_str()) ? ERROR_SUCCESS : GetLastError();
+                    if (!err)
+                        break;
+                }
+                {
                     WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
                     if (*dlgData.CancelWorker)
                         return FALSE;
@@ -7419,6 +11049,27 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
                     if (dlgData.SkipAllDeleteErr)
                         return TRUE;
 
+                    if (err == ERROR_ACCESS_DENIED && receipt.captured)
+                    {
+                        UacF7::PreparedTransfer request;
+                        if (request.PrepareMoveCompletion(op->SourceNameW, op->TargetNameW, op->FileSize.Value,
+                                                          receipt.source, receipt.target))
+                        {
+                            // A retry must recheck both files. Do not delete a name
+                            // that might now refer to a different source.
+                            protectedCompletion = true;
+                            BOOL success = FALSE;
+                            if (ExecuteWorkerTransfer(hProgressDlg, *op, *script, totalDone, dlgData, success, request, err))
+                                return success;
+                        }
+                        else if (protectedCompletion || receipt.source.serial != receipt.target.serial)
+                            err = ERROR_FILE_INVALID;
+                    }
+                    if (err == ERROR_FILE_INVALID && verified)
+                    {
+                        SendMessage(hProgressDlg, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER_UNKNOWN, TRUE);
+                        return FALSE;
+                    }
                     int ret = IDCANCEL;
                     char* data[4];
                     data[0] = (char*)&ret;
@@ -7444,8 +11095,47 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
     }
 }
 
+static bool TryDeleteVerifiedLeaf(HWND progress, const COperation& op, COperations& script,
+                                  CProgressDlgData& dlgData, BOOL& success, bool* nonEmptyDirectory = nullptr,
+                                  bool accessDenied = false);
+
+enum class FileDeleteDecision { Proceed, Skip, Cancel };
+
+static FileDeleteDecision ConfirmDeleteFileAttributes(HWND progress, char* name, DWORD attr,
+                                                       CProgressDlgData& dlgData)
+{
+    if (!(attr & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)) ||
+        dlgData.DeleteHiddenAll || !dlgData.CnfrmSHFileDel)
+        return FileDeleteDecision::Proceed;
+    WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE);
+    if (*dlgData.CancelWorker)
+        return FileDeleteDecision::Cancel;
+    if (dlgData.SkipAllSystemOrHidden)
+        return FileDeleteDecision::Skip;
+    int result = IDCANCEL;
+    char* data[4] = {reinterpret_cast<char*>(&result), LoadStr(IDS_CONFIRMSHFILEDELETE),
+                     name, LoadStr(IDS_DELETESHFILE)};
+    SendMessage(progress, WM_USER_DIALOG, 2, reinterpret_cast<LPARAM>(data));
+    switch (result)
+    {
+    case IDB_ALL:
+        dlgData.DeleteHiddenAll = TRUE;
+        return FileDeleteDecision::Proceed;
+    case IDYES:
+        return FileDeleteDecision::Proceed;
+    case IDB_SKIPALL:
+        dlgData.SkipAllSystemOrHidden = TRUE;
+        return FileDeleteDecision::Skip;
+    case IDB_SKIP:
+        return FileDeleteDecision::Skip;
+    default:
+        return FileDeleteDecision::Cancel;
+    }
+}
+
 BOOL DoDeleteFile(HWND hProgressDlg, char* name, const CQuadWord& size, COperations* script,
-                  CQuadWord& totalDone, DWORD attr, CProgressDlgData& dlgData, const wchar_t* exactName)
+                  CQuadWord& totalDone, DWORD attr, CProgressDlgData& dlgData, const wchar_t* exactName,
+                  const COperation* branchRow = nullptr)
 {
     // if the path ends with a space/dot it is invalid and we must not delete it,
     // DeleteFile would trim the spaces/dots and remove a different file
@@ -7457,40 +11147,11 @@ BOOL DoDeleteFile(HWND hProgressDlg, char* name, const CQuadWord& size, COperati
     {
         if (!invalidName)
         {
-            if (attr & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM))
+            switch (ConfirmDeleteFileAttributes(hProgressDlg, name, attr, dlgData))
             {
-                if (!dlgData.DeleteHiddenAll && dlgData.CnfrmSHFileDel)
-                {
-                    WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
-                    if (*dlgData.CancelWorker)
-                        return FALSE;
-
-                    if (dlgData.SkipAllSystemOrHidden)
-                        goto SKIP_DELETE;
-
-                    int ret = IDCANCEL;
-                    char* data[4];
-                    data[0] = (char*)&ret;
-                    data[1] = LoadStr(IDS_CONFIRMSHFILEDELETE);
-                    data[2] = name;
-                    data[3] = LoadStr(IDS_DELETESHFILE);
-                    SendMessage(hProgressDlg, WM_USER_DIALOG, 2, (LPARAM)data);
-                    switch (ret)
-                    {
-                    case IDB_ALL:
-                        dlgData.DeleteHiddenAll = TRUE;
-                    case IDYES:
-                        break;
-
-                    case IDB_SKIPALL:
-                        dlgData.SkipAllSystemOrHidden = TRUE;
-                    case IDB_SKIP:
-                        goto SKIP_DELETE;
-
-                    case IDCANCEL:
-                        return FALSE;
-                    }
-                }
+            case FileDeleteDecision::Skip: goto SKIP_DELETE;
+            case FileDeleteDecision::Cancel: return FALSE;
+            case FileDeleteDecision::Proceed: break;
             }
             WorkerClearReadOnlyW(nameW, attr); // ensure it can be deleted
 
@@ -7544,7 +11205,17 @@ BOOL DoDeleteFile(HWND hProgressDlg, char* name, const CQuadWord& size, COperati
             else
             {
                 if (DeleteFileW(nameW.c_str()) == 0)
+                {
                     err = GetLastError();
+                    BOOL verifiedOrSkipped = FALSE;
+                    if (err == ERROR_ACCESS_DENIED && branchRow &&
+                        TryDeleteVerifiedLeaf(hProgressDlg, *branchRow, *script, dlgData, verifiedOrSkipped, nullptr, true))
+                    {
+                        if (!verifiedOrSkipped)
+                            return FALSE;
+                        err = ERROR_SUCCESS;
+                    }
+                }
             }
         }
         else
@@ -7698,12 +11369,27 @@ BOOL DoCopyDirTime(HWND hProgressDlg, const char* targetName, FILETIME* modified
     return TRUE;
 }
 
+static void PrepareWorkerTreeMerge(const COperation& op, CProgressDlgData& dlgData)
+{
+    if (!(op.OpFlags & OPFL_UAC_TREE_ROOT))
+        return;
+    auto& pending = dlgData.PendingTreeMerge;
+    pending.emplace();
+    if (!pending->Request.PrepareTreeMerge(op.SourceNameW, op.TargetNameW))
+    {
+        pending.reset();
+        return;
+    }
+    pending->Source = SalWideToMultiBytePath(SalPathRemoveExtendedPrefixW(op.SourceNameW.c_str()).c_str(), CP_UTF8);
+    pending->Target = SalWideToMultiBytePath(SalPathRemoveExtendedPrefixW(op.TargetNameW.c_str()).c_str(), CP_UTF8);
+}
+
 BOOL DoCreateDir(HWND hProgressDlg, char* name, DWORD attr,
                  DWORD clearReadonlyMask, CProgressDlgData& dlgData,
                  CQuadWord& totalDone, CQuadWord& operTotal,
                  const char* sourceDir, BOOL adsCopy, COperations* script,
                  void* buffer, BOOL& skip, BOOL& alreadyExisted,
-                 BOOL createAsEncrypted, BOOL ignInvalidName, const wchar_t* exactName)
+                 BOOL createAsEncrypted, BOOL ignInvalidName, const COperation& op)
 {
     if (script->CopyAttrs && createAsEncrypted)
         TRACE_E("DoCreateDir(): unexpected parameter value: createAsEncrypted is TRUE when script->CopyAttrs is TRUE!");
@@ -7717,12 +11403,17 @@ BOOL DoCreateDir(HWND hProgressDlg, char* name, DWORD attr,
 
     // if the path ends with a space/dot, we must append '\\'; otherwise SetFileAttributes
     // and RemoveDirectory trim the spaces/dots and operate on a different path
+    const wchar_t* exactName = op.TargetNameWValid ? op.TargetNameW.c_str() : nullptr;
     std::wstring nameCrDirW = WorkerOperationPathW(name, exactName);
 
     while (1)
     {
-        DWORD err;
-        if (!invalidName && WorkerCreateDirectory(name, &err, exactName))
+        const bool plannedRoot = (op.OpFlags & OPFL_UAC_TREE_ROOT) && script->CopySource &&
+                                 script->CopySource->Session && script->CopySource->Session->NeedsTreeRoot();
+        const bool reviewedSource = (op.OpFlags & OPFL_UAC_TRANSFER_LISTED) &&
+                                    script->CopySource && script->CopySource->Session;
+        DWORD err = ERROR_ACCESS_DENIED;
+        if (!invalidName && !reviewedSource && !plannedRoot && WorkerCreateDirectory(name, &err, exactName))
         {
             script->AddBytesToSpeedMetersAndTFSandPS((DWORD)CREATE_DIR_SIZE.Value, TRUE, 0, NULL, MAX_OP_FILESIZE); // directory already created
 
@@ -7912,18 +11603,40 @@ BOOL DoCreateDir(HWND hProgressDlg, char* name, DWORD attr,
                     }
                 }
             }
+            if (!skip)
+                PrepareWorkerTreeMerge(op, dlgData);
             return TRUE;
         }
         else
         {
             if (invalidName)
                 err = ERROR_INVALID_NAME;
-            if (err == ERROR_ALREADY_EXISTS ||
-                err == ERROR_FILE_EXISTS)
+            if (!plannedRoot && err == ERROR_ACCESS_DENIED && (op.OpFlags & OPFL_UAC_TREE_ENTRY))
+            {
+                const DWORD attrs = GetFileAttributesW(nameCrDirW.c_str());
+                if (attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_DIRECTORY))
+                    err = ERROR_ALREADY_EXISTS;
+            }
+            if (err == ERROR_ACCESS_DENIED && (op.OpFlags & OPFL_UAC_TREE_ENTRY) && !dlgData.SkipAllDirCreateErr)
+            {
+                BOOL success = FALSE;
+                if (TryTransferWithBroker(hProgressDlg, op, *script, totalDone, dlgData, success, err, nullptr, true))
+                {
+                    if (success)
+                        script->AddBytesToSpeedMetersAndTFSandPS(static_cast<DWORD>(CREATE_DIR_SIZE.Value),
+                                                                 TRUE, 0, NULL, MAX_OP_FILESIZE);
+                    return success;
+                }
+                if (reviewedSource && err == ERROR_ACCESS_DENIED)
+                    err = ERROR_NOT_SUPPORTED;
+            }
+            if (!plannedRoot && (err == ERROR_ALREADY_EXISTS || err == ERROR_FILE_EXISTS))
             {
                 DWORD attr2 = GetFileAttributesW(nameCrDirW.c_str());
-                if (attr2 & FILE_ATTRIBUTE_DIRECTORY) // "directory overwrite"
+                if (attr2 != INVALID_FILE_ATTRIBUTES && (attr2 & FILE_ATTRIBUTE_DIRECTORY)) // "directory overwrite"
                 {
+                    // Freeze the identity shown before the user answers.
+                    PrepareWorkerTreeMerge(op, dlgData);
                     if (dlgData.CnfrmDirOver && !dlgData.DirOverwriteAll) // should we ask the user about overwriting the directory?
                     {
                         char sAttr[101], tAttr[101];
@@ -8021,6 +11734,8 @@ BOOL DoCreateDir(HWND hProgressDlg, char* name, DWORD attr,
             {
             SKIP_CREATE_ERROR:
 
+                if (op.OpFlags & OPFL_UAC_TREE_ROOT)
+                    dlgData.PendingTreeMerge.reset();
                 skip = TRUE; // this is a skip (all operations within the directory must be skipped)
                 return TRUE;
             }
@@ -8032,7 +11747,8 @@ BOOL DoCreateDir(HWND hProgressDlg, char* name, DWORD attr,
 }
 
 BOOL DoDeleteDir(HWND hProgressDlg, char* name, const CQuadWord& size, COperations* script,
-                 CQuadWord& totalDone, DWORD attr, BOOL dontUseRecycleBin, CProgressDlgData& dlgData)
+                 CQuadWord& totalDone, DWORD attr, BOOL dontUseRecycleBin, CProgressDlgData& dlgData,
+                 const COperation& operation)
 {
     DWORD err;
     int AutoRetryCounter = 0;
@@ -8040,13 +11756,19 @@ BOOL DoDeleteDir(HWND hProgressDlg, char* name, const CQuadWord& size, COperatio
 
     // if the path ends with a space/dot, we must append '\\'; otherwise SetFileAttributes
     // and RemoveDirectory trim the spaces/dots and operate on a different path
+    const bool exactDelete = script->AllowPermanentDeletePilot && dontUseRecycleBin && operation.SourceNameWValid;
+    const auto exactName = exactDelete ? WorkerOperationPathW(name, operation.SourceNameW.c_str()) : std::wstring{};
     const char* nameRmDir = name;
     char nameRmDirCopy[3 * MAX_PATH];
-    MakeCopyWithBackslashIfNeeded(nameRmDir, nameRmDirCopy);
+    if (!exactDelete)
+        MakeCopyWithBackslashIfNeeded(nameRmDir, nameRmDirCopy);
 
     while (1)
     {
-        ClearReadOnlyAttr(nameRmDir, attr); // ensure it can be deleted
+        if (exactDelete)
+            WorkerClearReadOnlyW(exactName, attr);
+        else
+            ClearReadOnlyAttr(nameRmDir, attr);
 
         err = ERROR_SUCCESS;
         if (script->CanUseRecycleBin && !dontUseRecycleBin &&
@@ -8079,8 +11801,18 @@ BOOL DoDeleteDir(HWND hProgressDlg, char* name, const CQuadWord& size, COperatio
         }
         else
         {
-            if (RemoveDirectory(nameRmDir) == 0)
+            const BOOL removed = exactDelete ? RemoveDirectoryW(exactName.c_str()) : RemoveDirectory(nameRmDir);
+            if (!removed)
                 err = GetLastError();
+        }
+
+        BOOL elevated = FALSE;
+        if (err == ERROR_ACCESS_DENIED &&
+            TryDeleteVerifiedLeaf(hProgressDlg, operation, *script, dlgData, elevated, nullptr, true))
+        {
+            if (!elevated)
+                return FALSE;
+            err = ERROR_SUCCESS;
         }
 
         if (err == ERROR_SUCCESS)
@@ -8141,7 +11873,7 @@ BOOL DoDeleteDir(HWND hProgressDlg, char* name, const CQuadWord& size, COperatio
             }
         }
 
-        DWORD attr2 = SalGetFileAttributes(nameRmDir); // get the current attribute state
+        const DWORD attr2 = exactDelete ? GetFileAttributesW(exactName.c_str()) : SalGetFileAttributes(nameRmDir);
         if (attr2 != INVALID_FILE_ATTRIBUTES)
             attr = attr2;
     }
@@ -8863,6 +12595,193 @@ CONVERT_AGAIN:
     }
 }
 
+static LONGLONG MetadataFileTime(const FILETIME& time)
+{
+    ULARGE_INTEGER value{};
+    value.LowPart = time.dwLowDateTime;
+    value.HighPart = time.dwHighDateTime;
+    return static_cast<LONGLONG>(value.QuadPart);
+}
+
+static BOOL ExecuteVerifiedWorkerLeaf(HWND progress, const COperation& op, const UacF7::PreparedLeaf* request,
+                                      CProgressDlgData& dlgData, WPARAM promptKind, int errorTitle,
+                                      bool shieldedOk = false, bool* nonEmptyDirectory = nullptr,
+                                      DWORD preparationError = ERROR_SUCCESS)
+{
+    bool retryDeclined = false;
+    for (;;)
+    {
+        WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE);
+        if (*dlgData.CancelWorker)
+            return FALSE;
+        DWORD error = request ? request->ExecuteLocal() : preparationError;
+        BOOL& skipAll = promptKind == WORKER_DIALOG_UAC_DELETE ? dlgData.SkipAllDeleteErr : dlgData.SkipAllChangeAttrs;
+        if (error != ERROR_SUCCESS && skipAll)
+            return TRUE;
+        if (request && error == ERROR_ACCESS_DENIED)
+        {
+            const std::wstring display = SalPathRemoveExtendedPrefixW(op.SourceNameW.c_str());
+            const std::string path = SalWideToMultiBytePath(display.c_str(), CP_UTF8);
+            const bool acceptedShield = shieldedOk;
+            UacF7::LeafPrompt prompt{*request, path.c_str(), shieldedOk};
+            prompt.retryDeclined = retryDeclined;
+            shieldedOk = false;
+            SendMessage(progress, WM_USER_DIALOG, promptKind, reinterpret_cast<LPARAM>(&prompt));
+            if (prompt.result.unknown)
+                return FALSE;
+            error = prompt.result.error;
+            if (promptKind == WORKER_DIALOG_UAC_DELETE && acceptedShield && error == ERROR_CANCELLED)
+                return FALSE;
+        }
+        if (nonEmptyDirectory && error == ERROR_DIR_NOT_EMPTY)
+        {
+            *nonEmptyDirectory = true;
+            return TRUE;
+        }
+        if (error == ERROR_SUCCESS)
+            return TRUE;
+        if (*dlgData.CancelWorker)
+            return FALSE;
+        int answer = IDCANCEL;
+        char* data[] = {reinterpret_cast<char*>(&answer), LoadStr(errorTitle), op.SourceName, GetErrorText(error)};
+        SendMessage(progress, WM_USER_DIALOG, 0, reinterpret_cast<LPARAM>(data));
+        if (answer == IDB_SKIPALL)
+            skipAll = TRUE;
+        if (answer != IDRETRY)
+            return answer == IDB_SKIP || answer == IDB_SKIPALL;
+        retryDeclined = true;
+    }
+}
+
+static bool TryDeleteVerifiedLeaf(HWND progress, const COperation& op, COperations& script,
+                                  CProgressDlgData& dlgData, BOOL& success, bool* nonEmptyDirectory,
+                                  bool accessDenied)
+{
+    // Recheck the worker's actual policy in case it changed after building the script.
+    const bool permanent = (dlgData.UseRecycleBin == 0 && !script.InvertRecycleBin) ||
+                           ((dlgData.UseRecycleBin == 1 || dlgData.UseRecycleBin == 2) && script.InvertRecycleBin);
+    if (!script.AllowPermanentDeletePilot || !permanent || !op.SourceNameWValid ||
+        FileNameIsInvalid(op.SourceName, TRUE))
+        return false;
+
+    if (op.Opcode == ocDeleteDir && static_cast<DWORD>(reinterpret_cast<DWORD_PTR>(op.TargetName)) == MAXDWORD)
+        return false; // never retry a finalizer marked incomplete
+
+    const std::wstring path = SalPathRemoveExtendedPrefixW(op.SourceNameW.c_str());
+    const bool selected = script.PreparedDeleteRequest && path == script.PreparedDeletePath;
+    const COperations::ProtectedFileSource* listed = nullptr;
+    if (!selected && script.ProtectedFileSources)
+    {
+        const auto found = script.ProtectedFileSources->find(path);
+        if (found != script.ProtectedFileSources->end())
+            listed = &found->second;
+    }
+    if (op.Opcode == ocDeleteDir && !selected && !listed && !accessDenied)
+        return false; // keep the ordinary RemoveDirectory path and its retry behavior
+    UacF7::PreparedLeaf localRequest;
+    const UacF7::PreparedLeaf* request = script.PreparedDeleteRequest.get();
+    bool shielded = false;
+    DWORD preparationError = ERROR_SUCCESS;
+    if (selected)
+    {
+        if (op.Attr != script.PreparedDeleteAttrs)
+        {
+            success = FALSE;
+            return true;
+        }
+        shielded = script.DeleteShieldAccepted;
+        script.DeleteShieldAccepted = false;
+    }
+    else
+    {
+        request = nullptr;
+        if (listed)
+        {
+            request = listed->Request.get();
+            preparationError = listed->Error;
+        }
+        if (!request && !preparationError)
+        {
+            if ((op.OpFlags & OPFL_UAC_BRANCH_DELETE) && !accessDenied)
+                return false; // keep the normal worker and its lock-recovery dialog
+            if (!localRequest.PrepareDeleteLeaf(op.SourceNameW, op.Attr))
+                return false;
+            request = &localRequest;
+        }
+    }
+    // The ordinary worker already confirmed H/S on a late access-denied retry.
+    // Direct verified deletion must honor the same choice before any mutation.
+    if (!accessDenied && op.Opcode == ocDeleteFile)
+    {
+        const auto decision = ConfirmDeleteFileAttributes(progress, op.SourceName, op.Attr, dlgData);
+        if (decision != FileDeleteDecision::Proceed)
+        {
+            success = decision == FileDeleteDecision::Skip;
+            return true;
+        }
+    }
+    const int errorTitle = op.Opcode == ocDeleteDirLink ? IDS_ERRORDELETINGDIRLINK :
+                           op.Opcode == ocDeleteDir ? IDS_ERRORDELETINGDIR : IDS_ERRORDELETINGFILE;
+    success = ExecuteVerifiedWorkerLeaf(progress, op, request, dlgData, WORKER_DIALOG_UAC_DELETE,
+                                        errorTitle, shielded, nonEmptyDirectory, preparationError);
+    return true;
+}
+
+bool BuildBasicMetadataChange(DWORD expected, DWORD desired, const CChangeAttrsData& input,
+                              UacF7::MetadataChange& change)
+{
+    constexpr DWORD allowed = UacF7::basicAttributes | FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_DIRECTORY;
+    const bool specialTimes = input.AllowSpecialMetadataTimes && UacF7::IsSpecialTimestampFile(expected) &&
+        expected == desired && !input.BasicMetadataSet && !input.BasicMetadataClear &&
+        (input.ChangeTimeCreated || input.ChangeTimeAccessed || input.ChangeTimeModified);
+    if (!input.AllowBasicMetadataPilot || (!specialTimes && ((expected | desired) & ~allowed) != 0) ||
+        ((expected ^ desired) & FILE_ATTRIBUTE_DIRECTORY) != 0)
+        return false;
+
+    change = {};
+    change.expectedAttributes = expected;
+    const DWORD desiredBasic = desired & UacF7::basicAttributes;
+    if (desiredBasic != (expected & UacF7::basicAttributes))
+        change.attributes = desiredBasic ? desiredBasic : FILE_ATTRIBUTE_NORMAL;
+    if (input.ChangeTimeCreated)
+        change.created = MetadataFileTime(input.TimeCreated);
+    if (input.ChangeTimeAccessed)
+        change.accessed = MetadataFileTime(input.TimeAccessed);
+    if (input.ChangeTimeModified)
+        change.modified = MetadataFileTime(input.TimeModified);
+    if ((input.ChangeTimeCreated && !change.created) || (input.ChangeTimeAccessed && !change.accessed) ||
+        (input.ChangeTimeModified && !change.modified))
+        return false;
+    return true;
+}
+
+static bool TryChangeBasicMetadata(HWND progress, COperation& op, const CChangeAttrsData& input,
+                                   CProgressDlgData& dlgData, BOOL& success, UacF7::PreparedLeaf* protectedRequest)
+{
+    UacF7::MetadataChange change{};
+    const DWORD desired = static_cast<DWORD>(reinterpret_cast<DWORD_PTR>(op.TargetName));
+    if (!op.SourceNameWValid || !BuildBasicMetadataChange(op.Attr, desired, input, change))
+    {
+        // A prepared protected request must never fall through to the legacy path-based mutation.
+        success = FALSE;
+        return protectedRequest != nullptr;
+    }
+
+    if (protectedRequest != nullptr)
+    {
+        success = ExecuteVerifiedWorkerLeaf(progress, op, protectedRequest, dlgData,
+                                             WORKER_DIALOG_UAC_METADATA, IDS_ERRORCHANGINGATTRS, input.MetadataShieldedOk);
+        return true;
+    }
+
+    UacF7::PreparedLeaf request;
+    if (!request.PrepareMetadata(op.SourceNameW, change, {input.BasicMetadataSet, input.BasicMetadataClear}))
+        return false;
+    success = ExecuteVerifiedWorkerLeaf(progress, op, &request, dlgData,
+                                         WORKER_DIALOG_UAC_METADATA, IDS_ERRORCHANGINGATTRS, input.MetadataShieldedOk);
+    return true;
+}
+
 BOOL DoChangeAttrs(HWND hProgressDlg, char* name, const CQuadWord& size, DWORD attrs,
                    COperations* script, CQuadWord& totalDone,
                    FILETIME* timeModified, FILETIME* timeCreated, FILETIME* timeAccessed,
@@ -9189,6 +13108,19 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
     task->Input = INVALID_HANDLE_VALUE;
     if (input == INVALID_HANDLE_VALUE)
         return FALSE;
+    struct CScopedParallelHandle
+    {
+        HANDLE Value;
+        explicit CScopedParallelHandle(HANDLE value) : Value(value) {}
+        ~CScopedParallelHandle() { Close(); }
+        BOOL Close()
+        {
+            if (Value == INVALID_HANDLE_VALUE) return TRUE;
+            HANDLE value = Value;
+            Value = INVALID_HANDLE_VALUE;
+            return HANDLES(CloseHandle(value));
+        }
+    } inputOwner(input);
     BY_HANDLE_FILE_INFORMATION inputInfo;
     if (task->SourceIdentityValid &&
         (!GetFileInformationByHandle(input, &inputInfo) ||
@@ -9196,7 +13128,7 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
          (((ULONGLONG)inputInfo.nFileIndexHigh << 32) | inputInfo.nFileIndexLow) !=
              task->SourceFileIndex))
     {
-        HANDLES(CloseHandle(input));
+        inputOwner.Close();
         return FALSE;
     }
     while (WaitForSingleObject(batch->DialogData->WorkerNotSuspended, 100) == WAIT_TIMEOUT)
@@ -9205,7 +13137,7 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
             InterlockedCompareExchange(&task->Cancel, 0, 0) != 0 ||
             batch->Script->IsParallelCopyDisabled())
         {
-            HANDLES(CloseHandle(input));
+            inputOwner.Close();
             return FALSE;
         }
     }
@@ -9213,14 +13145,54 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
         InterlockedCompareExchange(&task->Cancel, 0, 0) != 0 ||
         batch->Script->IsParallelCopyDisabled())
     {
-        HANDLES(CloseHandle(input));
+        inputOwner.Close();
         return FALSE;
     }
-    if (batch->Script->CopyMoveConflictMode == CMCM_SCAN_AHEAD &&
-        !batch->Script->ValidateParallelCopyLeaseForSideEffect(task->ScriptIndex,
-                                                                task->LeaseGeneration))
+    // Allocate before opening or truncating the destination: allocation
+    // failure can then stop without damaging an existing target.
+    const DWORD bufferSize = 1024 * 1024;
+    struct CScopedCopyBuffer
     {
-        HANDLES(CloseHandle(input));
+        BYTE* Data;
+        explicit CScopedCopyBuffer(DWORD size) : Data((BYTE*)malloc(size)) {}
+        ~CScopedCopyBuffer() { free(Data); }
+    } allocation(bufferSize);
+    BYTE* buffer = allocation.Data;
+    if (buffer == NULL)
+    {
+        inputOwner.Close();
+        return FALSE;
+    }
+    // Allocation may take time. Recheck cancellation and pause, then perform
+    // the scan-ahead lease check before touching the target. This does not
+    // atomically exclude a later state change.
+    while (WaitForSingleObject(batch->DialogData->WorkerNotSuspended, 100) == WAIT_TIMEOUT)
+    {
+        if (*batch->DialogData->CancelWorker ||
+            InterlockedCompareExchange(&task->Cancel, 0, 0) != 0 ||
+            batch->Script->IsParallelCopyDisabled())
+        {
+            inputOwner.Close();
+            return FALSE;
+        }
+    }
+    if (*batch->DialogData->CancelWorker ||
+        InterlockedCompareExchange(&task->Cancel, 0, 0) != 0 ||
+        batch->Script->IsParallelCopyDisabled())
+    {
+        inputOwner.Close();
+        return FALSE;
+    }
+    try
+    {
+        if (batch->Script->CopyMoveConflictMode == CMCM_SCAN_AHEAD &&
+            !batch->Script->ValidateParallelCopyLeaseForSideEffect(task->ScriptIndex, task->LeaseGeneration))
+            return FALSE;
+    }
+    catch (const std::bad_alloc&)
+    {
+        // No destination handle has been opened yet. The batch handles this
+        // as an ordinary failed task and releases its outstanding lease.
         return FALSE;
     }
     HANDLE output = HANDLES_Q(CreateFileW(task->Target.c_str(), GENERIC_WRITE | FILE_READ_ATTRIBUTES,
@@ -9229,9 +13201,10 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
                                           FILE_FLAG_SEQUENTIAL_SCAN, NULL));
     if (output == INVALID_HANDLE_VALUE)
     {
-        HANDLES(CloseHandle(input));
+        inputOwner.Close();
         return FALSE;
     }
+    CScopedParallelHandle outputOwner(output);
     BY_HANDLE_FILE_INFORMATION outputInfo;
     if (!GetFileInformationByHandle(output, &outputInfo) ||
         task->ReplaceTarget &&
@@ -9239,8 +13212,8 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
              (((ULONGLONG)outputInfo.nFileIndexHigh << 32) | outputInfo.nFileIndexLow) !=
                  task->TargetFileIndex))
     {
-        HANDLES(CloseHandle(output));
-        HANDLES(CloseHandle(input));
+        outputOwner.Close();
+        inputOwner.Close();
         return FALSE;
     }
     if (!task->ReplaceTarget)
@@ -9258,16 +13231,16 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
                                              FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)) != 0 ||
             !ParallelHandleHasNamedStreams(output, hasNamedStreams) || hasNamedStreams)
         {
-            HANDLES(CloseHandle(output));
-            HANDLES(CloseHandle(input));
+            outputOwner.Close();
+            inputOwner.Close();
             return FALSE;
         }
         LARGE_INTEGER zero;
         zero.QuadPart = 0;
         if (!SetFilePointerEx(output, zero, NULL, FILE_BEGIN) || !SetEndOfFile(output))
         {
-            HANDLES(CloseHandle(output));
-            HANDLES(CloseHandle(input));
+            outputOwner.Close();
+            inputOwner.Close();
             return FALSE;
         }
         task->DeleteOnFailure = TRUE;
@@ -9277,9 +13250,7 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
                                 outputInfo.nFileIndexLow;
     }
 
-    const DWORD bufferSize = 1024 * 1024;
-    BYTE* buffer = (BYTE*)malloc(bufferSize);
-    BOOL success = buffer != NULL;
+    BOOL success = TRUE;
     CQuadWord copied(0, 0);
     while (success)
     {
@@ -9337,8 +13308,6 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
             HANDLES(LeaveCriticalSection(&batch->CS));
         }
     }
-    if (buffer != NULL)
-        free(buffer);
     if (success && copied != task->Operation->FileSize)
         success = FALSE;
     FILETIME lastWrite;
@@ -9357,9 +13326,9 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
                 success = FALSE;
         }
     }
-    if (!HANDLES(CloseHandle(output)))
+    if (!outputOwner.Close())
         success = FALSE;
-    HANDLES(CloseHandle(input));
+    inputOwner.Close();
     return success;
 }
 
@@ -9450,11 +13419,11 @@ static DWORD WINAPI ParallelCopyThreadProc(LPVOID parameter)
 
 static BOOL CanUseParallelCopy(const COperations* script, const COperation* operation)
 {
-    return script->IsCopyOperation &&
+    return script->IsCopyOperation && !script->DeferredTransferTarget &&
            script->CopyMoveTransferMode == CMS_STORAGE_AWARE &&
            !script->CopySecurity && !script->CopyAttrs && !script->OverwriteOlder &&
            operation->Opcode == ocCopyFile &&
-           (operation->OpFlags & (OPFL_COPY_ADS | OPFL_AS_ENCRYPTED)) == 0 &&
+           (operation->OpFlags & (OPFL_COPY_ADS | OPFL_AS_ENCRYPTED | OPFL_UAC_TRANSFER_SOURCE)) == 0 &&
            !FileNameIsInvalid(operation->SourceName, TRUE) && !FileNameIsInvalid(operation->TargetName, TRUE);
 }
 
@@ -9464,11 +13433,29 @@ static BOOL ValidateInjectedTargetIdentity(COperation* operation, CProgressDlgDa
     std::wstring target = GetParallelCopyPathW(operation, FALSE);
     if (target.empty()) return FALSE;
     target = SalPathAddExtendedPrefixW(target.c_str());
+    if (operation->ScannedTargetRevision.attributes)
+    {
+        HANDLE file = HANDLES_Q(CreateFileW(target.c_str(), FILE_READ_ATTRIBUTES,
+                                            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                                            OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+        if (file == INVALID_HANDLE_VALUE)
+            return FALSE;
+        UacF7::ArchiveRevision current;
+        const bool captured = UacF7::CaptureOverwriteRevision(file, current);
+        const DWORD error = captured ? ERROR_SUCCESS : GetLastError();
+        const bool matches = captured && UacF7::SameFileRevision(operation->ScannedTargetRevision, current);
+        HANDLES(CloseHandle(file));
+        if (!captured) SetLastError(error ? error : ERROR_GEN_FAILURE);
+        else if (!matches) SetLastError(ERROR_FILE_INVALID);
+        return matches;
+    }
     DWORD volumeSerial;
     ULONGLONG fileIndex;
-    return GetParallelFileIdentity(target, volumeSerial, fileIndex) &&
-           volumeSerial == dialogData.InjectedTargetVolumeSerial &&
-           fileIndex == dialogData.InjectedTargetFileIndex;
+    if (!GetParallelFileIdentity(target, volumeSerial, fileIndex)) return FALSE;
+    const bool matches = volumeSerial == dialogData.InjectedTargetVolumeSerial &&
+                         fileIndex == dialogData.InjectedTargetFileIndex;
+    if (!matches) SetLastError(ERROR_FILE_INVALID);
+    return matches;
 }
 
 static BOOL CanPrepareParallelDirectory(const COperations* script, const COperation* operation);
@@ -9614,12 +13601,15 @@ static BOOL GetParallelFileIdentity(const std::wstring& path, DWORD& volumeSeria
         return FALSE;
     BY_HANDLE_FILE_INFORMATION info;
     BOOL success = GetFileInformationByHandle(file, &info);
+    const DWORD error = success ? ERROR_SUCCESS : GetLastError();
     HANDLES(CloseHandle(file));
     if (success)
     {
         volumeSerial = info.dwVolumeSerialNumber;
         fileIndex = ((ULONGLONG)info.nFileIndexHigh << 32) | info.nFileIndexLow;
     }
+    else
+        SetLastError(error ? error : ERROR_GEN_FAILURE);
     return success;
 }
 
@@ -9631,14 +13621,17 @@ static BOOL GetParallelDirectoryIdentity(const std::wstring& path, DWORD& volume
                                              NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL));
     if (directory == INVALID_HANDLE_VALUE) return FALSE;
     BY_HANDLE_FILE_INFORMATION info;
-    BOOL success = GetFileInformationByHandle(directory, &info) &&
-                   (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+    const BOOL queried = GetFileInformationByHandle(directory, &info);
+    const DWORD error = queried ? ERROR_DIRECTORY : GetLastError();
+    BOOL success = queried && (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
     HANDLES(CloseHandle(directory));
     if (success)
     {
         volumeSerial = info.dwVolumeSerialNumber;
         fileIndex = ((ULONGLONG)info.nFileIndexHigh << 32) | info.nFileIndexLow;
     }
+    else
+        SetLastError(error ? error : ERROR_GEN_FAILURE);
     return success;
 }
 
@@ -9646,7 +13639,7 @@ static BOOL CanPrepareParallelDirectory(const COperations* script, const COperat
 {
     return script != NULL && operation != NULL && operation->Opcode == ocCreateDir &&
            !script->CopyAttrs && !script->CopySecurity &&
-           (operation->OpFlags & (OPFL_COPY_ADS | OPFL_AS_ENCRYPTED)) == 0 &&
+           (operation->OpFlags & (OPFL_COPY_ADS | OPFL_AS_ENCRYPTED | OPFL_UAC_TREE_ROOT)) == 0 &&
            !FileNameIsInvalid(operation->TargetName, TRUE,
                               (operation->OpFlags & OPFL_IGNORE_INVALID_NAME) != 0);
 }
@@ -10314,7 +14307,7 @@ static int RunParallelCopyBatch(COperations* script, int first, HWND progressDia
     if (initialLeaseGeneration != 0 && script->CopyMoveConflictMode != CMCM_SCAN_AHEAD)
         return 0;
     if (limit < 2 || script->IsParallelCopyDisabled() ||
-        !CanUseParallelCopy(script, &script->At(first)))
+        script->At(first).ScannedTargetRevision.attributes || !CanUseParallelCopy(script, &script->At(first)))
     {
         if (initialLeaseGeneration != 0)
             script->ReleaseParallelCopyLease(first, initialLeaseGeneration);
@@ -10360,6 +14353,7 @@ static DWORD WINAPI ConflictScannerBody(void* parameter)
         DWORD attributes = INVALID_FILE_ATTRIBUTES, volumeSerial = 0;
         ULONGLONG size = 0, fileIndex = 0;
         FILETIME writeTime = {};
+        UacF7::ArchiveRevision revision;
         BOOL inspect = op->Opcode == ocCopyFile || op->Opcode == ocMoveFile ||
                        op->Opcode == ocCreateDir;
         if (inspect)
@@ -10387,13 +14381,15 @@ static DWORD WINAPI ConflictScannerBody(void* parameter)
                             type = targetIsDirectory ? cmctTypeMismatch : cmctFileExists;
                         else if (op->Opcode == ocCreateDir)
                             type = targetIsDirectory ? cmctDirectoryExists : cmctTypeMismatch;
+                        if ((op->OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) && op->Opcode == ocCopyFile && type == cmctFileExists)
+                            CaptureScannedOverwriteRevision(target, info, revision);
                     }
                     HANDLES(CloseHandle(handle));
                 }
             }
         }
         data->Script->PublishConflictScanResult(index, type, attributes, size, writeTime,
-                                                volumeSerial, fileIndex, identityValid, existed);
+                                                volumeSerial, fileIndex, identityValid, existed, revision);
         data->Script->SignalConflictChanged();
     }
     data->Script->SetConflictScanState(FALSE,
@@ -10415,6 +14411,7 @@ unsigned ThreadWorkerBody(void* parameter)
     CProgressDlgData dlgData;
     dlgData.WorkerNotSuspended = data->WorkerNotSuspended;
     dlgData.CancelWorker = data->CancelWorker;
+    dlgData.CancelWorkerEvent = data->CancelWorkerEvent;
     dlgData.OperationProgress = data->OperationProgress;
     dlgData.SummaryProgress = data->SummaryProgress;
     dlgData.OverwriteAll = dlgData.OverwriteHiddenAll = dlgData.DeleteHiddenAll =
@@ -10490,6 +14487,7 @@ unsigned ThreadWorkerBody(void* parameter)
         GainWriteOwnerAccess();
 
     HWND hProgressDlg = data->HProgressDlg;
+    const HANDLE cancelWorkerEvent = data->CancelWorkerEvent;
     void* buffer = data->Buffer;
     BOOL bufferIsAllocated = data->BufferIsAllocated;
     CChangeAttrsData* attrsData = (CChangeAttrsData*)data->Buffer;
@@ -10539,6 +14537,32 @@ unsigned ThreadWorkerBody(void* parameter)
         lstrcpyn(opChangAttrs, LoadStr(IDS_CHANGINGATTRS), 50);
 
         int i = 0;
+        if (script->DeleteShieldAccepted && script->PreparedDeleteRequest &&
+            script->PreparedDeleteRequest->IsDirectoryDelete() && script->Count > 1)
+        {
+            // A selected protected directory is the final postorder operation.
+            // Its empty-only preattempt obtains consent before any child changes.
+            const COperation& directory = script->At(script->Count - 1);
+            if (directory.Opcode == ocDeleteDir && directory.SourceNameWValid &&
+                SalPathRemoveExtendedPrefixW(directory.SourceNameW.c_str()) == script->PreparedDeletePath)
+            {
+                pd.Operation = opStrDeleting;
+                pd.Source = directory.SourceName;
+                pd.Preposition = "";
+                pd.Target = "";
+                SetProgressDialog(hProgressDlg, &pd, dlgData);
+                bool nonEmpty = false;
+                BOOL removedOrSkipped = FALSE;
+                if (!TryDeleteVerifiedLeaf(hProgressDlg, directory, *script, dlgData, removedOrSkipped, &nonEmpty) ||
+                    !nonEmpty)
+                {
+                    Error = !removedOrSkipped;
+                    i = script->Count; // the selected directory was removed, skipped, or cancelled
+                }
+            }
+            else
+                Error = TRUE; // do not change descendants without the verified selected directory
+        }
         while (!Error && !*dlgData.CancelWorker)
         {
             CCopyMoveConflictDecision conflictDecision = cmcdNone;
@@ -10595,7 +14619,8 @@ unsigned ThreadWorkerBody(void* parameter)
                 break;
 
             COperation* op = &script->At(i);
-            BOOL injectConflictDecision = conflictScanner != NULL && conflictDecision == cmcdOverwrite;
+            BOOL injectConflictDecision = conflictScanner != NULL && conflictDecision == cmcdOverwrite &&
+                                          executionConflictType != cmctNone;
             BOOL savedOverwriteAll = FALSE;
             BOOL savedDirOverwriteAll = FALSE;
             if (injectConflictDecision)
@@ -10613,6 +14638,46 @@ unsigned ThreadWorkerBody(void* parameter)
 
             switch (op->Opcode)
             {
+            case ocCopyProtectedTree:
+            {
+                WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE);
+                if (*dlgData.CancelWorker)
+                {
+                    Error = TRUE;
+                    break;
+                }
+                pd.Operation = opStrCopying;
+                pd.Source = op->SourceName;
+                pd.Preposition = opStrCopyingPrep;
+                pd.Target = op->TargetName;
+                SetProgressDialog(hProgressDlg, &pd, dlgData);
+
+                UacF7::TransferPrompt prompt{*script->ProtectedTreeTransfer, op->SourceName, op->TargetName, true};
+                SendMessage(hProgressDlg, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER, reinterpret_cast<LPARAM>(&prompt));
+                const DWORD promptWait = WaitForSingleObject(cancelWorkerEvent, 0);
+                DWORD promptWaitError = promptWait == WAIT_FAILED ? GetLastError() : ERROR_INVALID_HANDLE;
+                if (promptWait != WAIT_TIMEOUT && promptWait != WAIT_OBJECT_0 && promptWaitError == ERROR_SUCCESS)
+                    promptWaitError = ERROR_INVALID_HANDLE;
+                if (!*dlgData.CancelWorker && promptWait != WAIT_OBJECT_0 &&
+                    (promptWait != WAIT_TIMEOUT || prompt.promptError != ERROR_SUCCESS))
+                {
+                    prompt.result = {promptWait == WAIT_TIMEOUT ? prompt.promptError : promptWaitError, false};
+                    SendMessage(hProgressDlg, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER_PROMPT_ERROR, prompt.result.error);
+                }
+                else if (!*dlgData.CancelWorker && prompt.approved && promptWait == WAIT_TIMEOUT)
+                {
+                    prompt.result = ExecuteWithNativeTransferProgress(prompt.request, hProgressDlg,
+                        cancelWorkerEvent, nullptr, *op, *script, dlgData, totalDone);
+                    SendMessage(hProgressDlg, WM_USER_DIALOG, WORKER_DIALOG_UAC_TREE_RESULT, reinterpret_cast<LPARAM>(&prompt.result));
+                }
+                Error = prompt.result.unknown || prompt.result.error != ERROR_SUCCESS;
+                if (!Error)
+                {
+                    totalDone += op->Size;
+                    SetProgress(hProgressDlg, 1000, CaclProg(totalDone, script->TotalSize), dlgData);
+                }
+                break;
+            }
             case ocCopyFile:
             {
                 if ((op->OpFlags & OPFL_PARALLEL_DONE) != 0)
@@ -10707,7 +14772,7 @@ unsigned ThreadWorkerBody(void* parameter)
                 BOOL skip, alreadyExisted;
                 Error = !DoCreateDir(hProgressDlg, op->TargetName, op->Attr, clearReadonlyMask, dlgData,
                                      totalDone, op->Size, op->SourceName, copyADS, script, buffer, skip,
-                                     alreadyExisted, crAsEncrypted, ignInvalidName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL);
+                                     alreadyExisted, crAsEncrypted, ignInvalidName, *op);
                 if (!Error)
                 {
                     if (skip) // skip directory creation
@@ -10826,10 +14891,22 @@ unsigned ThreadWorkerBody(void* parameter)
 
                 SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
 
+                BOOL deletedOrSkipped = FALSE;
+                if (TryDeleteVerifiedLeaf(hProgressDlg, *op, *script, dlgData, deletedOrSkipped))
+                {
+                    Error = !deletedOrSkipped;
+                    if (deletedOrSkipped)
+                    {
+                        totalDone += op->Size;
+                        SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
+                    }
+                    break;
+                }
                 if (op->Opcode == ocDeleteFile)
                 {
                     Error = !DoDeleteFile(hProgressDlg, op->SourceName, op->Size,
-                                          script, totalDone, op->Attr, dlgData, op->SourceNameWValid ? op->SourceNameW.c_str() : NULL);
+                                          script, totalDone, op->Attr, dlgData, op->SourceNameWValid ? op->SourceNameW.c_str() : NULL,
+                                          (op->OpFlags & OPFL_UAC_BRANCH_DELETE) ? op : nullptr);
                 }
                 else
                 {
@@ -10837,7 +14914,7 @@ unsigned ThreadWorkerBody(void* parameter)
                     {
                         Error = !DoDeleteDir(hProgressDlg, op->SourceName, op->Size,
                                              script, totalDone, op->Attr, (DWORD)(DWORD_PTR)op->TargetName != -1,
-                                             dlgData);
+                                             dlgData, *op);
                     }
                     else
                     {
@@ -10887,6 +14964,18 @@ unsigned ThreadWorkerBody(void* parameter)
 
                 SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
 
+                BOOL metadataSuccess = FALSE;
+                if (TryChangeBasicMetadata(hProgressDlg, *op, *attrsData, dlgData, metadataSuccess,
+                                            script->ProtectedMetadataRequest.get()))
+                {
+                    Error = !metadataSuccess;
+                    if (metadataSuccess)
+                    {
+                        totalDone += op->Size;
+                        SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
+                    }
+                    break;
+                }
                 Error = !DoChangeAttrs(hProgressDlg, op->SourceName, op->Size, (DWORD)(DWORD_PTR)op->TargetName,
                                        script, totalDone,
                                        attrsData->ChangeTimeModified ? &attrsData->TimeModified : NULL,
@@ -10963,6 +15052,9 @@ unsigned ThreadWorkerBody(void* parameter)
     }
     if (conflictScanner != NULL)
     {
+        // A worker can stop on a refused UAC request without a Cancel command from the dialog.
+        if (Error)
+            SetEvent(cancelWorkerEvent);
         if (*dlgData.CancelWorker)
             SetEvent(dlgData.WorkerNotSuspended);
         WaitForSingleObject(conflictScanner, INFINITE);
@@ -10980,6 +15072,13 @@ unsigned ThreadWorkerBody(void* parameter)
         free(tgtBuffer);
     if (bufferIsAllocated)
         free(buffer);
+#ifdef SAM_UAC_THIN_COPY_TEST
+    // Thin sessions may borrow either kind of job below.
+    dlgData.ThinCopyJobs.clear();
+#endif
+    dlgData.TransferJobs.clear();
+    if (script->CopySource)
+        script->CopySource->Session.reset();
     *dlgData.CancelWorker = Error;                  // if this was triggered by Cancel, make that obvious ...
     SendMessage(hProgressDlg, WM_COMMAND, IDOK, 0); // we're done ...
     WaitForSingleObject(wContinue, INFINITE);       // we need to stop the main thread

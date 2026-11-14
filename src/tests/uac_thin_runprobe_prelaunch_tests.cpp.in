@@ -1,0 +1,114 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Test the prelaunch probe boundary. | Prove retry classification cannot precede a launch attempt. | #731 | GPT-6 |
+#include <windows.h>
+#include <shellapi.h>
+#include <cstdio>
+#include <memory>
+#include <new>
+#include <string>
+
+static int sidFreeCalls = 0;
+static HLOCAL SystemLocalFree(HLOCAL value) { return LocalFree(value); }
+#undef LocalFree
+#define LocalFree CountLocalFree
+static HLOCAL CountLocalFree(HLOCAL value) { ++sidFreeCalls; return SystemLocalFree(value); }
+@@ACTUAL_LOCALFREE_DELETER@@
+static void TestSidGuard(bool fail) {
+    PWSTR sid = static_cast<PWSTR>(LocalAlloc(LMEM_FIXED, 128));
+    if (!sid) throw std::bad_alloc();
+    wcscpy_s(sid, 64, L"S-1-5-21-1001");
+    wchar_t access[16] = L"0x00000001";
+@@ACTUAL_SID_GUARD@@
+    if (fail) throw std::bad_alloc();
+@@ACTUAL_SDDL@@
+    (void)sddl;
+@@ACTUAL_SID_RESET@@
+}
+
+enum Exit { Ok, Failed, Cancelled, Untrusted, ProtocolError };
+enum Step { normal, endpointFail, endpointThrow, imageFail, imageThrow, protocolFail,
+            locationFail, normalThrow, laboratory, laboratoryThrow };
+static Step step = normal;
+static int launchCalls = 0;
+static bool markerAtLaunch = false, *markerObserved = nullptr;
+struct Handle {
+    bool value;
+    explicit Handle(bool v = true) : value(v) {}
+    explicit operator bool() const { return value; }
+};
+struct RequestHeader { int operation = 1; };
+struct Result { DWORD error = ERROR_GEN_FAILURE; bool unknown = false; };
+constexpr int SAM_UAC_IMAGE_BROKER = 2;
+static const wchar_t* brokerImage = L"broker.exe";
+static Handle CreateEndpoint(std::wstring& name) {
+    if (step == endpointThrow) throw std::bad_alloc();
+    if (step == endpointFail) { SetLastError(ERROR_ACCESS_DENIED); return Handle(false); }
+    name = L"test-pipe"; return Handle();
+}
+struct InstallLocation {
+    Handle OpenImage(const wchar_t*) const { return Handle(step != imageFail); }
+    std::wstring ImagePath(const wchar_t*) const {
+        if (step == imageThrow) throw std::bad_alloc();
+        return L"test-broker";
+    }
+    bool IsThinTestLocation() const { return step == locationFail; }
+    const std::wstring& Directory() const { static const std::wstring dir = L"test"; return dir; }
+};
+static bool MatchesProtocolImage(const std::wstring&, int) { return step != protocolFail; }
+static int Report(Exit code, const wchar_t*, DWORD) { return code; }
+static bool IsThinOpen(int) { return true; }
+#undef GetEnvironmentVariableW
+#define GetEnvironmentVariableW FakeEnvironment
+static DWORD FakeEnvironment(const wchar_t*, wchar_t* value, DWORD capacity) {
+    if ((step == laboratory || step == laboratoryThrow) && capacity >= 2) { value[0] = L'1'; value[1] = 0; return 1; }
+    return 0;
+}
+#undef CreateProcessW
+#define CreateProcessW FakeCreateProcess
+static BOOL FakeCreateProcess(const wchar_t*, wchar_t*, LPSECURITY_ATTRIBUTES, LPSECURITY_ATTRIBUTES,
+                              BOOL, DWORD, void*, const wchar_t*, LPSTARTUPINFOW, LPPROCESS_INFORMATION process) {
+    ++launchCalls; markerAtLaunch = markerObserved && *markerObserved;
+    if (step == laboratoryThrow) throw std::bad_alloc();
+    process->hProcess = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(1));
+    process->hThread = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(2));
+    return TRUE;
+}
+#undef CloseHandle
+#define CloseHandle FakeClose
+static BOOL FakeClose(HANDLE) { return TRUE; }
+static BOOL LaunchBrokerWithOwner(SHELLEXECUTEINFOW&, bool) {
+    ++launchCalls; markerAtLaunch = markerObserved && *markerObserved;
+    if (step == normalThrow) throw std::bad_alloc();
+    return TRUE;
+}
+static int ProbePrefix(bool* thinLaunchEntered, Result* result) {
+    RequestHeader requestValue{}; RequestHeader* request = &requestValue;
+    HWND owner = nullptr; InstallLocation install;
+@@ACTUAL_PREFIX@@
+    return launched ? Ok : Failed;
+}
+static void Check(bool value, const char* label, int& failures) {
+    std::printf("%s %s\n", value ? "PASS" : "FAIL", label); if (!value) ++failures;
+}
+int main() {
+    int failures = 0;
+    sidFreeCalls = 0;
+    try { TestSidGuard(true); } catch (const std::bad_alloc&) {}
+    Check(sidFreeCalls == 1, "SID guard frees exactly once on allocation exception", failures);
+    sidFreeCalls = 0; TestSidGuard(false);
+    Check(sidFreeCalls == 1, "SID guard frees exactly once on success", failures);
+    for (Step value : {endpointFail, endpointThrow, imageFail, imageThrow, protocolFail, locationFail}) {
+        step = value; launchCalls = 0; bool entered = false; markerObserved = &entered; Result result{};
+        bool failed = false;
+        try { failed = ProbePrefix(&entered, &result) != Ok; } catch (const std::bad_alloc&) { failed = true; }
+        Check(failed && !entered && !launchCalls, "prelaunch failure never enters launcher", failures);
+    }
+    for (Step value : {normal, normalThrow, laboratory, laboratoryThrow}) {
+        step = value; launchCalls = 0; markerAtLaunch = false; bool entered = false; markerObserved = &entered; Result result{};
+        try { (void)ProbePrefix(&entered, &result); } catch (const std::bad_alloc&) {}
+        Check(entered && launchCalls == 1 && markerAtLaunch, "launch marker set before actual launch call", failures);
+    }
+    return failures ? 1 : 0;
+}

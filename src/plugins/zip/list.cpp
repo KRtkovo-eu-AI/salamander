@@ -1,7 +1,14 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Record each ZIP entry offset from the ordinary parser. | Let protected selection reads seek directly to their records. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Use the common verified range-source initializer. | Share ZIP64 and single-volume checks. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Build protected listings through the regular ZIP directory parser. | Keep invalid paths out of the browsable tree. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | List one ZIP or ZIP64 from the private read source. | Emit display names only and bound the number of entries. | | GPT-6.1 Sol (Codex) |
 
 #include "precomp.h"
+#include "../../common/zipread.h"
+#include <vector>
+#include <string_view>
 #include <new>
 #include <crtdbg.h>
 #include <ostream>
@@ -47,6 +54,51 @@ static wchar_t* DupZipUtf8NameW(const char* name, int nameLen)
     return nameW;
 }
 
+DWORD CZipList::ListSource(const SalZipReadSourceV1& source)
+{
+    const DWORD openError = OpenReadSource(source);
+    if (openError)
+        return openError;
+    std::vector<char> header(MAX_HEADER_SIZE);
+    std::vector<char> name(MAX_HEADER_SIZE);
+    QWORD offset = CentrDirOffs + ExtraBytes;
+    const QWORD end = offset + CentrDirSize;
+    DWORD entries = 0;
+    while (offset < end)
+    {
+        if (++entries > 4096)
+            return ERROR_FILE_TOO_LARGE;
+        auto* entry = reinterpret_cast<CFileHeader*>(header.data());
+        if (ReadCentralHeader(entry, &offset, nullptr) || offset > end)
+            return RangeError ? RangeError : ERROR_INVALID_DATA;
+        const DWORD length = ProcessName(entry, name.data());
+        if (!length)
+            return ERROR_INVALID_DATA;
+        if (entry->ExternAttr & FILE_ATTRIBUTE_DIRECTORY)
+            name[length] = '/';
+        const DWORD error = source.Entry(source.Context, name.data(),
+                                         length + ((entry->ExternAttr & FILE_ATTRIBUTE_DIRECTORY) != 0));
+        if (error)
+            return error;
+    }
+    return entries == EOCentrDir.TotalEntries ? ERROR_SUCCESS : ERROR_INVALID_DATA;
+}
+
+DWORD WINAPI SalamanderListZipSourceV1(const SalZipReadSourceV1* source)
+{
+    if (!source || !source->Read || !source->Entry)
+        return ERROR_INVALID_PARAMETER;
+    try
+    {
+        CZipList zip("", nullptr);
+        return zip.ListSource(*source);
+    }
+    catch (const std::bad_alloc&)
+    {
+        return ERROR_NOT_ENOUGH_MEMORY;
+    }
+}
+
 int CZipList::ListArchive(CSalamanderDirectoryAbstract* dir, BOOL& haveFiles)
 {
     CALL_STACK_MESSAGE1("CZipList::ListArchive( )");
@@ -67,7 +119,26 @@ int CZipList::ListArchive(CSalamanderDirectoryAbstract* dir, BOOL& haveFiles)
     return ErrorID;
 }
 
-int CZipList::List(CSalamanderDirectoryAbstract* dir, BOOL& haveFiles)
+// Only the panel adapter needs safe virtual path components. The diagnostic export emits text.
+static bool SafeZipPanelName(const CFileHeader& header)
+{
+    std::string_view name(reinterpret_cast<const char*>(&header) + sizeof(header), header.NameLen);
+    if (name.empty() || name.find('\0') != std::string_view::npos || name.find(':') != std::string_view::npos)
+        return false;
+    while (!name.empty())
+    {
+        const auto slash = name.find_first_of("/\\");
+        const auto component = name.substr(0, slash);
+        if (component.empty() || component == "." || component == "..")
+            return false;
+        if (slash == std::string_view::npos)
+            break;
+        name.remove_prefix(slash + 1);
+    }
+    return true;
+}
+
+int CZipList::List(CSalamanderDirectoryAbstract* dir, BOOL& haveFiles, CPluginDataInterfaceAbstract* pluginData)
 {
     CALL_STACK_MESSAGE1("CZipList::List()");
     CFileHeader* centralHeader;
@@ -123,10 +194,20 @@ START_LIST:
                 break;
             }
             readSize += s;
+            if (RangeSource)
+            {
+                if (readSize > CentrDirSize || cnt >= EOCentrDir.TotalEntries)
+                {
+                    errorID = IDS_ERRFORMAT;
+                    break;
+                }
+                if (!SafeZipPanelName(*centralHeader))
+                    continue;
+            }
             if (centralHeader->Version >> 8 == HS_UNIX && !Unix)
             {
                 Unix = TRUE;
-                dir->Clear(NULL);
+                dir->Clear(pluginData);
                 dir->SetFlags(SALDIRFLAG_CASESENSITIVE);
                 goto START_LIST;
             }
@@ -179,7 +260,7 @@ START_LIST:
 #undef new
 #define ZIP_LIST_RESTORE_DEBUG_NEW
 #endif
-            file.PluginData = (DWORD_PTR) new (std::nothrow) CZIPFileData(fileInfo.CompSize, cnt, Unix);
+            file.PluginData = (DWORD_PTR) new (std::nothrow) CZIPFileData(fileInfo.CompSize, readOffset - s, cnt, Unix);
 #ifdef ZIP_LIST_RESTORE_DEBUG_NEW
 #define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
 #undef ZIP_LIST_RESTORE_DEBUG_NEW
@@ -260,6 +341,8 @@ START_LIST:
 */
         }
         haveFiles = cnt > 0;
+        if (RangeSource && !errorID && cnt != EOCentrDir.TotalEntries)
+            errorID = IDS_ERRFORMAT;
     }
     free(centralHeader);
     //free(fileInfo.Name); handled in the destructor

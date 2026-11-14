@@ -1,5 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Check staged ZIP truncation after packing. | Do not publish if the normal ZIP writer could not finish. | | GPT-6.1 Sol (Codex) |
 
 #include "precomp.h"
 #include <winioctl.h>
@@ -1905,7 +1906,8 @@ int CZipPack::FinishPack(int reason)
         {
             if (!Flush(TempFile, TempFile->OutputBuffer, TempFile->BufferPosition, NULL))
             {
-                SetEndOfFile(TempFile->File);
+                if (!SetEndOfFile(TempFile->File) && StagedEdit)
+                    errorID = IDS_ERRWRITE;
             }
             else
                 errorID = IDS_NODISPLAY;

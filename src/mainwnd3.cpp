@@ -1,9 +1,18 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Route explicit Refresh to protected archives. | Leave background refresh noninteractive. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Handle thin F5 focus handoff on the main UI thread. | Complete foreground activation before progress closes. | #731 | GPT-6 |
+// | 2026-11-12 | Gate laboratory copy dispatch by explicit mode and scope. | Exercise native F5 in isolated sync and async peer tests. | #731 | GPT-6 |
+// | 2026-11-12 | Reject repeated test-only copy dispatch. | Prevent reentrant or duplicate test requests from invoking F5 twice. | #731 | GPT-6 |
+// | 2026-11-12 | Gate test-only Retry copy on current panel selection. | Verify the exact fixture in the UI thread immediately before the native copy command. | #731 | GPT-6 |
+// | 2026-11-11 | Route Branch Stop through its explicit user action. | Keep initial results while preserving refresh cancellation semantics. | #731 | GPT-6.1 Terra |
+// | 2026-11-10 | Return to the invoking window when admin shell consent is cancelled. | Keep a successful visible shell in the foreground. | #731 | GPT-6.1 Sol |
 // | 2026-11-14 | Show a flag on the primary panel tab. | Distinguish the primary tab from tabs locked by the user. | | openai/gpt-6-luna-pro |
 // | 2026-11-10 | Enable clipboard copy from plugin file systems. | The staged-file clipboard path supports plugin FS sources with copy-from-FS service. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
+// | 2026-11-08 | Remove the standalone ZIP recovery command route. | Limit UAC to existing ZIP commands. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Dispatch explicit ZIP recovery from a disk panel. | Use the normal guarded command route for attached and detached panels. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Pump main-window messages while Find closes. | Let Find defer destruction until its workers release their data. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Check Find responsiveness on the main window timer. | Use the independent main message loop during a Find stall. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Allow Ctrl+H in Branch View. | Send the hidden and system file toggle through its existing panel refresh. | | GPT-6 (Codex) |
@@ -14,6 +23,9 @@
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#ifdef SAM_UAC_THIN_COPY_TEST
+#include "uac_thin_foreground.h"
+#endif
 #include "common/widepath.h"
 #include "branch_view.h"
 
@@ -443,7 +455,7 @@ bool CMainWindow::InsertPanelTabInstance(CPanelSide side, int index, CFilesWindo
 }
 
 void CMainWindow::RequestPanelRefresh(CFilesWindow* panel, bool rebuildDriveBars,
-                                      bool postRefreshMessage)
+                                      bool postRefreshMessage, bool explicitRefresh)
 {
     if (panel == NULL || panel->HWindow == NULL)
         return;
@@ -461,7 +473,9 @@ void CMainWindow::RequestPanelRefresh(CFilesWindow* panel, bool rebuildDriveBars
     int refreshId = MyTimeCounter++;
     HANDLES(LeaveCriticalSection(&TimeCounterSection));
 
-    if (postRefreshMessage)
+    if (explicitRefresh && panel->IsProtectedZip())
+        panel->RefreshDirectory(FALSE, FALSE, FALSE, true);
+    else if (postRefreshMessage)
         PostMessage(panel->HWindow, WM_USER_REFRESH_DIR, 0, (LPARAM)refreshId);
     else
         SendMessage(panel->HWindow, WM_USER_REFRESH_DIR, 0, (LPARAM)refreshId);
@@ -4463,6 +4477,10 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     // pointer step, so keep them on this small, allocation-free path.
     switch (uMsg)
     {
+#ifdef SAM_UAC_THIN_COPY_TEST
+    case thinMainForegroundHandoffMessage:
+        return ThinMainForegroundHandoff(HWindow, reinterpret_cast<HWND>(wParam), static_cast<ULONG_PTR>(lParam));
+#endif
     case WM_GETMINMAXINFO:
     case WM_NCHITTEST:
     case WM_NCMOUSEMOVE:
@@ -4687,6 +4705,91 @@ CMainWindow::WindowProcImpl(UINT uMsg, WPARAM wParam, LPARAM lParam)
     SLOW_CALL_STACK_MESSAGE4("CMainWindow::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+#ifdef SAM_UAC_THIN_COPY_TEST
+    case WM_APP + 512:
+    {
+        // Test-only: no queued UI message can change the selection between
+        // this check and the synchronous native WM_COMMAND dispatch.
+        auto signal = [](const wchar_t* variable) -> bool
+        {
+            wchar_t name[256]{};
+            const DWORD length = GetEnvironmentVariableW(variable, name, _countof(name));
+            if (!length || length >= _countof(name)) return false;
+            HANDLE event = OpenEventW(EVENT_MODIFY_STATE, FALSE, name);
+            if (!event) return false;
+            const BOOL result = SetEvent(event);
+            CloseHandle(event);
+            return result != FALSE;
+        };
+        // This process accepts at most one request, including reentrant requests.
+        // Consume even rejected requests; a stale caller must never trigger F5.
+        static bool requested = false;
+        if (requested)
+        {
+            signal(L"SAM_UAC_TEST_COPY_REJECT_EVENT");
+            return 0;
+        }
+        requested = true;
+        bool allowed = false;
+        if (wParam == 0 && lParam == 0)
+        {
+            try
+            {
+                auto environment = [](const wchar_t* variable, std::wstring& value) -> bool
+                {
+                    const DWORD size = GetEnvironmentVariableW(variable, nullptr, 0);
+                    if (!size || size > 32768) return false;
+                    std::vector<wchar_t> buffer(size);
+                    const DWORD length = GetEnvironmentVariableW(variable, buffer.data(), size);
+                    if (!length || length >= size) return false;
+                    value.assign(buffer.data(), length);
+                    return true;
+                };
+                std::wstring source, target, name, mode, fault, laboratory, denied;
+                const bool knownMode = environment(L"SAM_UAC_TEST_COPY_MODE", mode);
+                const bool knownFault = environment(L"SAM_UAC_TEST_FAIL", fault);
+                const bool ordinaryRetry = knownMode && mode == L"sync" && knownFault && fault == L"read";
+                const bool laboratoryCopy = knownMode && (mode == L"sync" || mode == L"async") &&
+                    knownFault && fault == L"none" &&
+                    environment(L"SAM_UAC_THIN_UNELEVATED_TEST", laboratory) && laboratory == L"1" &&
+                    environment(L"SAM_UAC_TEST_DENY_OPEN", denied) &&
+                    (denied == L"source" || denied == L"target" || denied == L"both");
+                CFilesWindow* panel = GetActivePanel();
+                CFilesWindow* other = GetNonActivePanel();
+                if (environment(L"SAM_UAC_TEST_READY_PATH", source) &&
+                    environment(L"SAM_UAC_TEST_TARGET_PATH", target) &&
+                    environment(L"SAM_UAC_TEST_READY_NAME", name) &&
+                    (ordinaryRetry || laboratoryCopy) &&
+                    panel && panel == LeftPanel && panel->Is(ptDisk) && other &&
+                    other == RightPanel && other->Is(ptDisk) && EnablerFilesCopy &&
+                    panel->GetPathW() && other->GetPathW() &&
+                    wcscmp(panel->GetPathW(), source.c_str()) == 0 &&
+                    wcscmp(other->GetPathW(), target.c_str()) == 0 && panel->GetSelCount() == 1)
+                {
+                    for (int i = 0; i < panel->Files->Count; ++i)
+                    {
+                        const auto& item = panel->Files->At(i);
+                        const std::wstring itemName = item.UseWideName() ? std::wstring(item.NameW) :
+                            SalMultiByteToWidePath(item.Name, IsValidPathUtf8Text(item.Name) ? CP_UTF8 : CP_ACP);
+                        if (itemName == name && panel->GetSel(panel->Dirs->Count + i))
+                        {
+                            allowed = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            catch (const std::bad_alloc&) { allowed = false; }
+        }
+        if (!allowed || !signal(L"SAM_UAC_TEST_COPY_DISPATCH_EVENT"))
+        {
+            signal(L"SAM_UAC_TEST_COPY_REJECT_EVENT");
+            return 0;
+        }
+        SendMessage(HWindow, WM_COMMAND, CM_COPYFILES, 0);
+        return 0;
+    }
+#endif
     case WM_USER_SALAMANDER_MAIN_THREAD:
     {
         CSalamanderMainThreadCall* call =
@@ -7342,7 +7445,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         case CM_BRANCH_STOP:
             if (activePanel != NULL)
-                activePanel->CancelBranchViewScan();
+                activePanel->StopBranchViewScan();
             return 0;
 
         case CM_BRANCH_OPENPARENT:
@@ -7434,13 +7537,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         case CM_LEFTREFRESH: // refresh the left panel
         {
-            RequestPanelRefresh(LeftPanel, true); // maybe the user refreshed to update the drives list?
+            RequestPanelRefresh(LeftPanel, true, false, true); // maybe the user refreshed to update the drives list?
             return 0;
         }
 
         case CM_RIGHTREFRESH: // refresh the right panel
         {
-            RequestPanelRefresh(RightPanel, true); // maybe the user refreshed to update the drives list?
+            RequestPanelRefresh(RightPanel, true, false, true); // maybe the user refreshed to update the drives list?
             return 0;
         }
 
@@ -7638,7 +7741,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         case CM_ACTIVEREFRESH: // refresh praveho panelu
         {
-            RequestPanelRefresh(activePanel, true); // maybe the user refreshed to update the drives list?
+            RequestPanelRefresh(activePanel, true, false, true); // maybe the user refreshed to update the drives list?
             return 0;
         }
 
@@ -8739,8 +8842,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 SHELLEXECUTEINFO sei;
                 memset(&sei, 0, sizeof(sei));
                 sei.cbSize = sizeof(sei);
-                sei.fMask = SEE_MASK_NOCLOSEPROCESS;
-                sei.hwnd = HWindow;
+                sei.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC;
+                const UacF7::ConsentForeground foreground(HWindow);
+                sei.hwnd = foreground.Owner();
                 sei.lpVerb = "runas";
                 sei.lpFile = elevatedApplication;
                 sei.lpParameters = elevatedArguments;
@@ -8750,7 +8854,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 if (!ShellExecuteEx(&sei))
                 {
                     DWORD err = GetLastError();
-                    if (err != ERROR_CANCELLED)
+                    if (err == ERROR_CANCELLED)
+                        foreground.Restore();
+                    else
                     {
                         SalMessageBox(HWindow, GetErrorText(err), LoadStr(IDS_ERROREXECPROMPT),
                                       MB_OK | MB_ICONEXCLAMATION);

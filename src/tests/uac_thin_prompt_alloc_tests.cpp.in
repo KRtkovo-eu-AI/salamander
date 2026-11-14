@@ -1,0 +1,238 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Model pending batch scope. | Check low-memory handling without widening consent. | #731 | GPT-6 |
+// | 2026-11-13 | Model experimental planned custody. | Keep prompt tests aligned with item-scoped sessions. | #731 | GPT-6 |
+// | 2026-11-13 | Model pending pre-probe consent. | Keep allocation fault tests aligned with scoped retry state. | #731 | GPT-6 |
+// | 2026-11-13 | Model transfer-prompt UI errors. | Keep extracted worker tests aligned with the internal prompt contract. | #731 | GPT-6 |
+// | 2026-11-13 | Exercise scoped prompt allocation failures. | Preserve existing sessions and report low memory without prompting. | #731 | GPT-6 |
+#include <windows.h>
+#include <algorithm>
+#include <cstdio>
+#include <list>
+#include <memory>
+#include <new>
+#include <optional>
+#include <string>
+
+namespace UacF7 {
+enum class ThinOpenKind { Source, TargetCreate };
+enum class TransferPromptKind { ThinPlainCopy };
+struct TransferJobScope { bool Matches(const TransferJobScope&) const { return true; } };
+struct PreparedTransfer {
+    bool CanShareJob() const { return true; }
+    bool IsScopedTree() const { return false; }
+    TransferJobScope ThinBatchScope() const { return {}; }
+};
+struct TransferPrompt {
+    PreparedTransfer& request;
+    const char* source;
+    const char* target;
+    bool targetDenied;
+    TransferPromptKind kind = TransferPromptKind::ThinPlainCopy;
+    bool approved = false;
+    DWORD promptError = ERROR_SUCCESS;
+    bool batchScopeShownAndApproved = false;
+};
+static bool failMatches = false;
+struct ThinCopySession {
+    int id = 0;
+    bool open = false, matches = false;
+    bool IsOpen() const { return open; }
+    bool Matches(const PreparedTransfer&) const {
+        if (failMatches) throw std::bad_alloc();
+        return matches;
+    }
+    bool Attach(ThinCopySession&, const PreparedTransfer&) { return true; }
+    bool TakePlanned(std::unique_ptr<ThinCopySession>&, const PreparedTransfer&) { return false; }
+};
+}
+struct SessionList {
+    std::list<UacF7::ThinCopySession> values;
+    bool failEmplace = false;
+    auto begin() { return values.begin(); }
+    auto end() { return values.end(); }
+    auto emplace(std::list<UacF7::ThinCopySession>::iterator where) {
+        if (failEmplace) throw std::bad_alloc();
+        return values.emplace(where);
+    }
+    auto erase(std::list<UacF7::ThinCopySession>::iterator item) { return values.erase(item); }
+};
+struct SourcePlan { std::unique_ptr<UacF7::ThinCopySession> Session; };
+struct Operation { std::wstring SourceNameW = L"source", TargetNameW = L"target"; };
+struct Script { SourcePlan* CopySource = nullptr; int Count = 1; };
+struct Dialog { SessionList ThinCopyJobs; std::optional<UacF7::TransferJobScope> PendingThinConsent; HANDLE CancelWorkerEvent = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(1)); };
+static int conversionStep = 0, failStep = 0, prompts = 0, waits = 0;
+static bool approval = true;
+static bool cancelAfterPrompt = false;
+static DWORD uiError = ERROR_SUCCESS;
+static DWORD waitStatus = WAIT_TIMEOUT, fakeWaitError = ERROR_INVALID_HANDLE;
+#undef WaitForSingleObject
+#define WaitForSingleObject FakeWait
+static DWORD FakeWait(HANDLE, DWORD) { SetLastError(fakeWaitError); return waitStatus; }
+static std::wstring SalPathRemoveExtendedPrefixW(const wchar_t* value) {
+    if (++conversionStep == failStep) throw std::bad_alloc();
+    return value;
+}
+static std::string SalWideToMultiBytePath(const wchar_t*, UINT) {
+    if (++conversionStep == failStep) throw std::bad_alloc();
+    return "text";
+}
+constexpr UINT WM_USER_DIALOG = WM_USER + 42;
+constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER = 1;
+static LRESULT Prompt(HWND, UINT, WPARAM, LPARAM value) {
+    ++prompts;
+    auto& prompt = *reinterpret_cast<UacF7::TransferPrompt*>(value);
+    prompt.approved = approval;
+    prompt.promptError = uiError;
+    return 0;
+}
+#undef SendMessage
+#define SendMessage Prompt
+struct CThinCopyWorker {
+    Dialog dialog;
+    Script script;
+    Operation operation;
+    HWND progress = nullptr;
+    std::unique_ptr<UacF7::PreparedTransfer> request = std::make_unique<UacF7::PreparedTransfer>();
+    UacF7::ThinCopySession* session = nullptr;
+    UacF7::ThinCopySession plannedSession;
+    SourcePlan* claimedPlan = nullptr;
+    bool plannedTaken = false;
+    bool terminal = false;
+    bool pendingConsent = false, scopeMayHaveStarted = false, batchScopeApproved = false;
+    bool WaitBeforeElevation() { ++waits; return true; }
+    bool CancelBeforeElevation() {
+        if (!cancelAfterPrompt) return false;
+        terminal = true;
+        SetLastError(ERROR_CANCELLED);
+        return true;
+    }
+    HANDLE Open(UacF7::ThinOpenKind kind) {
+@@SESSION_BLOCK@@
+        return reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(1));
+    }
+};
+static void Check(bool value, const char* label, int& failures) {
+    std::printf("%s %s\n", value ? "PASS" : "FAIL", label);
+    if (!value) ++failures;
+}
+static void Seed(CThinCopyWorker& worker) {
+    UacF7::ThinCopySession a{}; a.id = 10; a.open = true;
+    UacF7::ThinCopySession b{}; b.id = 20; b.open = true;
+    worker.dialog.ThinCopyJobs.values.push_back(a);
+    worker.dialog.ThinCopyJobs.values.push_back(b);
+}
+static bool PriorSessionsIntact(CThinCopyWorker& worker) {
+    auto& list = worker.dialog.ThinCopyJobs.values;
+    if (list.size() != 2) return false;
+    auto first = list.begin();
+    auto second = std::next(first);
+    return first->id == 10 && first->open && second->id == 20 && second->open;
+}
+int main() {
+    int failures = 0;
+    {
+        CThinCopyWorker worker; Seed(worker);
+        conversionStep = prompts = waits = failStep = 0; approval = true; UacF7::failMatches = true;
+        SetLastError(ERROR_SUCCESS);
+        const HANDLE result = worker.Open(UacF7::ThinOpenKind::Source);
+        const DWORD error = GetLastError();
+        UacF7::failMatches = false;
+        Check(result == INVALID_HANDLE_VALUE && error == ERROR_NOT_ENOUGH_MEMORY && !worker.terminal &&
+              !worker.session && !prompts && PriorSessionsIntact(worker),
+              "session matching allocation failure preserves earlier sessions", failures);
+    }
+    for (int fail = 0; fail <= 4; ++fail) {
+        CThinCopyWorker worker; Seed(worker);
+        worker.dialog.ThinCopyJobs.failEmplace = fail == 0;
+        conversionStep = prompts = waits = 0; failStep = fail; approval = true;
+        SetLastError(ERROR_SUCCESS);
+        const HANDLE result = worker.Open(UacF7::ThinOpenKind::Source);
+        const DWORD error = GetLastError();
+        Check(result == INVALID_HANDLE_VALUE && error == ERROR_NOT_ENOUGH_MEMORY && !worker.terminal &&
+              !worker.session && !prompts && PriorSessionsIntact(worker),
+              fail == 0 ? "emplace failure preserves earlier sessions" :
+              fail == 1 ? "source prefix allocation failure preserves earlier sessions" :
+              fail == 2 ? "source text allocation failure preserves earlier sessions" :
+              fail == 3 ? "target prefix allocation failure preserves earlier sessions" :
+                          "target text allocation failure preserves earlier sessions", failures);
+    }
+    {
+        CThinCopyWorker worker; Seed(worker);
+        conversionStep = prompts = waits = 0; failStep = 2; approval = true;
+        const HANDLE first = worker.Open(UacF7::ThinOpenKind::Source);
+        const DWORD firstError = GetLastError();
+        const bool oldSessionsIntact = PriorSessionsIntact(worker);
+        conversionStep = prompts = waits = failStep = 0;
+        const HANDLE second = worker.Open(UacF7::ThinOpenKind::Source);
+        Check(first == INVALID_HANDLE_VALUE && firstError == ERROR_NOT_ENOUGH_MEMORY && oldSessionsIntact &&
+              second != INVALID_HANDLE_VALUE && worker.session && !worker.terminal && prompts == 1 &&
+              worker.dialog.ThinCopyJobs.values.size() == 3 &&
+              worker.dialog.ThinCopyJobs.values.front().id == 10,
+              "same worker may retry after prompt allocation failure", failures);
+    }
+    {
+        CThinCopyWorker worker; Seed(worker);
+        conversionStep = prompts = waits = failStep = 0; approval = true;
+        Check(worker.Open(UacF7::ThinOpenKind::TargetCreate) != INVALID_HANDLE_VALUE &&
+              worker.session && worker.dialog.ThinCopyJobs.values.size() == 3 && prompts == 1 && !worker.terminal,
+              "approved prompt opens a new session", failures);
+    }
+    {
+        CThinCopyWorker worker; Seed(worker);
+        conversionStep = prompts = waits = failStep = 0; approval = false;
+        Check(worker.Open(UacF7::ThinOpenKind::Source) == INVALID_HANDLE_VALUE &&
+              GetLastError() == ERROR_CANCELLED && worker.terminal && prompts == 1 && PriorSessionsIntact(worker),
+              "declined prompt remains a cancellation", failures);
+    }
+    {
+        CThinCopyWorker worker; Seed(worker);
+        conversionStep = prompts = waits = failStep = 0; approval = false; uiError = ERROR_NOT_ENOUGH_MEMORY;
+        const HANDLE result = worker.Open(UacF7::ThinOpenKind::Source);
+        Check(result == INVALID_HANDLE_VALUE && GetLastError() == ERROR_NOT_ENOUGH_MEMORY &&
+              !worker.terminal && !worker.session && prompts == 1 && PriorSessionsIntact(worker),
+              "UI allocation error is not a refusal and preserves prior sessions", failures);
+        uiError = ERROR_SUCCESS;
+    }
+    {
+        CThinCopyWorker worker; Seed(worker);
+        conversionStep = prompts = waits = failStep = 0; approval = false; uiError = ERROR_NOT_ENOUGH_MEMORY;
+        cancelAfterPrompt = true;
+        const HANDLE result = worker.Open(UacF7::ThinOpenKind::Source);
+        Check(result == INVALID_HANDLE_VALUE && GetLastError() == ERROR_CANCELLED &&
+              worker.terminal && !worker.session && prompts == 1 && PriorSessionsIntact(worker),
+              "actual cancellation wins over UI allocation error", failures);
+        cancelAfterPrompt = false; uiError = ERROR_SUCCESS;
+    }
+    for (int kind = 0; kind < 4; ++kind) {
+        CThinCopyWorker worker; Seed(worker);
+        conversionStep = prompts = waits = failStep = 0; approval = true;
+        waitStatus = kind == 2 ? WAIT_ABANDONED : WAIT_FAILED;
+        fakeWaitError = kind == 1 ? ERROR_SUCCESS : ERROR_INVALID_HANDLE;
+        if (kind == 3) worker.dialog.CancelWorkerEvent = nullptr;
+        const HANDLE result = worker.Open(UacF7::ThinOpenKind::Source);
+        Check(result == INVALID_HANDLE_VALUE && GetLastError() == ERROR_INVALID_HANDLE &&
+              !worker.terminal && !worker.session && prompts == 1 && PriorSessionsIntact(worker),
+              "invalid post-prompt wait fails and preserves prior sessions", failures);
+        waitStatus = WAIT_TIMEOUT;
+    }
+    {
+        CThinCopyWorker worker; Seed(worker);
+        conversionStep = prompts = waits = failStep = 0; approval = true; waitStatus = WAIT_OBJECT_0;
+        const HANDLE result = worker.Open(UacF7::ThinOpenKind::Source);
+        Check(result == INVALID_HANDLE_VALUE && GetLastError() == ERROR_CANCELLED && worker.terminal &&
+              !worker.session && prompts == 1 && PriorSessionsIntact(worker),
+              "post-prompt cancel event prevents broker use", failures);
+        waitStatus = WAIT_TIMEOUT;
+    }
+    {
+        CThinCopyWorker worker; Seed(worker);
+        worker.dialog.ThinCopyJobs.values.front().matches = true;
+        conversionStep = prompts = waits = 0; failStep = 1; approval = true;
+        Check(worker.Open(UacF7::ThinOpenKind::Source) != INVALID_HANDLE_VALUE && worker.session &&
+              worker.session->id == 10 && !prompts && conversionStep == 0 && PriorSessionsIntact(worker),
+              "existing matching session does not allocate a prompt", failures);
+    }
+    return failures ? 1 : 0;
+}

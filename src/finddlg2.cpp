@@ -2,6 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Preserve protected listed identity when hiding duplicates. | Do not merge a replaced or unidentified paged result by name. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Preserve protected provenance when hiding Find duplicates. | Do not merge distinct identities based only on pathname. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Display each incomplete Find reason without losing its origin. | Keep bounded logs and carried results truthful. | #731 | GPT-6.1 Terra |
+// | 2026-11-10 | Validate all Find shell paths before invoking legacy handlers. | Preserve the selection when a shell entry cannot accept the path. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Apply the configured panel context-menu font to Find result menus. | Keep Find result menus consistent with panel context menus. | https://github.com/KRtkovo-eu-AI/salamander/issues/752 | GPT-6 (Codex) |
 // | 2026-11-07 | Share opening of a specific Find result. | Let accessibility invoke the verified row without relying on later focus. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Hide repeated Find entries after background path sorting. | Only compare adjacent rows once their path order has been published. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
@@ -95,6 +99,17 @@ void CFindDialog::OnHideDuplicateNames()
         FoundFilesListView->SortAndHideDuplicateNames();
 }
 
+static bool CanMergeFindDuplicate(const CFoundFilesData& left, const CFoundFilesData& right)
+{
+    // A pathname alone cannot prove two protected results identify the same file.
+    // Independent captures may have equal numeric IDs after reuse; retaining
+    // both rows is safer than merging identities that were not jointly pinned.
+    return left.ProtectedOrigin == right.ProtectedOrigin &&
+           (!left.ProtectedOrigin || ((left.FoundView || left.ProtectedListedIdentity) &&
+            left.FoundView == right.FoundView &&
+            left.ProtectedListedIdentity == right.ProtectedListedIdentity));
+}
+
 void CFindDialog::OnHideDuplicateNamesSorted(int sortedCount)
 {
     HWND hListView = FoundFilesListView->HWindow;
@@ -112,7 +127,7 @@ void CFindDialog::OnHideDuplicateNamesSorted(int sortedCount)
         else
         {
             CFoundFilesData* data = FoundFilesListView->At(i);
-            if (lastData->IsDir == data->IsDir &&
+            if (CanMergeFindDuplicate(*lastData, *data) && lastData->IsDir == data->IsDir &&
                 RegSetStrICmp(lastData->Path, data->Path) == 0 &&
                 RegSetStrICmp(lastData->Name, data->Name) == 0)
             {
@@ -149,6 +164,15 @@ void CFindDialog::OnDelete(BOOL toRecycle)
     DWORD selCount = ListView_GetSelectedCount(hListView);
     if (selCount == 0)
         return;
+
+    for (int index = -1; (index = ListView_GetNextItem(hListView, index, LVNI_SELECTED)) != -1;)
+    {
+        if (!FoundFilesListView->At(index)->CanUseLegacyShellPath())
+        {
+            SalMessageBox(HWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+            return;
+        }
+    }
 
     // compute the final size of the list
     DWORD listSize = FoundFilesListView->GetSelectedListSize();
@@ -227,10 +251,12 @@ void CFindDialog::OnShowLog()
                       MB_OK | MB_ICONEXCLAMATION);
         return;
     }
-    if (snapshot.GetCount() == 0)
+    // The worker may still be updating the reasons; read them only after its handle is closed.
+    const unsigned reasons = GrepThread == NULL ? GrepData.IncompleteReasons : FindIncompleteNone;
+    if (snapshot.GetCount() == 0 && reasons == FindIncompleteNone)
         return;
 
-    CFindLogDialog dlg(HWindow, &snapshot);
+    CFindLogDialog dlg(HWindow, &snapshot, reasons);
     dlg.Execute();
 }
 
@@ -1268,6 +1294,8 @@ BOOL CFindDialog::GetCommonPrefixPath(char* buffer, int bufferMax, int& commonPr
         if (index != -1)
         {
             CFoundFilesData* file = FoundFilesListView->At(index);
+            if (!file->CanUseLegacyShellPath())
+                return FALSE;
             if (path[0] == 0)
             {
                 lstrcpy(path, file->Path); // in the first step we only copy the path
@@ -1684,6 +1712,11 @@ void CFindDialog::OnOpen(BOOL onlyFocused)
 
 void CFindDialog::OpenResult(const CFoundFilesData& file)
 {
+    if (!file.CanUseLegacyShellPath())
+    {
+        SalMessageBox(HWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+        return;
+    }
     BOOL setWait = (GetCursor() != LoadCursor(NULL, IDC_WAIT)); // already waiting?
     HCURSOR oldCur;
     if (setWait)
@@ -1937,10 +1970,11 @@ CFindLog::Get(int index)
 // CFindLogDialog
 //
 
-CFindLogDialog::CFindLogDialog(HWND hParent, CFindLog* log)
+CFindLogDialog::CFindLogDialog(HWND hParent, CFindLog* log, unsigned incompleteReasons)
     : CCommonDialog(HLanguage, IDD_FIND_LOG, IDD_FIND_LOG, hParent)
 {
     Log = log;
+    IncompleteReasons = incompleteReasons;
     HListView = NULL;
 }
 
@@ -2009,6 +2043,24 @@ void CFindLogDialog::Transfer(CTransferInfo& ti)
 
             ListView_SetItemText(HListView, i, 1, buff);
             ListView_SetItemText(HListView, i, 2, item->Path);
+        }
+
+        // Summary rows are generated from the immutable reason mask, independently of the bounded log.
+        // They have no path and GetSelectedItem intentionally does not expose them as log entries.
+        const unsigned reasons[] = {FindIncompleteScopeCapacity, FindIncompleteDirectoryCapacity,
+                                    FindIncompleteScanBudget, FindIncompleteScanDepth,
+                                    FindIncompleteReparse, FindIncompleteProtectedFailure};
+        for (const unsigned reason : reasons)
+        {
+            if (!(IncompleteReasons & reason))
+                continue;
+            FindIncompleteReasonText(reason, buff, sizeof(buff));
+            lvi.iItem = i++;
+            lvi.iSubItem = 0;
+            lvi.iImage = 0;
+            ListView_InsertItem(HListView, &lvi);
+            ListView_SetItemText(HListView, i - 1, 0, LoadStr(IDS_FINDLOG_ERROR));
+            ListView_SetItemText(HListView, i - 1, 1, buff);
         }
 
         if (Log->GetSkippedCount() > 0)

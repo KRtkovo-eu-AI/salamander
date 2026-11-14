@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-07 | Include both UAC handshake endpoints in CodeQL. | Analyze the broker and diagnostic host on the PR head. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-04 | Cancel an older CodeQL run when a newer one is queued. | A stale analysis kept a Windows runner while the pull request had moved on. | | Grok 4.7 |
 
 name: CodeQL Security Scan
@@ -154,7 +155,7 @@ jobs:
 
           Add-Content -Path $env:GITHUB_ENV -Value "LOG_PATH=$txtLog"
 
-          $buildPath = $env:PROJECT_PATH
+          $buildPaths = @($env:PROJECT_PATH, '.\src\uacbroker\uacbroker.vcxproj', '.\src\uacbroker\uacbrokerprobe.vcxproj')
           if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
             $solutionPath = Join-Path (Get-Location) $env:SOLUTION_PATH
             $solutionDir = Split-Path -Parent $solutionPath
@@ -177,28 +178,28 @@ jobs:
               }
             } | ConvertTo-Json -Depth 4 | Set-Content -Path $solutionFilterPath -Encoding UTF8
 
-            $buildPath = $solutionFilterPath
-            Write-Host "Building full solution without SFTP projects via $buildPath"
-          } else {
-            Write-Host "Building $buildPath"
+            $buildPaths = @($solutionFilterPath)
+            Write-Host "Building full solution without SFTP projects via $solutionFilterPath"
           }
 
-          $arguments = @(
-            $buildPath
-            '/m'
-            '/t:Rebuild'
-            "/p:Configuration=$($env:BUILD_CONFIGURATION)"
-            '/p:Platform=x64'
-            '/p:PreferredToolArchitecture=x64'
-            '/nr:false'
-            '/v:m'
-          )
+          foreach ($buildPath in $buildPaths) {
+            Write-Host "Building $buildPath"
+            $arguments = @(
+              $buildPath
+              '/m'
+              '/t:Rebuild'
+              "/p:Configuration=$($env:BUILD_CONFIGURATION)"
+              '/p:Platform=x64'
+              '/p:PreferredToolArchitecture=x64'
+              '/nr:false'
+              '/v:m'
+            )
 
-          msbuild @arguments 2>&1 | Tee-Object -FilePath $txtLog -Encoding UTF8
-
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "MSBuild failed with exit code $LASTEXITCODE"
-            exit $LASTEXITCODE
+            msbuild @arguments 2>&1 | Tee-Object -FilePath $txtLog -Encoding UTF8 -Append
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "MSBuild failed with exit code $LASTEXITCODE"
+              exit $LASTEXITCODE
+            }
           }
 
       - name: Setup Python

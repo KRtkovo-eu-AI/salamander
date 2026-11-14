@@ -1,14 +1,23 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Format comparison errors without interpreting input. | Preserve localized messages while avoiding format-string injection. | #731 | GPT-6 |
+// | 2026-11-10 | Hand off comparison activation before closing progress. | Keep a foreground comparison with its owner after UAC. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Retry denied nested comparisons in one rooted session. | Keep the grant across both passes and compare accessible siblings. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Offer protected content comparison from ordinary panels. | Reuse each verified side and reject changed sources. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Use each panel's protected scope for directory comparison. | Compare protected subtrees without misreporting unreadable data. | #731 | GPT-6.1 Sol |
 
 #include "precomp.h"
+#include "format_two_strings.h"
 
 #include "plugins.h"
 #include "fileswnd.h"
 #include "mainwnd.h"
 #include "cfgdlg.h"
 #include "dialogs.h"
+#include "common/widepath.h"
+#include "uacbroker/f7pilot.h"
 
 void GetFileDateAndTimeFromPanel(DWORD validFileData, CPluginDataInterfaceEncapsulation* pluginData,
                                  const CFileData* f, BOOL isDir, SYSTEMTIME* st, BOOL* validDate,
@@ -279,258 +288,431 @@ void AddProgressSizeWithLimit(CCmpDirProgressDialog* progressDlg, DWORD read, CQ
     }
 }
 
+// Keep the panel grant separate from the read grant of this comparison side.
+class CCompareDirectorySide
+{
+public:
+    CCompareDirectorySide(CFilesWindow* panel, bool compareContents) :
+        Panel(panel),
+        CompareContents(compareContents),
+        Root(SalPathRemoveExtendedPrefixW(panel->GetPathW())),
+        Generation(panel->GetListingIdentityGeneration()),
+        Listing(panel->Is(ptDisk) && panel->ProtectedListing &&
+                        panel->ProtectedListing->Contains(Root) ?
+                    panel->ProtectedListing.get() : nullptr)
+    {
+    }
+
+    bool IsProtected() const { return Listing != nullptr; }
+
+    DWORD List(const std::wstring& path, std::vector<WIN32_FIND_DATAW>& entries) const
+    {
+        return Listing && IsCurrent() ? Listing->List(path, entries) : ERROR_INVALID_HANDLE;
+    }
+
+    DWORD RetryList(HWND owner, const std::wstring& path, std::vector<WIN32_FIND_DATAW>& entries)
+    {
+        UacF7::MoveFileIdentity identity{};
+        const bool verified = UacF7::ListingSession::CaptureDirectoryIdentity(path, identity);
+        if (!verified && !ContentRequested)
+            return ERROR_ACCESS_DENIED;
+        const DWORD authorized = AuthorizeJob(owner, path);
+        return authorized ? authorized : Content.List(path, entries, verified ? &identity : nullptr);
+    }
+
+    DWORD AuthorizeContent(HWND owner, const std::wstring& path, UacF7::PreparedLeaf& file)
+    {
+        if (!IsCurrent())
+            return ERROR_INVALID_HANDLE;
+        if (ContentRequested && !Content.IsOpen())
+            return ContentStartError ? ContentStartError : ERROR_BROKEN_PIPE;
+
+        if (Listing)
+        {
+            const DWORD captured = Listing->PrepareViewer(path, file);
+            if (captured)
+                return captured;
+        }
+        else if (!file.PrepareView(path))
+        {
+            if (!Content.IsOpen())
+                return ERROR_ACCESS_DENIED;
+            const DWORD captured = Content.PrepareViewer(path, file);
+            if (captured)
+                return captured;
+        }
+        return AuthorizeJob(owner, path);
+    }
+
+    DWORD OpenContent(const std::wstring& path, ULONGLONG& size, UacF7::ArchiveRevision& revision)
+    {
+        if (!IsCurrent())
+            return ERROR_INVALID_HANDLE;
+        FILETIME modified{};
+        return Content.OpenContent(path, size, modified, revision);
+    }
+
+    bool HasProtectedWork() const { return Listing || ContentRequested; }
+    UacF7::ListingSession& ContentSession() { return Content; }
+
+private:
+    DWORD AuthorizeJob(HWND owner, const std::wstring& path)
+    {
+        if (!IsCurrent())
+            return ERROR_INVALID_HANDLE;
+        if (Content.IsOpen())
+            return Content.Contains(path) ? ERROR_SUCCESS : ERROR_ACCESS_DENIED;
+        if (ContentRequested)
+            return ContentStartError ? ContentStartError : ERROR_BROKEN_PIPE;
+
+        if (Listing)
+        {
+            UacF7::FindRootIdentity identity;
+            const DWORD captured = Listing->CaptureFindRoot(Root, identity);
+            if (captured)
+                return captured;
+            if (!Content.PrepareFindRoot(identity, true))
+                return ERROR_INVALID_HANDLE;
+        }
+        else if (!Content.PrepareComparison(Root, CompareContents))
+            return ERROR_ACCESS_DENIED;
+
+        const int prompt = CompareContents ? IDS_UAC_COMPARE_CONTENT_CONFIRM : IDS_UAC_LIST_CONFIRM;
+        ContentRequested = true;
+        if (!ConfirmProtectedRead(owner, IDS_COMPAREDIRSTITLE, prompt, Root))
+            return ERROR_CANCELLED;
+        if (!IsCurrent())
+            return ERROR_INVALID_HANDLE;
+        ContentStartError = Content.Start(owner);
+        return ContentStartError;
+    }
+
+    bool IsCurrent() const
+    {
+        return Panel->GetListingIdentityGeneration() == Generation &&
+               (!Listing || (Panel->ProtectedListing.get() == Listing && Listing->Contains(Root)));
+    }
+
+    CFilesWindow* const Panel;
+    const bool CompareContents;
+    const std::wstring Root;
+    const ULONGLONG Generation;
+    UacF7::ListingSession* const Listing;
+    UacF7::ListingSession Content;
+    bool ContentRequested = false;
+    DWORD ContentStartError = ERROR_SUCCESS;
+};
+
+class CCompareFileInput
+{
+public:
+    ~CCompareFileInput()
+    {
+        if (File != INVALID_HANDLE_VALUE)
+            HANDLES(CloseHandle(File));
+        CloseContent();
+    }
+
+    CCompareFileInput() = default;
+    CCompareFileInput(const CCompareFileInput&) = delete;
+    CCompareFileInput& operator=(const CCompareFileInput&) = delete;
+
+    DWORD Prepare(HWND owner, CCompareDirectorySide& side, const std::wstring& path, const CFileData& expected)
+    {
+        if (path.empty())
+            return ERROR_INVALID_NAME;
+        const std::wstring nativePath = path.size() >= MAX_PATH ? SalPathAddExtendedPrefixW(path.c_str()) : path;
+        File = HANDLES_Q(CreateFileW(nativePath.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                     nullptr, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, nullptr));
+        if (File != INVALID_HANDLE_VALUE)
+            return ERROR_SUCCESS;
+        const DWORD error = GetLastError();
+        constexpr DWORD unsupported = FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_ENCRYPTED |
+                                      FILE_ATTRIBUTE_OFFLINE | FILE_ATTRIBUTE_RECALL_ON_OPEN |
+                                      FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS;
+        if (error != ERROR_ACCESS_DENIED || (expected.Attr & unsupported))
+            return error;
+
+        ProtectedPath = SalPathRemoveExtendedPrefixW(path.c_str());
+        const DWORD authorized = side.AuthorizeContent(owner, ProtectedPath, Identity);
+        if (!authorized)
+        {
+            ProtectedSide = &side;
+            ExpectedSize = expected.Size.Value;
+            ExpectedWriteTime = expected.LastWrite;
+        }
+        return authorized;
+    }
+
+    DWORD OpenContent()
+    {
+        if (!ProtectedSide)
+            return ERROR_SUCCESS;
+        UacF7::ArchiveRevision revision;
+        const DWORD opened = ProtectedSide->OpenContent(ProtectedPath, Size, revision);
+        if (opened)
+            return opened;
+        Content = &ProtectedSide->ContentSession();
+        ULARGE_INTEGER writeTime{};
+        writeTime.LowPart = ExpectedWriteTime.dwLowDateTime;
+        writeTime.HighPart = ExpectedWriteTime.dwHighDateTime;
+        if (!Identity.MatchesReadSource(revision) || Size != ExpectedSize ||
+            static_cast<ULONGLONG>(revision.modified) != writeTime.QuadPart)
+        {
+            CloseContent();
+            return ERROR_FILE_INVALID;
+        }
+        return ERROR_SUCCESS;
+    }
+
+    DWORD Read(char* buffer, DWORD bytes, DWORD& received)
+    {
+        if (!Content)
+            return ReadFile(File, buffer, bytes, &received, nullptr) ? ERROR_SUCCESS : GetLastError();
+        received = 0;
+        const DWORD count = static_cast<DWORD>(min(static_cast<ULONGLONG>(bytes), Size - Offset));
+        while (received < count)
+        {
+            const DWORD block = min(count - received, UacF7::archiveReadBlock);
+            const DWORD error = Content->ReadContent(Offset, buffer + received, block);
+            if (error)
+                return error;
+            received += block;
+            Offset += block;
+        }
+        return ERROR_SUCCESS;
+    }
+
+    DWORD CloseContent()
+    {
+        if (!Content)
+            return ERROR_SUCCESS;
+        auto* session = Content;
+        Content = nullptr;
+        return session->CloseContent();
+    }
+
+private:
+    HANDLE File = INVALID_HANDLE_VALUE;
+    CCompareDirectorySide* ProtectedSide = nullptr;
+    std::wstring ProtectedPath;
+    UacF7::PreparedLeaf Identity;
+    ULONGLONG ExpectedSize = 0;
+    FILETIME ExpectedWriteTime{};
+    UacF7::ListingSession* Content = nullptr;
+    ULONGLONG Size = 0;
+    ULONGLONG Offset = 0;
+};
+
+static void CompareError(HWND owner, CCmpDirProgressDialog* progress, int messageId, const char* path,
+                         DWORD error, BOOL* canceled)
+{
+    const char* details = GetErrorText(error);
+    const std::string message = FormatTwoStrings(LoadStr(messageId), path, details);
+    progress->FlushDataToControls();
+    *canceled = SalMessageBox(owner, message.c_str(), LoadStr(IDS_ERRORTITLE),
+                              MB_OKCANCEL | MB_ICONEXCLAMATION) == IDCANCEL;
+}
+
 BOOL CompareFilesByContent(HWND hWindow, CCmpDirProgressDialog* progressDlg,
-                           const char* file1, const char* file2, const CQuadWord& bothFileSize,
+                           CCompareDirectorySide& left, const std::wstring& file1, const CFileData& expected1,
+                           CCompareDirectorySide& right, const std::wstring& file2, const CFileData& expected2,
                            BOOL* different, BOOL* canceled)
 {
-    char message[2 * MAX_PATH + 200]; // we need 2*MAX_PATH for the path plus room for an error message
-    BOOL ret = FALSE;
-    *canceled = FALSE;
+    const CQuadWord bothFileSize = expected1.Size + expected2.Size;
+    const std::string display1 = SalWideToMultiBytePath(file1.c_str(), CP_UTF8);
+    const std::string display2 = SalWideToMultiBytePath(file2.c_str(), CP_UTF8);
+    *canceled = !progressDlg->Continue(); // repaint the completed previous file
+    if (*canceled)
+        return FALSE;
 
-    //  DWORD totalTi = GetTickCount();
-
-    HANDLE hFile1 = HANDLES_Q(CreateFile(file1, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
-                                         NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL));
-    HANDLE hFile2 = hFile1 != INVALID_HANDLE_VALUE ? HANDLES_Q(CreateFile(file2, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
-                                                                          NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL))
-                                                   : INVALID_HANDLE_VALUE;
-    DWORD err = GetLastError();
-
-    if (!progressDlg->Continue()) // give the dialog a chance to repaint at 100% of the previous file (opening a file is the longest step (3ms) when copying small files (0.1ms))
-        *canceled = TRUE;
-
-    // set texts in the progress dialog
-    progressDlg->SetSource(file1);
-    progressDlg->SetTarget(file2);
-
-    // set the total ('bothFileSize') and current (0%) file progress
-    CQuadWord fileProgressTotal(0, 0);
+    progressDlg->SetSource(display1.c_str());
+    progressDlg->SetTarget(display2.c_str());
     progressDlg->SetFileSize(bothFileSize);
     progressDlg->SetActualFileSize(CQuadWord(0, 0));
 
-    if (hFile1 != INVALID_HANDLE_VALUE)
+    CCompareFileInput input1;
+    CCompareFileInput input2;
+    const char* errorPath = display1.c_str();
+    DWORD err = input1.Prepare(hWindow, left, file1, expected1);
+    if (!err)
     {
-        if (hFile2 != INVALID_HANDLE_VALUE)
-        {
-            if (!*canceled)
-            {
-                char* buffer1 = (char*)malloc(COMPARE_BUFFER_SIZE);
-                //        char *buffer2 = (char *)malloc(COMPARE_BUFFER_SIZE);
-                char buffer2[COMPARE_BLOCK_GROUP * COMPARE_BLOCK_SIZE];
-
-                DWORD read1;
-                DWORD read2;
-
-                //        DWORD measureStart = GetTickCount();
-                //        unsigned __int64 measuredSize = 0;
-                BOOL readErr = FALSE;
-                BOOL readingIsFast1 = FALSE; // FALSE = wait until speed reaches the limit and we can read in groups (COMPARE_BLOCK_GROUP)
-                BOOL readingIsFast2 = FALSE;
-                while (TRUE)
-                {
-                    DWORD bufSize = COMPARE_BUFFER_SIZE;
-                    int blockCount = bufSize / COMPARE_BLOCK_SIZE; // number of blocks in bufSize
-
-                    // load the next part from 'file1' into 'buffer1'
-                    // read the entire buffer in 32KB blocks from one file (on W2K and XP this is fastest when both files are on one physical disk; on Vista it's only slightly slower than sequential reading)
-                    read1 = 0;
-                    DWORD readBegTime = GetTickCount();
-                    for (int block = 0; block < blockCount;)
-                    {
-                        DWORD locRead;
-                        BOOL canReadGroup = readingIsFast1 && (block % COMPARE_BLOCK_GROUP) == 0 && block + COMPARE_BLOCK_GROUP <= blockCount;
-                        DWORD readBlockSize = canReadGroup ? COMPARE_BLOCK_GROUP * COMPARE_BLOCK_SIZE : COMPARE_BLOCK_SIZE;
-                        if (!ReadFile(hFile1, buffer1 + block * COMPARE_BLOCK_SIZE, readBlockSize, &locRead, NULL))
-                        {
-                            err = GetLastError();
-                            readErr = TRUE;
-                            _snprintf_s(message, _TRUNCATE, LoadStr(IDS_ERROR_READING_FILE), file1, GetErrorText(err));
-                            progressDlg->FlushDataToControls();
-                            if (SalMessageBox(hWindow, message, LoadStr(IDS_ERRORTITLE),
-                                              MB_OKCANCEL | MB_ICONEXCLAMATION) == IDCANCEL)
-                            {
-                                *canceled = TRUE;
-                            }
-                            break;
-                        }
-
-                        AddProgressSizeWithLimit(progressDlg, locRead, &fileProgressTotal, bothFileSize);
-                        if (!progressDlg->Continue()) // give the dialog a chance to repaint
-                        {
-                            *canceled = TRUE;
-                            break;
-                        }
-
-                        read1 += locRead;
-                        if (locRead != readBlockSize)
-                            break; // EOF
-                        if (GetTickCount() - readBegTime > 200)
-                        { // slow reading (probably a slow network disk (VPN) or floppy) - reduce the buffer, at worst we'll compare block by block
-                            blockCount = block + (canReadGroup ? COMPARE_BLOCK_GROUP : 1);
-                            bufSize = blockCount * COMPARE_BLOCK_SIZE;
-                            break;
-                        }
-                        block += canReadGroup ? COMPARE_BLOCK_GROUP : 1;
-                    }
-                    if (readErr || *canceled)
-                        break;
-                    readingIsFast1 = WindowsVistaAndLater &&                                                                                           // on W2K/XP this should not speed things up, so we will not tempt fate
-                                     GetTickCount() - readBegTime < (DWORD)(((unsigned __int64)read1 * COMPARE_BUF_TIME_LIMIT) / COMPARE_BUFFER_SIZE); // measure the speed so it is over 1 MB/s
-                                                                                                                                                       /*
-          // read the entire buffer at once from one file (on Vista, when both files are on the same physical disk and the buffer is large, this is slightly faster than reading in 32KB blocks)
-          if (!ReadFile(hFile1, buffer1, bufSize, &read1, NULL))
-          {
-            err = GetLastError();
-            sprintf(message, LoadStr(IDS_ERROR_READING_FILE), file1, GetErrorText(err));
-            progressDlg->FlushDataToControls();
-            if (SalMessageBox(hWindow, message, LoadStr(IDS_ERRORTITLE),
-                              MB_OKCANCEL | MB_ICONEXCLAMATION) == IDCANCEL)
-            {
-              *canceled = TRUE;
-            }
-            break;
-          }
-*/
-
-                    // load the next part from 'file2' into 'buffer2'
-                    // read the whole buffer in blocks from one file (on W2K and XP this is fastest when both files are on one physical disk; on Vista it's only slightly slower than sequential reading)
-                    read2 = 0;
-                    readBegTime = GetTickCount();
-                    for (int block = 0; block < blockCount;)
-                    {
-                        DWORD locRead;
-                        BOOL canReadGroup = readingIsFast2 && (block % COMPARE_BLOCK_GROUP) == 0 && block + COMPARE_BLOCK_GROUP <= blockCount;
-                        DWORD readBlockSize = canReadGroup ? COMPARE_BLOCK_GROUP * COMPARE_BLOCK_SIZE : COMPARE_BLOCK_SIZE;
-                        if (!ReadFile(hFile2, buffer2, readBlockSize, &locRead, NULL))
-                        {
-                            err = GetLastError();
-                            readErr = TRUE;
-                            _snprintf_s(message, _TRUNCATE, LoadStr(IDS_ERROR_READING_FILE), file2, GetErrorText(err));
-                            progressDlg->FlushDataToControls();
-                            if (SalMessageBox(hWindow, message, LoadStr(IDS_ERRORTITLE),
-                                              MB_OKCANCEL | MB_ICONEXCLAMATION) == IDCANCEL)
-                            {
-                                *canceled = TRUE;
-                            }
-                            break;
-                        }
-
-                        AddProgressSizeWithLimit(progressDlg, locRead, &fileProgressTotal, bothFileSize);
-                        if (!progressDlg->Continue()) // give the dialog a chance to repaint
-                        {
-                            *canceled = TRUE;
-                            break;
-                        }
-
-                        read2 += locRead;
-                        if (read1 < read2 || // files are now of different length => content differs
-                            locRead > 0 && memcmp(buffer1 + block * COMPARE_BLOCK_SIZE, buffer2, locRead) != 0)
-                        { // file contents differ, no point in continuing reading
-                            *different = TRUE;
-                            ret = TRUE;
-                            break;
-                        }
-                        if (locRead != readBlockSize)
-                        { // unable to read the entire buffer (EOF), files are identical
-                            *different = FALSE;
-                            ret = TRUE;
-                            break;
-                        }
-                        block += canReadGroup ? COMPARE_BLOCK_GROUP : 1;
-                        if (readingIsFast2 &&
-                            GetTickCount() - readBegTime > (DWORD)(((unsigned __int64)read2 * COMPARE_BUF_TIME_LIMIT) / COMPARE_BUFFER_SIZE))
-                        {
-                            // detecting slowdown, continue block by block to keep progress smooth and allow canceling
-                            readingIsFast2 = FALSE;
-                        }
-                    }
-                    if (readErr || ret || *canceled)
-                        break;
-                    readingIsFast2 = WindowsVistaAndLater &&                                                                                           // on W2K/XP this should not speed things up, so we will not tempt fate
-                                     GetTickCount() - readBegTime < (DWORD)(((unsigned __int64)read2 * COMPARE_BUF_TIME_LIMIT) / COMPARE_BUFFER_SIZE); // measure the speed so it is over 1 MB/s
-                                                                                                                                                       /*
-          // read the entire buffer at once from one file (on Vista, when both files are on the same physical disk and the buffer is large, this is slightly faster than reading in 32KB blocks)
-          if (!ReadFile(hFile2, buffer2, bufSize, &read2, NULL))
-          {
-            err = GetLastError();
-            sprintf(message, LoadStr(IDS_ERROR_READING_FILE), file2, GetErrorText(err));
-            progressDlg->FlushDataToControls();
-            if (SalMessageBox(hWindow, message, LoadStr(IDS_ERRORTITLE),
-                              MB_OKCANCEL | MB_ICONEXCLAMATION) == IDCANCEL)
-            {
-              *canceled = TRUE;
-            }
-            break;
-          }
-*/
-                                                                                                                                                       /*
-          // these tests are performed above when reading in blocks
-          AddProgressSizeWithLimit(progressDlg, read1 + read2, &fileProgressTotal, bothFileSize);
-          if (!progressDlg->Continue()) // give the dialog a chance to repaint
-          {
+        errorPath = display2.c_str();
+        err = input2.Prepare(hWindow, right, file2, expected2);
+    }
+    // Do not hold an open broker stream while waiting for the other side's consent.
+    if (!err)
+    {
+        errorPath = display1.c_str();
+        err = input1.OpenContent();
+    }
+    if (!err)
+    {
+        errorPath = display2.c_str();
+        err = input2.OpenContent();
+    }
+    if (err)
+    {
+        input1.CloseContent();
+        if (err == ERROR_CANCELLED)
             *canceled = TRUE;
-            break;
-          }
-
-          if (read1 != read2 ||  // files are now of different length => content differs
-              read1 > 0 && memcmp(buffer1, buffer2, read1) != 0)
-          {  // file contents differ, no point in continuing reading
-            *different = TRUE;
-            ret = TRUE;
-            break;
-          }
-          if (read1 != bufSize)
-          { // unable to read the entire buffer, files are identical
-            *different = FALSE;
-            ret = TRUE;
-            break;
-          }
-*/
-                                                                                                                                                       /*
-          measuredSize += bufSize;
-          DWORD ti = GetTickCount() - measureStart;
-          if (ti >= 500)
-          {
-            unsigned __int64 speed = (measuredSize * 1000) / ti;
-            TRACE_I("speed: " << (DWORD)(speed / 1024));
-            measureStart = GetTickCount();
-            measuredSize = 0;
-          }
-*/
-                }
-                free(buffer1);
-                //        free(buffer2);
-            }
-            HANDLES(CloseHandle(hFile2));
-        }
         else
+            CompareError(hWindow, progressDlg, IDS_ERROR_OPENING_FILE, errorPath, err, canceled);
+        if (!*canceled)
+            progressDlg->AddSize(bothFileSize);
+        return FALSE;
+    }
+
+    const std::unique_ptr<char, decltype(&free)> buffer1(static_cast<char*>(malloc(COMPARE_BUFFER_SIZE)), free);
+    if (!buffer1)
+    {
+        TRACE_E(LOW_MEMORY);
+        *canceled = TRUE;
+        return FALSE;
+    }
+    char buffer2[COMPARE_BLOCK_GROUP * COMPARE_BLOCK_SIZE];
+    CQuadWord fileProgressTotal(0, 0);
+    BOOL ret = FALSE;
+    DWORD read1;
+    DWORD read2;
+
+    BOOL readingIsFast1 = FALSE; // FALSE = wait until speed reaches the limit and we can read in groups (COMPARE_BLOCK_GROUP)
+    BOOL readingIsFast2 = FALSE;
+    while (TRUE)
+    {
+        int blockCount = COMPARE_BUFFER_SIZE / COMPARE_BLOCK_SIZE;
+
+        // load the next part from 'file1' into 'buffer1'
+        // read the entire buffer in 32KB blocks from one file (on W2K and XP this is fastest when both files are on one physical disk; on Vista it's only slightly slower than sequential reading)
+        read1 = 0;
+        DWORD readBegTime = GetTickCount();
+        for (int block = 0; block < blockCount;)
         {
-            _snprintf_s(message, _TRUNCATE, LoadStr(IDS_ERROR_OPENING_FILE), file2, GetErrorText(err));
-            progressDlg->FlushDataToControls();
-            if (SalMessageBox(hWindow, message, LoadStr(IDS_ERRORTITLE),
-                              MB_OKCANCEL | MB_ICONEXCLAMATION) == IDCANCEL)
+            DWORD locRead;
+            BOOL canReadGroup = readingIsFast1 && (block % COMPARE_BLOCK_GROUP) == 0 && block + COMPARE_BLOCK_GROUP <= blockCount;
+            DWORD readBlockSize = canReadGroup ? COMPARE_BLOCK_GROUP * COMPARE_BLOCK_SIZE : COMPARE_BLOCK_SIZE;
+            err = input1.Read(buffer1.get() + block * COMPARE_BLOCK_SIZE, readBlockSize, locRead);
+            if (err)
+            {
+                errorPath = display1.c_str();
+                break;
+            }
+
+            AddProgressSizeWithLimit(progressDlg, locRead, &fileProgressTotal, bothFileSize);
+            if (!progressDlg->Continue()) // give the dialog a chance to repaint
             {
                 *canceled = TRUE;
+                break;
+            }
+
+            read1 += locRead;
+            if (locRead != readBlockSize)
+                break; // EOF
+            if (GetTickCount() - readBegTime > 200)
+            { // slow reading (probably a slow network disk (VPN) or floppy) - reduce the buffer, at worst we'll compare block by block
+                blockCount = block + (canReadGroup ? COMPARE_BLOCK_GROUP : 1);
+                break;
+            }
+            block += canReadGroup ? COMPARE_BLOCK_GROUP : 1;
+        }
+        if (err || *canceled)
+            break;
+        readingIsFast1 = WindowsVistaAndLater &&
+                         GetTickCount() - readBegTime < (DWORD)(((unsigned __int64)read1 * COMPARE_BUF_TIME_LIMIT) / COMPARE_BUFFER_SIZE); // measure the speed so it is over 1 MB/s
+
+        // load the next part from 'file2' into 'buffer2'
+        // read the whole buffer in blocks from one file (on W2K and XP this is fastest when both files are on one physical disk; on Vista it's only slightly slower than sequential reading)
+        read2 = 0;
+        readBegTime = GetTickCount();
+        for (int block = 0; block < blockCount;)
+        {
+            DWORD locRead;
+            BOOL canReadGroup = readingIsFast2 && (block % COMPARE_BLOCK_GROUP) == 0 && block + COMPARE_BLOCK_GROUP <= blockCount;
+            DWORD readBlockSize = canReadGroup ? COMPARE_BLOCK_GROUP * COMPARE_BLOCK_SIZE : COMPARE_BLOCK_SIZE;
+            err = input2.Read(buffer2, readBlockSize, locRead);
+            if (err)
+            {
+                errorPath = display2.c_str();
+                break;
+            }
+
+            AddProgressSizeWithLimit(progressDlg, locRead, &fileProgressTotal, bothFileSize);
+            if (!progressDlg->Continue()) // give the dialog a chance to repaint
+            {
+                *canceled = TRUE;
+                break;
+            }
+
+            read2 += locRead;
+            if (read1 < read2 || // files are now of different length => content differs
+                locRead > 0 && memcmp(buffer1.get() + block * COMPARE_BLOCK_SIZE, buffer2, locRead) != 0)
+            { // file contents differ, no point in continuing reading
+                *different = TRUE;
+                ret = TRUE;
+                break;
+            }
+            if (locRead != readBlockSize)
+            { // The second file reached EOF. Compare the lengths of the final blocks.
+                *different = read1 != read2;
+                ret = TRUE;
+                break;
+            }
+            block += canReadGroup ? COMPARE_BLOCK_GROUP : 1;
+            if (readingIsFast2 &&
+                GetTickCount() - readBegTime > (DWORD)(((unsigned __int64)read2 * COMPARE_BUF_TIME_LIMIT) / COMPARE_BUFFER_SIZE))
+            {
+                // detecting slowdown, continue block by block to keep progress smooth and allow canceling
+                readingIsFast2 = FALSE;
             }
         }
-        HANDLES(CloseHandle(hFile1));
+        if (err || ret || *canceled)
+            break;
+        readingIsFast2 = WindowsVistaAndLater &&
+                         GetTickCount() - readBegTime < (DWORD)(((unsigned __int64)read2 * COMPARE_BUF_TIME_LIMIT) / COMPARE_BUFFER_SIZE); // measure the speed so it is over 1 MB/s
+
+
+
+    }
+    const DWORD close1 = input1.CloseContent();
+    const DWORD close2 = input2.CloseContent();
+    if (!*canceled && (err || close1 || close2))
+    {
+        if (!err)
+        {
+            err = close1 ? close1 : close2;
+            errorPath = close1 ? display1.c_str() : display2.c_str();
+        }
+        CompareError(hWindow, progressDlg, IDS_ERROR_READING_FILE, errorPath, err, canceled);
+        ret = FALSE;
+    }
+    if (!*canceled)
+        progressDlg->AddSize(bothFileSize - fileProgressTotal);
+    return ret;
+}
+
+static std::wstring CompareDiskPath(const CFilesWindow* panel, const std::string& subPath)
+{
+    std::wstring path = SalPathRemoveExtendedPrefixW(panel->GetPathW());
+    if (!subPath.empty())
+        SalPathAppendW(path, SalMultiByteToWidePath(subPath.c_str(), CP_UTF8).c_str());
+    return path;
+}
+
+// Disk subpaths are UTF-8. Archive subpaths retain the plugin's existing encoding.
+static std::string CompareChildPath(CFilesWindow* panel, const std::string& parent, const CFileData& child)
+{
+    std::string path = parent;
+    if (!path.empty() && path.back() != '\\')
+        path += '\\';
+    if (panel->Is(ptDisk))
+    {
+        const auto name = child.UseWideName() ? std::wstring(child.NameW) :
+                          SalMultiByteToWidePath(child.Name, IsValidPathUtf8Text(child.Name) ? CP_UTF8 : CP_ACP);
+        path += SalWideToMultiBytePath(name.c_str(), CP_UTF8);
     }
     else
-    {
-        _snprintf_s(message, _TRUNCATE, LoadStr(IDS_ERROR_OPENING_FILE), file1, GetErrorText(err));
-        progressDlg->FlushDataToControls();
-        if (SalMessageBox(hWindow, message, LoadStr(IDS_ERRORTITLE),
-                          MB_OKCANCEL | MB_ICONEXCLAMATION) == IDCANCEL)
-        {
-            *canceled = TRUE;
-        }
-    }
-    if (!*canceled) // we must advance the total progress to the end of the file
-        progressDlg->AddSize(bothFileSize - fileProgressTotal);
-
-    //  TRACE_I("CompareFilesByContent(): total time (in secs): " << ((GetTickCount() - totalTi) / 1000));
-
-    return ret;
+        path += child.Name;
+    return path;
 }
 
 // loads directories and files into the arrays 'dirs' and 'files'
@@ -544,178 +726,125 @@ BOOL CompareFilesByContent(HWND hWindow, CCmpDirProgressDialog* progressDlg,
 // supports ptDisk and ptZIPArchive
 
 BOOL ReadDirsAndFilesAux(HWND hWindow, DWORD flags, CCmpDirProgressDialog* progressDlg,
-                         CFilesWindow* panel, const char* subPath,
+                         CFilesWindow* panel, CCompareDirectorySide& side, const std::string& subPath,
                          CFilesArray* dirs, CFilesArray* files, BOOL* canceled, BOOL getTotal)
 {
-    char message[2 * MAX_PATH + 200];
-    char path[MAX_PATH];
-
     BOOL ignFileNames = (flags & COMPARE_DIRECTORIES_IGNFILENAMES) != 0;
     BOOL ignDirNames = (flags & COMPARE_DIRECTORIES_IGNDIRNAMES) != 0;
 
     if (panel->Is(ptDisk))
     {
-        BOOL pathAppended = TRUE;
-        lstrcpyn(path, panel->GetPath(), MAX_PATH);
-        pathAppended &= SalPathAppend(path, subPath, MAX_PATH);
-        pathAppended &= SalPathAppend(path, "*", MAX_PATH);
-        if (!pathAppended)
-        {
-            SalMessageBox(hWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_COMPAREDIRSTITLE), MB_OK | MB_ICONEXCLAMATION);
-            *canceled = TRUE;
-            return FALSE;
-        }
-
+        const std::wstring path = CompareDiskPath(panel, subPath);
         DWORD counter = 0;
-        WIN32_FIND_DATA data;
-        HANDLE hFind;
-        hFind = HANDLES_Q(FindFirstFile(path, &data));
-        if (hFind == INVALID_HANDLE_VALUE)
+        const auto add = [&](const WIN32_FIND_DATAW& data) -> bool
         {
-            DWORD err = GetLastError();
-            if (err != ERROR_FILE_NOT_FOUND && err != ERROR_NO_MORE_FILES)
+            const wchar_t* name = data.cFileName;
+            if (!*name || wcscmp(name, L".") == 0 || wcscmp(name, L"..") == 0)
+                return true;
+            if (counter++ > 200)
             {
-                if (getTotal)
-                    *canceled = FALSE; // we're only obtaining the size, no need to bother the user, skip the error
-                else
-                {
-                    _snprintf_s(message, _TRUNCATE, LoadStr(IDS_CANNOTREADDIR), path, GetErrorText(err));
-                    progressDlg->FlushDataToControls();
-                    *canceled = SalMessageBox(hWindow, message, LoadStr(IDS_ERRORTITLE),
-                                              MB_OKCANCEL | MB_ICONEXCLAMATION) == IDCANCEL;
-                }
-                return FALSE;
+                counter = 0;
+                if (!progressDlg->Continue())
+                    return false;
             }
-            return TRUE;
-        }
-        do
-        {
-            if (data.cFileName[0] != 0 &&
-                (data.cFileName[0] != '.' ||
-                 (data.cFileName[1] != 0 && (data.cFileName[1] != '.' || data.cFileName[2] != 0))))
+
+            const bool isDir = (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+            if (isDir ? ignDirNames && Configuration.CompareIgnoreDirsMasks.AgreeMasksW(name, nullptr) :
+                        ignFileNames && Configuration.CompareIgnoreFilesMasks.AgreeMasksW(name, nullptr))
+                return true;
+            CFileData file{};
+            const std::string nameUtf8 = SalWideToMultiBytePath(name, CP_UTF8);
+            file.Name = _strdup(nameUtf8.c_str());
+            file.NameW = _wcsdup(name);
+            if (file.Name && file.NameW)
             {
-                if (counter++ > 200) // after reading 200 items
-                {
-                    if (!progressDlg->Continue()) // give the dialog a chance to repaint
-                    {
-                        HANDLES(FindClose(hFind));
-                        *canceled = TRUE;
-                        return FALSE;
-                    }
-                    counter = 0;
-                }
-
-                CFileData file = {0};
-                // initialize structure members we won't modify further
-                file.DosName = NULL;
+                file.NameLen = static_cast<int>(min(nameUtf8.size(), size_t{511}));
+                const char* dot = isDir && !Configuration.SortDirsByExt ? nullptr : strrchr(file.Name, '.');
+                file.Ext = dot ? file.Name + (dot - file.Name + 1) : file.Name + nameUtf8.size();
                 file.PluginData = -1;
-                file.Association = 0;
-                file.Selected = 0;
-                file.Shared = 0;
-                file.Archive = 0;
-                file.SizeValid = 0;
-                file.Dirty = 0;
-                file.CutToClip = 0;
                 file.IconOverlayIndex = ICONOVERLAYINDEX_NOTUSED;
-                file.IconOverlayDone = 0;
-                file.Hidden = 0;
-                file.IsLink = 0;
-                file.IsOffline = 0;
-
-                int nameLen = (int)strlen(data.cFileName);
-
-                //--- name
-                file.Name = (char*)malloc(nameLen + 1); // allocation
-                if (file.Name == NULL)
-                {
-                    TRACE_E(LOW_MEMORY);
-                    HANDLES(FindClose(hFind));
-                    *canceled = TRUE;
-                    return FALSE;
-                }
-                memmove(file.Name, data.cFileName, nameLen + 1); // copy text
-                file.NameLen = nameLen;
-
-                //--- extension
-                if (!Configuration.SortDirsByExt && (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) // this is ptDisk
-                {
-                    file.Ext = file.Name + file.NameLen; // directories have no extensions
-                }
-                else
-                {
-                    const char* s = data.cFileName + nameLen;
-                    while (--s >= data.cFileName && *s != '.')
-                        ;
-                    //          if (s > data.cFileName) file.Ext = file.Name + (s - data.cFileName + 1); // ".cvspass" in Windows counts as an extension ...
-                    if (s >= data.cFileName)
-                        file.Ext = file.Name + (s - data.cFileName + 1);
-                    else
-                        file.Ext = file.Name + file.NameLen;
-                }
-
-                //--- other fields
                 file.Size = CQuadWord(data.nFileSizeLow, data.nFileSizeHigh);
                 file.Attr = data.dwFileAttributes;
                 file.LastWrite = data.ftLastWriteTime;
 
-                if (file.Attr & FILE_ATTRIBUTE_DIRECTORY)
-                {
-                    if (!ignDirNames || !(file.UseWideName() ? Configuration.CompareIgnoreDirsMasks.AgreeMasksW(file.NameW, NULL) : Configuration.CompareIgnoreDirsMasks.AgreeMasks(file.Name, NULL)))
-                    {
-                        dirs->Add(file);
-                        if (!dirs->IsGood())
-                        {
-                            TRACE_E(LOW_MEMORY);
-                            free(file.Name);
-                            HANDLES(FindClose(hFind));
-                            *canceled = TRUE;
-                            return FALSE;
-                        }
-                    }
-                    else
-                        free(file.Name);
-                }
-                else
-                {
-                    if (!ignFileNames || !(file.UseWideName() ? Configuration.CompareIgnoreFilesMasks.AgreeMasksW(file.NameW, NULL) : Configuration.CompareIgnoreFilesMasks.AgreeMasks(file.Name, file.Ext)))
-                    {
-                        files->Add(file);
-                        if (!files->IsGood())
-                        {
-                            TRACE_E(LOW_MEMORY);
-                            free(file.Name);
-                            HANDLES(FindClose(hFind));
-                            *canceled = TRUE;
-                            return FALSE;
-                        }
-                    }
-                    else
-                        free(file.Name);
-                }
+                auto* array = isDir ? dirs : files;
+                array->Add(file);
+                if (array->IsGood())
+                    return true;
             }
-        } while (FindNextFile(hFind, &data));
-        DWORD err = GetLastError();
-        if (err != ERROR_NO_MORE_FILES)
+            free(file.NameW);
+            free(file.Name);
+            TRACE_E(LOW_MEMORY);
+            return false;
+        };
+
+        DWORD error = ERROR_SUCCESS;
+        bool completed = true;
+        std::vector<WIN32_FIND_DATAW> entries;
+        if (side.IsProtected())
+            error = side.List(path, entries);
+        else
         {
-            if (getTotal)
-                *canceled = FALSE; // we're only obtaining the size, no need to bother the user, skip the error
+            std::wstring pattern = path;
+            SalPathAppendW(pattern, L"*");
+            if (pattern.size() >= MAX_PATH)
+                pattern = SalPathAddExtendedPrefixW(pattern.c_str());
+            WIN32_FIND_DATAW data{};
+            HANDLE find = HANDLES_Q(FindFirstFileW(pattern.c_str(), &data));
+            if (find == INVALID_HANDLE_VALUE)
+            {
+                error = GetLastError();
+                if (error == ERROR_FILE_NOT_FOUND || error == ERROR_NO_MORE_FILES)
+                    error = ERROR_SUCCESS;
+            }
             else
             {
-                _snprintf_s(message, _TRUNCATE, LoadStr(IDS_CANNOTREADDIR), path, GetErrorText(err));
-                progressDlg->FlushDataToControls();
-                *canceled = SalMessageBox(hWindow, message, LoadStr(IDS_ERRORTITLE),
-                                          MB_OK | MB_ICONEXCLAMATION) == IDCANCEL;
+                do
+                {
+                    completed = add(data);
+                } while (completed && FindNextFileW(find, &data));
+                error = GetLastError();
+                HANDLES(FindClose(find));
+                if (error == ERROR_NO_MORE_FILES)
+                    error = ERROR_SUCCESS;
             }
-            HANDLES(FindClose(hFind));
-            return FALSE;
+            if (completed && error == ERROR_ACCESS_DENIED)
+            {
+                error = side.RetryList(hWindow, path, entries);
+                if (!error)
+                {
+                    dirs->DestroyMembers();
+                    files->DestroyMembers();
+                }
+            }
         }
 
-        HANDLES(FindClose(hFind));
+        if (!error)
+            for (const auto& entry : entries)
+                if (!add(entry))
+                {
+                    completed = false;
+                    break;
+                }
+
+        if (!completed || error == ERROR_CANCELLED)
+        {
+            *canceled = TRUE;
+            return FALSE;
+        }
+        if (error)
+        {
+            *canceled = FALSE;
+            if (!getTotal)
+                CompareError(hWindow, progressDlg, IDS_CANNOTREADDIR,
+                             SalWideToMultiBytePath(path.c_str(), CP_UTF8).c_str(), error, canceled);
+            return FALSE;
+        }
     }
     else if (panel->Is(ptZIPArchive))
     {
-        CFilesArray* zipDirs = panel->GetArchiveDirDirs(subPath);
-        CFilesArray* zipFiles = panel->GetArchiveDirFiles(subPath);
+        CFilesArray* zipDirs = panel->GetArchiveDirDirs(subPath.c_str());
+        CFilesArray* zipFiles = panel->GetArchiveDirFiles(subPath.c_str());
 
         if (zipFiles == NULL || zipDirs == NULL)
         {
@@ -781,8 +910,8 @@ BOOL ReadDirsAndFilesAux(HWND hWindow, DWORD flags, CCmpDirProgressDialog* progr
 // supports ptDisk and ptZIPArchive
 
 BOOL CompareDirsAux(HWND hWindow, CCmpDirProgressDialog* progressDlg,
-                    CFilesWindow* leftPanel, const char* leftSubDir, BOOL leftFAT,
-                    CFilesWindow* rightPanel, const char* rightSubDir, BOOL rightFAT,
+                    CFilesWindow* leftPanel, CCompareDirectorySide& leftSide, const std::string& leftSubDir, BOOL leftFAT,
+                    CFilesWindow* rightPanel, CCompareDirectorySide& rightSide, const std::string& rightSubDir, BOOL rightFAT,
                     DWORD flags, BOOL* different, BOOL* canceled,
                     BOOL getTotal, CQuadWord* total, int* foundDSTShifts)
 {
@@ -801,22 +930,14 @@ BOOL CompareDirsAux(HWND hWindow, CCmpDirProgressDialog* progressDlg,
             progressDlg->SetActualFileSize(CQuadWord(0, 0)); // set to 0%
 
         // set texts in the progress dialog
-        BOOL pathAppended = TRUE;
-
-        char message[MAX_PATH + 200];
-        strcpy(message, leftPanel->GetPath());
-        pathAppended &= SalPathAppend(message, leftSubDir, MAX_PATH + 200);
-        progressDlg->SetSource(message);
-        strcpy(message, rightPanel->GetPath());
-        pathAppended &= SalPathAppend(message, rightSubDir, MAX_PATH + 200);
-        progressDlg->SetTarget(message);
-
-        if (!pathAppended)
+        const auto displayPath = [](CFilesWindow* panel, const std::string& subDir)
         {
-            SalMessageBox(hWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_COMPAREDIRSTITLE), MB_OK | MB_ICONEXCLAMATION);
-            *canceled = TRUE;
-            return FALSE;
-        }
+            if (panel->Is(ptDisk))
+                return SalWideToMultiBytePath(CompareDiskPath(panel, subDir).c_str(), CP_UTF8);
+            return std::string(panel->GetPath()) + "\\" + subDir;
+        };
+        progressDlg->SetSource(displayPath(leftPanel, leftSubDir).c_str());
+        progressDlg->SetTarget(displayPath(rightPanel, rightSubDir).c_str());
 
         if (!progressDlg->Continue())
         {
@@ -825,11 +946,11 @@ BOOL CompareDirsAux(HWND hWindow, CCmpDirProgressDialog* progressDlg,
         }
 
         // load directories and files for the left side
-        if (!ReadDirsAndFilesAux(hWindow, flags, progressDlg, leftPanel, leftSubDir, &leftDirs, &leftFiles, canceled, getTotal))
+        if (!ReadDirsAndFilesAux(hWindow, flags, progressDlg, leftPanel, leftSide, leftSubDir, &leftDirs, &leftFiles, canceled, getTotal))
             return FALSE;
 
         // and the right panel
-        if (!ReadDirsAndFilesAux(hWindow, flags, progressDlg, rightPanel, rightSubDir, &rightDirs, &rightFiles, canceled, getTotal))
+        if (!ReadDirsAndFilesAux(hWindow, flags, progressDlg, rightPanel, rightSide, rightSubDir, &rightDirs, &rightFiles, canceled, getTotal))
             return FALSE;
 
         // if the counts differ in the left and right panel, the directories differ
@@ -989,28 +1110,10 @@ BOOL CompareDirsAux(HWND hWindow, CCmpDirProgressDialog* progressDlg,
                     {
                         if (!getTotal)
                         {
-                            // build full paths to both files
-                            pathAppended = TRUE;
-
-                            char leftFilePath[2 * MAX_PATH];
-                            strcpy(leftFilePath, leftPanel->GetPath());
-                            pathAppended &= SalPathAppend(leftFilePath, leftSubDir, 2 * MAX_PATH);
-                            pathAppended &= SalPathAppend(leftFilePath, leftFile->Name, 2 * MAX_PATH);
-
-                            char rightFilePath[2 * MAX_PATH];
-                            strcpy(rightFilePath, rightPanel->GetPath());
-                            pathAppended &= SalPathAppend(rightFilePath, rightSubDir, 2 * MAX_PATH);
-                            pathAppended &= SalPathAppend(rightFilePath, rightFile->Name, 2 * MAX_PATH);
-
-                            if (!pathAppended)
-                            {
-                                SalMessageBox(hWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_COMPAREDIRSTITLE), MB_OK | MB_ICONEXCLAMATION);
-                                *canceled = TRUE;
-                                return FALSE;
-                            }
-
-                            if (!CompareFilesByContent(hWindow, progressDlg, leftFilePath, rightFilePath,
-                                                       leftFile->Size + rightFile->Size, different, canceled))
+                            const auto leftPath = CompareDiskPath(leftPanel, CompareChildPath(leftPanel, leftSubDir, *leftFile));
+                            const auto rightPath = CompareDiskPath(rightPanel, CompareChildPath(rightPanel, rightSubDir, *rightFile));
+                            if (!CompareFilesByContent(hWindow, progressDlg, leftSide, leftPath, *leftFile,
+                                                       rightSide, rightPath, *rightFile, different, canceled))
                             {
                                 return FALSE;
                             }
@@ -1038,33 +1141,23 @@ BOOL CompareDirsAux(HWND hWindow, CCmpDirProgressDialog* progressDlg,
         // rightFiles.DestroyMembers(); -- Petr: directly destroy the local object, frees more
     }
 
-    // no difference found, recursively call ourselves on individual directories
+    // Keep comparing accessible siblings if a nested comparison could not finish.
+    bool incomplete = false;
     int i;
     for (i = 0; i < leftDirs.Count; i++)
     {
-        char newLeftSubDir[MAX_PATH];
-        char newRightSubDir[MAX_PATH];
-
-        strcpy(newLeftSubDir, leftSubDir);
-        BOOL pathAppended = TRUE;
-        pathAppended &= SalPathAppend(newLeftSubDir, leftDirs[i].Name, MAX_PATH);
-        strcpy(newRightSubDir, rightSubDir);
-        pathAppended &= SalPathAppend(newRightSubDir, rightDirs[i].Name, MAX_PATH);
-        if (!pathAppended)
-        {
-            SalMessageBox(hWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_COMPAREDIRSTITLE), MB_OK | MB_ICONEXCLAMATION);
-            *canceled = TRUE;
-            return FALSE;
-        }
-
+        const auto newLeftSubDir = CompareChildPath(leftPanel, leftSubDir, leftDirs[i]);
+        const auto newRightSubDir = CompareChildPath(rightPanel, rightSubDir, rightDirs[i]);
         int foundDSTShiftsInSubDir = 0;
         if (!CompareDirsAux(hWindow, progressDlg,
-                            leftPanel, newLeftSubDir, leftFAT,
-                            rightPanel, newRightSubDir, rightFAT,
+                            leftPanel, leftSide, newLeftSubDir, leftFAT,
+                            rightPanel, rightSide, newRightSubDir, rightFAT,
                             flags, different, canceled, getTotal,
                             total, &foundDSTShiftsInSubDir))
         {
-            return FALSE;
+            if (*canceled)
+                return FALSE;
+            incomplete = true;
         }
         else
         {
@@ -1080,7 +1173,7 @@ BOOL CompareDirsAux(HWND hWindow, CCmpDirProgressDialog* progressDlg,
     // no difference found
     *different = FALSE;
     *foundDSTShifts += foundDSTShiftsInThisDir;
-    return TRUE;
+    return !incomplete;
 }
 
 // create a shallow copy and set Selected to FALSE for all items
@@ -1218,6 +1311,9 @@ void CMainWindow::CompareDirectories(DWORD flags)
     if (leftFiles != NULL && leftDirs != NULL && rightFiles != NULL && rightDirs != NULL)
     {
         // shallow copies were created successfully
+        CCompareDirectorySide leftSide(LeftPanel, displayProgressBar != FALSE);
+        CCompareDirectorySide rightSide(RightPanel, displayProgressBar != FALSE);
+
         //--- determine FAT file system because of lastWrite accuracy
         BOOL leftFAT = FALSE;
         BOOL rightFAT = FALSE;
@@ -1361,24 +1457,10 @@ void CMainWindow::CompareDirectories(DWORD flags)
                                         {
                                             if (!getTotal)
                                             {
-                                                char leftFilePath[MAX_PATH];
-                                                char rightFilePath[MAX_PATH];
-                                                strcpy(leftFilePath, LeftPanel->GetPath());
-                                                strcpy(rightFilePath, RightPanel->GetPath());
-                                                BOOL pathAppended = TRUE;
-                                                pathAppended &= SalPathAppend(leftFilePath, leftFile->Name, MAX_PATH);
-                                                pathAppended &= SalPathAppend(rightFilePath, rightFile->Name, MAX_PATH);
-                                                if (!pathAppended)
-                                                {
-                                                    SalMessageBox(progressDlg.HWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_COMPAREDIRSTITLE), MB_OK | MB_ICONEXCLAMATION);
-                                                    canceled = TRUE;
-                                                    goto ABORT_COMPARE;
-                                                }
-
                                                 BOOL different;
-
-                                                BOOL ret = CompareFilesByContent(progressDlg.HWindow, &progressDlg, leftFilePath,
-                                                                                 rightFilePath, leftFile->Size + rightFile->Size,
+                                                BOOL ret = CompareFilesByContent(progressDlg.HWindow, &progressDlg,
+                                                                                 leftSide, LeftPanel->GetItemFullPathW(*leftFile), *leftFile,
+                                                                                 rightSide, RightPanel->GetItemFullPathW(*rightFile), *rightFile,
                                                                                  &different, &canceled);
                                                 if (ret)
                                                 {
@@ -1531,56 +1613,8 @@ void CMainWindow::CompareDirectories(DWORD flags)
                                     // we insert the subpath into the left/rightSubDir variables, which is
                                     // in the case of ptDisk relative to the panel path and in the case
                                     // of ptZIPArchive relative to the path to the archive
-                                    char leftSubDir[MAX_PATH];
-                                    char rightSubDir[MAX_PATH];
-
-                                    if (LeftPanel->Is(ptDisk))
-                                    {
-                                        strcpy(leftSubDir, leftDir->Name);
-                                    }
-                                    else
-                                    {
-                                        if (LeftPanel->Is(ptZIPArchive))
-                                        {
-                                            strcpy(leftSubDir, LeftPanel->GetZIPPath());
-                                            BOOL pathAppended = SalPathAppend(leftSubDir, leftDir->Name, MAX_PATH);
-                                            if (!pathAppended)
-                                            {
-                                                SalMessageBox(progressDlg.HWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_COMPAREDIRSTITLE), MB_OK | MB_ICONEXCLAMATION);
-                                                canceled = TRUE;
-                                                goto ABORT_COMPARE;
-                                            }
-                                        }
-                                        else
-                                        {
-                                            TRACE_E("not implemented");
-                                            leftSubDir[0] = 0;
-                                        }
-                                    }
-
-                                    if (RightPanel->Is(ptDisk))
-                                    {
-                                        strcpy(rightSubDir, rightDir->Name);
-                                    }
-                                    else
-                                    {
-                                        if (RightPanel->Is(ptZIPArchive))
-                                        {
-                                            strcpy(rightSubDir, RightPanel->GetZIPPath());
-                                            BOOL pathAppended = SalPathAppend(rightSubDir, rightDir->Name, MAX_PATH);
-                                            if (!pathAppended)
-                                            {
-                                                SalMessageBox(progressDlg.HWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_COMPAREDIRSTITLE), MB_OK | MB_ICONEXCLAMATION);
-                                                canceled = TRUE;
-                                                goto ABORT_COMPARE;
-                                            }
-                                        }
-                                        else
-                                        {
-                                            TRACE_E("not implemented");
-                                            rightSubDir[0] = 0;
-                                        }
-                                    }
+                                    const auto leftSubDir = CompareChildPath(LeftPanel, LeftPanel->Is(ptZIPArchive) ? LeftPanel->GetZIPPath() : "", *leftDir);
+                                    const auto rightSubDir = CompareChildPath(RightPanel, RightPanel->Is(ptZIPArchive) ? RightPanel->GetZIPPath() : "", *rightDir);
 
                                     BOOL different;
                                     CQuadWord lastTotal; // if the subdirectory differs, skip its size using 'lastTotal' + 'dirSubTotal'
@@ -1589,8 +1623,8 @@ void CMainWindow::CompareDirectories(DWORD flags)
                                     CQuadWord subTotal(0, 0);
                                     int foundDSTShiftsInSubDir = 0;
                                     BOOL ret = CompareDirsAux(progressDlg.HWindow, &progressDlg,
-                                                              LeftPanel, leftSubDir, leftFAT,
-                                                              RightPanel, rightSubDir, rightFAT,
+                                                              LeftPanel, leftSide, leftSubDir, leftFAT,
+                                                              RightPanel, rightSide, rightSubDir, rightFAT,
                                                               flags, &different, &canceled,
                                                               getTotal, &subTotal, &foundDSTShiftsInSubDir);
                                     if (ret)
@@ -1689,6 +1723,9 @@ void CMainWindow::CompareDirectories(DWORD flags)
             EnableWindow(HWindow, TRUE);
             HWND actWnd = GetForegroundWindow();
             BOOL activate = actWnd == progressDlg.HWindow || actWnd == HWindow;
+            // Hand activation back before destroying the foreground window.
+            if (actWnd == progressDlg.HWindow)
+                SetForegroundWindow(HWindow);
             DestroyWindow(progressDlg.HWindow);
             if (activate && hFocusedWnd != NULL)
                 SetFocus(hFocusedWnd);
@@ -1703,9 +1740,12 @@ void CMainWindow::CompareDirectories(DWORD flags)
         // and between changing the selection state and calling
         // RepaintListBox no messages are distributed, so a request to redraw the icon cannot be delivered
 
-        // clear the selection
-        LeftPanel->SetSel(FALSE, -1);
-        RightPanel->SetSel(FALSE, -1);
+        // Keep the original selections if the user cancels a protected comparison.
+        if (!canceled || (!leftSide.HasProtectedWork() && !rightSide.HasProtectedWork()))
+        {
+            LeftPanel->SetSel(FALSE, -1);
+            RightPanel->SetSel(FALSE, -1);
+        }
 
         // if not canceled, transfer the selection
         if (!canceled)

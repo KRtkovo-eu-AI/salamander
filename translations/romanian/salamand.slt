@@ -4369,9 +4369,123 @@ SLGINCOMPLETE,""
 14611,1,"Nu s-a putut încheia niciun proces care utilizează acest fișier."
 
 [STRINGTABLE 193]
-14991,1,"Citesc asocierile din stocarea fișierelor, vă rugăm așteptați..."
+14624,1,"Acces refuzat. Creați acest dosar ca administrator?"
+14625,1,"Conexiunea cu procesul auxiliar s-a întrerupt înainte de confirmarea rezultatului. Verificați destinația înainte de a încerca din nou."
+14626,1,"Acces refuzat. Redenumiți acest fișier ca administrator? Prima linie indică calea actuală, iar a doua pe cea nouă."
+14627,1,"Acces refuzat. Aplicați atributele și marcajele de timp solicitate acestui fișier ca administrator?"
+14628,1,"Conexiunea cu procesul auxiliar s-a întrerupt înainte de confirmarea rezultatului. Verificați atributele și marcajele de timp ale fișierului înainte de a încerca din nou."
+14629,1,"Acces refuzat. Ștergeți definitiv acest fișier ca administrator?"
+14630,1,"Conexiunea cu procesul auxiliar s-a întrerupt înainte de confirmarea ștergerii. Verificați dacă fișierul mai există înainte de a încerca din nou."
+14631,1,"Acces refuzat. Listați acest dosar și subdosarele sale ca administrator?"
+14632,1,"Listare ca administrator"
+14633,1,"Acces refuzat. Copiați acest fișier și fluxurile sale de date alternative ca administrator?"
+14634,1,"Finalizarea copierii nu a putut fi confirmată. Verificați destinația înainte de a încerca din nou."
+14635,1,"Acces refuzat. Mutați acest fișier ca administrator?"
+14636,1,"Finalizarea mutării nu a putut fi confirmată. Verificați sursa și destinația înainte de a încerca din nou."
+14637,1,"Inventarul subarborelui protejat"
+14639,1,"La calcularea dimensiunii nu s-a putut parcurge întregul arbore de directoare."
 
 [STRINGTABLE 194]
+14640,1,"Fișiere: "
+14641,1,"Subfoldere: "
+14642,1,"Dimensiune logică (octeți): "
+14643,1,"Copiați acest folder și conținutul său ca administrator?"
+14644,1,"Copierea folderului sau curățarea nu a putut fi confirmată. Verificați destinația înainte de a reîncerca."
+14645,1,"Acces refuzat. Setați datele și orele solicitate pentru acest dosar ca administrator?"
+14646,1,"Conexiunea cu procesul auxiliar s-a întrerupt înainte de confirmarea rezultatului. Verificați datele și orele dosarului înainte de a încerca din nou."
+14647,1,"Acces refuzat. Aplicați acestui dosar atributele solicitate și datele și orele selectate, dacă există, ca administrator?"
+14648,1,"Conexiunea cu procesul auxiliar s-a întrerupt înainte de confirmarea rezultatului. Verificați atributele, datele și orele dosarului înainte de a încerca din nou."
+14649,1,"Acces refuzat. Copiați acest fișier fără fluxurile sale de date alternative ca administrator?"
+14650,1,"Acces refuzat. Copiați acest fișier ca administrator, păstrând compresia NTFS?"
+14651,1,"Acces refuzat. Redenumiți această legătură simbolică ca administrator?"
+14652,1,"Acces refuzat. Redenumiți această joncțiune de dosar ca administrator?"
+14653,1,"Acces refuzat. Ștergeți definitiv această legătură simbolică ca administrator? Fișierul destinație va fi păstrat."
+14654,1,"Acces refuzat. Ștergeți definitiv această legătură simbolică către un dosar ca administrator? Dosarul destinație va fi păstrat."
+14655,1,"Acces refuzat. Ștergeți definitiv această joncțiune de dosar ca administrator? Dosarul destinație va fi păstrat."
+
+[STRINGTABLE 195]
+14656,1,"Acces refuzat. Copiați acest fișier ca administrator, păstrând proprietarul, grupul și permisiunile NTFS explicite?"
+14657,1,"Copierea fișierului criptat cu EFS nu a putut fi finalizată. Pentru această operațiune, modul administrator nu poate păstra criptarea EFS."
+14658,1,"Windows nu a confirmat mutarea tuturor elementelor în Coșul de reciclare. Verificați locația inițială și Coșul de reciclare înainte de a încerca din nou."
+14659,1,"Acces refuzat. Calculați dimensiunea acestui dosar și a subdosarelor sale ca administrator?"
+14660,1,"Acces refuzat. Căutați după nume și metadate în acest dosar ca administrator? Căutarea continuă în dosarele accesibile cât timp decideți."
+14661,1,"Se așteaptă permisiunea de administrator pentru accesul la un dosar protejat…"
+14662,1,"Se caută în dosarul aprobat cu drepturi de administrator."
+14663,1,"Indisponibil"
+14664,1,"Acces refuzat. Deschideți ca administrator în vizualizatorul intern o copie a acestui fișier doar pentru citire? Copia este limitată la 16 MB."
+14665,1,"Copie deschisă cu drepturi de administrator"
+14666,1,"Această copie este doar pentru citire. Reveniți la panou pentru a solicita o copie nouă."
+14667,1,"Fișierul protejat nu a putut fi deschis în vizualizatorul intern."
+14668,1,"Editați ca administrator"
+14669,1,"Acces refuzat. Deschideți fișierul original în editorul configurat ca administrator? Windows va solicita permisiunea pentru editorul afișat mai jos."
+14670,1,"Modul administrator necesită ca executabilul editorului să se afle într-un dosar protejat din Windows sau Program Files."
+14671,1,"Conținutul unei arhive ZIP protejate"
+
+[STRINGTABLE 196]
+14672,1,"Acces refuzat. Citiți conținutul acestei arhive ZIP ca administrator? Arhiva va fi deschisă doar pentru citire."
+14673,1,"Folosiți F3 pentru a vizualiza un fișier sau F5 pentru a-l extrage. Deschiderea într-o aplicație externă nu este disponibilă."
+14674,1,"Acces refuzat. Extrageți ca administrator fișierele și dosarele selectate din ZIP în destinația afișată?"
+14675,1,"Selectați un dosar local existent ca destinație pentru elementele selectate din această arhivă ZIP protejată."
+14676,1,"Extragerea s-a oprit după crearea unei părți din elementele ZIP selectate. Verificați destinația înainte de a încerca din nou."
+14677,1,"Actualizarea unei arhive ZIP protejate"
+14678,1,"Salvați ca administrator modificările pregătite pentru această arhivă ZIP?"
+14679,1,"Windows nu a confirmat finalizarea actualizării arhivei ZIP. Verificați arhiva și orice copie de rezervă rămasă în dosarul ei înainte de a încerca din nou."
+14680,1,"Arhiva ZIP a fost actualizată. Reîmprospătați panoul arhivei pentru a afișa noul conținut."
+14681,1,"Acces refuzat. Înlocuiți acest fișier existent ca administrator, păstrând permisiunile destinației?"
+14682,1,"Aprobarea se aplică acestui element. Anularea oprește procesarea elementelor rămase. Modificările finalizate se păstrează."
+14683,1,"Acces refuzat. Citiți ca administrator conținutul fișierelor din acest dosar pentru căutarea curentă? Căutarea continuă în dosarele accesibile cât timp decideți."
+14684,1,"Acces refuzat. Citiți acest fișier ca administrator pentru căutarea curentă?"
+14685,1,"Acces refuzat. Copiați acest fișier ca administrator, păstrând criptarea EFS?"
+14686,1,"Aprobarea se aplică până la finalul operațiunii și altor fișiere eligibile din dosarele afișate mai jos."
+14687,1,"Aprobarea se aplică până la finalul operațiunii și altor elemente eligibile din dosarul afișat mai jos."
+
+[STRINGTABLE 197]
+14688,1,"Acces refuzat. Mutați acest fișier în Coșul dvs. de reciclare ca administrator?"
+14689,1,"Acces refuzat. Copiați acest fișier ca administrator, păstrând compresia NTFS, proprietarul, grupul și permisiunile explicite?"
+14694,1,"Această aprobare se aplică și folderelor protejate din:"
+14695,1,"Acces refuzat. Citiți ca administrator conținutul fișierelor de sub această cale pentru această comparație?"
+14696,1,"Această legătură de compatibilitate Windows a fost omisă. Contribuie cu 0 octeți la total."
+
+14698,1,"Finalizarea operației nu a putut fi confirmată. Este posibil să fi rămas o copie de lucru sau un jurnal. Verificați sursa, destinația și orice copie de rezervă înainte de a reîncerca."
+
+14699,1,"Acces refuzat. Înlocuiți acest fișier ca administrator, păstrând permisiunile destinației? Fișierul de înlocuire nu va conține fluxuri de date alternative."
+
+14700,1,"A fost atinsă limita de acces de administrator (%s elemente protejate). Acest element nu a fost căutat; rezultatele pot fi incomplete."
+14701,1,"Incomplet (limită administrator)"
+
+14702,1,"O căutare anterioară în aceste rezultate a atins limita de acces de administrator (%s elemente protejate). Unele elemente nu au fost căutate."
+
+14703,1,"Mutarea unui folder protejat în Coșul de reciclare cu drepturi de administrator nu este încă acceptată."
+
+[STRINGTABLE 198]
+14704,1,"Incomplet (vezi jurnalul)"
+14705,1,"O listare de director și-a depășit capacitatea. Unele elemente nu au fost căutate."
+14706,1,"Un subarbore protejat a depășit limita de elemente. Unele elemente nu au fost căutate."
+14707,1,"Un subarbore protejat a depășit limita de adâncime. Unele elemente nu au fost căutate."
+14708,1,"Unele ținte ale legăturilor nu au fost căutate."
+14709,1,"Accesul la o parte a unui arbore protejat nu a fost aprobat sau a eșuat. Unele elemente nu au fost căutate."
+
+14710,1,"Vizualizatorul selectat nu poate deschide încă în siguranță acest rezultat verificat. Folosiți vizualizatorul intern."
+14711,1,"Acest rezultat este asociat unei identități verificate anterior. Deschideți ca administrator un instantaneu doar pentru citire în vizualizatorul intern? Instantaneul este limitat la 16 MB."
+
+14712,1,"Identitatea verificată a acestui rezultat protejat nu este disponibilă. Fișierul nu poate fi deschis în siguranță; încercați să reluați căutarea."
+14713,1,"View With nu poate păstra încă în siguranță identitatea verificată a acestui rezultat protejat. Folosiți F3 în schimb."
+
+14714,1,"Conținutul și etichetele acestui rezultat protejat nu pot fi citite în siguranță la rafinare folosind identitatea verificată anterior. Acest element nu a fost verificat."
+14715,1,"Accesul a fost refuzat. Creați această listă de fișiere ca administrator?"
+
+14716,1,"Identitatea unor foldere protejate nu poate fi verificată. Acestea nu au fost deschise; lista este incompletă. Primul folder:"
+14717,1,"Un folder protejat conține peste 4096 de elemente. Lista sa este incompletă."
+
+14719,1,"Branch View - %I64u fișiere; rezultatul poate fi incomplet"
+14720,1,"Listarea folderului a fost întreruptă și reluată. Fișierele se pot fi schimbat între timp, deci lista poate fi incompletă. Reîmprospătați pentru verificare."
+
+14721,1,"Acces refuzat. Copiați acest fișier ca administrator? Fișierele cu fluxuri de date alternative nu sunt acceptate în acest mod."
+
+[STRINGTABLE 199]
+14991,1,"Citesc asocierile din stocarea fișierelor, vă rugăm așteptați..."
+
+[STRINGTABLE 200]
 14992,1,"Salvez configurația în stocarea fișierelor, vă rugăm așteptați..."
 14993,1,"Șterg configurația veche din stocarea fișierelor, vă rugăm așteptați..."
 14994,1,"Citesc asocierile din stocarea fișierelor..."

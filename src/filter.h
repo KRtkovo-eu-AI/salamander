@@ -1,5 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Expose the active keyword match mode. | Apply the same filter to keywords read through a stream. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
@@ -104,6 +105,7 @@ public:
     BOOL Test(DWORD attributes, const CQuadWord* size, const FILETIME* modified);
     BOOL HasTags() const { return UseTags && TagsText[0] != 0; }
     const char* GetTagsText() const { return TagsText; }
+    CFileTagsMatchMode GetTagsMode() const { return TagsMode; }
     BOOL TestTags(const wchar_t* path) const;
 
     // fills 'buffer' with a description of the set values if they differ from the default ones

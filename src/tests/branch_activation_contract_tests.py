@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Check deferred scope and all Branch translations. | Account for pending session lookup and later resource IDs. | #731 | GPT-6 |
+# | 2026-11-11 | Distinguish explicit Stop from internal cancellation. | Preserve first-scan partial results without restarting cancelled work. | #731 | GPT-6.1 Terra |
+# | 2026-11-10 | Keep active approved Branch scans on the short poll interval. | Accept the shared preparation timer without blocking activation. | #731 | GPT-6.1 Sol |
+# | 2026-11-10 | Find Branch View translations by resource ID. | Section ordinals can shift when new string blocks are added. | #731 | Codex |
 # | 2026-11-12 | Validate branch translations without a fixed language count. | Translation expansion made the fixed count stale. | | openai/gpt-6-luna-pro |
 # | 2026-11-06 | Verify Branch copy-dialog controls in every language archive. | Missing checkbox rows prevented native Translator import despite complete string tables. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 """Branch View activation must not create work or wait for background providers.
@@ -84,9 +88,11 @@ class BranchActivationContracts(unittest.TestCase):
         menu = source("mainwnd3.cpp")
         self.assertIn("popup->EnableItem(CM_BRANCH_STOP, FALSE, branchPanel != NULL && branchPanel->IsBranchViewScanning())", menu)
         stop = menu[menu.index("case CM_BRANCH_STOP:"):menu.index("case CM_CHANGEFILTER:", menu.index("case CM_BRANCH_STOP:"))]
-        self.assertIn("activePanel->CancelBranchViewScan()", stop)
+        self.assertIn("activePanel->StopBranchViewScan()", stop)
         keys = source("fileswn0.cpp")
-        self.assertIn("wParam == VK_ESCAPE && IsBranchViewScanning()", keys)
+        escape = keys[keys.index("if (wParam == VK_ESCAPE && IsBranchViewScanning()"):]
+        self.assertIn("!QuickSearchMode", escape[:150])
+        self.assertIn("StopBranchViewScan()", escape[:200])
 
     def test_preparing_status_precedes_ready_and_cancel_drops_pending_work(self):
         status = block(source("branch_view.cpp"), "std::wstring CFilesWindow::GetBranchViewStatusW() const")
@@ -98,19 +104,21 @@ class BranchActivationContracts(unittest.TestCase):
             self.assertIn(required, cancel)
         self.assertNotIn("BranchView->Entries.clear()", cancel)
         poll = block(source("branch_view.cpp"), "void CFilesWindow::PollBranchView()")
-        self.assertLess(poll.index("if (BranchView->Status.Cancelled)"), poll.index("BranchView->Worker.Drain"))
+        self.assertLess(poll.index("if (BranchView->Status.Cancelled && !BranchView->StoppingInitial)"), poll.index("BranchView->Worker.Drain"))
 
     def test_scan_completion_waits_for_preparation_and_final_publication(self):
         poll = block(source("branch_view.cpp"), "void CFilesWindow::PollBranchView()")
         self.assertIn("if (scanFinished) BranchView->CompletionPending = true", poll)
-        self.assertIn("const bool preparing = BranchView->CompletionPending && preparation->Queue.HasPending()", poll)
-        self.assertIn("const bool finished = BranchView->CompletionPending && !preparation->Queue.HasPending()", poll)
+        self.assertIn("const bool preparing = BranchView->CompletionPending && (preparation->Queue.HasPending() || stoppedBatchPending)", poll)
+        self.assertIn("finished = BranchView->CompletionPending && !preparation->Queue.HasPending() && !stoppedBatchPending", poll)
         self.assertIn("BranchView->Dirty && !preparation->Queue.HasPending()", poll)
         self.assertLess(poll.index("RefreshDirectory();"), poll.index("BranchView->Refresh.Finished("))
         self.assertLess(poll.index("BranchView->CompletionPending = false"), poll.index("BranchView->Refresh.Finished("))
-        self.assertLess(poll.index("BranchView->Refresh.Finished("), poll.index("BranchView->Refresh.Due("))
+        self.assertIn("if (BranchView->PanelScopePending && BranchView->Refresh.Due(GetTickCount64()))", poll)
+        self.assertLess(poll.index("BranchView->Refresh.Finished("), poll.rindex("BranchView->Refresh.Due("))
         self.assertIn("if (!preparation->Alive) return", poll)
-        self.assertIn("preparation->Queue.HasPending() ? 15 : 200", poll)
+        self.assertIn("preparation->Queue.HasPending() ||", poll)
+        self.assertIn("(BranchView->UseProtectedListing && BranchView->Status.Running) ? 15 : 200", poll)
         cancel = block(source("branch_view.cpp"), "void CFilesWindow::CancelBranchViewScan()")
         self.assertIn("BranchView->CompletionPending = false", cancel)
         self.assertIn("BranchView->Preparation->Alive = false", cancel)
@@ -124,7 +132,7 @@ class BranchActivationContracts(unittest.TestCase):
             r"#define\s+(IDS_(?:MENU_)?BRANCH_\w+)\s+(\d+)", source("texts.rh2"))}
         english = {ids[name]: value for name, value in re.findall(
             r'\b(IDS_(?:MENU_)?BRANCH_\w+),\s*"([^"\r\n]*)"', source("lang/texts.rc2"))}
-        self.assertEqual(set(english), set(range(14500, 14516)))
+        self.assertTrue(set(range(14500, 14516)).issubset(english))
         self.assertEqual(english[14515].count("%I64u"), 2)
         paths = sorted((ROOT.parent / "translations").glob("*/salamand.slt"))
         self.assertTrue(paths, "no translation files found")

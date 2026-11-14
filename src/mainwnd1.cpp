@@ -1,7 +1,12 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Disable entry content actions for the protected listing. | Keep metadata and navigation available. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Observe F5 panel readiness in test builds. | Coordinate the isolated real-worker acceptance test without changing commands. | #731 | GPT-6 |
+// | 2026-11-08 | Enable archive deletion for an open protected ZIP with a verified editor. | Preserve ordinary archive capability checks. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Enable extraction from the protected archive panel. | Keep archive mutations disabled. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Enable F3 for a protected ZIP entry. | Keep external view and transfer actions on their separate routes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Display a temporary Find notice in the main caption. | Keep reporting Find activity when its own window is stalled. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-09 | Fix Extension Bar visibility on default configuration. | Release LockWindowUpdate when CreateWnd fails in ToggleExtensionBar; show Extension Bar directly at startup when ExtensionBarVisible is TRUE. | | nvidia/nemotron-3.5-super-vl:free |
 // | 2026-11-04 | Reflect context help on panel toolbars and bound toolbar saves. | Panel toolbars can now hold the shared help button, and their layouts use the larger buffers. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
@@ -6757,10 +6762,10 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
         if (archive)
         {
             int format = PackerFormatConfig.PackIsArchive(activePanel->GetZIPArchive());
-            if (format != 0) // we found a supported archive
-            {
-                archiveEdit = PackerFormatConfig.GetUsePacker(format - 1); // does it have an edit?
-            }
+            if (activePanel->IsProtectedZip())
+                archiveEdit = activePanel->CanEditProtectedZip();
+            else if (format != 0)
+                archiveEdit = PackerFormatConfig.GetUsePacker(format - 1);
         }
 
         upDir = (activePanel->Dirs->Count != 0 &&
@@ -6868,9 +6873,10 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
     obj->CheckAndSet(&EnablerFiles, files);
     obj->CheckAndSet(&EnablerFileOnDisk, file && onDisk);
     obj->CheckAndSet(&EnablerFileOrDirLinkOnDisk, (file || linkOnDisk) && onDisk);
-    obj->CheckAndSet(&EnablerFileOnDiskOrArchive, file && (onDisk || archive));
+    const bool archiveContentsAvailable = archive && !activePanel->IsProtectedZip();
+    obj->CheckAndSet(&EnablerFileOnDiskOrArchive, file && (onDisk || archiveContentsAvailable));
     obj->CheckAndSet(&EnablerFilesOnDisk, onDisk && files);
-    obj->CheckAndSet(&EnablerFilesOnDiskOrArchive, (onDisk || archive) && files);
+    obj->CheckAndSet(&EnablerFilesOnDiskOrArchive, (onDisk || archiveContentsAvailable) && files);
     obj->CheckAndSet(&EnablerOccupiedSpace, (onDisk || archive && (activePanel->ValidFileData & VALID_DATA_SIZE)) && files);
     obj->CheckAndSet(&EnablerFilesOnDiskCompress, onDisk && compress && files);
     obj->CheckAndSet(&EnablerFilesOnDiskEncrypt, onDisk && encrypt && files);
@@ -6921,6 +6927,47 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
     obj->CheckAndSet(&EnablerFilesCopy, files &&
                                             (onDisk || archive ||
                                              validPluginFS && activePanel->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMFS)));
+#ifdef SAM_UAC_THIN_COPY_TEST
+    // Observation only: the ordinary refresh remains responsible for all
+    // selection, command enablement and scheduling.
+    if (activePanel && activePanel == obj->LeftPanel && onDisk)
+    {
+        const DWORD pathSize = GetEnvironmentVariableW(L"SAM_UAC_TEST_READY_PATH", nullptr, 0);
+        if (pathSize && pathSize <= 32768)
+        {
+            try
+            {
+                std::vector<wchar_t> expectedPath(pathSize);
+                wchar_t expectedName[512]{}, loadedEvent[256]{}, readyEvent[256]{};
+                const DWORD pathLen = GetEnvironmentVariableW(L"SAM_UAC_TEST_READY_PATH", expectedPath.data(), pathSize);
+                const DWORD nameLen = GetEnvironmentVariableW(L"SAM_UAC_TEST_READY_NAME", expectedName, _countof(expectedName));
+                const DWORD loadedLen = GetEnvironmentVariableW(L"SAM_UAC_TEST_LOADED_EVENT", loadedEvent, _countof(loadedEvent));
+                const DWORD readyLen = GetEnvironmentVariableW(L"SAM_UAC_TEST_READY_EVENT", readyEvent, _countof(readyEvent));
+                if (pathLen && pathLen < pathSize && nameLen && nameLen < _countof(expectedName) &&
+                    wcscmp(activePanel->GetPathW(), expectedPath.data()) == 0)
+                {
+                    for (int i = 0; i < activePanel->Files->Count; ++i)
+                    {
+                        const auto& item = activePanel->Files->At(i);
+                        const std::wstring itemName = item.UseWideName() ? std::wstring(item.NameW) :
+                            SalMultiByteToWidePath(item.Name, IsValidPathUtf8Text(item.Name) ? CP_UTF8 : CP_ACP);
+                        if (itemName != expectedName) continue;
+                        auto signal = [](const wchar_t* name)
+                        {
+                            HANDLE event = OpenEventW(EVENT_MODIFY_STATE, FALSE, name);
+                            if (event) { SetEvent(event); CloseHandle(event); }
+                        };
+                        if (loadedLen && loadedLen < _countof(loadedEvent)) signal(loadedEvent);
+                        if (readyLen && readyLen < _countof(readyEvent) && EnablerFilesCopy && selCount == 1 &&
+                            activePanel->GetSel(activePanel->Dirs->Count + i)) signal(readyEvent);
+                        break;
+                    }
+                }
+            }
+            catch (const std::bad_alloc&) { /* observation failure leaves test waiting */ }
+        }
+    }
+#endif
     obj->CheckAndSet(&EnablerFilesMove, files &&
                                             (onDisk ||
                                              validPluginFS && activePanel->GetPluginFS()->IsServiceSupported(FS_SERVICE_MOVEFROMFS)));

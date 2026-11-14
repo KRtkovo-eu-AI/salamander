@@ -1,0 +1,202 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Exercise the Overwrite Older late receipt and ignored times. | Retain ordinary local deletion while gating elevated completion. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Exercise the actual late move policy and local unlink branch. | Preserve ordinary Ignore behavior while unsupported UAC receipts remain disabled. | #731 | GPT-6.1 Terra |
+#include <windows.h>
+#include <cstdio>
+#include <string>
+
+namespace UacF7
+{
+struct MoveFileIdentity { unsigned long long serial = 0; };
+constexpr unsigned long long maxCrossVolumeMoveBytes = 0x7fffffffffffffffULL;
+static bool IsPlainDeleteFile(DWORD value) { return value == FILE_ATTRIBUTE_NORMAL || value == FILE_ATTRIBUTE_ARCHIVE; }
+static int LocalIdentityCalls = 0;
+static int CaptureCalls = 0;
+struct PreparedTransfer
+{
+    bool PrepareMoveCompletion(const std::wstring&, const std::wstring&, unsigned long long,
+                               const MoveFileIdentity&, const MoveFileIdentity&) { return true; }
+};
+static bool CaptureMoveFileIdentity(HANDLE, MoveFileIdentity& identity, bool)
+{
+    ++CaptureCalls;
+    identity.serial = 2;
+    return true;
+}
+static DWORD DeleteCopiedMoveSource(const std::wstring&, const std::wstring&, const MoveFileIdentity&, const MoveFileIdentity&)
+{
+    ++LocalIdentityCalls;
+    return ERROR_SHARING_VIOLATION;
+}
+}
+enum { OPFL_UAC_TRANSFER_ELIGIBLE = 1, OPFL_SRCPATH_IS_NET = 2, OPFL_TGTPATH_IS_NET = 4 };
+struct COperation
+{
+    unsigned OpFlags = OPFL_UAC_TRANSFER_ELIGIBLE;
+    bool SourceNameWValid = true, TargetNameWValid = true;
+    DWORD Attr = FILE_ATTRIBUTE_ARCHIVE;
+    struct { unsigned long long Value = 1; } FileSize;
+    char* SourceName = const_cast<char*>("source");
+    char* TargetName = const_cast<char*>("target");
+    std::wstring SourceNameW, TargetNameW;
+};
+struct COperations { bool CopyAttrs = false, CopySecurity = false, OverwriteOlder = false; };
+struct MoveCopyReceipt
+{
+    UacF7::MoveFileIdentity source{}, target{};
+    bool sourceCaptured = false;
+    bool captured = false;
+};
+static std::wstring WorkerOperationPathW(const char*, const wchar_t* path) { return path; }
+static int ClearCalls = 0;
+static void WorkerClearReadOnlyW(const std::wstring&) { ++ClearCalls; }
+struct CQuadWord {};
+struct CProgressDlgData
+{
+    HANDLE WorkerNotSuspended = nullptr;
+    BOOL cancelled = FALSE;
+    BOOL* CancelWorker = &cancelled;
+    BOOL SkipAllDeleteErr = FALSE;
+};
+static int DeniedDeletes = 0, BrokerCalls = 0;
+constexpr UINT WM_USER_DIALOG = WM_USER + 42;
+constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER_UNKNOWN = 333;
+constexpr int IDS_ERRORDELETINGFILE = 444, IDB_SKIPALL = 445, IDB_SKIP = 446;
+static BOOL DenyLocalDelete(const wchar_t*) { ++DeniedDeletes; SetLastError(ERROR_ACCESS_DENIED); return FALSE; }
+static bool ExecuteWorkerTransfer(HWND, const COperation&, COperations&, CQuadWord&, CProgressDlgData&,
+                                  BOOL& success, UacF7::PreparedTransfer&, DWORD& error)
+{
+    ++BrokerCalls;
+    success = FALSE;
+    error = ERROR_BROKEN_PIPE;
+    return true; // An unknown result was already reported; do not retry it.
+}
+static LRESULT DummyDialog(HWND, UINT, WPARAM, LPARAM) { return 0; }
+static char* LoadStr(int) { static char text[] = "error"; return text; }
+static char* GetErrorText(DWORD) { static char text[] = "error"; return text; }
+
+static bool ReceiptPolicy(const COperation* op, const COperations* script, bool copyADS, bool copyAsEncrypted)
+{
+@@CAPTURE_POLICY@@
+    return capture;
+}
+
+static DWORD LocalRemoval(const COperation* op, const COperations* script, const MoveCopyReceipt& receipt)
+{
+@@LOCAL_REMOVAL@@
+        return err;
+    }
+    return ERROR_SUCCESS;
+}
+
+static BOOL UnknownCompletionDoesNotRetry(const COperation* op, COperations* script, const MoveCopyReceipt& receipt)
+{
+    BOOL notError = TRUE, skip = FALSE;
+    HWND hProgressDlg = nullptr;
+    CProgressDlgData dlgData;
+    CQuadWord totalDone;
+#define DeleteFileW DenyLocalDelete
+#undef SendMessage
+#define SendMessage DummyDialog
+@@FULL_REMOVAL@@
+#undef SendMessage
+#undef DeleteFileW
+    return notError;
+}
+
+static bool CaptureAfterTimes(const COperations* script, bool ignoreGetFileTimeErr, bool ignoreSetFileTimeErr,
+                              bool sourceCaptured = true)
+{
+    MoveCopyReceipt receipt;
+    receipt.sourceCaptured = sourceCaptured;
+    auto* moveReceipt = &receipt;
+    HANDLE out = nullptr;
+@@CAPTURE_AFTER_TIMES@@
+    return receipt.captured;
+}
+
+static bool ResetForCopyRetry(const COperations* script)
+{
+    MoveCopyReceipt receipt;
+    receipt.source.serial = 11;
+    receipt.target.serial = 22;
+    receipt.sourceCaptured = receipt.captured = true;
+    auto* moveReceipt = &receipt;
+@@RESET_COPY_ATTEMPT@@
+    if (receipt.sourceCaptured || receipt.captured || receipt.source.serial || receipt.target.serial)
+        return false;
+    // A new copy obtains a source ID, then the user ignores the time error.
+    // This must not resurrect the old target or a successful prior receipt.
+    receipt.sourceCaptured = true;
+    receipt.source.serial = 33;
+    HANDLE out = nullptr;
+    bool ignoreGetFileTimeErr = true, ignoreSetFileTimeErr = false;
+@@CAPTURE_AFTER_TIMES@@
+    return !receipt.captured && receipt.target.serial == 0;
+}
+
+int main()
+{
+    COperation op;
+    COperations script;
+    if (!ReceiptPolicy(&op, &script, false, false)) return 1;
+    script.CopyAttrs = true;
+    if (ReceiptPolicy(&op, &script, false, false)) return 2;
+    script.CopyAttrs = false;
+    script.OverwriteOlder = true;
+    if (!ReceiptPolicy(&op, &script, false, false)) return 3;
+    if (!CaptureAfterTimes(&script, false, false) || CaptureAfterTimes(&script, true, false) ||
+        CaptureAfterTimes(&script, false, true) || CaptureAfterTimes(&script, false, false, false) ||
+        UacF7::CaptureCalls != 1) return 10;
+    if (!ResetForCopyRetry(&script) || UacF7::CaptureCalls != 1) return 12;
+    script.OverwriteOlder = false;
+    if (!CaptureAfterTimes(&script, true, false) || UacF7::CaptureCalls != 2) return 11;
+    script.CopySecurity = true;
+    if (ReceiptPolicy(&op, &script, false, false)) return 4;
+    script.CopySecurity = false;
+    if (ReceiptPolicy(&op, &script, true, false) || ReceiptPolicy(&op, &script, false, true)) return 5;
+
+    wchar_t temp[MAX_PATH]{}, fixture[MAX_PATH]{};
+    if (!GetTempPathW(MAX_PATH, temp)) return 6;
+    for (int test = 0; test != 2; ++test)
+    {
+        if (!GetTempFileNameW(temp, L"mvt", 0, fixture)) return 6;
+        op.SourceNameW = fixture;
+        op.TargetNameW = fixture;
+        script.CopyAttrs = test == 0;
+        script.OverwriteOlder = test == 1;
+        MoveCopyReceipt receipt;
+        receipt.captured = ReceiptPolicy(&op, &script, false, false);
+        receipt.source.serial = 1;
+        receipt.target.serial = 2;
+        const DWORD result = LocalRemoval(&op, &script, receipt);
+        if (result || GetFileAttributesW(fixture) != INVALID_FILE_ATTRIBUTES || ClearCalls != test + 1 || UacF7::LocalIdentityCalls)
+        {
+            DeleteFileW(fixture);
+            return 7;
+        }
+    }
+    if (!GetTempFileNameW(temp, L"mvt", 0, fixture)) return 8;
+    op.SourceNameW = fixture;
+    MoveCopyReceipt receipt;
+    receipt.captured = true;
+    receipt.source.serial = 1;
+    receipt.target.serial = 2;
+    script.OverwriteOlder = false;
+    const DWORD pinnedResult = LocalRemoval(&op, &script, receipt);
+    const bool retained = GetFileAttributesW(fixture) != INVALID_FILE_ATTRIBUTES;
+    DeleteFileW(fixture);
+    if (pinnedResult != ERROR_SHARING_VIOLATION || !retained || UacF7::LocalIdentityCalls != 1 || ClearCalls != 2)
+        return 9;
+    script.OverwriteOlder = true;
+    if (UnknownCompletionDoesNotRetry(&op, &script, receipt) || DeniedDeletes != 1 || BrokerCalls != 1)
+        return 13;
+    std::printf("PASS: ignored timestamps cannot authorize new Overwrite Older receipts\n");
+    std::printf("PASS: retry discards all identities and the receipt from the prior copy attempt\n");
+    std::printf("PASS: an unknown elevated completion does not repeat the delete or broker request\n");
+    std::printf("PASS: CopyAttrs and Overwrite Older use the actual ordinary local deletion branch without broker\n");
+    std::printf("PASS: existing receipt uses the identity-checked branch and retains an unconfirmed source\n");
+    return 0;
+}

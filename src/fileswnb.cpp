@@ -1,5 +1,11 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Return the result of preparing Find editor elevation. | Release the caller before any consent dialog. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Dispatch Find F4 with its result context. | Use its owner and full name in the common editor path. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Pass the original Find context to the viewer. | Preserve the selected file attributes and dialog owner. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Forward the selected Find file identity. | Use the originating dialog as the UAC owner. | #731 | GPT-6.1 Sol |
 
 #include "precomp.h"
 #include "viewerpath.h"
@@ -960,13 +966,14 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         COpenViewerData* data = (COpenViewerData*)wParam;
         ViewFile(data->FileName, (BOOL)lParam, 0xFFFFFFFF, data->EnumFileNamesSourceUID,
-                 data->EnumFileNamesLastFileIndex);
+                 data->EnumFileNamesLastFileIndex, data);
         return 0;
     }
 
     case WM_USER_EDITFILE:
     {
-        EditFile((char*)wParam);
+        auto& result = *reinterpret_cast<COpenEditorData*>(wParam);
+        EditFile(result.FileName, 0xFFFFFFFF, &result);
         return 0;
     }
 

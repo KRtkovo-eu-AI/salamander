@@ -1,0 +1,420 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Distinguish native-target loss from uncertain privileged cleanup. | Preserve native deletion without a false uncertainty warning. | #731 | gpt-6.1-terra |
+// | 2026-11-14 | Model locally created native targets. | Keep extracted cleanup tests aligned with worker routing. | #731 | gpt-6.1-terra |
+// | 2026-11-14 | Test cancellation of a write-only reopened target. | Keep the owned-target cleanup path identical to Retry. | #731 | gpt-6.1-terra |
+// | 2026-11-14 | Cover cancellation of an overwrite handle. | Verify that owned partial targets follow the existing cleanup path. | #731 | gpt-6.1-terra |
+// | 2026-11-14 | Test native overwrite cleanup routing. | Preserve normal deletion only for unprivileged targets. | #731 | GPT-6 |
+// | 2026-11-13 | Cover received-handle cleanup after invalid cancellation. | Preserve the wait error unless cleanup is uncertain. | #731 | GPT-6 |
+// | 2026-11-13 | Update cleanup fixture for terminal error payloads. | Verify current failure reporting without simulating a retry dialog. | #731 | GPT-6 |
+// | 2026-11-13 | Adapt local reopen test to explicit copy phase. | Keep retry distinct from initial elevation decisions. | #731 | GPT-6 |
+// | 2026-11-13 | Test broker-pin release on every terminal uncertainty. | Keep partial targets without retaining the failed job. | #731 | GPT-6 |
+// | 2026-11-13 | Cover uncertain thin opens and cleanup warnings. | Preserve cancellation reporting and prevent duplicate alerts. | #731 | GPT-6 |
+// | 2026-11-12 | Allocate the test fixture path buffer on the heap. | Avoid a large stack frame in the native probe. | #731 | GPT-6 |
+// | 2026-11-12 | Cover deferred source cancellation and safe local retry. | Preserve live targets and reject side-effecting reopen. | #731 | GPT-6 |
+// | 2026-11-12 | Exercise scoped cleanup state transitions. | Check uncertain close and broker cleanup outcomes without a GUI. | #731 | GPT-6 |
+#include <windows.h>
+#include <memory>
+#include <string>
+#include <vector>
+#include <cstdio>
+#define SAM_UAC_THIN_COPY_TEST
+
+constexpr int IDS_ERRORDELETINGFILE = 1, IDS_UAC_COPY_UNKNOWN = 2, IDS_UAC_MOVE_UNKNOWN = 3,
+              IDS_ERRORCOPY = 4, IDS_ERRORMOVE = 5;
+constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER_UNKNOWN = 17;
+constexpr WPARAM WORKER_DIALOG_UAC_THIN_TERMINAL = 20;
+struct CThinTerminalFileError { DWORD error; int caption; const char* target; bool cleanupUncertain; };
+static DWORD terminalError = 0;
+static bool terminalUncertain = false;
+constexpr WPARAM WORKER_DIALOG_UAC_TREE_RESULT = 16, WORKER_DIALOG_UAC_DISK_RECOVERY_UNKNOWN = 19;
+constexpr UINT WM_TEST_DIALOG = 0x8001;
+#undef WM_USER_DIALOG
+#define WM_USER_DIALOG WM_TEST_DIALOG
+static int messages = 0, lastKind = -1, closes = 0, localDeletes = 0;
+static BOOL RealClose(HANDLE file) { return CloseHandle(file); }
+static bool closeSucceeds = true, targetIsOpen = false;
+static BOOL MockClose(HANDLE file) {
+    ++closes;
+    if (!closeSucceeds) { SetLastError(ERROR_INVALID_HANDLE); return FALSE; }
+    if (file == reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(200))) targetIsOpen = false;
+    return TRUE;
+}
+#define CloseHandle MockClose
+#define HANDLES(x) (x)
+static char* LoadStr(int id) {
+    static char copy[] = "The copy could not be confirmed as complete. Check the destination before retrying.";
+    static char move[] = "move-unknown";
+    static char generic[] = "failure";
+    return id == IDS_UAC_COPY_UNKNOWN ? copy : id == IDS_UAC_MOVE_UNKNOWN ? move : generic;
+}
+static BOOL* currentCancellation = nullptr;
+static std::string warningText;
+static UINT warningFlags = 0;
+static int SalMessageBox(HWND, const char* text, const char*, UINT flags) {
+    warningText = text; warningFlags = flags; return IDOK;
+}
+static LRESULT MockSendMessage(HWND HWindow, UINT, WPARAM wParam, LPARAM lParam) {
+    ++messages; lastKind = static_cast<int>(wParam);
+    const BOOL CancelWorker = currentCancellation && *currentCancellation;
+    @@CANCEL_GATE@@
+    switch (wParam) {
+        @@WARNING_CASE@@
+        case WORKER_DIALOG_UAC_THIN_TERMINAL: {
+            const auto& details = *reinterpret_cast<const CThinTerminalFileError*>(lParam);
+            terminalError = details.error;
+            terminalUncertain = details.cleanupUncertain;
+            break;
+        }
+        default: break;
+    }
+    return 0;
+}
+#undef SendMessage
+#define SendMessage MockSendMessage
+struct FakeSession {
+    int calls = 0, closed = 0, releases = 0;
+    DWORD result = ERROR_SUCCESS;
+    DWORD DiscardTarget(int&, int) { ++calls; return targetIsOpen ? ERROR_SHARING_VIOLATION : result; }
+    DWORD ReleaseTarget(int&, int) { ++releases; return result; }
+    void Close() { ++closed; }
+};
+struct FakeOperation { char* TargetName; bool TargetNameWValid = false; std::wstring TargetNameW; };
+struct FakeDialog { BOOL* CancelWorker; HANDLE CancelWorkerEvent = nullptr; };
+struct FakeResult { bool unknown; DWORD error; };
+namespace UacF7 { enum class ThinOpenKind { Source, TargetCreate, TargetRetry, TargetProbe, TargetOverwrite, TargetReopenWrite }; }
+struct CThinCopyWorker {
+    FakeOperation operation;
+    FakeDialog dialog;
+    HWND progress = nullptr;
+    FakeSession* session = nullptr;
+    std::unique_ptr<int> request;
+    int target = 0;
+    bool active = true, cleanupUncertain = false, terminal = false;
+    bool targetCreatedByBroker = false, targetKnown = false, suppressLocalCleanup = false, nativeTargetOverwrite = false, nativeTargetCreated = false;
+    explicit CThinCopyWorker(BOOL* cancelled) : operation{const_cast<char*>("fixture")}, dialog{cancelled} { currentCancellation = cancelled; }
+    bool Scoped() const { return active && session != nullptr; }
+    bool NativeOverwrite() const { return nativeTargetOverwrite && !targetCreatedByBroker && !cleanupUncertain && !suppressLocalCleanup; }
+    bool NativeTarget() const { return !targetCreatedByBroker && (nativeTargetCreated || NativeOverwrite()); }
+    HANDLE SimulateOpenResult(FakeResult result);
+    HANDLE CancelReceivedHandle(UacF7::ThinOpenKind kind, HANDLE received, DWORD reason = ERROR_CANCELLED);
+    bool ReportTargetFailure(DWORD error, int caption = IDS_ERRORDELETINGFILE);
+    bool ReportTransferLoss(DWORD error, int caption);
+    bool CloseScopedTarget(HANDLE& file);
+    bool RefuseUnsafeTargetCleanup();
+    bool DiscardTarget();
+    void ReleaseTargetPin();
+};
+@@METHODS@@
+HANDLE CThinCopyWorker::SimulateOpenResult(FakeResult result) {
+@@OPEN_UNKNOWN@@
+    return nullptr;
+}
+@@CANCEL_METHOD@@
+#define HANDLES_Q(x) (x)
+static std::wstring WorkerOperationPathW(const char*, const wchar_t* exact) { return exact ? exact : L""; }
+static bool ThinCopyTestDenyReopen(CThinCopyWorker*, bool) { return false; }
+static HANDLE ThinCopyTestDeniedHandle() { SetLastError(ERROR_ACCESS_DENIED); return INVALID_HANDLE_VALUE; }
+static UacF7::ThinOpenKind lastOpenKind = UacF7::ThinOpenKind::Source;
+static bool lastOverlapped = false;
+enum class ThinOpenPhase { Initial, Retry, Probe };
+static ThinOpenPhase lastOpenPhase = ThinOpenPhase::Initial;
+static HANDLE ThinCopyOpened(CThinCopyWorker*, HANDLE file, UacF7::ThinOpenKind kind, bool overlapped, ThinOpenPhase phase)
+{
+    lastOpenKind = kind; lastOverlapped = overlapped; lastOpenPhase = phase; return file;
+}
+@@LOCAL_RETRY@@
+@@MACRO@@
+static bool LocalDelete() { ++localDeletes; return true; }
+static void Check(bool condition, const char* name, int& failures)
+{
+    std::printf("%s %s\n", condition ? "PASS" : "FAIL", name);
+    if (!condition) ++failures;
+}
+int main()
+{
+    int failures = 0;
+    BOOL cancelled = FALSE;
+    FakeSession broker;
+    {
+        CThinCopyWorker item(&cancelled); item.session = &broker; item.request = std::make_unique<int>(1);
+        item.targetCreatedByBroker = item.targetKnown = true;
+        Check(THIN_DELETE_TARGET(&item, LocalDelete()) && broker.calls == 1 && !item.targetCreatedByBroker &&
+              !item.targetKnown && !localDeletes, "broker-created exact target discarded once", failures);
+    }
+    {
+        broker.calls = 0; broker.closed = 0; broker.result = ERROR_ACCESS_DENIED; messages = 0;
+        CThinCopyWorker item(&cancelled); item.session = &broker; item.request = std::make_unique<int>(1);
+        item.targetCreatedByBroker = item.targetKnown = true;
+        Check(!THIN_DELETE_TARGET(&item, LocalDelete()) && item.terminal && item.cleanupUncertain &&
+              broker.calls == 1 && broker.closed == 1 && messages == 1 && !localDeletes,
+              "failed broker cleanup stops and releases broker pins", failures);
+        Check(!THIN_DELETE_TARGET(&item, LocalDelete()) && broker.calls == 1 && broker.closed == 1 && messages == 1,
+              "uncertain broker cleanup is not retried", failures);
+    }
+    {
+        broker.calls = 0; broker.result = ERROR_SUCCESS; messages = 0;
+        CThinCopyWorker item(&cancelled); item.session = &broker;
+        Check(!THIN_DELETE_TARGET(&item, LocalDelete()) && !broker.calls && !localDeletes &&
+              item.cleanupUncertain && messages == 1, "local target under scope is preserved", failures);
+    }
+    {
+        broker.calls = 0; messages = 0;
+        CThinCopyWorker item(&cancelled); item.session = &broker; item.request = std::make_unique<int>(1);
+        item.targetCreatedByBroker = true; item.targetKnown = false;
+        Check(!THIN_DELETE_TARGET(&item, LocalDelete()) && !broker.calls && !localDeletes && item.terminal,
+              "missing target identity never requests deletion", failures);
+    }
+    for (bool overwrite : {false, true})
+    {
+        broker.closed = 0; messages = 0; localDeletes = 0; cancelled = FALSE; terminalUncertain = true;
+        CThinCopyWorker item(&cancelled); item.session = &broker;
+        item.nativeTargetCreated = !overwrite; item.nativeTargetOverwrite = overwrite;
+        Check(!item.ReportTransferLoss(ERROR_BROKEN_PIPE, IDS_ERRORCOPY) && item.terminal &&
+              !item.cleanupUncertain && broker.closed == 1 && messages == 1 && !terminalUncertain &&
+              terminalError == ERROR_BROKEN_PIPE && THIN_DELETE_TARGET(&item, LocalDelete()) && localDeletes == 1,
+              "native target reports loss without claiming uncertain cleanup and uses local delete", failures);
+    }
+    {
+        broker.closed = 0; messages = 0; cancelled = FALSE; terminalUncertain = false;
+        CThinCopyWorker item(&cancelled); item.session = &broker; item.targetCreatedByBroker = true;
+        Check(!item.ReportTransferLoss(ERROR_BROKEN_PIPE, IDS_ERRORCOPY) && item.terminal &&
+              item.cleanupUncertain && broker.closed == 1 && messages == 1 && terminalUncertain,
+              "broker target reports unconfirmed privileged cleanup on lost session", failures);
+    }
+    {
+        broker.closed = 0; messages = 0; cancelled = TRUE;
+        CThinCopyWorker item(&cancelled); item.session = &broker; item.nativeTargetCreated = true;
+        Check(!item.ReportTransferLoss(ERROR_BROKEN_PIPE, IDS_ERRORCOPY) && item.terminal &&
+              !item.cleanupUncertain && broker.closed == 1 && !messages,
+              "native target does not raise a second error after cancellation", failures);
+        cancelled = FALSE;
+    }
+    localDeletes = 0;
+    for (BOOL cancel : {FALSE, TRUE})
+    {
+        broker.calls = 0; broker.result = ERROR_PARTIAL_COPY; messages = 0;
+        warningText.clear(); warningFlags = 0; cancelled = cancel;
+        CThinCopyWorker item(&cancelled); item.session = &broker; item.request = std::make_unique<int>(1);
+        item.targetCreatedByBroker = item.targetKnown = true;
+        Check(!item.DiscardTarget() && item.terminal && item.cleanupUncertain && broker.calls == 1 &&
+              messages == 1 && lastKind == static_cast<int>(WORKER_DIALOG_UAC_TRANSFER_UNKNOWN) &&
+              warningText == LoadStr(IDS_UAC_COPY_UNKNOWN) &&
+              warningFlags == (MB_OK | MB_ICONEXCLAMATION),
+              "partial cleanup warning survives cancellation without pointer payload", failures);
+        Check(!item.DiscardTarget() && broker.calls == 1 && messages == 1,
+              "partial cleanup is not retried or reported twice", failures);
+    }
+    {
+        cancelled = FALSE; messages = 0;
+        CThinCopyWorker item(&cancelled);
+        Check(!item.ReportTargetFailure(ERROR_ACCESS_DENIED) && messages == 1 &&
+              lastKind == static_cast<int>(WORKER_DIALOG_UAC_THIN_TERMINAL) &&
+              terminalError == ERROR_ACCESS_DENIED && terminalUncertain,
+              "other cleanup errors use a terminal error payload", failures);
+    }
+    for (BOOL cancel : {FALSE, TRUE})
+    {
+        cancelled = cancel; messages = 0; warningText.clear();
+        CThinCopyWorker item(&cancelled);
+        SetLastError(ERROR_SUCCESS);
+        Check(item.SimulateOpenResult({true, ERROR_PARTIAL_COPY}) == INVALID_HANDLE_VALUE &&
+              GetLastError() == ERROR_PARTIAL_COPY && item.terminal && item.cleanupUncertain &&
+              lastKind == static_cast<int>(WORKER_DIALOG_UAC_TRANSFER_UNKNOWN) && messages == 1 &&
+              warningText == LoadStr(IDS_UAC_COPY_UNKNOWN),
+              "partial target creation reports unknown completion after open failure", failures);
+    }
+    {
+        cancelled = FALSE; messages = 0; warningText.clear();
+        CThinCopyWorker item(&cancelled);
+        Check(item.SimulateOpenResult({true, ERROR_BROKEN_PIPE}) == INVALID_HANDLE_VALUE && item.terminal &&
+              item.cleanupUncertain && messages == 1 &&
+              lastKind == static_cast<int>(WORKER_DIALOG_UAC_TRANSFER_UNKNOWN) &&
+              warningText == LoadStr(IDS_UAC_COPY_UNKNOWN),
+              "lost open reply preserves target and reports unknown completion", failures);
+        Check(!item.ReportTargetFailure(ERROR_PARTIAL_COPY) && messages == 1,
+              "subsequent uncertain cleanup does not repeat warning", failures);
+    }
+    for (LPARAM moving : {static_cast<LPARAM>(2), static_cast<LPARAM>(-1)})
+    {
+        cancelled = FALSE; messages = 0; warningText.clear();
+        CThinCopyWorker item(&cancelled);
+        MockSendMessage(nullptr, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER_UNKNOWN, moving);
+        Check(messages == 1 && warningText == LoadStr(IDS_UAC_MOVE_UNKNOWN),
+              "noncanonical nonzero BOOL keeps original move warning", failures);
+    }
+    cancelled = FALSE;
+    {
+        CThinCopyWorker item(&cancelled);
+        Check(THIN_DELETE_TARGET(&item, LocalDelete()) && localDeletes == 1,
+              "ordinary local cleanup remains delegated", failures);
+    }
+    {
+        broker.calls = 0; messages = 0; closeSucceeds = false;
+        CThinCopyWorker item(&cancelled); item.session = &broker; item.request = std::make_unique<int>(1);
+        item.targetCreatedByBroker = item.targetKnown = true;
+        HANDLE output = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(42));
+        Check(!item.CloseScopedTarget(output) && output == nullptr && item.cleanupUncertain,
+              "failed target close makes ownership uncertain", failures);
+        Check(!THIN_DELETE_TARGET(&item, LocalDelete()) && !broker.calls && localDeletes == 1 && messages == 1,
+              "failed close cannot cause broker or local deletion", failures);
+        closeSucceeds = true;
+    }
+    {
+        messages = 0; lastKind = -1; cancelled = TRUE;
+        CThinCopyWorker item(&cancelled);
+        item.RefuseUnsafeTargetCleanup();
+        Check(messages == 1 && lastKind == static_cast<int>(WORKER_DIALOG_UAC_TRANSFER_UNKNOWN),
+              "cancelled operation retains unknown-result warning", failures);
+    }
+    {
+        // A source Retry can be cancelled while the exclusive target out is
+        // still owned by the outer worker. Discarding it here would fail.
+        broker.calls = 0; broker.result = ERROR_SUCCESS; messages = 0; cancelled = TRUE;
+        targetIsOpen = true; closeSucceeds = true;
+        CThinCopyWorker item(&cancelled); item.session = &broker; item.request = std::make_unique<int>(1);
+        item.targetCreatedByBroker = item.targetKnown = true;
+        HANDLE received = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(100));
+        SetLastError(ERROR_SUCCESS);
+        Check(item.CancelReceivedHandle(UacF7::ThinOpenKind::Source, received) == INVALID_HANDLE_VALUE &&
+              GetLastError() == ERROR_CANCELLED && item.terminal && !item.cleanupUncertain &&
+              targetIsOpen && broker.calls == 0 && messages == 0,
+              "source cancellation defers live target cleanup", failures);
+        HANDLE output = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(200));
+        Check(item.CloseScopedTarget(output) && !targetIsOpen && THIN_DELETE_TARGET(&item, LocalDelete()) &&
+              broker.calls == 1 && !item.targetCreatedByBroker,
+              "outer owner closes target before exact broker discard", failures);
+    }
+    {
+        broker.calls = 0; broker.result = ERROR_SUCCESS; messages = 0; cancelled = TRUE;
+        targetIsOpen = true;
+        CThinCopyWorker item(&cancelled); item.session = &broker; item.request = std::make_unique<int>(1);
+        item.targetCreatedByBroker = item.targetKnown = true;
+        HANDLE probe = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(100));
+        Check(item.CancelReceivedHandle(UacF7::ThinOpenKind::TargetProbe, probe) == INVALID_HANDLE_VALUE &&
+              targetIsOpen && broker.calls == 0 && !item.cleanupUncertain,
+              "probe cancellation does not discard separately owned target", failures);
+        HANDLE output = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(200));
+        Check(item.CloseScopedTarget(output) && THIN_DELETE_TARGET(&item, LocalDelete()),
+              "probe owner can subsequently clean up", failures);
+    }
+    for (auto role : {UacF7::ThinOpenKind::TargetCreate, UacF7::ThinOpenKind::TargetRetry, UacF7::ThinOpenKind::TargetOverwrite, UacF7::ThinOpenKind::TargetReopenWrite})
+    {
+        broker.calls = 0; broker.result = ERROR_SUCCESS; messages = 0; cancelled = TRUE;
+        targetIsOpen = true;
+        CThinCopyWorker item(&cancelled); item.session = &broker; item.request = std::make_unique<int>(1);
+        item.targetCreatedByBroker = item.targetKnown = true;
+        HANDLE output = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(200));
+        Check(item.CancelReceivedHandle(role, output) == INVALID_HANDLE_VALUE &&
+              !targetIsOpen && broker.calls == 1 && !item.targetCreatedByBroker &&
+              GetLastError() == ERROR_CANCELLED,
+              "target cancellation closes received target before discard", failures);
+    }
+    {
+        broker.calls = 0; broker.result = ERROR_SUCCESS; cancelled = FALSE; targetIsOpen = true;
+        CThinCopyWorker item(&cancelled); item.session = &broker; item.request = std::make_unique<int>(1);
+        item.targetCreatedByBroker = item.targetKnown = true;
+        HANDLE output = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(200));
+        Check(item.CancelReceivedHandle(UacF7::ThinOpenKind::TargetCreate, output, ERROR_INVALID_HANDLE) == INVALID_HANDLE_VALUE &&
+              GetLastError() == ERROR_INVALID_HANDLE && !targetIsOpen && broker.calls == 1 && item.terminal,
+              "invalid cancellation closes the received target and preserves the wait error", failures);
+    }
+    {
+        broker.calls = 0; broker.closed = 0; messages = 0; cancelled = TRUE; targetIsOpen = true; closeSucceeds = false;
+        CThinCopyWorker item(&cancelled); item.session = &broker; item.request = std::make_unique<int>(1);
+        item.targetCreatedByBroker = item.targetKnown = true;
+        HANDLE source = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(100));
+        Check(item.CancelReceivedHandle(UacF7::ThinOpenKind::Source, source) == INVALID_HANDLE_VALUE &&
+              GetLastError() == ERROR_PARTIAL_COPY && item.cleanupUncertain && targetIsOpen && broker.calls == 0 &&
+              broker.closed == 1, "uncertain source close preserves live target and releases broker pin", failures);
+        closeSucceeds = true; targetIsOpen = false;
+    }
+    {
+        broker.closed = 0; messages = 0; cancelled = TRUE; closeSucceeds = false;
+        CThinCopyWorker item(&cancelled); item.session = &broker; item.request = std::make_unique<int>(1);
+        item.targetCreatedByBroker = item.targetKnown = true;
+        HANDLE output = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(200));
+        Check(item.CancelReceivedHandle(UacF7::ThinOpenKind::TargetCreate, output, ERROR_INVALID_HANDLE) == INVALID_HANDLE_VALUE &&
+              item.cleanupUncertain && broker.closed == 1 && GetLastError() == ERROR_PARTIAL_COPY,
+              "uncertain received-target close releases broker pin without deleting", failures);
+        closeSucceeds = true;
+    }
+    {
+        broker.closed = broker.releases = 0; broker.result = ERROR_SUCCESS;
+        CThinCopyWorker item(&cancelled); item.session = &broker; item.request = std::make_unique<int>(1);
+        item.targetCreatedByBroker = item.targetKnown = true;
+        item.ReleaseTargetPin();
+        Check(broker.releases == 1 && broker.closed == 0 && !item.targetKnown && !item.targetCreatedByBroker,
+              "completed target releases only its broker pin", failures);
+        item.ReleaseTargetPin();
+        Check(broker.releases == 1, "completed target release is not repeated", failures);
+    }
+    {
+        broker.closed = broker.releases = 0; broker.result = ERROR_BROKEN_PIPE;
+        CThinCopyWorker item(&cancelled); item.session = &broker; item.request = std::make_unique<int>(1);
+        item.targetCreatedByBroker = item.targetKnown = true;
+        item.ReleaseTargetPin();
+        Check(broker.releases == 1 && broker.closed == 1 && !item.targetKnown && !item.targetCreatedByBroker,
+              "lost release reply closes broker session without undoing completed output", failures);
+    }
+    {
+        // The real scoped local-retry opening must have no CREATE side effect.
+        const DWORD capacity = GetCurrentDirectoryW(0, nullptr);
+        if (!capacity || capacity > 32768) return 2;
+        std::vector<wchar_t> directory(capacity);
+        DWORD length = GetCurrentDirectoryW(capacity, directory.data());
+        Check(length && length < capacity, "test directory is available", failures);
+        if (!length || length >= capacity) return 2;
+        std::wstring path = std::wstring(directory.data()) + L"\\target-retry-fixture.tmp";
+        Check(GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES,
+              "retry fixture starts absent", failures);
+        cancelled = FALSE;
+        CThinCopyWorker item(&cancelled); item.operation.TargetNameWValid = true; item.operation.TargetNameW = path;
+        for (bool overlapped : {false, true})
+        {
+            SetLastError(ERROR_SUCCESS);
+            HANDLE missing = ThinCopyOpenLocalRetry(&item, overlapped);
+            DWORD error = GetLastError();
+            Check(missing == INVALID_HANDLE_VALUE && error == ERROR_FILE_NOT_FOUND &&
+                  GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES &&
+                  lastOpenKind == UacF7::ThinOpenKind::TargetRetry && lastOverlapped == overlapped &&
+                  lastOpenPhase == ThinOpenPhase::Retry,
+                  "scoped local retry does not create absent target", failures);
+        }
+        HANDLE created = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+        Check(created != INVALID_HANDLE_VALUE && RealClose(created), "create owned retry fixture", failures);
+        for (bool overlapped : {false, true})
+        {
+            HANDLE opened = ThinCopyOpenLocalRetry(&item, overlapped);
+            Check(opened != INVALID_HANDLE_VALUE && lastOpenKind == UacF7::ThinOpenKind::TargetRetry &&
+                  lastOverlapped == overlapped && lastOpenPhase == ThinOpenPhase::Retry,
+                  "scoped local retry opens existing target", failures);
+            if (opened != INVALID_HANDLE_VALUE) Check(RealClose(opened), "close reopened target", failures);
+        }
+        Check(DeleteFileW(path.c_str()) != FALSE, "remove owned retry fixture", failures);
+    }
+    {
+        // A native target remains under the ordinary worker's authority even
+        // when source access uses an elevated session.
+        const wchar_t* path = L"native-overwrite-cleanup-fixture.tmp";
+        HANDLE file = CreateFileW(path, GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+        Check(file != INVALID_HANDLE_VALUE && RealClose(file), "create native overwrite cleanup fixture", failures);
+        cancelled = FALSE; broker.calls = 0; broker.result = ERROR_SUCCESS;
+        CThinCopyWorker item(&cancelled); item.session = &broker; item.request = std::make_unique<int>(1);
+        item.nativeTargetOverwrite = true;
+        Check(THIN_DELETE_TARGET(&item, DeleteFileW(path) != FALSE) &&
+              GetFileAttributesW(path) == INVALID_FILE_ATTRIBUTES && broker.calls == 0,
+              "native overwrite delegates ordinary deletion without broker mutation", failures);
+        file = CreateFileW(path, GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+        Check(file != INVALID_HANDLE_VALUE && RealClose(file), "recreate native cleanup fixture", failures);
+        item.suppressLocalCleanup = true; messages = 0;
+        Check(!THIN_DELETE_TARGET(&item, DeleteFileW(path) != FALSE) &&
+              GetFileAttributesW(path) != INVALID_FILE_ATTRIBUTES && broker.calls == 0,
+              "uncertain native target does not bypass cleanup suppression", failures);
+        item.suppressLocalCleanup = false; item.targetCreatedByBroker = true;
+        Check(!item.NativeOverwrite(), "broker-created target cannot use native overwrite shortcut", failures);
+        Check(DeleteFileW(path) != FALSE, "remove dedicated native cleanup fixture", failures);
+    }
+    return failures ? 1 : 0;
+}
