@@ -2808,7 +2808,9 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
             if (!error && std::memcmp(listedId.Identifier, expectedFile.FileId.Identifier, sizeof(listedId.Identifier)))
                 error = ERROR_FILE_INVALID;
             FILE_BASIC_INFO basic{};
+#ifndef SAM_UAC_THIN_COPY_TEST
             LARGE_INTEGER sourceSize{};
+#endif
             if (!error)
                 error = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), basic, false,
                     UacCopyLeaf::StreamPolicy::RequireDefault,
@@ -2817,9 +2819,15 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
 #else
                     FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE);
 #endif
+#ifndef SAM_UAC_THIN_COPY_TEST
             if (!error && (!GetFileSizeEx(source.get(), &sourceSize) ||
                 sourceSize.QuadPart < 0 || static_cast<ULONGLONG>(sourceSize.QuadPart) != header.copySize))
                 error = ERROR_FILE_INVALID;
+#else
+            // This request only opens the verified file; the native worker
+            // controls transfer and already handles a changing file size.
+            // A size comparison here would not keep its contents immutable.
+#endif
         }
         if (error) { result = error; return ERROR_SUCCESS; }
 

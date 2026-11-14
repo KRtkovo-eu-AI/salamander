@@ -101,7 +101,7 @@ static BOOL TestWrite(HANDLE h, LPCVOID b, DWORD n, LPDWORD w, LPOVERLAPPED o) {
 
 #ifdef SAM_UAC_LOOP_LINK_HARNESS
 extern "C" BOOL RunLinkedNativeSyncLoop(HANDLE* input, HANDLE* output, const wchar_t* source, const wchar_t* target,
-                                        ULONGLONG fileBytes, void* context, DWORD (*check)(void*), HANDLE (*retry)(void*),
+                                        ULONGLONG fileBytes, ULONGLONG expectedBytes, void* context, DWORD (*check)(void*), HANDLE (*retry)(void*),
                                         bool (*discard)(void*), BOOL expectRestart)
 {
     BOOL cancel = FALSE, error = FALSE, skipped = FALSE, again = FALSE;
@@ -119,7 +119,7 @@ extern "C" BOOL RunLinkedNativeSyncLoop(HANDLE* input, HANDLE* output, const wch
                        nullptr, done, size, sizeof(buffer), alloc, again, &thin);
     CloseHandle(resumed);
     return !error && !skipped && (again != FALSE) == (expectRestart != FALSE) && !thin.reports &&
-           (expectRestart || done.Value == fileBytes) && didFault && dialogCount == 1;
+           (expectRestart || done.Value == expectedBytes) && didFault && dialogCount == 1;
 }
 #else
 static int failures = 0;

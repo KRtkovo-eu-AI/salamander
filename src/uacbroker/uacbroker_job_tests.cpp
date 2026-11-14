@@ -2841,7 +2841,7 @@ void CheckPlannedTreeThinJob(const Directory& source, const Directory& target, c
 
 #if defined(SAM_UAC_CLIENT_PIPE_HARNESS) && defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_PLANNED_PROTOTYPE)
 #ifdef SAM_UAC_LOOP_LINK_HARNESS
-extern "C" BOOL RunLinkedNativeSyncLoop(HANDLE*, HANDLE*, const wchar_t*, const wchar_t*, ULONGLONG,
+extern "C" BOOL RunLinkedNativeSyncLoop(HANDLE*, HANDLE*, const wchar_t*, const wchar_t*, ULONGLONG, ULONGLONG,
                                         void*, DWORD (*)(void*), HANDLE (*)(void*), bool (*)(void*), BOOL);
 struct LinkedThinContext
 {
@@ -2887,10 +2887,11 @@ static bool LinkedThinDiscard(void* context)
     return true;
 }
 #endif
-void CheckThinClientPlannedTree(const Directory& source, const Directory& target, bool mismatch = false)
+void CheckThinClientPlannedTree(const Directory& source, const Directory& target, bool mismatch = false, int sizeChange = 0)
 {
 #ifndef SAM_UAC_LOOP_LINK_HARNESS
     (void)mismatch;
+    (void)sizeChange;
 #endif
     constexpr wchar_t root[] = L"client-planned-\u6771";
     constexpr wchar_t leaf[] = L"payload-\u65e5.txt";
@@ -3017,6 +3018,20 @@ void CheckThinClientPlannedTree(const Directory& source, const Directory& target
     const bool taken = thin.TakePlanned(job, request) && !job && thin.IsOpen() && thin.Matches(request);
     Check(taken, "take exclusive custody of the real planned client session");
     if (!taken) return;
+#ifdef SAM_UAC_LOOP_LINK_HARNESS
+    if (sizeChange)
+    {
+        if (sizeChange < 0) expected.resize(32007);
+        else expected.insert(expected.end(), 113, 0x5a);
+        auto writer = Adopt(CreateFileW(sourceFile.c_str(), GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr));
+        DWORD written = 0;
+        const bool changed = writer && SetFilePointer(writer.get(), 0, nullptr, FILE_BEGIN) == 0 &&
+            WriteFile(writer.get(), expected.data(), static_cast<DWORD>(expected.size()), &written, nullptr) &&
+            written == expected.size() && SetEndOfFile(writer.get());
+        Check(changed, "change the same source after the approved request was prepared");
+        if (!changed) return;
+    }
+#endif
     const auto opened = thin.Open(nullptr, request, UacF7::ThinOpenKind::Source, false, false, nullptr);
     auto input = Adopt(opened.file);
     BYTE value = 0;
@@ -3036,7 +3051,7 @@ void CheckThinClientPlannedTree(const Directory& source, const Directory& target
     HANDLE rawOutput = output.release();
     const bool targetCreated = !created.error && !created.unknown && rawOutput && rawOutput != INVALID_HANDLE_VALUE &&
         SetFilePointerEx(rawInput, zero, nullptr, FILE_BEGIN) &&
-        RunLinkedNativeSyncLoop(&rawInput, &rawOutput, sourceFile.c_str(), targetFile.c_str(), sourceSize,
+        RunLinkedNativeSyncLoop(&rawInput, &rawOutput, sourceFile.c_str(), targetFile.c_str(), sourceSize, expected.size(),
                                 &loopContext, LinkedThinCheck, LinkedThinRetry, LinkedThinDiscard, mismatch) &&
         loopContext.reopenCount == 1 && loopContext.discardCount == (mismatch ? 1u : 0u);
     input.reset(rawInput);
@@ -3066,7 +3081,7 @@ void CheckThinClientPlannedTree(const Directory& source, const Directory& target
         LinkedThinContext restartContext{&thin, &request, restartedTarget.targetIdentity, input.get(), targetFile.c_str(), false};
         rawInput = input.release();
         rawOutput = output.release();
-        const bool restarted = RunLinkedNativeSyncLoop(&rawInput, &rawOutput, sourceFile.c_str(), targetFile.c_str(), sourceSize,
+        const bool restarted = RunLinkedNativeSyncLoop(&rawInput, &rawOutput, sourceFile.c_str(), targetFile.c_str(), sourceSize, expected.size(),
             &restartContext, LinkedThinCheck, LinkedThinRetry, LinkedThinDiscard, FALSE) &&
             restartContext.reopenCount == 1 && !restartContext.discardCount;
         input.reset(rawInput); output.reset(rawOutput);
@@ -5151,6 +5166,12 @@ int wmain(int argc, wchar_t** argv)
     }
 #ifdef SAM_UAC_CLIENT_PIPE_HARNESS
 #ifdef SAM_UAC_LOOP_LINK_HARNESS
+    if (argc == 2 && (!wcscmp(argv[1], L"--thin-client-planned-grow-only") ||
+                      !wcscmp(argv[1], L"--thin-client-planned-shrink-only")))
+    {
+        CheckThinClientPlannedTree(source, target, false, !wcscmp(argv[1], L"--thin-client-planned-grow-only") ? 1 : -1);
+        return failures ? 1 : 0;
+    }
     if (argc == 2 && !wcscmp(argv[1], L"--thin-client-planned-mismatch-only"))
     {
         CheckThinClientPlannedTree(source, target, true);

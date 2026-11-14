@@ -55,6 +55,40 @@ void CheckThinOverwrite(const Directory& source, const Directory& target, const 
     { Check(false, "prepare long Unicode overwrite parent"); return; }
     Check(deep.path.size() > 260, "overwrite uses actual long Unicode parent");
 
+    for (bool initiallyLarger : {false, true})
+    {
+        const std::wstring leaf = initiallyLarger ? L"growing-source-\u6771" : L"shrinking-source-\u65e5";
+        const auto path = source.File(leaf);
+        Check(WriteByte(path, 0x51), "prepare source with a one-byte planned size");
+        auto writer = Adopt(CreateFileW(path.c_str(), GENERIC_WRITE | FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+        FILE_ID_INFO identity{};
+        if (!writer || !GetFileInformationByHandleEx(writer.get(), FileIdInfo, &identity, sizeof(identity)))
+        { Check(false, "capture size-change source identity"); return; }
+        const auto resize = [&](LONGLONG length) {
+            LARGE_INTEGER position{}; position.QuadPart = length;
+            return SetFilePointerEx(writer.get(), position, nullptr, FILE_BEGIN) && SetEndOfFile(writer.get());
+        };
+        Check(resize(initiallyLarger ? 3 : 0), "change source size before thin source open");
+        JobPipe job; DWORD status = ERROR_GEN_FAILURE; ThinWireReply reply{};
+        const bool opened = job.Open() && job.Thin(source, leaf, identity, deep, leaf, Operation::ThinOpenSource,
+            nullptr, false, status, reply, INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE, false, 28u);
+        auto reader = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+        Check(opened && !status && reader, "same source identity is accepted despite a changed size");
+        Check(resize(initiallyLarger ? 0 : 3), "change same source again before target creation");
+        Check(job.Thin(source, leaf, identity, deep, leaf, Operation::ThinTargetCreate, nullptr, false,
+            status, reply, reader.get(), INVALID_HANDLE_VALUE, false, 28u) && !status && reply.value,
+            "target create accepts source size changes without changing scope");
+        const FILE_ID_INFO targetId = reply.target;
+        auto output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+        output.reset();
+        Check(job.Thin(source, leaf, identity, deep, leaf, Operation::ThinDiscardTarget, &targetId, false,
+            status, reply, INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE, false, 28u) && !status && IsAbsent(deep.File(leaf)),
+            "cleanup remains identity-bound after source size changes");
+        reader.reset(); writer.reset(); job.Finish();
+        Check(DeleteFileW(path.c_str()) != FALSE, "remove size-change source fixture");
+    }
+
     for (bool asynchronous : {false, true})
     {
         for (DWORD bits = 1; bits < 8; ++bits)
