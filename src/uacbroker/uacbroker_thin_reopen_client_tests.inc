@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Exercise the scoped CopyAttrs request through the real client. | Verify read access is limited to target creation or overwrite. | #731 | GPT-6 |
 // | 2026-11-14 | Probe client connection across dispatcher death. | Verify the actual thin session and delivered handle independently. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Exercise the handoff bound after external broker crashes. | Check client behavior when a separate dispatcher dies before reply. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Exercise the real client with an exhausted lost-handle budget. | Bound repeated lost replies and retain control operations. | #731 | gpt-6.1-terra |
@@ -43,13 +44,14 @@ void CheckThinAnchorFailure(const Directory& source, const Directory& target)
 void CheckThinClientReopen(const Directory& source, const Directory& target, bool asynchronous,
                           bool overwrite = false, bool failOverwriteHandoff = false, bool staleScan = false,
                           bool lostSourceReply = false, unsigned lostIndex = 0, bool expectBudget = false,
-                          bool externalLoss = false, bool checkTransportCrash = false)
+                          bool externalLoss = false, bool checkTransportCrash = false, bool copyAttributes = false)
 {
     std::wstring root = lostSourceReply ? L"lost-source-reply" : failOverwriteHandoff ? L"overwrite-failed-\u6771" :
         staleScan ? (asynchronous ? L"overwrite-stale-async" : L"overwrite-stale-sync") :
         overwrite ? (asynchronous ? L"overwrite-async-\u6771" : L"overwrite-sync-\u6771") :
         (asynchronous ? L"reopen-async-\u6771" : L"reopen-sync-\u6771");
     if (lostSourceReply) root += std::to_wstring(lostIndex);
+    if (copyAttributes) root += L"-attrs";
     constexpr wchar_t leaf[] = L"payload-\u65e5.txt";
     std::wstring cwd(32768, L'\0');
     const DWORD length = GetCurrentDirectoryW(static_cast<DWORD>(cwd.size()), cwd.data());
@@ -133,6 +135,17 @@ void CheckThinClientReopen(const Directory& source, const Directory& target, boo
                                    UacF7::ThinOpenedSource{}, UacF7::ThinCancelEvent{invalidEvent});
     Check(invalid.error == ERROR_INVALID_HANDLE && !invalid.unknown && thin.IsOpen(),
           "invalid cancellation handle stops before the broker request");
+    if (copyAttributes)
+    {
+        for (auto kind : {UacF7::ThinOpenKind::Source, UacF7::ThinOpenKind::TargetProbe,
+                          UacF7::ThinOpenKind::TargetRetry, UacF7::ThinOpenKind::TargetReopenWrite,
+                          UacF7::ThinOpenKind::Discard, UacF7::ThinOpenKind::Release})
+        {
+            const auto denied = thin.Open(nullptr, request, kind, asynchronous, true, nullptr);
+            Check(denied.error == ERROR_NOT_SUPPORTED && !denied.unknown && thin.IsOpen(),
+                  "CopyAttrs cannot widen unrelated client operations");
+        }
+    }
     bool reachedCrash = false, crashed = false;
     std::thread killer;
     if (externalLoss && !expectBudget && !checkTransportCrash)
@@ -215,7 +228,7 @@ void CheckThinClientReopen(const Directory& source, const Directory& target, boo
               HasByte(targetPath + L":data", 0x32), "stale conflict evidence preserves target and keeps session");
         --scan.revision.size;
     }
-    const auto created = thin.Open(nullptr, request, initialKind, asynchronous, false,
+    const auto created = thin.Open(nullptr, request, initialKind, asynchronous, copyAttributes,
                                    nullptr, UacF7::ThinOpenedSource{input.get()}, {}, overwrite ? &scan : nullptr);
     auto output = Adopt(created.file);
     if (failOverwriteHandoff)
@@ -249,7 +262,11 @@ void CheckThinClientReopen(const Directory& source, const Directory& target, boo
         read = GetOverlappedResult(output.get(), &io, &count, TRUE);
         readError = read ? ERROR_SUCCESS : GetLastError();
     }
-    Check(!read && readError == ERROR_ACCESS_DENIED, "initial target handle denies read access");
+    if (copyAttributes)
+        Check((read && count == 0) || (!read && readError == ERROR_HANDLE_EOF),
+              "CopyAttrs target grants read access only after creation or truncation");
+    else
+        Check(!read && readError == ERROR_ACCESS_DENIED, "initial target handle denies read access");
     value = 0x67; count = 0;
     OVERLAPPED writeIo{};
     writeIo.hEvent = event.get();

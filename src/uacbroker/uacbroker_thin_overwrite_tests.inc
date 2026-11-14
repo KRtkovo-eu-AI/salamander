@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Exercise scoped CopyAttrs target access. | Keep read access bound to verified create or overwrite. | #731 | GPT-6 |
 // | 2026-11-14 | Exercise deferred evidence through the dispatcher pipe. | Preserve both native conflict rules at the actual privileged open boundary. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Check both native deferred-conflict evidence forms. | Distinguish legacy identity from the existing full revision comparison. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Reject a write-only reopen flag on other operations. | Keep the handle-access contract bound to a verified reopen. | #731 | gpt-6.1-terra |
@@ -54,6 +55,50 @@ void CheckThinOverwrite(const Directory& source, const Directory& target, const 
         !deep.Open(nested.File(std::wstring(120, L'y') + L"-日").c_str()))
     { Check(false, "prepare long Unicode overwrite parent"); return; }
     Check(deep.path.size() > 260, "overwrite uses actual long Unicode parent");
+
+    for (bool asynchronous : {false, true})
+    {
+        for (bool overwrite : {false, true})
+        {
+            const std::wstring leaf = std::wstring(L"attrs-rights-") + (asynchronous ? L"async-" : L"sync-") +
+                                      (overwrite ? L"overwrite-東" : L"create-東");
+            const auto path = deep.File(leaf);
+            if (overwrite && !WriteByte(path, 0x33)) { Check(false, "prepare CopyAttrs overwrite"); return; }
+            JobPipe job; DWORD status = ERROR_GEN_FAILURE; ThinWireReply reply{};
+            const auto operation = overwrite ? Operation::ThinTargetOverwrite : Operation::ThinTargetCreate;
+            const bool opened = job.Open() && job.Thin(source, sourceLeaf, sourceId, deep, leaf,
+                operation, nullptr, asynchronous, status, reply, input.get(), INVALID_HANDLE_VALUE, false, 92u);
+            auto output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+            Check(opened && !status && output, "CopyAttrs target returns a scoped handle");
+            BYTE value = 0x5a, readBack = 0; DWORD transferred = 0;
+            OVERLAPPED io{}; auto event = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr)); io.hEvent = event.get();
+            BOOL written = output && WriteFile(output.get(), &value, 1, &transferred, asynchronous ? &io : nullptr);
+            if (!written && asynchronous && GetLastError() == ERROR_IO_PENDING)
+                written = GetOverlappedResult(output.get(), &io, &transferred, TRUE);
+            Check(written && transferred == 1, "CopyAttrs target permits native write");
+            LARGE_INTEGER zero{};
+            const bool positioned = asynchronous || (output && SetFilePointerEx(output.get(), zero, nullptr, FILE_BEGIN));
+            ResetEvent(event.get()); transferred = 0;
+            BOOL read = positioned && output && ReadFile(output.get(), &readBack, 1, &transferred, asynchronous ? &io : nullptr);
+            if (!read && asynchronous && GetLastError() == ERROR_IO_PENDING)
+                read = GetOverlappedResult(output.get(), &io, &transferred, TRUE);
+            Check(read && transferred == 1 && readBack == value, "CopyAttrs target permits native read");
+            output.reset(); job.Finish();
+            Check(HasByte(path, value) && DeleteFileW(path.c_str()), "remove only the CopyAttrs target fixture");
+        }
+    }
+    for (Operation op : {Operation::ThinOpenSource, Operation::ThinTargetProbe, Operation::ThinTargetRetry,
+                         Operation::ThinDiscardTarget, Operation::ThinTargetRelease})
+    {
+        const auto path = deep.File(L"attrs-invalid-option.txt");
+        Check(WriteByte(path, 0x41), "prepare invalid CopyAttrs flag target");
+        JobPipe invalid; DWORD status = ERROR_GEN_FAILURE; ThinWireReply reply{};
+        Check(invalid.Open() && !invalid.Thin(source, sourceLeaf, sourceId, deep, L"attrs-invalid-option.txt",
+            op, &sourceId, false, status, reply, input.get(), INVALID_HANDLE_VALUE, false, 92u) &&
+            HasByte(path, 0x41), "CopyAttrs read bit is rejected for unrelated operations");
+        invalid.Finish();
+        Check(DeleteFileW(path.c_str()), "remove invalid-option fixture");
+    }
 
     {
         const std::wstring leaf = L"source-ea-東.txt";

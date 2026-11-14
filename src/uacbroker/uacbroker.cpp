@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Restrict experimental CopyAttrs target read access. | Prepare native attribute handling without widening probes or source access. | #731 | GPT-6 |
 | 2026-11-14 | Check the experimental thin session's idle pipe. | Prepare detection of a broker exit without reading a reply. | #731 | gpt-6.1-terra |
 | 2026-11-14 | Schedule a test-only external broker crash before a thin reply. | Verify duplicated handle lifetime across real process termination. | #731 | gpt-6.1-terra |
 | 2026-11-14 | Bound uncertain thin-handle deliveries per host process. | Prevent repeatable lost replies from accumulating unbounded handles. | #731 | gpt-6.1-terra |
@@ -2463,7 +2464,8 @@ DWORD CheckThinScanEvidence(HANDLE file, const ThinScanEvidence& expected)
 }
 
 DWORD OpenThinOverwriteTarget(HANDLE parent, std::wstring_view leaf, const FILE_ID_INFO& source, bool overlapped,
-                             Handle& file, Handle& anchor, bool& overwritten, const ThinScanEvidence* scan = nullptr)
+                             Handle& file, Handle& anchor, bool& overwritten, const ThinScanEvidence* scan = nullptr,
+                             bool copyAttrs = false)
 {
     overwritten = false;
     HANDLE raw = nullptr;
@@ -2509,7 +2511,7 @@ DWORD OpenThinOverwriteTarget(HANDLE parent, std::wstring_view leaf, const FILE_
     // filesystem's truncation and ADS removal, unlike SetEndOfFile. The data
     // open has the native worker's exclusive sharing and sync/async mode.
     raw = nullptr;
-    error = UacRenameLeaf::Detail::OpenFile(anchor.get(), L"", raw, GENERIC_WRITE, 0,
+    error = UacRenameLeaf::Detail::OpenFile(anchor.get(), L"", raw, GENERIC_WRITE | (copyAttrs ? GENERIC_READ : 0), 0,
         FILE_OVERWRITE, FILE_SEQUENTIAL_ONLY, nullptr, false, overlapped);
     file = Adopt(raw);
     if (error)
@@ -2592,11 +2594,13 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
 #ifdef SAM_UAC_THIN_COPY_TEST
         // Flag 2 requests an identity-checked broker-owned source-parent pin.
         // Bits 4 and 8 require fail-closed cleanup and retained targets.
+        // Bit 64 requests native CopyAttrs read access on a new or
+        // overwritten target, never on a metadata probe or existing source.
         // Reject incompatible peers before any scope or filesystem operation.
 #ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
         // An identity anchor has different sharing and access semantics from
         // the retained writer. Neither side may silently assume the other.
-        constexpr DWORD allowedThinOptions = 63u;
+        constexpr DWORD allowedThinOptions = 127u;
         constexpr DWORD requiredThinOptions = 28u;
 #else
         constexpr DWORD allowedThinOptions = 15u;
@@ -2620,6 +2624,11 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         }
 #if defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_REOPEN_PROTOTYPE)
         if ((options.flags & 32u) && header.operation != Operation::ThinTargetRetry)
+            return ERROR_INVALID_DATA;
+        // Read access here is needed only by the native CopyAttrs target
+        // open. Never let a source, probe, cleanup or retry borrow this bit.
+        if ((options.flags & 64u) && header.operation != Operation::ThinTargetCreate &&
+            header.operation != Operation::ThinTargetOverwrite && header.operation != Operation::ThinTargetOverwriteScan)
             return ERROR_INVALID_DATA;
 #endif
         const std::wstring_view data(payload);
@@ -2913,7 +2922,7 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         {
             HANDLE raw = nullptr;
             ACCESS_MASK access = discard ? DELETE : probe ? 0 : GENERIC_WRITE |
-                (retry && !(options.flags & 32u) ? GENERIC_READ : 0);
+                ((retry && !(options.flags & 32u)) || (options.flags & 64u) ? GENERIC_READ : 0);
 #ifdef SAM_UAC_THIN_COPY_TEST
 #ifndef SAM_UAC_THIN_REOPEN_PROTOTYPE
             if (create && retain) access |= GENERIC_READ;
@@ -2929,7 +2938,7 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
             if (overwrite)
             {
                 error = OpenThinOverwriteTarget(targetParent, targetLeaf, expectedFile, overlapped, file, targetAnchor, overwritten,
-                                                scanOverwrite ? &scan : nullptr);
+                                                scanOverwrite ? &scan : nullptr, (options.flags & 64u) != 0);
                 // CREATE_ALWAYS also creates a target removed after the
                 // conflict dialog. CREATE_NEW never touches a replacement.
                 if (!scanOverwrite && (error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND))
@@ -3024,7 +3033,7 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
             // this handle. Zero access permits identity queries but not those
             // metadata calls; never grant content access for a probe.
             duplicateAccess = probe ? FILE_READ_ATTRIBUTES : GENERIC_WRITE |
-                (retry && !(options.flags & 32u) ? GENERIC_READ : 0);
+                ((retry && !(options.flags & 32u)) || (options.flags & 64u) ? GENERIC_READ : 0);
         }
         const auto cleanupCreated = [&]() -> DWORD {
             if (!madeTarget) return ERROR_SUCCESS;
@@ -6434,7 +6443,13 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
     const HANDLE cancel = cancellation.value;
     std::lock_guard<std::mutex> guard(gate);
     ThinOpenResult output;
-    if (copyAttrs || prepared.source.operation != Operation::Copy || prepared.HasDeferredTarget())
+    if (prepared.source.operation != Operation::Copy || prepared.HasDeferredTarget()
+#if defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_REOPEN_PROTOTYPE)
+        || (copyAttrs && kind != ThinOpenKind::TargetCreate && kind != ThinOpenKind::TargetOverwrite)
+#else
+        || copyAttrs
+#endif
+       )
     {
         output.error = ERROR_NOT_SUPPORTED;
         return output;
@@ -6575,6 +6590,7 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
 #ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
         options.flags |= 28u; // fail-closed cleanup and identity-anchored fresh reopen
         if (kind == ThinOpenKind::TargetReopenWrite) options.flags |= 32u;
+        if (copyAttrs) options.flags |= 64u;
 #else
         options.flags |= 12u; // fail-closed cleanup and retained-target contract
 #endif

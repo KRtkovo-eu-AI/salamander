@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Add actual-client CopyAttrs access cases. | Cover target creation and overwrite without expanding source rights. | #731 | GPT-6 |
 // | 2026-11-14 | Reuse a real planned client job for two files. | Verify batch custody and scope across consecutive native handle opens. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Add a targeted client connection-loss case. | Exercise the real session with an external dispatcher. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Probe an idle dispatcher pipe across process death. | Evaluate non-consuming session-loss detection for active F5. | #731 | gpt-6.1-terra |
@@ -5338,6 +5339,8 @@ int wmain(int argc, wchar_t** argv)
         CheckThinClientReopen(source, target, false, true, false, true);
         CheckThinClientReopen(source, target, true, true, false, true);
         CheckThinClientReopen(source, target, false, false, false, false, true);
+        CheckThinClientReopen(source, target, false, false, false, false, false, 0, false, false, false, true);
+        CheckThinClientReopen(source, target, true, true, false, false, false, 0, false, false, false, true);
         return failures ? 1 : 0;
     }
 #endif
