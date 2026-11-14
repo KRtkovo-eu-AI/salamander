@@ -45,17 +45,26 @@ int wmain(int argc, wchar_t** argv)
                                       ((desired & (DWORD(1) << bit)) != 0));
     const bool ready = WaitForSingleObject(events[33], 0) == WAIT_OBJECT_0;
     const bool noError = WaitForSingleObject(events[32], 0) == WAIT_TIMEOUT;
-    CloseHandle(restricted);
     ResetEvent(events[32]); ResetEvent(events[33]);
     SetLastError(ERROR_SHARING_VIOLATION);
     UacThinLaunchProbe::Observe(nullptr);
     const bool failure = GetLastError() == ERROR_SHARING_VIOLATION &&
                          WaitForSingleObject(events[32], 0) == WAIT_OBJECT_0 &&
                          WaitForSingleObject(events[33], 0) == WAIT_OBJECT_0;
+    ResetEvent(events[32]); ResetEvent(events[33]);
+    CloseHandle(events[12]); events[12] = nullptr; // A granted bit cannot be signaled.
+    UacThinLaunchProbe::Observe(restricted);
+    const bool partialIsError = WaitForSingleObject(events[32], 0) == WAIT_OBJECT_0 &&
+                                WaitForSingleObject(events[33], 0) == WAIT_OBJECT_0;
+    ResetEvent(events[33]);
+    CloseHandle(events[32]); events[32] = nullptr; // Failure cannot be signaled either.
+    UacThinLaunchProbe::Observe(restricted);
+    const bool unsignaledFailure = WaitForSingleObject(events[33], 0) == WAIT_TIMEOUT;
+    CloseHandle(restricted);
     SetEnvironmentVariableW(L"SAM_UAC_TEST_LAUNCH_MASK_BASE", nullptr);
-    for (HANDLE event : events) CloseHandle(event);
-    const bool ok = preserved && maskMatches && ready && noError && failure;
-    std::printf("%s original process handle mask and failed query are signaled without changing last error\n",
+    for (HANDLE event : events) if (event) CloseHandle(event);
+    const bool ok = preserved && maskMatches && ready && noError && failure && partialIsError && unsignaledFailure;
+    std::printf("%s exact mask, failed queries and incomplete signal handling preserve last error\n",
                 ok ? "PASS" : "FAIL");
     return ok ? 0 : 1;
 }

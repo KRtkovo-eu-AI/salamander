@@ -47,8 +47,10 @@ inline void Observe(HANDLE process) noexcept
             for (unsigned bit = 0; bit != 32; ++bit)
                 if (basic.granted & (DWORD(1) << bit))
                     complete = Signal(prefix + L"-bit-" + std::to_wstring(bit)) && complete;
-        if (!complete) Signal(prefix + L"-error");
-        Signal(prefix + L"-ready"); // Written last; observer must also check -error.
+        // Never mark a partial mask ready if its failure cannot also be
+        // signaled. A collector then times out instead of accepting bad data.
+        if (complete || Signal(prefix + L"-error"))
+            Signal(prefix + L"-ready"); // Written last; also check -error.
     }
     catch (...) {} // Diagnostics must not change the broker launch outcome.
     SetLastError(saved);
