@@ -58,10 +58,11 @@ struct CThinCopyWorker {
     unsigned reports = 0;
     void* sessionContext = nullptr;
     DWORD (*sessionCheck)(void*) = nullptr;
+    HANDLE (*sessionRetryTarget)(void*) = nullptr;
     DWORD CheckTransferConnection() const {
         return sessionCheck ? sessionCheck(sessionContext) : failConnectionAfterWrite && writes ? ERROR_BROKEN_PIPE : ERROR_SUCCESS;
     }
-    bool ScopedTarget() const { return false; }
+    bool ScopedTarget() const { return sessionRetryTarget != nullptr; }
     bool CloseScopedTarget(HANDLE& h) { const BOOL result = CloseHandle(h); h = nullptr; return result != FALSE; }
     void ReportTransferLoss(DWORD, int) { ++reports; }
 };
@@ -90,29 +91,30 @@ static BOOL TestWrite(HANDLE h, LPCVOID b, DWORD n, LPDWORD w, LPOVERLAPPED o) {
 #define THIN_SYNC_PAUSE(ctx, data, failure) WaitForSingleObject((data).WorkerNotSuspended, INFINITE)
 #define THIN_REMEMBER_TARGET(ctx, file) ((void)0)
 #define THIN_REMEMBER_SOURCE(ctx, file) ((void)0)
-#define THIN_OPEN_TARGET_RETRY(ctx, local, overlapped) (local)
+#define THIN_OPEN_TARGET_RETRY(ctx, local, overlapped) \
+    ((ctx) && (ctx)->sessionRetryTarget ? (ctx)->sessionRetryTarget((ctx)->sessionContext) : (local))
 #define THIN_OPEN_SOURCE_RETRY(ctx, local, overlapped) (local)
 #define THIN_DELETE_TARGET(ctx, local) (local)
 @@LOOP@@
 
 #ifdef SAM_UAC_LOOP_LINK_HARNESS
-extern "C" BOOL RunLinkedNativeSyncLoop(HANDLE input, HANDLE output, const wchar_t* source, const wchar_t* target,
-                                        void* context, DWORD (*check)(void*))
+extern "C" BOOL RunLinkedNativeSyncLoop(HANDLE input, HANDLE* output, const wchar_t* source, const wchar_t* target,
+                                        ULONGLONG fileBytes, void* context, DWORD (*check)(void*), HANDLE (*retry)(void*))
 {
     BOOL cancel = FALSE, error = FALSE, skipped = FALSE, again = FALSE;
     HANDLE resumed = CreateEventW(nullptr, TRUE, TRUE, nullptr);
     if (!resumed) return FALSE;
     CProgressDlgData dialog{&cancel, resumed, nullptr};
-    COperation op{}; op.SourceNameW = source; op.TargetNameW = target; op.Size = CQuadWord(1);
+    COperation op{}; op.SourceNameW = source; op.TargetNameW = target; op.Size = CQuadWord(fileBytes);
     COperations script; script.TotalSize = op.Size;
-    CQuadWord done, total, size(1);
+    CQuadWord done, total, size(fileBytes);
     int limit = 1024, alloc = 0; BYTE buffer[1024]{};
-    CThinCopyWorker thin; thin.sessionContext = context; thin.sessionCheck = check;
-    writes = dialogCount = 0; injectFault = didFault = failConnectionAfterWrite = false;
-    DoCopyFileLoopOrig(input, output, buffer, limit, &script, dialog, FALSE, &op, total, error, skipped,
+    CThinCopyWorker thin; thin.sessionContext = context; thin.sessionCheck = check; thin.sessionRetryTarget = retry;
+    writes = dialogCount = 0; injectFault = true; didFault = failConnectionAfterWrite = false; dialogChoice = IDRETRY;
+    DoCopyFileLoopOrig(input, *output, buffer, limit, &script, dialog, FALSE, &op, total, error, skipped,
                        nullptr, done, size, sizeof(buffer), alloc, again, &thin);
     CloseHandle(resumed);
-    return !error && !skipped && !again && !thin.reports && done.Value == 1 && dialogCount == 0;
+    return !error && !skipped && !again && !thin.reports && done.Value == fileBytes && didFault && dialogCount == 1;
 }
 #else
 static int failures = 0;

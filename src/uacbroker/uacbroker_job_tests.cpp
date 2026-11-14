@@ -2841,10 +2841,32 @@ void CheckPlannedTreeThinJob(const Directory& source, const Directory& target, c
 
 #if defined(SAM_UAC_CLIENT_PIPE_HARNESS) && defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_PLANNED_PROTOTYPE)
 #ifdef SAM_UAC_LOOP_LINK_HARNESS
-extern "C" BOOL RunLinkedNativeSyncLoop(HANDLE, HANDLE, const wchar_t*, const wchar_t*, void*, DWORD (*)(void*));
+extern "C" BOOL RunLinkedNativeSyncLoop(HANDLE, HANDLE*, const wchar_t*, const wchar_t*, ULONGLONG,
+                                        void*, DWORD (*)(void*), HANDLE (*)(void*));
+struct LinkedThinContext
+{
+    UacF7::ThinCopySession* thin;
+    UacF7::PreparedTransfer* request;
+    UacF7::MoveFileIdentity target;
+    HANDLE source;
+    unsigned reopenCount = 0;
+};
 static DWORD LinkedThinCheck(void* context)
 {
-    return static_cast<UacF7::ThinCopySession*>(context)->CheckTransport();
+    return static_cast<LinkedThinContext*>(context)->thin->CheckTransport();
+}
+static HANDLE LinkedThinRetry(void* context)
+{
+    auto& state = *static_cast<LinkedThinContext*>(context);
+    const auto reopened = state.thin->Open(nullptr, *state.request, UacF7::ThinOpenKind::TargetRetry, false, false,
+        &state.target, UacF7::ThinOpenedSource{state.source});
+    if (reopened.error || reopened.unknown || reopened.file == INVALID_HANDLE_VALUE)
+    {
+        SetLastError(reopened.error ? reopened.error : ERROR_GEN_FAILURE);
+        return INVALID_HANDLE_VALUE;
+    }
+    ++state.reopenCount;
+    return reopened.file;
 }
 #endif
 void CheckThinClientPlannedTree(const Directory& source, const Directory& target)
@@ -2880,6 +2902,20 @@ void CheckThinClientPlannedTree(const Directory& source, const Directory& target
         Check(false, "prepare the isolated client planned-tree source");
         return;
     }
+#ifdef SAM_UAC_LOOP_LINK_HARNESS
+    constexpr size_t sourceSize = 65539;
+    std::vector<BYTE> expected(sourceSize);
+    for (size_t i = 0; i < expected.size(); ++i) expected[i] = static_cast<BYTE>((i * 31 + i / 251) & 255);
+    expected[0] = 0x67;
+    {
+        auto file = Adopt(CreateFileW(sourceFile.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, 0, nullptr));
+        DWORD written = 0;
+        if (!file || !WriteFile(file.get(), expected.data(), static_cast<DWORD>(expected.size()), &written, nullptr) ||
+            written != expected.size()) { Check(false, "prepare multiblock source"); return; }
+    }
+#else
+    constexpr size_t sourceSize = 1;
+#endif
 
     UacF7::PreparedTransfer treePlan;
     if (!treePlan.PrepareTreePlan(sourceRoot, targetRoot))
@@ -2919,7 +2955,7 @@ void CheckThinClientPlannedTree(const Directory& source, const Directory& target
     UacF7::PreparedTransfer provisional;
     const bool preparedBeforeRoot = generation && job->NeedsTreeRoot() &&
         job->PrepareTreeSource({}, rootIdentity, *firstRow, listed) &&
-        provisional.Prepare(sourceFile, outsideTarget, 1, Operation::Copy, &listed);
+        provisional.Prepare(sourceFile, outsideTarget, sourceSize, Operation::Copy, &listed);
     Check(preparedBeforeRoot, "prepare a listed child while the planned root is still absent");
     if (!preparedBeforeRoot) return;
     UacF7::ThinCopySession thin;
@@ -2942,11 +2978,11 @@ void CheckThinClientPlannedTree(const Directory& source, const Directory& target
     if (!rootCreated) return;
 
     UacF7::PreparedTransfer request;
-    const bool ready = request.Prepare(sourceFile, targetFile, 1, Operation::Copy, &listed);
+    const bool ready = request.Prepare(sourceFile, targetFile, sourceSize, Operation::Copy, &listed);
     Check(ready, "prepare the listed file and actual target through the real client");
     if (!ready) return;
     UacF7::PreparedTransfer outside;
-    const bool outsideReady = outside.Prepare(sourceFile, outsideTarget, 1, Operation::Copy, &listed);
+    const bool outsideReady = outside.Prepare(sourceFile, outsideTarget, sourceSize, Operation::Copy, &listed);
     if (!outsideReady)
     {
         Check(false, "prepare the out-of-scope test request");
@@ -2974,10 +3010,14 @@ void CheckThinClientPlannedTree(const Directory& source, const Directory& target
     count = 0;
 #ifdef SAM_UAC_LOOP_LINK_HARNESS
     LARGE_INTEGER zero{};
-    const bool targetCreated = !created.error && !created.unknown && output &&
+    LinkedThinContext loopContext{&thin, &request, created.targetIdentity, input.get()};
+    HANDLE rawOutput = output.release();
+    const bool targetCreated = !created.error && !created.unknown && rawOutput && rawOutput != INVALID_HANDLE_VALUE &&
         SetFilePointerEx(input.get(), zero, nullptr, FILE_BEGIN) &&
-        RunLinkedNativeSyncLoop(input.get(), output.get(), sourceFile.c_str(), targetFile.c_str(), &thin, LinkedThinCheck);
-    Check(targetCreated, "native synchronous loop copies using actual client and dispatcher handles");
+        RunLinkedNativeSyncLoop(input.get(), &rawOutput, sourceFile.c_str(), targetFile.c_str(), sourceSize,
+                                &loopContext, LinkedThinCheck, LinkedThinRetry) && loopContext.reopenCount == 1;
+    output.reset(rawOutput);
+    Check(targetCreated, "native synchronous loop retries through actual client and dispatcher");
 #else
     const bool targetCreated = !created.error && !created.unknown && output &&
         WriteFile(output.get(), &value, 1, &count, nullptr) && count == 1;
@@ -2994,8 +3034,20 @@ void CheckThinClientPlannedTree(const Directory& source, const Directory& target
     Check(returned, "return the identical open job and generation to the original owner");
     if (!returned) return;
     std::vector<UacF7::TreeCopySourceEntry> again;
-    const bool reused = job->ListTreeSource({}, rootIdentity, again) == ERROR_SUCCESS && again.size() == 2 &&
-        HasByte(targetFile, 0x67) && HasByte(sourceFile, 0x67);
+    const bool listedAgain = job->ListTreeSource({}, rootIdentity, again) == ERROR_SUCCESS && again.size() == 2;
+#ifdef SAM_UAC_LOOP_LINK_HARNESS
+    const auto matches = [&](const std::wstring& path) {
+        auto file = Adopt(CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                      nullptr, OPEN_EXISTING, 0, nullptr));
+        std::vector<BYTE> actual(expected.size()); DWORD bytesRead = 0; LARGE_INTEGER actualSize{};
+        return file && GetFileSizeEx(file.get(), &actualSize) && actualSize.QuadPart == static_cast<LONGLONG>(expected.size()) &&
+               ReadFile(file.get(), actual.data(), static_cast<DWORD>(actual.size()), &bytesRead, nullptr) &&
+               bytesRead == expected.size() && actual == expected;
+    };
+    const bool reused = listedAgain && matches(targetFile) && matches(sourceFile);
+#else
+    const bool reused = listedAgain && HasByte(targetFile, 0x67) && HasByte(sourceFile, 0x67);
+#endif
     Check(reused, "reuse the returned pipe for a real listing with both files intact");
     if (!reused) return;
     UacF7::PreparedLeaf secondListed;
