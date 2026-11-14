@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Check the thin session during an async pause wait. | Drain pending I/O if the broker exits before resume. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Preserve native handling of locally created targets. | Elevated source access must not restrict ordinary target Retry or cleanup. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Check the thin job between native copy operations. | Stop after detected broker loss and drain issued async I/O. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Probe inaccessible Scan Ahead targets through the approved job. | Reach the native conflict path without treating access denial as a replacement. | #731 | gpt-6.1-terra |
@@ -6410,7 +6411,31 @@ BOOL CCopy_Context::HandleWritingErr(int blkIndex, DWORD err, BOOL* copyError, B
 BOOL CCopy_Context::HandleSuspModeAndCancel(BOOL* copyError)
 {
     if (!Script->ChangeSpeedLimit)                                  // if the speed limit cannot change (otherwise this is not a "suitable" place to wait)
-        WaitForSingleObject(DlgData->WorkerNotSuspended, INFINITE); // if we are supposed to be in suspend mode, wait ...
+    {
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (Thin && Thin->Scoped() && Thin->brokerHandleDelivered)
+        {
+            for (;;)
+            {
+                const DWORD wait = WaitForSingleObject(DlgData->WorkerNotSuspended, 200);
+                if (wait == WAIT_OBJECT_0 || *DlgData->CancelWorker) break;
+                DWORD error = wait == WAIT_TIMEOUT ? Thin->CheckTransferConnection() :
+                    wait == WAIT_FAILED ? GetLastError() : ERROR_GEN_FAILURE;
+                if (wait != WAIT_TIMEOUT && error == ERROR_SUCCESS) error = ERROR_GEN_FAILURE;
+                if (error != ERROR_SUCCESS)
+                {
+                    CancelOpPhase1();
+                    CancelOpPhase2(-1);
+                    Thin->ReportTargetFailure(error, IDS_ERRORREADINGFILE);
+                    *copyError = TRUE;
+                    return TRUE;
+                }
+            }
+        }
+        else
+#endif
+            WaitForSingleObject(DlgData->WorkerNotSuspended, INFINITE); // native pause when no handle was elevated
+    }
     if (*DlgData->CancelWorker)
     {
         CancelOpPhase1();

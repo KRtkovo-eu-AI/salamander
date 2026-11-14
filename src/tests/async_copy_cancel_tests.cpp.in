@@ -2,13 +2,16 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-14 | Exercise native async suspension on connection loss. | Verify a real pending read is drained before error reporting. | #731 | gpt-6.1-terra |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Test paused connection loss with pending I/O. | Verify the native wait can stop before resume. | #731 | gpt-6.1-terra |
 // | 2026-11-13 | Test issued asynchronous I/O at cancellation. | Exercise native state and drain with real pending pipe requests. | #731 | GPT-6 |
 #include <windows.h>
+#include <atomic>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <sstream>
 #include <string>
+#include <thread>
 
 // These application dependencies are adapted; I/O and tested methods are real.
 struct CQuadWord
@@ -76,11 +79,13 @@ struct COperations { BOOL ChangeSpeedLimit = FALSE; };
 struct CProgressDlgData { BOOL* CancelWorker = nullptr; HANDLE WorkerNotSuspended = nullptr; };
 struct CThinCopyWorker
 {
-    DWORD error = ERROR_SUCCESS;
+    std::atomic<DWORD> error{ERROR_SUCCESS};
+    bool brokerHandleDelivered = true;
     unsigned reports = 0;
     OVERLAPPED* pending = nullptr;
     bool drainedBeforeReport = false;
-    DWORD CheckTransferConnection() const { return error; }
+    bool Scoped() const { return true; }
+    DWORD CheckTransferConnection() const { return error.load(); }
     bool ReportTargetFailure(DWORD, int)
     {
         ++reports;
@@ -465,6 +470,40 @@ static void TestConnectionLossWithPendingRead()
     CloseHandle(resumed);
 }
 
+static void TestPausedConnectionLoss()
+{
+    Pipe pipe;
+    if (!pipe.Open(true, 92)) { Check(false, "create pipe for paused loss"); return; }
+    CAsyncCopyParams async;
+    async.Init(TRUE);
+    if (async.Failed() || !async.Buffers[0]) { Check(false, "allocate paused-loss buffer"); return; }
+    BOOL cancelled = FALSE, copyError = FALSE;
+    HANDLE input = pipe.server, output = nullptr;
+    HANDLE resumed = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (!resumed) { Check(false, "create paused event"); return; }
+    COperations ops;
+    CProgressDlgData dialog;
+    dialog.CancelWorker = &cancelled; dialog.WorkerNotSuspended = resumed;
+    CThinCopyWorker thin;
+    CCopy_Context ctx;
+    ctx.AsyncPar = &async; ctx.DlgData = &dialog; ctx.In = &input; ctx.Out = &output;
+    ctx.Script = &ops; ctx.Thin = &thin;
+    DWORD error = ERROR_SUCCESS;
+    const BOOL started = ctx.StartReading(0, 4096, &error, FALSE);
+    Check(started && !HasOverlappedIoCompleted(async.GetOverlapped(0)), "paused loss has pending read");
+    thin.pending = async.GetOverlapped(0);
+    std::thread watcher([&] { Sleep(150); thin.error.store(ERROR_BROKEN_PIPE); Sleep(1500); SetEvent(resumed); });
+    const ULONGLONG start = GetTickCount64();
+    const BOOL stopped = ctx.HandleSuspModeAndCancel(&copyError);
+    const ULONGLONG elapsed = GetTickCount64() - start;
+    Check(stopped && copyError && thin.reports == 1 && thin.drainedBeforeReport && elapsed < 1400 &&
+          WaitForSingleObject(resumed, 0) == WAIT_TIMEOUT,
+          "paused worker detects loss and drains pending I/O before resume");
+    watcher.join();
+    DrainUnexpectedPending(input, async.GetOverlapped(0));
+    CloseHandle(resumed);
+}
+
 int wmain(int argc, wchar_t** argv)
 {
     if (argc != 2) return 2;
@@ -482,5 +521,6 @@ int wmain(int argc, wchar_t** argv)
     TestCompletedRead();
     TestCompletedWrite();
     TestConnectionLossWithPendingRead();
+    TestPausedConnectionLoss();
     return failures ? 1 : 0;
 }
