@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Stop execution and editing of entries from a listing-only archive. | Require a future authorized extraction path. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
 // | 2026-11-14 | Admit ordinary protected CopyAttrs sources to the thin worker. | Preserve the native F5 attribute option after denied source discovery. | #731 | GPT-6 |
 // | 2026-11-13 | Initialize experimental copy-plan custody before dispatch. | Reject allocation failure before publishing work to the worker. | #731 | GPT-6 |
 // | 2026-11-11 | Pass the private workspace identity to recursive file-list generation. | Keep staged output out of the exported tree. | #731 | GPT-6.1 Sol |
@@ -1356,6 +1357,10 @@ void CFilesWindow::DropCopyMove(BOOL copy, char* targetPath, CCopyMoveData* data
 struct CSizeBatchConsent
 {
     bool ElevationDeclined = false;
+    std::wstring Parent;
+    std::vector<std::wstring> Selected;
+    UacF7::ListingSession Session;
+    std::optional<DWORD> StartResult;
 };
 
 struct CSizeScanScope
@@ -1600,6 +1605,23 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
     BOOL subDirectories = ((type != atChangeCase) || chCaseData->SubDirs) && type != atConvert;
     BOOL countSize = (type == atCountSize);
     CQuadWord oldTotalSize;
+
+    if (countSize && selCount > 1 && !IsBranchView())
+    {
+        for (int selected = 0; selected < selCount; ++selected)
+        {
+            const CFileData& item = selection[selected] < Dirs->Count ? Dirs->At(selection[selected]) :
+                                        Files->At(selection[selected] - Dirs->Count);
+            if (!(item.Attr & FILE_ATTRIBUTE_DIRECTORY)) continue;
+            const std::wstring full = SalPathRemoveExtendedPrefixW(GetItemFullPathW(item).c_str());
+            const auto slash = full.find_last_of(L'\\');
+            if (slash == std::wstring::npos || slash + 1 >= full.size()) { sizeBatchConsent.Selected.clear(); break; }
+            const auto parent = full.substr(0, slash == 2 ? 3 : slash);
+            if (sizeBatchConsent.Parent.empty()) sizeBatchConsent.Parent = parent;
+            if (sizeBatchConsent.Parent != parent) { sizeBatchConsent.Selected.clear(); break; }
+            sizeBatchConsent.Selected.emplace_back(full.substr(slash + 1));
+        }
+    }
 
     char* useName = (oneFile != NULL ? oneFile->Name : NULL);
     char* useDOSName = (oneFile != NULL ? oneFile->DosName : NULL);
@@ -2096,7 +2118,7 @@ static int ConfirmProtectedSize(HWND owner, const std::wstring& path,
                                 SalWideToMultiBytePath(path.c_str(), CP_UTF8);
     if (session.GetRoot() != path)
         message += std::string("\n\n") + LoadStr(IDS_UAC_SIZE_CONSENT_SCOPE) + "\n" +
-                   SalWideToMultiBytePath(session.GetRoot().c_str(), CP_UTF8);
+                   SalWideToMultiBytePath((session.GetSelectionDescription().empty() ? session.GetRoot() : session.GetSelectionDescription()).c_str(), CP_UTF8);
     const std::string aliases = std::to_string(IDYES) + "\t" + LoadStr(IDS_MSGBOXBTN_SKIP) +
                                 "\t" + std::to_string(IDNO) + "\t" + LoadStr(IDS_MSGBOXBTN_SKIPALL) +
                                 "\t" + std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
@@ -2972,17 +2994,20 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                 const auto path = sizePath();
                 UacF7::ListingSession temporary;
                 auto* session = ProtectedListing && ProtectedListing->Contains(path) ? ProtectedListing.get() : nullptr;
-                const bool ownSession = !session && sizeScope && sizeScope->Session.IsOpen() &&
-                                        sizeScope->Session.Contains(path);
+                const bool batchSelection = sizeScope && sizeScope->Batch && !sizeScope->Batch->Selected.empty();
+                auto* scopedSession = sizeScope ? (batchSelection ? &sizeScope->Batch->Session : &sizeScope->Session) : nullptr;
+                auto* startResult = sizeScope ? (batchSelection ? &sizeScope->Batch->StartResult : &sizeScope->StartResult) : nullptr;
+                const bool ownSession = !session && scopedSession && scopedSession->IsOpen() && scopedSession->Contains(path);
                 if (ownSession)
-                    session = &sizeScope->Session;
+                    session = scopedSession;
                 const bool canElevate = !verifyListedAlias && !session && sizeScope && !sizeScope->WasElevationDeclined() &&
-                    (sizeScope->Session.IsOpen() || UacF7::CanOfferElevation());
+                    (scopedSession->IsOpen() || UacF7::CanOfferElevation());
                 const bool scoped = ownSession || (canElevate &&
-                    (!sizeScope->Session.GetRoot().empty() || sizeScope->Session.PrepareInventory(sizeScope->Root)));
+                    (!scopedSession->GetRoot().empty() || (batchSelection ? scopedSession->PrepareInventorySelection(sizeScope->Batch->Parent, sizeScope->Batch->Selected) :
+                                                                            scopedSession->PrepareInventory(sizeScope->Root))));
                 if (scoped)
-                    session = &sizeScope->Session;
-                if (!session && canElevate && temporary.PrepareInventory(path))
+                    session = scopedSession;
+                if (!session && canElevate && !batchSelection && temporary.PrepareInventory(path))
                     session = &temporary;
                 if (!session && sizeScope && sizeScope->WasElevationDeclined())
                 {
@@ -2996,14 +3021,14 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                     DWORD inventoryError = ERROR_SUCCESS;
                     int choice = IDOK;
                     bool consentDeclined = false;
-                    if (scoped && sizeScope->StartResult)
-                        inventoryError = *sizeScope->StartResult;
+                    if (scoped && *startResult)
+                        inventoryError = **startResult;
                     else if (!session->IsOpen())
                     {
                         choice = ConfirmProtectedSize(HWindow, path, *session, inventoryError);
                         consentDeclined = choice == IDOK && inventoryError == ERROR_CANCELLED;
                         if (scoped && choice == IDOK)
-                            sizeScope->StartResult = inventoryError;
+                            *startResult = inventoryError;
                     }
                     UacF7::DirectoryInventory inventory;
                     UacF7::DirectorySizeDetails details;
@@ -4099,7 +4124,10 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                 const bool listed = panelRoot && !panelRoot->empty() && path.size() > panelRoot->size() &&
                     path.compare(0, panelRoot->size(), *panelRoot) == 0 &&
                     (panelRoot->back() == L'\\' || path[panelRoot->size()] == L'\\');
-                const bool ownSession = sizeScope->Session.IsOpen() && sizeScope->Session.Contains(path);
+                const bool batchSelection = sizeScope->Batch && !sizeScope->Batch->Selected.empty();
+                auto* scopedSession = batchSelection ? &sizeScope->Batch->Session : &sizeScope->Session;
+                auto* startResult = batchSelection ? &sizeScope->Batch->StartResult : &sizeScope->StartResult;
+                const bool ownSession = scopedSession->IsOpen() && scopedSession->Contains(path);
                 if (sizeScope->WasElevationDeclined() && !listed && !ownSession)
                     allocationDeclined = true;
                 else
@@ -4119,12 +4147,13 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                     {
                         UacF7::ListingSession* session = listed ? ProtectedListing.get() : nullptr;
                         if (!session && ownSession)
-                            session = &sizeScope->Session;
+                            session = scopedSession;
                         if (!session && !sizeScope->ReuseOnly && !sizeScope->WasElevationDeclined() && UacF7::CanOfferElevation() &&
-                            (!sizeScope->Session.GetRoot().empty() ||
-                             (sizeScope->ExactFile ? sizeScope->Session.PrepareAllocationFile(sizeScope->Root, file) :
-                                                     sizeScope->Session.PrepareInventory(sizeScope->Root))))
-                            session = &sizeScope->Session;
+                            (!scopedSession->GetRoot().empty() ||
+                             (batchSelection ? scopedSession->PrepareInventorySelection(sizeScope->Batch->Parent, sizeScope->Batch->Selected) :
+                              sizeScope->ExactFile ? scopedSession->PrepareAllocationFile(sizeScope->Root, file) :
+                                                     scopedSession->PrepareInventory(sizeScope->Root))))
+                            session = scopedSession;
                         if (session)
                         {
                             DWORD allocationError = ERROR_SUCCESS;
@@ -4133,14 +4162,14 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                             ShowSafeWaitWindow(FALSE);
                             if (!session->IsOpen() && sizeScope->ReuseOnly)
                                 allocationError = ERROR_BROKEN_PIPE;
-                            else if (!session->IsOpen() && session == &sizeScope->Session && sizeScope->StartResult.has_value())
-                                allocationError = *sizeScope->StartResult ? *sizeScope->StartResult : ERROR_BROKEN_PIPE;
+                            else if (!session->IsOpen() && session == scopedSession && startResult->has_value())
+                                allocationError = **startResult ? **startResult : ERROR_BROKEN_PIPE;
                             else if (!session->IsOpen())
                             {
                                 choice = ConfirmProtectedSize(HWindow, sizeScope->Root, *session, allocationError, sizeScope->ExactFile);
                                 consentDeclined = choice == IDOK && allocationError == ERROR_CANCELLED;
-                                if (session == &sizeScope->Session && choice == IDOK)
-                                    sizeScope->StartResult = allocationError;
+                                if (session == scopedSession && choice == IDOK)
+                                    *startResult = allocationError;
                             }
                             ULONGLONG allocated = 0;
                             if (choice == IDOK && !allocationError)

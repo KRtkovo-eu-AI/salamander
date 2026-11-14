@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
 | 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
 | 2026-11-14 | Limit metadata-only Find sessions to listings. | Prevent panel content rights from leaking into name-only searches. | #731 | GPT-6 |
 | 2026-11-14 | Permit read-only content in an approved panel scope. | Reuse the live panel grant for its internal viewer. | #731 | GPT-6 |
@@ -88,7 +89,7 @@ constexpr ULONGLONG contentBudget = 64ULL * 1024 * 1024 * 1024;
 
 inline bool ValidRequestScope(UacF7::Operation scope, DWORD pathLength, bool inventory, bool content)
 {
-    if (scope == UacF7::Operation::Inventory)
+    if (scope == UacF7::Operation::Inventory || scope == UacF7::Operation::InventorySelection)
         return inventory && !content;
     if (scope == UacF7::Operation::FileAllocation)
         return false; // Exact allocation permits only its separately typed request.
@@ -118,7 +119,7 @@ inline bool MatchesListingIdentity(const UacDirectoryLeaf::ParentIdentity& actua
 inline bool ValidAllocationScope(UacF7::Operation scope, DWORD pathLength)
 {
     return (pathLength == 0 && scope == UacF7::Operation::FileAllocation) ||
-           (pathLength != 0 && (scope == UacF7::Operation::List || scope == UacF7::Operation::Inventory));
+           (pathLength != 0 && (scope == UacF7::Operation::List || scope == UacF7::Operation::Inventory || scope == UacF7::Operation::InventorySelection));
 }
 
 inline DWORD MeasureOpenedFileAllocation(HANDLE file, const UacF7::FileAllocationRequest& expected, ULONGLONG& bytes)

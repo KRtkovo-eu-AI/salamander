@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
 // | 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
 // | 2026-11-14 | Check refusal across queued Find scopes. | Avoid repeated UAC prompts after a declined search. | #731 | GPT-6 |
 // | 2026-11-11 | Preserve typed incomplete Find reasons across searches. | Keep different omissions distinct without changing current reports. | #731 | GPT-6.1 Terra |
@@ -145,7 +146,10 @@ struct FakeDialog {
         return true;
     }
 };
-namespace UacF7 { struct ListingSession { bool IsOpen() const { return true; } }; }
+namespace UacF7 {
+struct ListingSession { bool covers = false, open = true; bool IsOpen() const { return open; } bool Contains(const std::wstring&) const { return covers; } };
+struct PreparedLeaf { bool PrepareView(const std::wstring&) { return true; } };
+}
 using FindProtectedSessions = std::array<UacF7::ListingSession*, maxFindProtectedScopes>;
 struct FixtureSize { DWORD LoDWord = 0, HiDWord = 0; };
 struct CFoundFilesData { DWORD Attr = 0; FixtureSize Size; FILETIME LastWrite{}; };
@@ -180,18 +184,22 @@ std::wstring SalPathRemoveExtendedPrefixW(const wchar_t* path) { return path; }
 @@QUEUE@@
 static int digestAuthorizations;
 static DWORD digestAuthorizationResult;
-DWORD AuthorizeFindFile(CGrepData*, const std::wstring&, UacF7::ListingSession&) {
-    ++digestAuthorizations; return digestAuthorizationResult;
+DWORD AuthorizeFindFile(CGrepData*, const std::wstring&, UacF7::ListingSession& session) {
+    ++digestAuthorizations; if (!digestAuthorizationResult) { session.open = true; session.covers = true; } return digestAuthorizationResult;
 }
-static DWORD DigestDenied(CGrepData* data, CFoundFilesData* file, size_t& remainingFileConsents)
+std::wstring FindSearchRootForFile(CGrepData*, const std::wstring&) { return L"C:\\"; }
+static DWORD DigestDenied(CGrepData* data, CFoundFilesData* file, size_t& remainingFileConsents, UacF7::ListingSession* approved = nullptr, UacF7::ListingSession* existingDigest = nullptr)
 {
     DWORD error = ERROR_ACCESS_DENIED;
-    bool scopeLimit = false, scoped = false;
+    bool scoped = false;
     const std::wstring fullPath = L"C:\\file";
-    UacF7::ListingSession singleFile;
-    UacF7::ListingSession* protectedSession = nullptr;
+    UacF7::ListingSession localSession;
+    localSession.open = false;
+    auto& digestSession = existingDigest ? *existingDigest : localSession;
+    UacF7::PreparedLeaf deniedFile;
+    bool verifyDeniedFile = false;
+    UacF7::ListingSession* protectedSession = approved;
 @@DIGEST_DENIED@@
-    if (scopeLimit) ReportFindScopeLimit(data, "C:\\file");
     if (scoped && !protectedSession) return ERROR_INVALID_DATA;
     return error;
 }
@@ -374,10 +382,23 @@ int main() {
           !FindFileConsentLimit(ERROR_BROKEN_PIPE, 0, 0),
           "duplicate-content limit is used only for otherwise eligible denied files");
     {
+        CGrepData digest; CFoundFilesData row; size_t remaining = 1; UacF7::ListingSession session; session.open = false;
+        digestAuthorizations = 0; digestAuthorizationResult = ERROR_SUCCESS;
+        Check(DigestDenied(&digest, &row, remaining, nullptr, &session) == ERROR_SUCCESS &&
+                  DigestDenied(&digest, &row, remaining, nullptr, &session) == ERROR_SUCCESS && digestAuthorizations == 1,
+              "duplicate digest shares one approved search-root session across files");
+    }
+    {
+        CGrepData digest; CFoundFilesData row; size_t remaining = 0; UacF7::ListingSession approved; approved.covers = true;
+        digestAuthorizations = 0;
+        Check(DigestDenied(&digest, &row, remaining, &approved) == ERROR_SUCCESS && digestAuthorizations == 0 && !digest.IncompleteReasons,
+              "ordinary duplicate candidate reuses an approved covering session without another prompt");
+    }
+    {
         CGrepData digest; CFoundFilesData row; size_t remaining = 0;
         digestAuthorizations = 0; digestAuthorizationResult = ERROR_SUCCESS;
         Check(DigestDenied(&digest, &row, remaining) == ERROR_ACCESS_DENIED && digest.IncompleteReasons &&
-              digest.logs.size() == 1 && digestAuthorizations == 0,
+              digestAuthorizations == 0,
               "the actual denied digest branch reports exhausted consent without starting a broker");
         digest.IncompleteReasons = false; digest.logs.clear(); row.Attr = FILE_ATTRIBUTE_ENCRYPTED;
         Check(DigestDenied(&digest, &row, remaining) == ERROR_ACCESS_DENIED && !digest.IncompleteReasons &&

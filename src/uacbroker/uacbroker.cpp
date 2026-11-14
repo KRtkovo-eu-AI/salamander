@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
 | 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
 | 2026-11-14 | Enforce metadata-only Find authorization. | Distinguish name searches from panel and content reads. | #731 | GPT-6 |
 | 2026-11-14 | Read viewer snapshots through the approved panel session. | Reuse its scoped read grant without relaunching the broker. | #731 | GPT-6 |
@@ -715,6 +716,12 @@ struct RequestHeader
     DWORD targetSuffixLength = 0;
 };
 static_assert(sizeof(RequestHeader) == 104);
+
+struct SelectedInventoryEntry
+{
+    std::wstring name;
+    UacF7::MoveFileIdentity identity{};
+};
 
 struct ThinWireOptions
 {
@@ -3201,7 +3208,8 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
                      PendingOverwriteProbe* pendingOverwrite = nullptr,
                      UacF7::OverwriteProbeReply* overwriteProbeReply = nullptr,
                      bool* strictOverwriteSession = nullptr, bool* reviewedCommitReply = nullptr,
-                     ThinJobState* thinState = nullptr, ThinWireReply* thinReply = nullptr)
+                     ThinJobState* thinState = nullptr, ThinWireReply* thinReply = nullptr,
+                     std::vector<SelectedInventoryEntry>* selectedInventory = nullptr)
 {
     RequestHeader header{};
     DWORD received = 0;
@@ -3286,6 +3294,7 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     const bool deleteFile = UacF7::IsLeafDelete(header.operation);
     listingScope = header.operation;
     const bool list = UacF7::IsDirectoryReadScope(listingScope);
+    const bool selection = listingScope == Operation::InventorySelection;
     const bool findFile = listingScope == Operation::FindFile;
     const bool allocationFile = listingScope == Operation::FileAllocation;
     const bool view = header.operation == Operation::View;
@@ -3339,11 +3348,11 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
         }, &sender};
     const auto* progress = header.reportProgress ? &progressSink : nullptr;
     if (header.relativeLength > UacDirectoryLeaf::maxNativeName || !header.leafLength ||
-        header.leafLength > UacDirectoryLeaf::maxComponent || header.sourceLength > UacDirectoryLeaf::maxComponent ||
+        header.leafLength > UacDirectoryLeaf::maxComponent || header.sourceLength > (selection ? 1048576u : UacDirectoryLeaf::maxComponent) ||
         (!rename && !mkdir && !setMetadata && !deleteFile && !list && !transfer && !view && !allocationFile &&
-         !readArchive && !writeZipSelection && !zipUpdate && !listTreeSource) || rename != (header.sourceLength != 0) ||
+         !readArchive && !writeZipSelection && !zipUpdate && !listTreeSource) || (rename || selection) != (header.sourceLength != 0) ||
         (list && !header.relativeLength && !IsComparisonScope(listingScope) &&
-         listingScope != Operation::FindList && listingScope != Operation::FindContent) ||
+         listingScope != Operation::FindList && listingScope != Operation::FindContent && !selection) ||
         transfer != (header.targetLeafLength != 0) ||
         header.targetRelativeLength > UacDirectoryLeaf::maxNativeName || header.targetLeafLength > UacDirectoryLeaf::maxComponent ||
         header.copySize > (zipUpdate ? UacF7::maxZipUpdateBytes :
@@ -3495,6 +3504,34 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     const auto relative = data.substr(volumeLength, header.relativeLength);
     const auto leaf = data.substr(volumeLength + header.relativeLength, header.leafLength);
     const auto source = data.substr(volumeLength + header.relativeLength + header.leafLength, header.sourceLength);
+    if (selection)
+    {
+        if (!selectedInventory || source.empty() || source.back() != L'\0') return ERROR_INVALID_DATA;
+        selectedInventory->clear();
+        size_t start = 0;
+        while (start < source.size())
+        {
+            const size_t end = source.find(L'\0', start);
+            if (end == std::wstring_view::npos || !UacDirectoryLeaf::IsComponent(source.substr(start, end - start)))
+                return ERROR_INVALID_DATA;
+            SelectedInventoryEntry item;
+            item.name.assign(source.substr(start, end - start));
+            item.identity.serial = header.serial;
+            start = end + 1;
+            if (source.size() - start < 33 || source[start + 32] != L'\0') return ERROR_INVALID_DATA;
+            const auto hex = [](wchar_t c) -> int {
+                return c >= L'0' && c <= L'9' ? c - L'0' : c >= L'A' && c <= L'F' ? c - L'A' + 10 : -1;
+            };
+            for (size_t i = 0; i < sizeof(item.identity.id); ++i)
+            {
+                const int high = hex(source[start + 2 * i]), low = hex(source[start + 2 * i + 1]);
+                if (high < 0 || low < 0) return ERROR_INVALID_DATA;
+                item.identity.id[i] = static_cast<BYTE>((high << 4) | low);
+            }
+            start += 33;
+            selectedInventory->push_back(std::move(item));
+        }
+    }
     if (!UacDirectoryLeaf::IsComponent(leaf) || (rename && !UacDirectoryLeaf::IsComponent(source)) ||
         (list && leaf != UacListing::marker) || (writeZipSelection && leaf != UacZipSelection::marker) ||
         (zipUpdate && !UacZipUpdate::Detail::IsZipLeaf(leaf)) ||
@@ -3528,7 +3565,7 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     {
         HANDLE raw = nullptr;
         result = UacDirectoryLeaf::OpenParentBelowRoot(root.get(), relative, raw, actual, FILE_LIST_DIRECTORY,
-            listingScope != Operation::Inventory && !IsComparisonScope(listingScope));
+            listingScope != Operation::Inventory && !selection && !IsComparisonScope(listingScope));
         parent = Adopt(raw);
     }
     else
@@ -4107,7 +4144,8 @@ DWORD MeasureExactAllocation(const ExactAllocationScope& scope, const UacF7::Fil
 }
 
 DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operation scope,
-                    const ExactAllocationScope* exactAllocation = nullptr)
+                    const ExactAllocationScope* exactAllocation = nullptr,
+                    const std::vector<SelectedInventoryEntry>* selectedInventory = nullptr)
 {
     constexpr ULONGLONG idleTimeoutMs = 15 * 60 * 1000;
     ULONGLONG contentBudget = UacListing::contentBudget;
@@ -4162,6 +4200,20 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operat
             error = TransferRequest(pipe, relative.data(), length * static_cast<DWORD>(sizeof(wchar_t)), false, deadline);
             if (error)
                 return error;
+        }
+        std::vector<Handle> selectionPins;
+        DWORD selectionError = ERROR_SUCCESS;
+        if (scope == Operation::InventorySelection)
+        {
+            const auto end = relative.find(L'\\');
+            const std::wstring_view component(relative.data(), end == std::wstring::npos ? relative.size() : end);
+            if (!selectedInventory || component.empty())
+                return ERROR_ACCESS_DENIED;
+            const auto selected = std::find_if(selectedInventory->begin(), selectedInventory->end(),
+                                               [&](const SelectedInventoryEntry& item) { return component == item.name; });
+            if (selected == selectedInventory->end()) return ERROR_ACCESS_DENIED;
+            HANDLE pinned = nullptr;
+            selectionError = PinPagedDirectory(root, component, &selected->identity, selectionPins, pinned);
         }
         if (pagedListing)
         {
@@ -4287,6 +4339,8 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operat
                         status = ERROR_FILE_INVALID;
                 }
             }
+            else if (selectionError)
+                status = selectionError;
             else
                 status = UacListing::MeasureFileAllocation(root, relative, expected, allocation);
             error = TransferRequest(pipe, &status, sizeof(status), true, deadline);
@@ -4307,8 +4361,8 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operat
         UacF7::DirectorySizeDetails details;
         std::wstring firstSkipped;
         if (inventoryRequest)
-            error = UacListing::InventoryBelowRoot(root, relative, deadline - 250, inventory,
-                                                  sizeDetails ? &details : nullptr, &firstSkipped);
+            error = selectionError ? selectionError : UacListing::InventoryBelowRoot(root, relative, deadline - 250, inventory,
+                                                                                    sizeDetails ? &details : nullptr, &firstSkipped);
         else
         {
             UacDirectoryLeaf::ParentIdentity identity;
@@ -4504,8 +4558,10 @@ int RunBroker(const InstallLocation& install, const wchar_t* pipeName, DWORD hos
         Handle archive;
         UacF7::ArchiveRevision archiveRevision;
         ExactAllocationScope exactAllocation;
+        std::vector<SelectedInventoryEntry> selectedInventory;
         error = ReceiveRequest(install, pipe.get(), host.get(), hostPid, deadline, result, listingRoot, snapshot,
-                               snapshotRequest, zipUpdate, listingScope, archive, archiveRevision, nullptr, nullptr, &exactAllocation);
+                               snapshotRequest, zipUpdate, listingScope, archive, archiveRevision, nullptr, nullptr, &exactAllocation,
+                               nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, &selectedInventory);
         if (error)
             return IoError(L"Receive request", error);
         error = TransferRequest(pipe.get(), &result, sizeof(result), true, deadline);
@@ -4537,7 +4593,8 @@ int RunBroker(const InstallLocation& install, const wchar_t* pipeName, DWORD hos
         }
         if (listingRoot)
             return IoError(L"Listing session ended", ServeListings(pipe.get(), host.get(), hostPid, listingRoot.get(), listingScope,
-                listingScope == Operation::FileAllocation ? &exactAllocation : nullptr));
+                listingScope == Operation::FileAllocation ? &exactAllocation : nullptr,
+                listingScope == Operation::InventorySelection ? &selectedInventory : nullptr));
     }
     frame = {protocolVersion, capability, Phase::Done};
     error = Exchange(pipe.get(), frame, true, deadline);
@@ -5263,7 +5320,7 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, 
     // Create-only transfers prepare their destination through the same path as F7.
     // A visible directory can deny even an attribute open. Capture only its ID
     // from the verified grandparent and let the broker reopen the exact parent.
-    const bool useParentListing = (requested == Operation::List || requested == Operation::FindList || requested == Operation::Inventory ||
+    const bool useParentListing = (requested == Operation::List || requested == Operation::FindList || requested == Operation::Inventory || requested == Operation::InventorySelection ||
                                    requested == Operation::FindContent || requested == Operation::CompareList ||
                                    requested == Operation::Mkdir) &&
                                   openError == ERROR_ACCESS_DENIED && !parentPath.empty();
@@ -7289,6 +7346,40 @@ bool ListingSession::PrepareInventory(const std::wstring& path)
     return PrepareDirectory(path, Operation::Inventory);
 }
 
+bool ListingSession::PrepareInventorySelection(const std::wstring& parent, const std::vector<std::wstring>& names)
+{
+    if (parent.empty() || names.empty()) return false;
+    std::wstring wire, description;
+    ULONGLONG volumeSerial = 0;
+    for (const auto& name : names)
+    {
+        if (!UacDirectoryLeaf::IsComponent(name) || wire.size() + name.size() + 34 > 1048576u)
+            return false;
+        std::wstring full = parent;
+        if (full.back() != L'\\') full += L'\\';
+        full += name;
+        ListingSession item;
+        if (!item.PrepareInventory(full) || (volumeSerial && item.prepared.serial != volumeSerial))
+            return false;
+        volumeSerial = item.prepared.serial;
+        wire += name;
+        wire.push_back(L'\0');
+        constexpr wchar_t digits[] = L"0123456789ABCDEF";
+        for (const BYTE byte : item.prepared.fileId)
+        {
+            wire.push_back(digits[byte >> 4]);
+            wire.push_back(digits[byte & 15]);
+        }
+        wire.push_back(L'\0');
+        if (!description.empty()) description += L'\n';
+        description += full;
+    }
+    if (!PrepareDirectory(parent, Operation::InventorySelection) || prepared.serial != volumeSerial) return false;
+    selectionWire = std::move(wire);
+    selectionDescription = std::move(description);
+    return true;
+}
+
 bool ListingSession::PrepareComparison(const std::wstring& path, bool contents)
 {
     return PrepareDirectory(path, contents ? Operation::CompareContent : Operation::CompareList);
@@ -7308,7 +7399,7 @@ bool ListingSession::PrepareDirectory(const std::wstring& path, Operation operat
 {
     ListingForegroundLock lock(mutex, foregroundWaiters);
     if (starting || pipe || !root.empty()) return false;
-    const bool volumeRoot = (IsComparisonScope(operation) || operation == Operation::FindList ||
+    const bool volumeRoot = (IsComparisonScope(operation) || operation == Operation::InventorySelection || operation == Operation::FindList ||
                              operation == Operation::FindContent) && path.size() == 3 && path.back() == L'\\';
     if ((!volumeRoot && (path.size() <= 3 || path.back() == L'\\')) ||
         !prepared.PrepareTarget(path + (volumeRoot ? L"" : L"\\") + UacListing::marker, operation, {}, nullptr))
@@ -7440,6 +7531,11 @@ DWORD ListingSession::Start(HWND owner, HANDLE stop)
         std::memcpy(header.parentId.Identifier, prepared.fileId, sizeof(prepared.fileId));
         std::memcpy(header.sourceId.Identifier, prepared.sourceId, sizeof(prepared.sourceId));
         payload = prepared.volume + prepared.relative + prepared.leaf;
+        if (prepared.operation == Operation::InventorySelection)
+        {
+            header.sourceLength = static_cast<DWORD>(selectionWire.size());
+            payload += selectionWire;
+        }
         starting = true;
     }
     Result result;
@@ -7473,8 +7569,23 @@ bool ListingSession::Contains(const std::wstring& path) const
     if (!publishedOpen.load(std::memory_order_acquire)) return false;
     if (prepared.operation == Operation::FindFile || prepared.operation == Operation::FileAllocation)
         return path == root;
-    return path.compare(0, root.size(), root) == 0 &&
-           (path.size() == root.size() || (path.size() > root.size() && (root.back() == L'\\' || path[root.size()] == L'\\')));
+    if (path.compare(0, root.size(), root) != 0 ||
+        !(path.size() == root.size() || (path.size() > root.size() && (root.back() == L'\\' || path[root.size()] == L'\\'))))
+        return false;
+    if (prepared.operation != Operation::InventorySelection) return true;
+    const size_t start = root.size() + (root.back() == L'\\' ? 0 : 1);
+    if (start >= path.size()) return false;
+    const size_t end = path.find(L'\\', start);
+    const std::wstring_view component(path.data() + start, (end == std::wstring::npos ? path.size() : end) - start);
+    for (size_t offset = 0; offset < selectionWire.size();)
+    {
+        const size_t next = selectionWire.find(L'\0', offset);
+        if (next == std::wstring::npos) return false;
+        if (component == std::wstring_view(selectionWire.data() + offset, next - offset)) return true;
+        if (selectionWire.size() - (next + 1) < 33) return false;
+        offset = next + 34;
+    }
+    return false;
 }
 
 DWORD ListingSession::Transfer(void* buffer, DWORD length, bool send, ULONGLONG deadline, HANDLE callStop)
@@ -7489,7 +7600,7 @@ DWORD ListingSession::SendPath(const std::wstring& path, DWORD flags, ULONGLONG 
     if (contentOpen || !Contains(path) ||
         (prepared.operation == Operation::FindFile && flags != UacListing::contentRequest) ||
         (prepared.operation == Operation::FileAllocation && flags != UacListing::fileAllocationRequest) ||
-        (prepared.operation == Operation::Inventory && !(flags & (UacListing::inventoryRequest | UacListing::fileAllocationRequest))))
+        ((prepared.operation == Operation::Inventory || prepared.operation == Operation::InventorySelection) && !(flags & (UacListing::inventoryRequest | UacListing::fileAllocationRequest))))
         return ERROR_ACCESS_DENIED;
     const size_t start = root.size() + (root.back() == L'\\' ? 0 : 1);
     std::wstring relative = path.size() == root.size() ? std::wstring{} : path.substr(start);
@@ -7975,7 +8086,7 @@ DWORD ListingSession::MeasureFileAllocation(const std::wstring& path, const File
                                             ULONGLONG& bytes)
 {
     ListingForegroundLock lock(mutex, foregroundWaiters);
-    if (prepared.operation != Operation::List && prepared.operation != Operation::Inventory &&
+    if (prepared.operation != Operation::List && prepared.operation != Operation::Inventory && prepared.operation != Operation::InventorySelection &&
         prepared.operation != Operation::FileAllocation)
         return ERROR_ACCESS_DENIED;
     const auto deadline = GetTickCount64() + timeoutMs;

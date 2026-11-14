@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
 // | 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
 // | 2026-11-14 | Check content denial for metadata-only Find. | Keep panel read authority out of a name-only search. | #731 | GPT-6 |
 // | 2026-11-14 | Exercise scoped panel content through the dispatcher. | Verify repeated viewer reads remain within the approved root. | #731 | GPT-6 |
@@ -235,6 +236,7 @@ class JobPipe
 {
 public:
     ~JobPipe() { Finish(); }
+    void SetInventorySelection(std::vector<SelectedInventoryEntry> entries) { selectedInventory = std::move(entries); }
 
 #ifdef SAM_UAC_THIN_COPY_TEST
     bool OpenExternal(const wchar_t* crashEvent = nullptr, const wchar_t* crashMapping = nullptr)
@@ -324,7 +326,8 @@ public:
             {
                 if (findRoot)
                 {
-                    dispatchError = ServeListings(peer.get(), GetCurrentProcess(), GetCurrentProcessId(), findRoot, findScope);
+                    dispatchError = ServeListings(peer.get(), GetCurrentProcess(), GetCurrentProcessId(), findRoot, findScope,
+                                                  nullptr, findScope == Operation::InventorySelection ? &selectedInventory : nullptr);
                     return;
                 }
                 const InstallLocation install(Adopt(CreateFileW(L".", FILE_TRAVERSE | FILE_READ_ATTRIBUTES,
@@ -341,9 +344,11 @@ public:
                     Operation scope = Operation::List;
                     UacF7::ArchiveRevision revision;
                     ExactAllocationScope exact;
+                    std::vector<SelectedInventoryEntry> selected;
                     auto deadline = GetTickCount64() + timeoutMs;
                     dispatchError = ReceiveRequest(install, peer.get(), GetCurrentProcess(), GetCurrentProcessId(), deadline,
-                        result, exactRoot, snapshot, view, zip, scope, archive, revision, nullptr, nullptr, &exact);
+                        result, exactRoot, snapshot, view, zip, scope, archive, revision, nullptr, nullptr, &exact,
+                        nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, &selected);
                     if (!dispatchError)
                         dispatchError = TransferRequest(peer.get(), &result, sizeof(result), true, deadline);
                     if (!dispatchError && view && result == ERROR_SUCCESS)
@@ -354,7 +359,8 @@ public:
                             dispatchError = TransferRequest(peer.get(), snapshot.data(), bytes, true, deadline);
                     }
                     if (!dispatchError && exactRoot)
-                        dispatchError = ServeListings(peer.get(), GetCurrentProcess(), GetCurrentProcessId(), exactRoot.get(), scope, &exact);
+                        dispatchError = ServeListings(peer.get(), GetCurrentProcess(), GetCurrentProcessId(), exactRoot.get(), scope, &exact,
+                                                      scope == Operation::InventorySelection ? &selected : nullptr);
                     return;
                 }
                 UacCopyLeaf::Detail::activePause = copyPause;
@@ -534,6 +540,30 @@ public:
         header.relativeLength = static_cast<DWORD>(relative.size());
         header.leafLength = ARRAYSIZE(UacListing::marker) - 1;
         std::wstring payload = parent.identity.volume + relative + UacListing::marker;
+        const auto deadline = GetTickCount64() + timeoutMs;
+        return !TransferRequest(server.get(), &header, sizeof(header), true, deadline) &&
+               !TransferRequest(server.get(), payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), true, deadline) &&
+               !TransferRequest(server.get(), &result, sizeof(result), false, deadline);
+    }
+
+    bool StartSelectedInventory(const Directory& parent, const std::vector<SelectedInventoryEntry>& selected, DWORD& result)
+    {
+        std::wstring wire;
+        constexpr wchar_t digits[] = L"0123456789ABCDEF";
+        for (const auto& item : selected)
+        {
+            wire += item.name; wire.push_back(L'\0');
+            for (BYTE byte : item.identity.id) { wire.push_back(digits[byte >> 4]); wire.push_back(digits[byte & 15]); }
+            wire.push_back(L'\0');
+        }
+        RequestHeader header{};
+        header.serial = parent.identity.file.VolumeSerialNumber;
+        header.parentId = parent.identity.file.FileId;
+        header.operation = Operation::InventorySelection;
+        header.relativeLength = static_cast<DWORD>(parent.relative.size());
+        header.leafLength = ARRAYSIZE(UacListing::marker) - 1;
+        header.sourceLength = static_cast<DWORD>(wire.size());
+        std::wstring payload = parent.identity.volume + parent.relative + UacListing::marker + wire;
         const auto deadline = GetTickCount64() + timeoutMs;
         return !TransferRequest(server.get(), &header, sizeof(header), true, deadline) &&
                !TransferRequest(server.get(), payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), true, deadline) &&
@@ -795,6 +825,14 @@ public:
         return SendFindRequest(header, {}, GetTickCount64() + timeoutMs) && EndedWithoutFindReply();
     }
 
+    bool RejectOutsideInventory(std::wstring_view path)
+    {
+        DWORD status = ERROR_SUCCESS;
+        return SendFindRequest(UacListing::inventoryRequest, path, GetTickCount64() + timeoutMs) &&
+               TransferRequest(server.get(), &status, sizeof(status), false, GetTickCount64() + timeoutMs) == ERROR_BROKEN_PIPE &&
+               Finish() == ERROR_ACCESS_DENIED;
+    }
+
     bool RejectFindRange(UacF7::ArchiveReadRange range)
     {
         return !TransferRequest(server.get(), &range, sizeof(range), true, GetTickCount64() + timeoutMs) &&
@@ -819,6 +857,7 @@ private:
     }
 
     ULONGLONG pageCursor = 0, nextPageCursor = 1;
+    std::vector<SelectedInventoryEntry> selectedInventory;
     Handle server;
 #ifdef SAM_UAC_THIN_COPY_TEST
     Handle child;
@@ -1987,6 +2026,46 @@ void CheckInventoryScope(const Directory& source)
     }
     Check(job.Inventory(firstName, ERROR_SUCCESS, 1) && job.Inventory(secondName, ERROR_SUCCESS, 2),
           "one inventory session counts two separate Unicode subtrees");
+    SelectedInventoryEntry firstSelection, secondSelection;
+    firstSelection.name = firstName; firstSelection.identity.serial = first.identity.file.VolumeSerialNumber;
+    std::memcpy(firstSelection.identity.id, first.identity.file.FileId.Identifier, sizeof(firstSelection.identity.id));
+    secondSelection.name = secondName; secondSelection.identity.serial = second.identity.file.VolumeSerialNumber;
+    std::memcpy(secondSelection.identity.id, second.identity.file.FileId.Identifier, sizeof(secondSelection.identity.id));
+    {
+        JobPipe selected;
+        selected.SetInventorySelection({firstSelection, secondSelection});
+        Check(selected.Open(nullptr, source.handle.get(), Operation::InventorySelection) &&
+                  selected.Inventory(firstName, ERROR_SUCCESS, 1) && selected.Inventory(secondName, ERROR_SUCCESS, 2),
+              "one selected inventory session counts both authorized Unicode roots");
+        Check(selected.RejectOutsideInventory(L"unselected"),
+              "selected inventory refuses a sibling outside the approved selection");
+    }
+    {
+        DWORD status = ERROR_GEN_FAILURE;
+        JobPipe selected;
+        Check(selected.Open(nullptr, nullptr, Operation::FindContent, nullptr, true) &&
+                  selected.StartSelectedInventory(source, {firstSelection, secondSelection}, status) && status == ERROR_SUCCESS &&
+                  selected.Inventory(firstName, ERROR_SUCCESS, 1) && selected.Inventory(secondName, ERROR_SUCCESS, 2),
+              "initial request carries selected identities into the inventory session");
+        Check(selected.RejectOutsideInventory(L"unselected"),
+              "the initial selected request cannot authorize an unselected sibling");
+    }
+    {
+        DWORD status = ERROR_GEN_FAILURE;
+        auto invalid = firstSelection; invalid.name = L"..";
+        JobPipe rejected;
+        Check(rejected.Open(nullptr, nullptr, Operation::FindContent, nullptr, true) &&
+                  !rejected.StartSelectedInventory(source, {invalid}, status) && rejected.Finish() == ERROR_INVALID_DATA,
+              "the initial selected scope rejects a traversal component");
+    }
+    {
+        JobPipe changed;
+        auto wrong = firstSelection; wrong.identity.id[0] ^= 1;
+        changed.SetInventorySelection({wrong, secondSelection});
+        Check(changed.Open(nullptr, source.handle.get(), Operation::InventorySelection) &&
+                  changed.Inventory(firstName, ERROR_FILE_INVALID, 0) && changed.Inventory(secondName, ERROR_SUCCESS, 2),
+              "changed selected identity is rejected while the other selected root remains usable");
+    }
     Check(job.Inventory(L"..\\outside", ERROR_INVALID_NAME, 0),
           "a size request cannot traverse outside its approved tree");
     Check(job.Inventory(firstName, ERROR_SUCCESS, 1),

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
 // | 2026-11-11 | Test approved multi-file allocation reuse. | Check selection, identity, disconnect and no extra prompt. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Exercise size consent refusal across selected roots. | Preserve individual scopes and reuse existing approvals. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Test the actual size controller with controlled consent results. | Verify one contribution per item and preserve partial results. | #731 | GPT-6.1 Terra |
@@ -57,10 +58,17 @@ struct ListingSession
     bool Open = false;
     bool Exact = false;
     bool CloseDuringPrepare = false;
-    bool Contains(const std::wstring& path) const { return Open && (path == Root || (!Exact && path.size() > Root.size() && path.compare(0, Root.size(), Root) == 0 && path[Root.size()] == L'\\')); }
+    std::vector<std::wstring> Selected;
+    bool Contains(const std::wstring& path) const {
+        if (!Open || !(path == Root || (!Exact && path.size() > Root.size() && path.compare(0, Root.size(), Root) == 0 && path[Root.size()] == L'\\'))) return false;
+        if (Selected.empty()) return true;
+        for (const auto& name : Selected) { const auto prefix = Root + L"\\" + name; if (path == prefix || (path.size() > prefix.size() && path.compare(0, prefix.size(), prefix) == 0 && path[prefix.size()] == L'\\')) return true; }
+        return false;
+    }
     bool IsOpen() const { return Open; }
     const std::wstring& GetRoot() const { return Root; }
     bool PrepareInventory(const std::wstring& root) { Root = root; return true; }
+    bool PrepareInventorySelection(const std::wstring& root, const std::vector<std::wstring>& names) { Root = root; Selected = names; return true; }
     bool PrepareAllocationFile(const std::wstring& root, const PreparedLeaf&) { Root = root; Exact = true; return true; }
     DWORD PrepareViewer(const std::wstring&, PreparedLeaf&, DWORD) { ++g_prepared; if (CloseDuringPrepare) Open = false; return prepareError; }
     DWORD MeasureFileAllocation(const std::wstring&, const FileAllocationRequest&, ULONGLONG& size)
@@ -167,6 +175,25 @@ static void Reset()
 int main()
 {
     constexpr DWORD sparse = FILE_ATTRIBUTE_SPARSE_FILE | FILE_ATTRIBUTE_ARCHIVE;
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeBatchConsent batch;
+        batch.Parent = L"C:\\scope"; batch.Selected = {L"first", L"second"};
+        CSizeScanScope first; first.Root = L"C:\\scope\\first"; first.Batch = &batch;
+        CSizeScanScope second; second.Root = L"C:\\scope\\second"; second.Batch = &batch;
+        brokerValue = 11;
+        Check(panel.MeasureDirectory(&sum, &first, first.Root) == TRUE && panel.MeasureDirectory(&sum, &second, second.Root) == TRUE &&
+              prompts == 1 && inventories == 2 && sum.TotalSize.Value == 22,
+              "selected directories reuse one approved inventory session");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeBatchConsent batch;
+        batch.Parent = L"C:\\scope"; batch.Selected = {L"first", L"second"}; g_startError = ERROR_CANCELLED;
+        CSizeScanScope first; first.Root = L"C:\\scope\\first"; first.Batch = &batch;
+        CSizeScanScope second; second.Root = L"C:\\scope\\second"; second.Batch = &batch;
+        Check(panel.MeasureDirectory(&sum, &first, first.Root) == TRUE && panel.MeasureDirectory(&sum, &second, second.Root) == TRUE &&
+              prompts == 1 && inventories == 0 && sum.CountSizeIncomplete,
+              "declining elevation suppresses the prompt for the rest of the selected batch");
+    }
     {
         Reset(); CFilesWindow panel; COperations sum;
         panel.ProtectedListing = std::make_unique<UacF7::ListingSession>();

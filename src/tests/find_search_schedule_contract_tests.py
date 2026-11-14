@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
 # | 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
 # | 2026-11-12 | Check paged and legacy Find session loss. | Preserve cancellation and avoid crossing protected scopes. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Check captured Find viewer identity routing. | Prevent pathname-only fallback while preserving ordinary Branch View. | #731 | GPT-6.1 Terra |
@@ -221,7 +222,7 @@ def main() -> int:
     require(grep.index("RequestFindResultsRefresh(data);") < grep.index("protectedQueue.Finish(duplicateCandidates);"),
             "ordinary hits must be published before waiting for administrator consent")
     require(grep.index("protectedQueue.Finish(duplicateCandidates);") <
-            grep.index("duplicateCandidates->Examine(data, protectedSessions, protectedQueue.Remaining());"),
+            grep.index("duplicateCandidates->Examine(data, protectedSessions, protectedQueue.HadProtectedRequests() ? 0 : 1);"),
             "protected candidates must join ordinary candidates before grouping and hashing")
     queue_add = function_body(find_cpp, "FindQueueResult AddPath(CGrepData* search, std::wstring path")
     require("count == 0 && !request->Start()" in queue_add and "count == requests.size()" in queue_add,
@@ -269,7 +270,7 @@ def main() -> int:
             "protectedSession->CloseContent()" in digest and
             digest.index("protectedSession->CloseContent()") < digest.index("context.finalize()"),
             "protected duplicate digests must use and validate the authorized content stream")
-    require("AuthorizeFindFile(data, fullPath, singleFile)" in digest and
+    require("AuthorizeFindFile(data, searchRoot, digestSession)" in digest and
             "remainingFileConsents" in digest,
             "a denied ordinary duplicate read must have a bounded exact-file fallback")
     require("std::string(GetErrorText(error))" in digest and "IDS_FINDLOG_SKIP" not in digest,

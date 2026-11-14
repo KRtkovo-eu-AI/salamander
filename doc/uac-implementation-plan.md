@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Record selected-size and duplicate-read consent reuse. | Track exact scope, automated evidence and remaining Find gaps. | #731 | GPT-6 |
 | 2026-11-14 | Record scoped Find session reuse and remaining batch gaps. | Distinguish implemented search coverage, automated checks and outstanding user verification. | #731 | GPT-6 |
 | 2026-11-14 | Record operation-wide read consent requirements and user reports. | Track repeated size and Find prompts and F3 panel-session reuse. | #731 | GPT-6 |
 | 2026-11-14 | Record upstream localization and CI integration. | Preserve UAC resources while aligning with upstream and repairing CI and CodeQL findings. | #731 | GPT-6 |
@@ -623,7 +624,15 @@
 
 # Plán implementace podpory UAC v Open Samandarin
 
-## Sdílení souhlasu pro čtení — rozpracováno 14. listopadu 2026
+## Sdílení souhlasu — 15. listopadu 2026
+
+- **Implementováno:** dávkový výpočet více vybraných složek se společným rodičem používá jednu relaci. Broker dostává seznam názvů a předem zachycených identit vybraných složek; kontroluje každou žádost a nepovoluje nevybrané sourozence. Odmítnutí se přenese na celou dávku. Find při výpočtu otisků duplicit využije již schválenou relaci pokrývající soubor; při prvním odepření bez předchozího souhlasu připraví relaci pro kořen aktuálního hledání a znovu ji používá pro další způsobilé soubory. Identitu odepřeného souboru ověřuje při otevření.
+- **Automatické ověření:** test skutečného brokerového rámce a dispatcheru ověřuje dva vybrané Unicode kořeny, zamítnutí nevybraného sourozence, odmítnutí změněné identity a pokračování s druhým kořenem. Stávající test řídicího kódu kontroluje jednu výzvu pro dvě složky a odmítnutí celé dávky. Testy fronty Findu ověřují opakované použití relace pro duplicity. Release x64 host a broker byly sestaveny neinteraktivně.
+- **Sestavení:** `C:\Samandarin\builds\uac-shared-consent-20261114\salamander\Release_x64`; SHA-256 hosta `C199490FDA417D282C10ACE532404EDF3E92A1ECAC82313840BF3A32998D3325`, brokeru `36EC97B0BD1478DDE3F8DED036288C35CB1327844B097A5A3288D56D41D6F137`. Jde o výstup sestavení, nikoli o nasazení do chráněné složky.
+- **Zůstává otevřené:** hledání přes více nezávislých kořenů, refine a případně další samostatně vybrané komprimované soubory mimo schválený podstrom ještě nemají společný přesně vymezený rozsah. Při nepokrytém čtení se další souhlas automaticky nespouští a výsledek se označí jako neúplný. Výpočet otisků duplicit může během prvního souhlasu čekat; běžné procházení stromu pokračuje při souhlasu na pozadí. Výběr s nesestavitelným bezpečným rozsahem se nesmí rozšířit na celý rodič.
+- **Uživatelské ověření:** čeká; nahlášené opakované výzvy zůstávají evidovány jako uživatelská pozorování, nikoli automatický důkaz opravy. UAC, piloty ani Computer Use se nespouštěly.
+
+## Sdílení souhlasu pro čtení — historický stav 14. listopadu 2026
 
 - **Implementováno:** Find v jednom zadaném kořeni připravuje relaci pro celý kořen a odložené chráněné potomky obsluhuje stejným živým spojením. Odmítnutí nebo ztráta spojení nespouští další souhlas. Samostatný rozsah `FindList` umožňuje pouze výpis a metadata; čtení obsahu vyžaduje `FindContent`. Ověření identity chráněného jednotlivého souboru zůstává zachováno. F3 přes chráněný panel je řešeno předchozím commitem `70233f273`.
 - **Automaticky ověřeno:** Release x64 host a broker, existující testy chráněného průchodu Findem a fronty v Debug i Release, test smlouvy plánování, rozsahu adresářových operací a Release testy brokerového transportu a stránkování. Tyto testy neprokazují průchod skutečným systémovým dialogem UAC.

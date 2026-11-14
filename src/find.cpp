@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
 // | 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
 // | 2026-11-14 | Reuse an approved search-root session for denied descendants. | Avoid repeated prompts while retaining the exact search scope. | #731 | GPT-6 |
 // | 2026-11-14 | Use a metadata-only broker scope for name-only Find. | Keep content access exclusive to searches requesting it. | #731 | GPT-6 |
@@ -989,9 +990,9 @@ DWORD AuthorizeFindFile(CGrepData* data, const std::wstring& path, UacF7::Listin
 {
     if (data->StopSearch)
         return ERROR_CANCELLED;
-    if (!session.PrepareFile(path))
+    if (!session.PrepareFind(path, true))
         return ERROR_ACCESS_DENIED;
-    FindConsent consent{data, path, session, FindConsentScope::File};
+    FindConsent consent{data, path, session, FindConsentScope::Content};
     HANDLE thread = HANDLES(CreateThread(nullptr, 0, FindConsent::Launch, &consent, 0, nullptr));
     if (!thread)
         return ERROR_NOT_ENOUGH_MEMORY;
@@ -1146,7 +1147,7 @@ protected:
     BOOL GetMD5Digest(CGrepData* data, CFoundFilesData* file,
                       int* progress, CQuadWord* readSize, const CQuadWord* totalSize,
                       UacF7::ListingSession* protectedSession, size_t& remainingFileConsents,
-                      ProtectedFindPredicates& predicates);
+                      ProtectedFindPredicates& predicates, UacF7::ListingSession& digestSession);
 };
 
 int CDuplicateCandidates::CompareFunc(CFoundFilesData* f1, CFoundFilesData* f2,
@@ -1258,10 +1259,26 @@ static bool FindListedIdentityMatches(const UacF7::MoveFileIdentity* identity,
         memcmp(revision.fileId, identity->id, sizeof(identity->id)) == 0);
 }
 
+static std::wstring FindSearchRootForFile(CGrepData* data, const std::wstring& fullPath)
+{
+    std::wstring searchRoot;
+    for (int rootIndex = 0; rootIndex < data->Data->Count; ++rootIndex)
+    {
+        const auto& directory = data->Data->At(rootIndex)->Dir;
+        auto root = SalPathRemoveExtendedPrefixW(SalMultiByteToWidePath(directory.c_str(),
+            IsValidPathUtf8Text(directory.c_str()) ? CP_UTF8 : CP_ACP).c_str());
+        if (root.size() > 3 && root.back() == L'\\') root.pop_back();
+        if (!root.empty() && fullPath.size() > root.size() && fullPath.compare(0, root.size(), root) == 0 &&
+            (root.back() == L'\\' || fullPath[root.size()] == L'\\') && root.size() > searchRoot.size())
+            searchRoot = std::move(root);
+    }
+    return searchRoot;
+}
+
 BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
                                         int* progress, CQuadWord* readSize, const CQuadWord* totalSize,
                                         UacF7::ListingSession* protectedSession, size_t& remainingFileConsents,
-                                        ProtectedFindPredicates& predicates)
+                                        ProtectedFindPredicates& predicates, UacF7::ListingSession& digestSession)
 {
     bool scoped = file->ProtectedScope != 0;
     const std::wstring fullPath = file->GetFullNameW();
@@ -1272,8 +1289,8 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
     ULONGLONG size = 0;
     FILE_BASIC_INFO initial{};
     bool opened = false;
-    bool scopeLimit = false;
-    UacF7::ListingSession singleFile;
+    UacF7::PreparedLeaf deniedFile;
+    bool verifyDeniedFile = false;
     if (!scoped)
     {
         const std::wstring apiPath = SalPathAddExtendedPrefixW(fullPath.c_str());
@@ -1300,15 +1317,32 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
             if (error == ERROR_ACCESS_DENIED &&
                 !(file->Attr & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_ENCRYPTED)))
             {
-                if (FindFileConsentLimit(error, file->Attr, remainingFileConsents))
-                    scopeLimit = true;
+                if (!deniedFile.PrepareView(fullPath))
+                    error = ERROR_FILE_INVALID;
+                else
+                    verifyDeniedFile = true;
+                if (!verifyDeniedFile) { /* preserve the original error path without opening another object */ }
+                else if (digestSession.IsOpen() && digestSession.Contains(fullPath))
+                {
+                    protectedSession = &digestSession;
+                    error = ERROR_SUCCESS;
+                    scoped = true;
+                }
+                else if (protectedSession && protectedSession->IsOpen() && protectedSession->Contains(fullPath))
+                {
+                    error = ERROR_SUCCESS;
+                    scoped = true;
+                }
+                else if (FindFileConsentLimit(error, file->Attr, remainingFileConsents))
+                    data->IncompleteReasons |= FindIncompleteProtectedFailure;
                 else
                 {
                     --remainingFileConsents;
-                    error = AuthorizeFindFile(data, fullPath, singleFile);
+                    const auto searchRoot = FindSearchRootForFile(data, fullPath);
+                    error = searchRoot.empty() ? ERROR_ACCESS_DENIED : AuthorizeFindFile(data, searchRoot, digestSession);
                     if (!error)
                     {
-                        protectedSession = &singleFile;
+                        protectedSession = &digestSession;
                         scoped = true;
                     }
                 }
@@ -1325,7 +1359,8 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
         if (opened)
         {
             if (size != file->Size.Value || CompareFileTime(&modified, &file->LastWrite) != 0 ||
-                !FindListedIdentityMatches(file->ProtectedListedIdentity.get(), revision))
+                !FindListedIdentityMatches(file->ProtectedListedIdentity.get(), revision) ||
+                (verifyDeniedFile && !deniedFile.MatchesReadSource(revision)))
                 error = ERROR_FILE_INVALID;
             else
                 match = predicates.Match(data, *protectedSession, fullPath, display, file->Size, error);
@@ -1382,13 +1417,9 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
     }
     if (data->StopSearch)
         return FALSE;
-    if (scopeLimit)
-    {
-        ReportFindScopeLimit(data, display.c_str());
-        return FALSE;
-    }
     if (error)
     {
+        data->IncompleteReasons |= FindIncompleteProtectedFailure;
         const auto message = error == ERROR_CANCELLED ? std::string(GetErrorText(error)) :
             FormatFindError(opened ? IDS_ERROR_READING_FILE2 : IDS_ERROR_OPENING_FILE2, error);
         const DWORD flags = error == ERROR_CANCELLED ? FLI_INFO : FLI_ERROR;
@@ -1512,6 +1543,7 @@ void CDuplicateCandidates::Examine(CGrepData* data, const FindProtectedSessions&
     BOOL byName = (data->FindDupFlags & FIND_DUPLICATES_NAME) != 0;
     BOOL bySize = (data->FindDupFlags & FIND_DUPLICATES_SIZE) != 0;
     const bool byContent = FindDuplicateContent(*data);
+    UacF7::ListingSession digestSession;
 
     // search completed, preparing results (MD5 computation may still follow)
     data->SearchingText->Set(LoadStr(IDS_FIND_DUPS_RESULTS));
@@ -1578,13 +1610,19 @@ void CDuplicateCandidates::Examine(CGrepData* data, const FindProtectedSessions&
             CFoundFilesData* file = At(i);
             const unsigned scope = file->ProtectedScope;
             auto* session = scope && scope <= protectedSessions.size() ? protectedSessions[scope - 1] : nullptr;
+            if (!scope)
+            {
+                const auto path = file->GetFullNameW();
+                for (auto* approved : protectedSessions)
+                    if (approved && approved->IsOpen() && approved->Contains(path)) { session = approved; break; }
+            }
             if (scope && (!session || !session->IsOpen()))
             {
                 // The operation that lost the connection already logged the error.
                 Delete(i);
                 continue;
             }
-            if (!GetMD5Digest(data, file, &progress, &readSize, &totalSize, session, remainingFileConsents, predicates))
+            if (!GetMD5Digest(data, file, &progress, &readSize, &totalSize, session, remainingFileConsents, predicates, digestSession))
             {
                 if (data->StopSearch)
                 {
@@ -2516,6 +2554,7 @@ public:
     }
 
     size_t Remaining() const { return requests.size() - count; }
+    bool HadProtectedRequests() const { return count != 0; }
 
     FindProtectedSessions Finish(CDuplicateCandidates* candidates)
     {
@@ -2954,7 +2993,7 @@ unsigned GrepThreadFBody(void* ptr)
         if (duplicateCandidates != NULL)
         {
             if (!data->StopSearch)
-                duplicateCandidates->Examine(data, protectedSessions, protectedQueue.Remaining());
+                duplicateCandidates->Examine(data, protectedSessions, protectedQueue.HadProtectedRequests() ? 0 : 1);
             delete duplicateCandidates;
         }
     }

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
 # | 2026-11-11 | Guard batch-wide refusal and per-root size scopes. | Keep denied consent isolated to one user operation. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Check the private partial size marker. | Keep incomplete directory size coverage without changing the SDK. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Check the shared modal UAC consent owner. | Retain coverage of size calculation after sharing the dialog. | #731 | GPT-6.1 Sol |
@@ -38,11 +39,11 @@ def main():
         assert 'IDCONTINUE' not in consent
         start = production.index('if (wideSizeScan && err == ERROR_ACCESS_DENIED')
         protected = production[start:production.index('if (err != ERROR_FILE_NOT_FOUND && err != ERROR_NO_MORE_FILES)', start)]
-        assert 'if (!session && canElevate && temporary.PrepareInventory(path))' in protected
+        assert 'if (!session && canElevate && !batchSelection && temporary.PrepareInventory(path))' in protected
         assert 'UacF7::CanOfferElevation()' in protected
-        assert 'sizeScope->Session.PrepareInventory(sizeScope->Root)' in protected
-        assert protected.index('if (scoped && sizeScope->StartResult)') < protected.index('choice = ConfirmProtectedSize')
-        assert 'sizeScope->StartResult = inventoryError;' in protected
+        assert 'scopedSession->PrepareInventory(sizeScope->Root)' in protected
+        assert protected.index('if (scoped && *startResult)') < protected.index('choice = ConfirmProtectedSize')
+        assert '*startResult = inventoryError;' in protected
         assert 'session->IsOpen() ? session->Inventory' in protected
         scan_start = production.index('const bool wideSizeScan = type == atCountSize;')
         assert 'FindFirstFileW(pattern.c_str(), &sizeRow)' in production[scan_start:start]
