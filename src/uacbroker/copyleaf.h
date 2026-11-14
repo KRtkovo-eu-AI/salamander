@@ -60,7 +60,7 @@ using StageVerifier = bool (*)(HANDLE, bool);
 
 namespace Detail
 {
-inline DWORD CheckPlainStreamsAndEa(HANDLE file, bool directory, StreamPolicy policy)
+inline DWORD CheckPlainStreamsAndEa(HANDLE file, bool directory, StreamPolicy policy, bool checkEa = true)
 {
     if (policy == StreamPolicy::RequireDefault)
     {
@@ -81,6 +81,8 @@ inline DWORD CheckPlainStreamsAndEa(HANDLE file, bool directory, StreamPolicy po
         }
     }
 
+    if (!checkEa)
+        return ERROR_SUCCESS;
     IO_STATUS_BLOCK io{};
     ULONG eaSize = 0;
     constexpr auto eaClass = static_cast<FILE_INFORMATION_CLASS>(7); // FileEaInformation
@@ -92,7 +94,7 @@ inline DWORD CheckPlainStreamsAndEa(HANDLE file, bool directory, StreamPolicy po
 
 inline DWORD ReadPlainMetadata(HANDLE file, FILE_BASIC_INFO& basic, bool directory = false,
                               StreamPolicy policy = StreamPolicy::RequireDefault,
-                              DWORD allowedAttributes = UacF7::plainCopyAttributes)
+                              DWORD allowedAttributes = UacF7::plainCopyAttributes, bool checkEa = true)
 {
     if (!GetFileInformationByHandleEx(file, FileBasicInfo, &basic, sizeof(basic)))
         return GetLastError();
@@ -101,7 +103,7 @@ inline DWORD ReadPlainMetadata(HANDLE file, FILE_BASIC_INFO& basic, bool directo
     const bool validFile = basic.FileAttributes && !(basic.FileAttributes & ~allowedAttributes);
     if (directory ? basic.FileAttributes != FILE_ATTRIBUTE_DIRECTORY : !validFile)
         return ERROR_NOT_SUPPORTED;
-    return CheckPlainStreamsAndEa(file, directory, policy);
+    return CheckPlainStreamsAndEa(file, directory, policy, checkEa);
 }
 
 inline bool SameBasicMetadata(const FILE_BASIC_INFO& first, const FILE_BASIC_INFO& second)

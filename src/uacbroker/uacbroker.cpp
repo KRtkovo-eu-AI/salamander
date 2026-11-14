@@ -2815,7 +2815,9 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
                 error = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), basic, false,
                     UacCopyLeaf::StreamPolicy::RequireDefault,
 #ifdef SAM_UAC_THIN_COPY_TEST
-                    UacF7::nativeCopyAttributes);
+                    // The original worker reads file data without rejecting NTFS EAs;
+                    // authorization still binds the source to its verified parent and ID.
+                    UacF7::nativeCopyAttributes, false);
 #else
                     FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE);
 #endif

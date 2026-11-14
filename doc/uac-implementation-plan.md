@@ -632,6 +632,8 @@ Tato část a odpovídající pravidla v `AGENTS.md` nahrazují rozporné požad
 | Revizní záruky, žurnál a obnova | **Není součástí cíle.** Nezavádět obecnou transakční ochranu běžného přepisu, persistentní žurnál ani obnovovací nabídku. | Starší T5/ZIP poznámky nejsou požadavkem na přidání těchto funkcí. Nahrazené duplicitní implementace odstraňovat při migraci celých oblastí, bez ztráty dat rozpracované práce. |
 | Průběh a uživatelská rozhodnutí | **Původní worker.** Retry, Skip, Skip All, Ignore, pauza, limit, Cancel, konflikty a návrat do popředí. | Zachovat skutečné `DoCopyFileLoopOrig` / `DoCopyFileLoopAsync`, nikoli další přenosový engine. |
 
+**Experimentální F5 a NTFS rozšířené atributy:** Původní datová smyčka nekontroluje přítomnost EA, zatímco sdílená kontrola staršího brokerového enginu je odmítala. Experimentální tenké otevření již nepodmiňuje přístup nepřítomností EA; zachovává ověření zdroje, rodiče, rozsahu a kontrolu proudů. Starší operace brokeru si původní kontrolu EA ponechávají. Místní zkouška skutečného dispatcheru s NTFS EA prošla v Debug i Release pro otevření zdroje, vytvoření a identitou omezený úklid cíle. Netvrdí zachování EA na kopii ani neověřuje celý `DoCopyFile` nebo UAC ve VM; společná akceptace zůstává otevřená.
+
 ### Akceptace prvního milníku a další migrace
 
 1. Dokončit ucelenou implementaci a místní integrační testy skutečné cesty `DoCopyFile`. Použít existující testy; odlišit test výňatku se stuby, skutečný dispatcher/NTFS a celý worker. Zahrnout Unicode, dlouhé cesty a cílené chyby, identitu i výpadky.

@@ -55,6 +55,51 @@ void CheckThinOverwrite(const Directory& source, const Directory& target, const 
     { Check(false, "prepare long Unicode overwrite parent"); return; }
     Check(deep.path.size() > 260, "overwrite uses actual long Unicode parent");
 
+    {
+        const std::wstring leaf = L"source-ea-東.txt";
+        const auto path = source.File(leaf);
+        Check(WriteByte(path, 0x45), "prepare source with NTFS extended attributes");
+        auto eaFile = Adopt(CreateFileW(path.c_str(), FILE_WRITE_EA | FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+        using NtSetEa = NTSTATUS (NTAPI*)(HANDLE, PIO_STATUS_BLOCK, PVOID, ULONG);
+        const auto setEa = reinterpret_cast<NtSetEa>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "NtSetEaFile"));
+        // FILE_FULL_EA_INFORMATION: header, NUL-terminated name, one-byte value.
+        struct EaBuffer { ULONG next; UCHAR flags; UCHAR nameLength; USHORT valueLength; char name[8]; UCHAR value; };
+        EaBuffer ea{}; ea.nameLength = 7; ea.valueLength = 1;
+        std::memcpy(ea.name, "uactest", 8); ea.value = 0x5a;
+        IO_STATUS_BLOCK io{};
+        FILE_ID_INFO identity{};
+        const bool prepared = eaFile && setEa && setEa(eaFile.get(), &io, &ea, 17) >= 0 &&
+            GetFileInformationByHandleEx(eaFile.get(), FileIdInfo, &identity, sizeof(identity));
+        Check(prepared, "set and identify source extended attribute");
+        if (!prepared) return;
+        ULONG eaSize = 0;
+        Check(NtQueryInformationFile(eaFile.get(), &io, &eaSize, sizeof(eaSize),
+            static_cast<FILE_INFORMATION_CLASS>(7)) >= 0 && eaSize != 0,
+            "source extended attribute is present");
+        eaFile.reset();
+        JobPipe job; DWORD status = ERROR_GEN_FAILURE; ThinWireReply reply{};
+        const bool opened = job.Open() && job.Thin(source, leaf, identity, deep, leaf,
+            Operation::ThinOpenSource, nullptr, false, status, reply, INVALID_HANDLE_VALUE,
+            INVALID_HANDLE_VALUE, false, 28u);
+        auto reader = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+        Check(opened && !status && reader, "thin source accepts NTFS extended attributes");
+        BYTE value = 0; DWORD bytes = 0;
+        Check(reader && ReadFile(reader.get(), &value, 1, &bytes, nullptr) && bytes == 1 && value == 0x45,
+            "thin source with extended attribute retains original data");
+        Check(job.Thin(source, leaf, identity, deep, leaf, Operation::ThinTargetCreate, nullptr, false,
+            status, reply, reader.get(), INVALID_HANDLE_VALUE, false, 28u) && !status && reply.value,
+            "target creation accepts source with extended attributes");
+        const FILE_ID_INFO targetId = reply.target;
+        auto output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+        output.reset();
+        Check(job.Thin(source, leaf, identity, deep, leaf, Operation::ThinDiscardTarget, &targetId, false,
+            status, reply, INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE, false, 28u) && !status && IsAbsent(deep.File(leaf)),
+            "extended-attribute target cleanup remains identity-bound");
+        reader.reset(); job.Finish();
+        Check(DeleteFileW(path.c_str()) != FALSE, "remove extended-attribute test source");
+    }
+
     for (bool initiallyLarger : {false, true})
     {
         const std::wstring leaf = initiallyLarger ? L"growing-source-\u6771" : L"shrinking-source-\u65e5";
