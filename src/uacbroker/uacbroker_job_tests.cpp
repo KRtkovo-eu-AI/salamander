@@ -3052,7 +3052,39 @@ void CheckThinClientPlannedTree(const Directory& source, const Directory& target
               ReadFile(original.get(), actual.data(), static_cast<DWORD>(actual.size()), &bytesRead, nullptr) &&
               bytesRead == expected.size() && actual == expected,
               "changed copied prefix restarts and client deletes only the owned target");
-        thin.Close(); pipe.Finish();
+        if (!targetCreated || input || output || !IsAbsent(targetFile) || !thin.IsOpen()) return;
+        original.reset();
+        const auto restartedSource = thin.Open(nullptr, request, UacF7::ThinOpenKind::Source, false, false, nullptr);
+        input = Adopt(restartedSource.file);
+        if (restartedSource.error || restartedSource.unknown || !input)
+        { Check(false, "reopen source on the same session after restart"); return; }
+        const auto restartedTarget = thin.Open(nullptr, request, UacF7::ThinOpenKind::TargetCreate, false, false,
+                                               nullptr, UacF7::ThinOpenedSource{input.get()});
+        output = Adopt(restartedTarget.file);
+        if (restartedTarget.error || restartedTarget.unknown || !output)
+        { Check(false, "create target on the same session after restart"); return; }
+        LinkedThinContext restartContext{&thin, &request, restartedTarget.targetIdentity, input.get(), targetFile.c_str(), false};
+        rawInput = input.release();
+        rawOutput = output.release();
+        const bool restarted = RunLinkedNativeSyncLoop(&rawInput, &rawOutput, sourceFile.c_str(), targetFile.c_str(), sourceSize,
+            &restartContext, LinkedThinCheck, LinkedThinRetry, LinkedThinDiscard, FALSE) &&
+            restartContext.reopenCount == 1 && !restartContext.discardCount;
+        input.reset(rawInput); output.reset(rawOutput);
+        Check(restarted, "complete restarted copy using the same scoped session");
+        output.reset();
+        const bool releasedRestart = thin.ReleaseTarget(request, restartedTarget.targetIdentity) == ERROR_SUCCESS;
+        auto finalCopy = Adopt(CreateFileW(targetFile.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr));
+        bytesRead = 0; actualSize = {};
+        const bool finalMatches = finalCopy && GetFileSizeEx(finalCopy.get(), &actualSize) &&
+            actualSize.QuadPart == static_cast<LONGLONG>(expected.size()) &&
+            ReadFile(finalCopy.get(), actual.data(), static_cast<DWORD>(actual.size()), &bytesRead, nullptr) &&
+            bytesRead == expected.size() && actual == expected;
+        job = thin.ReturnPlanned();
+        Check(restarted && releasedRestart && finalMatches && job && job.get() == address &&
+              job->IsOpen() && job->OpeningGeneration() == generation,
+              "restarted copy matches source and retains the original job generation");
+        if (job) job->Close();
+        pipe.Finish();
         return;
     }
 #else
