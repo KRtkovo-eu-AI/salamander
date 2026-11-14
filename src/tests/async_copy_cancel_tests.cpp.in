@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-14 | Exercise native async suspension on connection loss. | Verify a real pending read is drained before error reporting. | #731 | gpt-6.1-terra |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Exercise all async pause modes and completed-write loss. | Check tracked I/O drains before loss is reported. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Test synchronous pause with a disconnected session. | Verify native error state and prompt detection before resume. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Test paused connection loss with pending I/O. | Verify the native wait can stop before resume. | #731 | gpt-6.1-terra |
 // | 2026-11-13 | Test issued asynchronous I/O at cancellation. | Exercise native state and drain with real pending pipe requests. | #731 | GPT-6 |
@@ -116,19 +117,21 @@ struct CCopy_Context
     HANDLE* Out = nullptr;
     COperations* Script = nullptr;
     CThinCopyWorker* Thin = nullptr;
+    DWORD PauseFailure = ERROR_SUCCESS;
     BOOL StartReading(int, DWORD, DWORD*, BOOL);
     BOOL StartWriting(int, DWORD*);
     void FreeBlock(int);
     void CancelOpPhase1();
     void CancelOpPhase2(int);
-    BOOL HandleSuspModeAndCancel(BOOL*);
+    BOOL FinishPauseFailure(BOOL*, int);
+    BOOL HandleSuspModeAndCancel(BOOL*, BOOL forceWait = FALSE);
 };
 // A pipe is deliberately not seekable. Seeking is not part of this test.
 static BOOL SalSetFilePointer(HANDLE, const CQuadWord&) { return TRUE; }
+#define SAM_UAC_THIN_COPY_TEST
 @@ISSUE@@
 @@FREE@@
 @@DRAIN@@
-#define SAM_UAC_THIN_COPY_TEST
 @@SUSPEND@@
 #undef SAM_UAC_THIN_COPY_TEST
 
@@ -458,6 +461,7 @@ static void TestConnectionLossWithPendingRead()
     CProgressDlgData dialog;
     dialog.CancelWorker = &cancelled; dialog.WorkerNotSuspended = resumed;
     CThinCopyWorker thin;
+    thin.dialog = dialog;
     CCopy_Context ctx;
     ctx.AsyncPar = &async; ctx.DlgData = &dialog; ctx.In = &input; ctx.Out = &output;
     ctx.Script = &ops; ctx.Thin = &thin;
@@ -475,10 +479,10 @@ static void TestConnectionLossWithPendingRead()
     CloseHandle(resumed);
 }
 
-static void TestPausedConnectionLoss()
+static void TestPausedConnectionLoss(bool speedLimitCanChange)
 {
     Pipe pipe;
-    if (!pipe.Open(true, 92)) { Check(false, "create pipe for paused loss"); return; }
+    if (!pipe.Open(true, speedLimitCanChange ? 93 : 92)) { Check(false, "create pipe for paused loss"); return; }
     CAsyncCopyParams async;
     async.Init(TRUE);
     if (async.Failed() || !async.Buffers[0]) { Check(false, "allocate paused-loss buffer"); return; }
@@ -487,9 +491,11 @@ static void TestPausedConnectionLoss()
     HANDLE resumed = CreateEventW(nullptr, TRUE, FALSE, nullptr);
     if (!resumed) { Check(false, "create paused event"); return; }
     COperations ops;
+    ops.ChangeSpeedLimit = speedLimitCanChange ? TRUE : FALSE;
     CProgressDlgData dialog;
     dialog.CancelWorker = &cancelled; dialog.WorkerNotSuspended = resumed;
     CThinCopyWorker thin;
+    thin.dialog = dialog;
     CCopy_Context ctx;
     ctx.AsyncPar = &async; ctx.DlgData = &dialog; ctx.In = &input; ctx.Out = &output;
     ctx.Script = &ops; ctx.Thin = &thin;
@@ -499,13 +505,58 @@ static void TestPausedConnectionLoss()
     thin.pending = async.GetOverlapped(0);
     std::thread watcher([&] { Sleep(150); thin.connectionStatus.store(ERROR_BROKEN_PIPE); Sleep(1500); SetEvent(resumed); });
     const ULONGLONG start = GetTickCount64();
-    const BOOL stopped = ctx.HandleSuspModeAndCancel(&copyError);
+    const BOOL stopped = ctx.HandleSuspModeAndCancel(&copyError, speedLimitCanChange ? TRUE : FALSE);
     const ULONGLONG elapsed = GetTickCount64() - start;
     Check(stopped && copyError && thin.reports == 1 && thin.drainedBeforeReport && elapsed < 1400 &&
           WaitForSingleObject(resumed, 0) == WAIT_TIMEOUT,
           "paused worker detects loss and drains pending I/O before resume");
     watcher.join();
     DrainUnexpectedPending(input, async.GetOverlapped(0));
+    CloseHandle(resumed);
+}
+
+static void TestCompletedWritePauseLoss()
+{
+    Pipe pipe;
+    if (!pipe.Open(false, 94)) { Check(false, "create pipe for completed-write pause loss"); return; }
+    CAsyncCopyParams async;
+    async.Init(TRUE);
+    if (async.Failed() || !async.Buffers[0]) { Check(false, "allocate completed-write pause buffer"); return; }
+    BOOL cancelled = FALSE;
+    HANDLE input = pipe.server, output = pipe.server;
+    HANDLE resumed = CreateEventW(nullptr, TRUE, TRUE, nullptr);
+    if (!resumed) { Check(false, "create completed-write resume event"); return; }
+    COperations ops;
+    CProgressDlgData dialog;
+    dialog.CancelWorker = &cancelled; dialog.WorkerNotSuspended = resumed;
+    CThinCopyWorker thin; thin.dialog = dialog; thin.connectionStatus = ERROR_BROKEN_PIPE;
+    CCopy_Context ctx;
+    ctx.AsyncPar = &async; ctx.DlgData = &dialog; ctx.In = &input; ctx.Out = &output;
+    ctx.Script = &ops; ctx.Thin = &thin;
+    ctx.BlockState[0] = cbsRead; ctx.BlockDataLen[0] = 8; ctx.FreeBlocks = 7;
+    std::memcpy(async.Buffers[0], "12345678", 8);
+    observedWriteError = ERROR_SUCCESS; observedWriteSucceeded = false;
+    DWORD error = ERROR_SUCCESS;
+    const BOOL started = ctx.StartWriting(0, &error);
+    if (observedWriteSucceeded && HasOverlappedIoCompleted(async.GetOverlapped(0)))
+    {
+        Check(!started && error == ERROR_BROKEN_PIPE && ctx.PauseFailure == ERROR_BROKEN_PIPE &&
+              ctx.BlockState[0] == cbsWriting && ctx.WritingBlocks == 1,
+              "completed write remains tracked when pause observes session loss");
+    }
+    else
+        std::printf("SKIP: completed-write pause case requires immediate completion\n");
+    thin.pending = async.GetOverlapped(0);
+    ctx.CancelOpPhase1();
+    BOOL copyError = FALSE;
+    if (ctx.PauseFailure != ERROR_SUCCESS)
+        Check(ctx.FinishPauseFailure(&copyError, IDS_ERRORREADINGFILE) && copyError &&
+              thin.reports == 1 && thin.drainedBeforeReport && ctx.PauseFailure == ERROR_SUCCESS,
+              "actual pause-failure handler drains before reporting");
+    else
+        ctx.CancelOpPhase2(-1);
+    Check(ctx.WritingBlocks == 0, "completed-write pause loss drains the tracked request");
+    DrainUnexpectedPending(output, async.GetOverlapped(0));
     CloseHandle(resumed);
 }
 
@@ -548,7 +599,9 @@ int wmain(int argc, wchar_t** argv)
     TestCompletedRead();
     TestCompletedWrite();
     TestConnectionLossWithPendingRead();
-    TestPausedConnectionLoss();
+    TestPausedConnectionLoss(false);
+    TestPausedConnectionLoss(true);
+    TestCompletedWritePauseLoss();
     TestSynchronousPauseConnectionLoss();
     return failures ? 1 : 0;
 }

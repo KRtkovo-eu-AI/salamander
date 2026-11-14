@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Check remaining async pause paths for thin-session loss. | Preserve issued I/O until its native cancel drain completes. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Observe thin session loss at native synchronous pause points. | Stop an approved copy without changing ordinary pause behavior. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Check the thin session during an async pause wait. | Drain pending I/O if the broker exits before resume. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Preserve native handling of locally created targets. | Elevated source access must not restrict ordinary target Retry or cleanup. | #731 | gpt-6.1-terra |
@@ -5785,6 +5786,7 @@ struct CCopy_Context
     const CQuadWord* LastTransferredFileSize;
 #ifdef SAM_UAC_THIN_COPY_TEST
     CThinCopyWorker* Thin;
+    DWORD PauseFailure = ERROR_SUCCESS;
 #endif
 
     CCopy_Context(CAsyncCopyParams* asyncPar, int numOfBlocks, CProgressDlgData* dlgData, COperation* op,
@@ -5850,10 +5852,13 @@ struct CCopy_Context
     // WARNING: frees unnecessary blocks; only those with data read from the input file remain, and they still
     //          follow WriteOffset (usable for retry)
     void CancelOpPhase2(int errBlkIndex);
+#ifdef SAM_UAC_THIN_COPY_TEST
+    BOOL FinishPauseFailure(BOOL* copyError, int caption);
+#endif
     BOOL RetryCopyReadErr(DWORD* err, BOOL* copyAgain, BOOL* errAgain);
     BOOL RetryCopyWriteErr(DWORD* err, BOOL* copyAgain, BOOL* errAgain, const CQuadWord& allocFileSize,
                            const CQuadWord& maxWriteOffset);
-    BOOL HandleSuspModeAndCancel(BOOL* copyError);
+    BOOL HandleSuspModeAndCancel(BOOL* copyError, BOOL forceWait = FALSE);
 };
 
 BOOL DisableLocalBuffering(CAsyncCopyParams* asyncPar, HANDLE file, DWORD* err)
@@ -5923,7 +5928,22 @@ BOOL CCopy_Context::StartReading(int blkIndex, DWORD readSize, DWORD* err, BOOL 
     FreeBlocks--;
     ReadingBlocks++;
     if (opCompleted && !Script->ChangeSpeedLimit)                   // when the speed limit can change, this is not a suitable wait point
-        WaitForSingleObject(DlgData->WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+    {
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (Thin)
+        {
+            const DWORD pauseError = Thin->WaitTransferResume();
+            if (pauseError != ERROR_SUCCESS)
+            {
+                PauseFailure = pauseError;
+                *err = pauseError;
+                return FALSE; // request is tracked; the caller must drain it
+            }
+        }
+        else
+#endif
+            WaitForSingleObject(DlgData->WorkerNotSuspended, INFINITE);
+    }
     if (*DlgData->CancelWorker)
     {
         *err = ERROR_CANCELLED;
@@ -5962,7 +5982,22 @@ BOOL CCopy_Context::StartWriting(int blkIndex, DWORD* err)
     BlockTime[blkIndex] = CurTime++;
     WritingBlocks++;
     if (opCompleted && !Script->ChangeSpeedLimit)                   // when the speed limit can change, this is not a suitable wait point
-        WaitForSingleObject(DlgData->WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+    {
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (Thin)
+        {
+            const DWORD pauseError = Thin->WaitTransferResume();
+            if (pauseError != ERROR_SUCCESS)
+            {
+                PauseFailure = pauseError;
+                *err = pauseError;
+                return FALSE; // request is tracked; the caller must drain it
+            }
+        }
+        else
+#endif
+            WaitForSingleObject(DlgData->WorkerNotSuspended, INFINITE);
+    }
     if (*DlgData->CancelWorker)
     {
         *err = ERROR_CANCELLED;
@@ -6125,6 +6160,19 @@ void CCopy_Context::CancelOpPhase2(int errBlkIndex)
     }
 }
 
+#ifdef SAM_UAC_THIN_COPY_TEST
+BOOL CCopy_Context::FinishPauseFailure(BOOL* copyError, int caption)
+{
+    if (!Thin || PauseFailure == ERROR_SUCCESS) return FALSE;
+    const DWORD pauseError = PauseFailure;
+    PauseFailure = ERROR_SUCCESS;
+    CancelOpPhase2(-1);
+    if (pauseError != ERROR_CANCELLED) Thin->ReportTargetFailure(pauseError, caption);
+    *copyError = TRUE;
+    return TRUE;
+}
+#endif
+
 BOOL CCopy_Context::RetryCopyReadErr(DWORD* err, BOOL* copyAgain, BOOL* errAgain)
 {
     if (*In != NULL)
@@ -6208,9 +6256,27 @@ BOOL CCopy_Context::HandleReadingErr(int blkIndex, DWORD err, BOOL* copyError, B
 
     CancelOpPhase1();
 
+#ifdef SAM_UAC_THIN_COPY_TEST
+    if (FinishPauseFailure(copyError, IDS_ERRORREADINGFILE)) return FALSE;
+#endif
+
     while (1)
     {
-        WaitForSingleObject(DlgData->WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (Thin)
+        {
+            const DWORD pauseError = Thin->WaitTransferResume();
+            if (pauseError != ERROR_SUCCESS)
+            {
+                CancelOpPhase2(blkIndex);
+                if (pauseError != ERROR_CANCELLED) Thin->ReportTargetFailure(pauseError, IDS_ERRORREADINGFILE);
+                *copyError = TRUE;
+                return FALSE;
+            }
+        }
+        else
+#endif
+            WaitForSingleObject(DlgData->WorkerNotSuspended, INFINITE);
         if (*DlgData->CancelWorker)
         {
             CancelOpPhase2(blkIndex);
@@ -6377,9 +6443,27 @@ BOOL CCopy_Context::HandleWritingErr(int blkIndex, DWORD err, BOOL* copyError, B
 
     CancelOpPhase1();
 
+#ifdef SAM_UAC_THIN_COPY_TEST
+    if (FinishPauseFailure(copyError, IDS_ERRORWRITINGFILE)) return FALSE;
+#endif
+
     while (1)
     {
-        WaitForSingleObject(DlgData->WorkerNotSuspended, INFINITE); // if we are supposed to be in suspend mode, wait ...
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (Thin)
+        {
+            const DWORD pauseError = Thin->WaitTransferResume();
+            if (pauseError != ERROR_SUCCESS)
+            {
+                CancelOpPhase2(blkIndex);
+                if (pauseError != ERROR_CANCELLED) Thin->ReportTargetFailure(pauseError, IDS_ERRORWRITINGFILE);
+                *copyError = TRUE;
+                return FALSE;
+            }
+        }
+        else
+#endif
+            WaitForSingleObject(DlgData->WorkerNotSuspended, INFINITE);
         if (*DlgData->CancelWorker)
         {
             CancelOpPhase2(blkIndex);
@@ -6451,28 +6535,21 @@ BOOL CCopy_Context::HandleWritingErr(int blkIndex, DWORD err, BOOL* copyError, B
     }
 }
 
-BOOL CCopy_Context::HandleSuspModeAndCancel(BOOL* copyError)
+BOOL CCopy_Context::HandleSuspModeAndCancel(BOOL* copyError, BOOL forceWait)
 {
-    if (!Script->ChangeSpeedLimit)                                  // if the speed limit cannot change (otherwise this is not a "suitable" place to wait)
+    if (!Script->ChangeSpeedLimit || forceWait)
     {
 #ifdef SAM_UAC_THIN_COPY_TEST
-        if (Thin && Thin->Scoped() && Thin->brokerHandleDelivered)
+        if (Thin)
         {
-            for (;;)
+            const DWORD pauseError = Thin->WaitTransferResume();
+            if (pauseError != ERROR_SUCCESS)
             {
-                const DWORD wait = WaitForSingleObject(DlgData->WorkerNotSuspended, 200);
-                if (wait == WAIT_OBJECT_0 || *DlgData->CancelWorker) break;
-                DWORD error = wait == WAIT_TIMEOUT ? Thin->CheckTransferConnection() :
-                    wait == WAIT_FAILED ? GetLastError() : ERROR_GEN_FAILURE;
-                if (wait != WAIT_TIMEOUT && error == ERROR_SUCCESS) error = ERROR_GEN_FAILURE;
-                if (error != ERROR_SUCCESS)
-                {
-                    CancelOpPhase1();
-                    CancelOpPhase2(-1);
-                    Thin->ReportTargetFailure(error, IDS_ERRORREADINGFILE);
-                    *copyError = TRUE;
-                    return TRUE;
-                }
+                CancelOpPhase1();
+                CancelOpPhase2(-1);
+                if (pauseError != ERROR_CANCELLED) Thin->ReportTargetFailure(pauseError, IDS_ERRORREADINGFILE);
+                *copyError = TRUE;
+                return TRUE;
             }
         }
         else
@@ -6687,14 +6764,16 @@ void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, vo
                         script->AddBytesToSpeedMetersAndTFSandPS(bytes, FALSE, bufferSize, &limitBufferSize);
 
                         if (!script->ChangeSpeedLimit)                                 // if the speed limit can change, this is not a "suitable" place to wait
-                            WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+                        {
+                            if (ctx.HandleSuspModeAndCancel(&copyError, TRUE)) return;
+                        }
                         operationDone += CQuadWord(bytes, 0);
                         SetProgressWithoutSuspend(hProgressDlg, CaclProg(operationDone, op->Size),
                                                   CaclProg(totalDone + operationDone, script->TotalSize), dlgData);
 
                         if (script->ChangeSpeedLimit)                                  // the speed limit is likely to change, this is a "suitable" place to wait until the
                         {                                                              // worker resumes so we can get the buffer size for copying again
-                            WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+                            if (ctx.HandleSuspModeAndCancel(&copyError, TRUE)) return;
                             script->GetNewBufSize(&limitBufferSize, bufferSize);
                         }
 
