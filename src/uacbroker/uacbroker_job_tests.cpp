@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Probe an idle dispatcher pipe across process death. | Evaluate non-consuming session-loss detection for active F5. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Terminate an external dispatcher before its handle reply. | Observe actual cross-process loss after duplication. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Exercise lost replies after actual handle duplication. | Measure whether repeated failed sessions leave host handles alive. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Transmit deferred conflict evidence in dispatcher fixtures. | Exercise the real request frame after consent. | #731 | gpt-6.1-terra |
@@ -264,6 +265,15 @@ public:
     }
 
     DWORD ExternalPid() const { return child ? GetProcessId(child.get()) : 0; }
+
+    DWORD ProbeExternalPipe() const
+    {
+        if (!server) return ERROR_INVALID_HANDLE;
+        DWORD available = 0;
+        if (!PeekNamedPipe(server.get(), nullptr, 0, nullptr, &available, nullptr))
+            return GetLastError();
+        return available ? ERROR_INVALID_DATA : ERROR_SUCCESS;
+    }
 #endif
 
 #if defined(SAM_UAC_CLIENT_PIPE_HARNESS) && defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_PLANNED_PROTOTYPE)
@@ -4766,6 +4776,7 @@ void CheckThinExternalCrash(const Directory& source, const Directory& target)
     { Check(false, "identify process-crash source"); return; }
     JobPipe job;
     if (!job.OpenExternal()) { Check(false, "open external dispatcher"); return; }
+    Check(job.ProbeExternalPipe() == ERROR_SUCCESS, "idle external pipe is connected before requests");
     DWORD result = ERROR_GEN_FAILURE;
     ThinWireReply reply{};
     if (!job.Thin(source, sourceLeaf, identity, target, targetLeaf, Operation::ThinOpenSource,
@@ -4780,8 +4791,10 @@ void CheckThinExternalCrash(const Directory& source, const Directory& target)
     Check(output && GetFileInformationByHandleEx(output.get(), FileIdInfo, &actualTarget, sizeof(actualTarget)) &&
           UacRenameLeaf::Detail::SameSource(actualTarget, reply.target),
           "external dispatcher returned the identified target handle");
+    Check(job.ProbeExternalPipe() == ERROR_SUCCESS, "idle external pipe remains connected after handle transfers");
     if (!job.CrashExternal()) { Check(false, "terminate exact external dispatcher"); return; }
     Check(true, "terminate exact external dispatcher");
+    Check(job.ProbeExternalPipe() == ERROR_BROKEN_PIPE, "idle external pipe detects dispatcher death without consuming a reply");
     BYTE value = 0; DWORD count = 0;
     Check(ReadFile(input.get(), &value, 1, &count, nullptr) && count == 1 && value == 0x51,
           "source handle remains usable after dispatcher process death");
