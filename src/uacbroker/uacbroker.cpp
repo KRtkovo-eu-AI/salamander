@@ -4601,6 +4601,10 @@ private:
 };
 #endif
 
+#if defined(SAM_UAC_F7_HOST) && defined(SAM_UAC_THIN_COPY_TEST)
+#include "thin_launch_access_probe.h"
+#endif
+
 int RunProbe(const InstallLocation& install, bool drop, bool badVersion
 #ifdef SAM_UAC_F7_HOST
              , HWND owner, RequestHeader* request, std::wstring* payload, UacF7::MetadataChange* metadata, UacF7::Result* result,
@@ -4722,6 +4726,12 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
 #endif
         return Report(error == ERROR_CANCELLED ? Cancelled : Failed, L"Launch broker", error);
     }
+#if defined(SAM_UAC_F7_HOST) && defined(SAM_UAC_THIN_COPY_TEST)
+    // Observe the original ShellExecuteEx handle before any narrowing or
+    // closure. This optional test hook does not change the granted rights.
+    if (request && IsThinOpen(request->operation))
+        UacThinLaunchProbe::Observe(launch.hProcess);
+#endif
     const auto child = Adopt(launch.hProcess);
     const DWORD pid = child ? GetProcessId(child.get()) : 0;
     if (!pid)
