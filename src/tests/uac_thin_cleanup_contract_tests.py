@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Track the source revalidation result signature. | Keep cleanup contracts attached to the actual worker methods. | #731 | GPT-6 |
 # | 2026-11-14 | Distinguish ordinary overwrites from scoped target cleanup. | Preserve upstream behavior without using the broker for local mutations. | #731 | GPT-6 |
 # | 2026-11-13 | Cover unstarted prepared scope during Retry. | Prevent a missing target from being created before identity validation. | #731 | GPT-6 |
 # | 2026-11-13 | Check scoped preallocation reset and failure exit. | Keep the cleanup regression check aligned with handle-based recovery. | #731 | GPT-6 |
@@ -73,7 +74,7 @@ class ScopedCleanupContracts(unittest.TestCase):
         self.assertIn("if (!thinScopedAttributes)", code)
 
     def test_unknown_close_does_not_send_discard(self):
-        code = section("HANDLE CThinCopyWorker::CancelReceivedHandle(", "void CThinCopyWorker::RememberSource(")
+        code = section("HANDLE CThinCopyWorker::CancelReceivedHandle(", "bool CThinCopyWorker::RememberSource(")
         failure = code.split("if (!CloseHandle(received))", 1)[1].split("const bool receivedWasTarget", 1)[0]
         self.assertIn("ReportTargetFailure(closeError)", failure)
         self.assertIn("return INVALID_HANDLE_VALUE", failure)

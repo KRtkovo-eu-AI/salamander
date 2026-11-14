@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Exercise revalidation after unavailable identity probes. | Preserve fixed identities while allowing safe Retry and blocking terminal ownership states. | #731 | GPT-6 |
 // | 2026-11-14 | Model native overwrite routing. | Keep target retry tests aligned with the worker. | #731 | GPT-6 |
 // | 2026-11-13 | Keep target continuity loss sticky across Retry. | Prevent later matching opens from clearing the cleanup guard. | #731 | gpt-6.1-terra |
 // | 2026-11-13 | Exercise target continuity before elevation. | Refuse replacements and preserve their cleanup boundary. | #731 | GPT-6 |
@@ -21,8 +22,19 @@ enum class Operation { Copy };
 struct MoveFileIdentity { unsigned long long serial = 0; unsigned char id[16]{}; };
 static int captureCalls = 0, prepareCalls = 0;
 static unsigned char preparedSourceId = 1;
+static bool nativeIdentity = false, failNativeCapture = false;
 static bool CaptureMoveFileIdentity(HANDLE file, MoveFileIdentity& value) {
     ++captureCalls;
+    if (nativeIdentity) {
+        if (failNativeCapture) {
+            failNativeCapture = false; SetLastError(ERROR_NOT_READY); return false;
+        }
+        FILE_ID_INFO id{};
+        if (!GetFileInformationByHandleEx(file, FileIdInfo, &id, sizeof(id))) return false;
+        value.serial = id.VolumeSerialNumber;
+        std::memcpy(value.id, id.FileId.Identifier, sizeof(value.id));
+        return true;
+    }
     if (file == reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(0x34))) {
         SetLastError(ERROR_NOT_SUPPORTED); return false;
     }
@@ -74,7 +86,7 @@ struct CThinCopyWorker {
         if (!EnsurePrepared()) return INVALID_HANDLE_VALUE;
         SetLastError(openedError); return opened;
     }
-    void RememberSource(HANDLE, bool force = false);
+    bool RememberSource(HANDLE, bool force = false);
     void RememberTarget(HANDLE, bool force = false);
     bool ValidateRetriedTarget(HANDLE);
     bool RefuseUnsafeTargetCleanup() { ++refusedCleanup; return false; }
@@ -272,20 +284,20 @@ int wmain(int argc, wchar_t** argv) {
         SetLastError(ERROR_ALREADY_EXISTS);
         HANDLE output = THIN_OPEN_SOURCE_RETRY(&local, originalUnavailable ? same : unavailable, false);
         Check(output == (originalUnavailable ? same : unavailable) && GetLastError() == ERROR_ALREADY_EXISTS &&
-              local.sourceContinuityLost && !local.request && !local.session,
+              !local.sourceContinuityLost && !local.request && !local.session,
               originalUnavailable ? "missing old identity does not break local Retry" :
                                     "missing reopened identity does not break local Retry", failures);
         local.RememberSource(same, true);
         SetLastError(ERROR_ALREADY_EXISTS);
-        Check(THIN_OPEN_SOURCE_RETRY(&local, same, false) == same && local.sourceContinuityLost &&
-              GetLastError() == ERROR_ALREADY_EXISTS,
-              "later matching local Retry cannot clear unknown continuity", failures);
+        Check(THIN_OPEN_SOURCE_RETRY(&local, same, false) == same && !local.sourceContinuityLost &&
+              local.earlierSourceKnown && local.earlierSource.id[0] == 1 && GetLastError() == ERROR_ALREADY_EXISTS,
+              "later matching local Retry validates the original source", failures);
         const int beforePrepare = UacF7::prepareCalls;
         SetLastError(ERROR_ACCESS_DENIED);
         output = THIN_OPEN_TARGET_CREATE(&local, INVALID_HANDLE_VALUE, false);
-        Check(output == INVALID_HANDLE_VALUE && GetLastError() == ERROR_FILE_INVALID &&
-              !local.request && !local.session && UacF7::prepareCalls == beforePrepare,
-              "unknown continuity blocks later elevation before preparation", failures);
+        Check(output == local.opened && local.request && local.sourceVerified &&
+              UacF7::prepareCalls == beforePrepare + 1,
+              "successful revalidation allows preparation after temporary query failure", failures);
     }
     {
         CThinCopyWorker local; local.dialog.CancelWorker = &cancelled;
@@ -335,8 +347,25 @@ int wmain(int argc, wchar_t** argv) {
         const int beforePrepare = UacF7::prepareCalls;
         SetLastError(ERROR_SUCCESS);
         Check(!local.EnsurePrepared() && GetLastError() == ERROR_FILE_INVALID &&
-              local.sourceContinuityLost && !local.request && UacF7::prepareCalls == beforePrepare,
-              "identity loss during preparation prevents elevation", failures);
+              !local.sourceContinuityLost && !local.request && UacF7::prepareCalls == beforePrepare,
+              "unavailable live source query blocks only this preparation attempt", failures);
+        current = same;
+        Check(local.EnsurePrepared() && local.sourceVerified && local.earlierSourceKnown &&
+              !local.sourceContinuityLost && UacF7::prepareCalls == beforePrepare + 1,
+              "preparation recaptures the live source after temporary failure", failures);
+    }
+    {
+        CThinCopyWorker prepared; prepared.dialog.CancelWorker = &cancelled;
+        prepared.request = std::make_unique<UacF7::PreparedTransfer>();
+        prepared.RememberSource(original, true);
+        HANDLE current = unavailable; prepared.sourceHandle = &current;
+        const int beforePrepare = UacF7::prepareCalls;
+        Check(!prepared.EnsurePrepared() && !prepared.sourceVerified && prepared.earlierSourceKnown &&
+              prepared.earlierSource.id[0] == 1 && !prepared.sourceContinuityLost,
+              "failed query keeps the approved source identity but blocks current handle", failures);
+        current = same;
+        Check(prepared.EnsurePrepared() && prepared.sourceVerified && UacF7::prepareCalls == beforePrepare,
+              "existing request revalidates live source without expanding scope", failures);
     }
     {
         CThinCopyWorker local; local.dialog.CancelWorker = &cancelled;
@@ -370,19 +399,63 @@ int wmain(int argc, wchar_t** argv) {
         HANDLE output = ThinCopyOpened(&pending, missingIdentity ? unavailable : changed,
             UacF7::ThinOpenKind::TargetRetry, false, ThinOpenPhase::Retry);
         Check(output == INVALID_HANDLE_VALUE && GetLastError() == ERROR_FILE_INVALID &&
-              pending.targetContinuityLost && pending.suppressLocalCleanup && closeCalls == beforeClose + 1,
+              pending.targetContinuityLost == !missingIdentity && pending.targetKnown &&
+              pending.target.id[0] == 1 && pending.suppressLocalCleanup && closeCalls == beforeClose + 1,
               missingIdentity ? "unverifiable pending target is not returned" :
                                 "replacement pending target is not returned", failures);
         const int beforeSecondClose = closeCalls;
         output = ThinCopyOpened(&pending, same, UacF7::ThinOpenKind::TargetRetry, false, ThinOpenPhase::Retry);
-        Check(output == INVALID_HANDLE_VALUE && GetLastError() == ERROR_FILE_INVALID &&
-              pending.targetContinuityLost && pending.suppressLocalCleanup && closeCalls == beforeSecondClose + 1,
-              "later matching target cannot clear prior continuity loss", failures);
+        Check(missingIdentity ?
+              output == same && !pending.targetContinuityLost && !pending.suppressLocalCleanup &&
+                  closeCalls == beforeSecondClose :
+              output == INVALID_HANDLE_VALUE && GetLastError() == ERROR_FILE_INVALID &&
+                  pending.targetContinuityLost && pending.suppressLocalCleanup && closeCalls == beforeSecondClose + 1,
+              missingIdentity ? "target Retry succeeds after an unavailable query" :
+                                "known replacement remains rejected by later Retry", failures);
         int localDeletes = 0;
         Check(!THIN_DELETE_TARGET(&pending, (++localDeletes, true)) && !localDeletes && pending.refusedCleanup == 1,
               "pending target mismatch never deletes a pathname", failures);
-        Check(!pending.EnsurePrepared() && GetLastError() == ERROR_FILE_INVALID,
-              "target mismatch permanently prevents elevation", failures);
+        Check(missingIdentity ? pending.EnsurePrepared() :
+              !pending.EnsurePrepared() && GetLastError() == ERROR_FILE_INVALID,
+              missingIdentity ? "revalidated target allows the existing request" :
+                                "target mismatch still prevents elevation", failures);
+    }
+    for (bool started : {false, true}) {
+        CThinCopyWorker target; target.dialog.CancelWorker = &cancelled;
+        target.request = std::make_unique<UacF7::PreparedTransfer>();
+        target.session = &existing; target.scopeMayHaveStarted = started;
+        target.RememberTarget(original, true);
+        target.RememberTarget(unavailable, true);
+        Check(target.targetKnown && target.target.id[0] == 1 && !target.targetContinuityLost &&
+              target.suppressLocalCleanup, "failed target probe retains the original identity", failures);
+        HANDLE output = ThinCopyOpened(&target, same, UacF7::ThinOpenKind::TargetRetry, true, ThinOpenPhase::Retry);
+        Check(output == same && !target.suppressLocalCleanup && !target.targetContinuityLost,
+              started ? "started scope can revalidate its target" : "prepared scope can revalidate its target", failures);
+    }
+    {
+        CThinCopyWorker target; target.dialog.CancelWorker = &cancelled;
+        target.request = std::make_unique<UacF7::PreparedTransfer>();
+        target.RememberTarget(unavailable, true);
+        HANDLE output = ThinCopyOpened(&target, same, UacF7::ThinOpenKind::TargetRetry, false, ThinOpenPhase::Retry);
+        Check(output == INVALID_HANDLE_VALUE && !target.targetKnown && !target.targetContinuityLost &&
+              target.suppressLocalCleanup, "unknown original target cannot adopt a later pathname reopen", failures);
+        target.RememberTarget(original, true); // still-owned original handle, not the rejected reopen
+        Check(target.targetKnown && !target.suppressLocalCleanup,
+              "still-open owned target can establish identity after transient failure", failures);
+    }
+    for (bool uncertain : {false, true}) {
+        CThinCopyWorker stopped; stopped.dialog.CancelWorker = &cancelled;
+        stopped.request = std::make_unique<UacF7::PreparedTransfer>();
+        stopped.RememberSource(original, true);
+        stopped.RememberTarget(original, true);
+        stopped.RememberSource(unavailable, true);
+        stopped.RememberTarget(unavailable, true);
+        stopped.terminal = !uncertain; stopped.cleanupUncertain = uncertain;
+        HANDLE current = same; stopped.sourceHandle = &current;
+        Check(!stopped.EnsurePrepared() && GetLastError() == ERROR_OPERATION_ABORTED,
+              "matching identity cannot resume terminal or uncertain work", failures);
+        Check(!stopped.ValidateRetriedTarget(same) && stopped.suppressLocalCleanup,
+              "matching target cannot clear terminal cleanup protection", failures);
     }
     {
         CThinCopyWorker observed; observed.dialog.CancelWorker = &cancelled;
@@ -470,6 +543,76 @@ int wmain(int argc, wchar_t** argv) {
         Check(output == INVALID_HANDLE_VALUE && error == ERROR_FILE_INVALID && pending.suppressLocalCleanup &&
               pending.targetContinuityLost, "replacement pending target is closed before use", failures);
     }
+    // Real NTFS identities and fresh CreateFileW opens; only the one metadata
+    // query is injected. This still does not run the complete copy worker.
+    UacF7::nativeIdentity = true;
+    const std::wstring parent = L"\\\\?\\" + fixture + L"\\" + std::wstring(110, L'x') + L"-東";
+    const std::wstring deep = parent + L"\\" + std::wstring(110, L'y') + L"-日";
+    if (!CreateDirectoryW(parent.c_str(), nullptr) || !CreateDirectoryW(deep.c_str(), nullptr)) return 5;
+    Check(deep.size() > 260, "native identity fixture crosses the Win32 path limit", failures);
+    for (bool overlapped : {false, true}) {
+        const std::wstring path = deep + (overlapped ? L"\\async-ä.txt" : L"\\sync-東.txt");
+        const std::wstring parked = path + L".parked";
+        HANDLE first = CreateFileW(path.c_str(), GENERIC_READ | GENERIC_WRITE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, CREATE_NEW, 0, nullptr);
+        if (first == INVALID_HANDLE_VALUE) return 6;
+        const BYTE byte = 0x54; DWORD written = 0;
+        if (!WriteFile(first, &byte, 1, &written, nullptr) || written != 1) return 7;
+        CThinCopyWorker source;
+        source.RememberSource(first, true);
+        const auto expectedSource = source.earlierSource;
+        UacF7::failNativeCapture = true;
+        Check(!source.RememberSource(first, true) && source.earlierSourceKnown && !source.sourceContinuityLost &&
+              source.earlierSource.serial == expectedSource.serial &&
+              std::memcmp(source.earlierSource.id, expectedSource.id, sizeof(expectedSource.id)) == 0,
+              "real source identity survives an injected metadata failure", failures);
+        Check(source.RememberSource(first, true) && !source.sourceContinuityLost,
+              "live source is revalidated by a real NTFS identity query", failures);
+        CThinCopyWorker target;
+        target.request = std::make_unique<UacF7::PreparedTransfer>();
+        target.session = &existing; target.scopeMayHaveStarted = true;
+        target.RememberTarget(first, true);
+        const auto expectedTarget = target.target;
+        if (!RealClose(first)) return 8;
+        const auto reopen = [&]() {
+            return CreateFileW(path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING,
+                overlapped ? FILE_FLAG_OVERLAPPED : 0, nullptr);
+        };
+        HANDLE retry = reopen();
+        if (retry == INVALID_HANDLE_VALUE) return 9;
+        UacF7::failNativeCapture = true;
+        Check(ThinCopyOpened(&target, retry, UacF7::ThinOpenKind::TargetRetry, overlapped, ThinOpenPhase::Retry) ==
+              INVALID_HANDLE_VALUE && !target.targetContinuityLost && target.targetKnown,
+              "failed real target query closes the current reopen without losing its reference", failures);
+        retry = reopen();
+        if (retry == INVALID_HANDLE_VALUE) return 10; // previous rejected handle must be closed
+        Check(ThinCopyOpened(&target, retry, UacF7::ThinOpenKind::TargetRetry, overlapped, ThinOpenPhase::Retry) == retry &&
+              !target.suppressLocalCleanup && target.target.serial == expectedTarget.serial &&
+              std::memcmp(target.target.id, expectedTarget.id, sizeof(expectedTarget.id)) == 0,
+              "fresh native target reopen succeeds after temporary query failure", failures);
+        if (!RealClose(retry) || !MoveFileW(path.c_str(), parked.c_str())) return 11;
+        HANDLE replacement = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, 0, nullptr);
+        if (replacement == INVALID_HANDLE_VALUE) return 12;
+        const BYTE replacementByte = 0x63;
+        if (!WriteFile(replacement, &replacementByte, 1, &written, nullptr) || !RealClose(replacement)) return 13;
+        retry = reopen();
+        if (retry == INVALID_HANDLE_VALUE) return 14;
+        Check(ThinCopyOpened(&target, retry, UacF7::ThinOpenKind::TargetRetry, overlapped, ThinOpenPhase::Retry) ==
+              INVALID_HANDLE_VALUE && GetLastError() == ERROR_FILE_INVALID && target.targetContinuityLost &&
+              target.suppressLocalCleanup && std::memcmp(target.target.id, expectedTarget.id, sizeof(expectedTarget.id)) == 0,
+              "real replacement is rejected without replacing the original authority", failures);
+        for (bool old : {false, true}) {
+            HANDLE preserved = CreateFileW((old ? parked : path).c_str(), GENERIC_READ, FILE_SHARE_READ,
+                nullptr, OPEN_EXISTING, 0, nullptr);
+            BYTE actual = 0; DWORD read = 0;
+            Check(preserved != INVALID_HANDLE_VALUE && ReadFile(preserved, &actual, 1, &read, nullptr) &&
+                  read == 1 && actual == (old ? byte : replacementByte),
+                  "both NTFS objects retain their original contents after rejection", failures);
+            if (preserved != INVALID_HANDLE_VALUE) RealClose(preserved);
+        }
+        if (!DeleteFileW(path.c_str()) || !DeleteFileW(parked.c_str())) return 15;
+    }
+    if (!RemoveDirectoryW(deep.c_str()) || !RemoveDirectoryW(parent.c_str())) return 16;
     Check(RealClose(cancelEvent) != FALSE, "close test cancellation event", failures);
     return failures ? 1 : 0;
 }

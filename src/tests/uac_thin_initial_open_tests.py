@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Test recoverable identity queries and fixed scope identities. | Distinguish temporary metadata failures from substitutions and terminal states. | #731 | GPT-6 |
 # | 2026-11-13 | Test scoped target continuity before probe. | Reject substituted targets without elevating or deleting them. | #731 | GPT-6 |
 # | 2026-11-13 | Check resume waits around scoped elevation. | Detect pause regression before preparation, consent and broker I/O. | #731 | GPT-6 |
 # | 2026-11-13 | Test sticky source continuity before elevation. | Keep ordinary Retry behavior without trusting a changed source later. | #731 | GPT-6 |
@@ -30,7 +31,7 @@ def main():
     begin = worker.index("bool CThinCopyWorker::SourceContinuityAllowsElevation()")
     end = worker.index("HANDLE CThinCopyWorker::Open(", begin)
     preparation = worker[begin:end]
-    begin = worker.index("void CThinCopyWorker::RememberSource(")
+    begin = worker.index("bool CThinCopyWorker::RememberSource(")
     end = worker.index("bool CThinCopyWorker::ReportTargetFailure(", begin)
     remember = worker[begin:end]
     begin = worker.index("#define THIN_OPEN_SOURCE(ctx, local, overlapped)")
@@ -67,7 +68,7 @@ def main():
         source = Path(temp) / "test.cpp"
         source.write_text(code, encoding="utf-8")
         exe = Path(temp) / "test.exe"
-        built = run([compiler, "/nologo", "/std:c++17", "/EHsc", "/W4", "/WX", *flags,
+        built = run([compiler, "/nologo", "/std:c++17", "/EHsc", "/utf-8", "/W4", "/WX", *flags,
                      str(source), "/Fe:" + str(exe)], cwd=temp, env=env, timeout=60)
         if built.returncode:
             return built.returncode
@@ -83,7 +84,8 @@ def main():
         raise RuntimeError("worker.cpp changed during test")
     print("worker.cpp SHA-256:", before)
     print("Actual extracted phase enum, cancellation guard, preparation, source identity tracking, open wrapper and macros;")
-    print("broker preparation and identity are deterministic stubs; local Retry uses real CreateFileW on NTFS.")
+    print("Broker preparation is stubbed; identity cases combine synthetic failures and actual NTFS FileIdInfo.")
+    print("Fresh sync/overlapped opens cover transient identity failure, replacement and long Unicode paths on NTFS.")
     print("Open() pause/cancellation placement is checked structurally; this does not run DoCopyFile or UAC.")
     return 0
 

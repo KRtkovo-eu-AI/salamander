@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Extract cleanup before the source revalidation result. | Keep the fixture aligned with the production method boundary. | #731 | GPT-6 |
 # | 2026-11-13 | Exercise uncertain thin opens and cleanup through the native warning. | Avoid duplicate or suppressed alerts without passing pointers. | #731 | GPT-6 |
 # | 2026-11-12 | Cover deferred source cancellation and safe local retry. | Preserve live targets and reject side-effecting reopen. | #731 | GPT-6 |
 # | 2026-11-12 | Exercise scoped cleanup state transitions. | Test failure handling with the actual helper methods and deterministic stubs. | #731 | GPT-6 |
@@ -29,7 +30,7 @@ def main():
     macro = worker[start:end]
     template = (ROOT / "src/tests/uac_thin_cleanup_methods_tests.cpp.in").read_text(encoding="utf-8")
     cancel = worker[worker.index("HANDLE CThinCopyWorker::CancelReceivedHandle("):
-                    worker.index("void CThinCopyWorker::RememberSource(")]
+                    worker.index("bool CThinCopyWorker::RememberSource(")]
     local_retry = worker[worker.index("static HANDLE ThinCopyOpenLocalRetry("):
                          worker.index("#define THIN_REMEMBER_SOURCE")]
     dialogs = read("src/dialogs.cpp")
