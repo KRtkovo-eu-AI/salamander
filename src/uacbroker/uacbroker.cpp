@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Verify transmitted Scan Ahead evidence before target overwrite. | Preserve the native deferred-conflict check after consent. | #731 | gpt-6.1-terra |
 | 2026-11-14 | Compare deferred conflict evidence on an open target. | Preserve both native Scan Ahead checks before privileged mutation. | #731 | gpt-6.1-terra |
 | 2026-11-14 | Support write-only reopening of an owned target. | Match the worker's post-overwrite open without extra read rights. | #731 | gpt-6.1-terra |
 | 2026-11-14 | Open protected overwrite targets for the native F5 worker. | Preserve kernel overwrite semantics without following a replaced pathname. | #731 | GPT-6 |
@@ -715,7 +716,7 @@ inline bool IsThinOpen(Operation operation)
     return operation == Operation::ThinOpenSource || operation == Operation::ThinTargetCreate ||
            operation == Operation::ThinTargetRetry || operation == Operation::ThinTargetProbe ||
            operation == Operation::ThinDiscardTarget || operation == Operation::ThinTargetRelease ||
-           operation == Operation::ThinTargetOverwrite;
+           operation == Operation::ThinTargetOverwrite || operation == Operation::ThinTargetOverwriteScan;
 }
 #ifdef SAM_UAC_PROBE_FAULT_TEST
 // Test-only scheduling seam; no production project defines this macro.
@@ -2428,14 +2429,7 @@ DWORD DuplicateThinToHost(HANDLE host, DWORD hostPid, HANDLE source, DWORD acces
 #if defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_REOPEN_PROTOTYPE)
 // Scan Ahead has two existing forms of evidence. This is not an additional
 // revision requirement for ordinary overwrite confirmations.
-struct ThinScanEvidence
-{
-    enum class Kind : DWORD { LegacyIdentity = 1, Revision = 2 };
-    Kind kind{};
-    DWORD legacyVolume = 0;
-    ULONGLONG legacyIndex = 0;
-    UacF7::ArchiveRevision revision{};
-};
+using UacF7::ThinScanEvidence;
 
 DWORD CheckThinScanEvidence(HANDLE file, const ThinScanEvidence& expected)
 {
@@ -2481,7 +2475,7 @@ DWORD OpenThinOverwriteTarget(HANDLE parent, std::wstring_view leaf, const FILE_
     if (scan)
     {
         error = CheckThinScanEvidence(anchor.get(), *scan);
-        if (error) return error;
+        if (error) return error == ERROR_FILE_INVALID ? ERROR_REVISION_MISMATCH : error;
     }
 #ifdef SAM_UAC_BROKER_JOB_TEST
     if (activeThinOverwritePause)
@@ -2576,7 +2570,10 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
             header.copySize > UacF7::maxNativeCopyBytes)
             return ERROR_INVALID_DATA;
         const size_t primary = volumeLength + header.relativeLength + header.leafLength;
-        std::wstring payload(primary + volumeLength + header.targetRelativeLength + header.targetLeafLength, L'\0');
+        const bool scanOverwrite = header.operation == Operation::ThinTargetOverwriteScan;
+        const size_t pathChars = primary + volumeLength + header.targetRelativeLength + header.targetLeafLength;
+        const size_t scanChars = scanOverwrite ? sizeof(UacF7::ThinScanEvidence) / sizeof(wchar_t) : 0;
+        std::wstring payload(pathChars + scanChars, L'\0');
         DWORD error = TransferRequest(pipe, payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), false, deadline);
         if (error) return error;
         ThinWireOptions options{};
@@ -2601,6 +2598,16 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
 #endif
         if (options.reserved || (options.flags & ~allowedThinOptions))
             return ERROR_INVALID_DATA;
+#if !defined(SAM_UAC_THIN_COPY_TEST) || !defined(SAM_UAC_THIN_REOPEN_PROTOTYPE)
+        if (scanOverwrite) { result = ERROR_NOT_SUPPORTED; return ERROR_SUCCESS; }
+#endif
+        UacF7::ThinScanEvidence scan{};
+        if (scanOverwrite)
+        {
+            std::memcpy(&scan, payload.data() + pathChars, sizeof(scan));
+            if (scan.kind != UacF7::ThinScanEvidence::Kind::LegacyIdentity &&
+                scan.kind != UacF7::ThinScanEvidence::Kind::Revision) return ERROR_INVALID_DATA;
+        }
 #if defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_REOPEN_PROTOTYPE)
         if ((options.flags & 32u) && header.operation != Operation::ThinTargetRetry)
             return ERROR_INVALID_DATA;
@@ -2642,7 +2649,7 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         if (release) return ERROR_INVALID_DATA;
 #endif
         const bool sourceRole = header.operation == Operation::ThinOpenSource;
-        const bool overwrite = header.operation == Operation::ThinTargetOverwrite;
+        const bool overwrite = header.operation == Operation::ThinTargetOverwrite || scanOverwrite;
 #if !defined(SAM_UAC_THIN_COPY_TEST) || !defined(SAM_UAC_THIN_REOPEN_PROTOTYPE)
         if (overwrite) { result = ERROR_NOT_SUPPORTED; return ERROR_SUCCESS; }
 #endif
@@ -2896,15 +2903,18 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
 #ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
             if (overwrite)
             {
-                error = OpenThinOverwriteTarget(targetParent, targetLeaf, expectedFile, overlapped, file, targetAnchor, overwritten);
+                error = OpenThinOverwriteTarget(targetParent, targetLeaf, expectedFile, overlapped, file, targetAnchor, overwritten,
+                                                scanOverwrite ? &scan : nullptr);
                 // CREATE_ALWAYS also creates a target removed after the
                 // conflict dialog. CREATE_NEW never touches a replacement.
-                if (error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND)
+                if (!scanOverwrite && (error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND))
                 {
                     error = open(FILE_CREATE);
                     file = Adopt(raw);
                     madeTarget = !error;
                 }
+                else if (scanOverwrite && (error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND))
+                    error = ERROR_REVISION_MISMATCH;
             }
             else
 #endif
@@ -6332,7 +6342,7 @@ DWORD ThinCopySession::ReleaseTarget(const PreparedTransfer& prepared, const Mov
 
 ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepared, ThinOpenKind kind,
                                      bool overlapped, bool copyAttrs, const MoveFileIdentity* expectedTarget,
-                                     ThinOpenedSource opened, ThinCancelEvent cancellation)
+                                     ThinOpenedSource opened, ThinCancelEvent cancellation, const ThinScanEvidence* scan)
 {
     const HANDLE openedSource = opened.value;
     const HANDLE cancel = cancellation.value;
@@ -6364,8 +6374,13 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
     case ThinOpenKind::TargetProbe: operation = Operation::ThinTargetProbe; break;
     case ThinOpenKind::Discard: operation = Operation::ThinDiscardTarget; break;
     case ThinOpenKind::Release: operation = Operation::ThinTargetRelease; break;
-    case ThinOpenKind::TargetOverwrite: operation = Operation::ThinTargetOverwrite; break;
+    case ThinOpenKind::TargetOverwrite: operation = scan ? Operation::ThinTargetOverwriteScan : Operation::ThinTargetOverwrite; break;
     default: output.error = ERROR_INVALID_PARAMETER; return output;
+    }
+    if (scan && kind != ThinOpenKind::TargetOverwrite)
+    {
+        output.error = ERROR_INVALID_PARAMETER;
+        return output;
     }
     if ((kind == ThinOpenKind::TargetRetry || kind == ThinOpenKind::TargetReopenWrite || kind == ThinOpenKind::Discard || kind == ThinOpenKind::Release) && !expectedTarget)
     {
@@ -6450,6 +6465,12 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
         std::memcpy(header.targetParentId.Identifier, prepared.target.fileId, sizeof(prepared.target.fileId));
         std::wstring payload = prepared.source.volume + prepared.source.relative + prepared.source.leaf +
                                prepared.target.volume + prepared.target.relative + prepared.target.leaf;
+        if (scan)
+        {
+            const size_t oldSize = payload.size();
+            payload.resize(oldSize + sizeof(*scan) / sizeof(wchar_t));
+            std::memcpy(payload.data() + oldSize, scan, sizeof(*scan));
+        }
         ThinWireOptions options{};
         options.flags = overlapped ? 1u : 0u;
 #ifdef SAM_UAC_THIN_COPY_TEST

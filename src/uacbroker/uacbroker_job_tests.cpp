@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Transmit deferred conflict evidence in dispatcher fixtures. | Exercise the real request frame after consent. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Test thin overwrite through the actual dispatcher. | Check native truncation, sharing, object binding and partial handoff. | #731 | GPT-6 |
 // | 2026-11-14 | Dispatch owned-target cleanup cases through the actual pipe. | Separate reopen cleanup evidence from historical retained-writer tests. | #731 | GPT-6 |
 // | 2026-11-14 | Exercise dispatcher shutdown after host process death. | Verify scoped resources are released when the real peer disappears. | #731 | GPT-6 |
@@ -365,9 +366,9 @@ public:
               const FILE_ID_INFO* expected, bool overlapped, DWORD& result, ThinWireReply& reply,
               HANDLE openedSource = INVALID_HANDLE_VALUE, HANDLE openedParent = INVALID_HANDLE_VALUE
 #ifdef SAM_UAC_THIN_COPY_TEST
-              , bool brokerParent = false, DWORD contract = 12u
+              , bool brokerParent = false, DWORD contract = 12u, const UacF7::ThinScanEvidence* scan = nullptr
 #else
-              , DWORD contract = 0u
+              , DWORD contract = 0u, const UacF7::ThinScanEvidence* scan = nullptr
 #endif
               )
     {
@@ -385,6 +386,12 @@ public:
         header.copySize = 1;
         std::wstring payload = src.identity.volume + src.relative + std::wstring(sourceLeaf) +
                                dst.identity.volume + dst.relative + std::wstring(targetLeaf);
+        if (scan)
+        {
+            const size_t oldSize = payload.size();
+            payload.resize(oldSize + sizeof(*scan) / sizeof(wchar_t));
+            std::memcpy(payload.data() + oldSize, scan, sizeof(*scan));
+        }
         ThinWireOptions options{};
         options.flags = (overlapped ? 1u : 0u) | contract;
         Handle localParent;
@@ -4944,6 +4951,8 @@ int wmain(int argc, wchar_t** argv)
         CheckThinClientReopen(source, target, false, true);
         CheckThinClientReopen(source, target, true, true);
         CheckThinClientReopen(source, target, false, true, true);
+        CheckThinClientReopen(source, target, false, true, false, true);
+        CheckThinClientReopen(source, target, true, true, false, true);
         return failures ? 1 : 0;
     }
 #endif

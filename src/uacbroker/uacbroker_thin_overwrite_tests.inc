@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Exercise deferred evidence through the dispatcher pipe. | Preserve both native conflict rules at the actual privileged open boundary. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Check both native deferred-conflict evidence forms. | Distinguish legacy identity from the existing full revision comparison. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Reject a write-only reopen flag on other operations. | Keep the handle-access contract bound to a verified reopen. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Compare stream queries on native and transferred handles. | Verify the real worker can execute its existing ADS cleanup step. | #731 | gpt-6.1-terra |
@@ -90,13 +91,13 @@ void CheckThinOverwrite(const Directory& source, const Directory& target, const 
         Handle deniedFile, deniedAnchor;
         bool overwritten = false;
         Check(OpenThinOverwriteTarget(deep.handle.get(), L"scan-evidence-東.txt", sourceId, false,
-                deniedFile, deniedAnchor, overwritten, &legacy) == ERROR_FILE_INVALID &&
+                deniedFile, deniedAnchor, overwritten, &legacy) == ERROR_REVISION_MISMATCH &&
               !overwritten && !deniedFile && HasByte(path, 0x22),
             "overwrite checks legacy identity before mutating replacement");
         deniedAnchor.reset();
         ThinOverwriteSnapshot preserved;
         Check(OpenThinOverwriteTarget(deep.handle.get(), L"scan-evidence-parked.txt", sourceId, false,
-                deniedFile, deniedAnchor, overwritten, &revision) == ERROR_FILE_INVALID &&
+                deniedFile, deniedAnchor, overwritten, &revision) == ERROR_REVISION_MISMATCH &&
               !overwritten && !deniedFile && preserved.Read(parked) && preserved.size == 3,
             "overwrite checks full revision before mutating original");
         ThinScanEvidence invalid{};
@@ -106,6 +107,59 @@ void CheckThinOverwrite(const Directory& source, const Directory& target, const 
         Check(!OpenThinOverwriteTarget(deep.handle.get(), L"scan-evidence-parked.txt", sourceId, false,
                 deniedFile, deniedAnchor, overwritten, &legacy) && overwritten && deniedFile && HasByte(path, 0x22),
             "matching legacy identity permits overwrite of the verified object");
+    }
+
+    for (bool fullRevision : {false, true})
+    {
+        for (int scenario = 0; scenario != 4; ++scenario)
+        {
+            const std::wstring leaf = std::wstring(fullRevision ? L"revision-" : L"legacy-") + std::to_wstring(scenario);
+            const auto path = deep.File(leaf), parked = deep.File(leaf + L".parked");
+            Check(WriteByte(path, 0x35), "prepare deferred conflict target");
+            auto observed = Adopt(CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+            BY_HANDLE_FILE_INFORMATION info{};
+            ThinScanEvidence evidence{};
+            evidence.kind = fullRevision ? ThinScanEvidence::Kind::Revision : ThinScanEvidence::Kind::LegacyIdentity;
+            if (!observed || !GetFileInformationByHandle(observed.get(), &info) ||
+                UacZipUpdate::ReadRevision(observed.get(), evidence.revision))
+            { Check(false, "capture deferred conflict evidence"); return; }
+            evidence.legacyVolume = info.dwVolumeSerialNumber;
+            evidence.legacyIndex = (static_cast<ULONGLONG>(info.nFileIndexHigh) << 32) | info.nFileIndexLow;
+            if (scenario == 1)
+                Check(MoveFileW(path.c_str(), parked.c_str()) && WriteByte(path, 0x36), "replace deferred target");
+            if (scenario == 2)
+            {
+                auto writer = Adopt(CreateFileW(path.c_str(), GENERIC_WRITE,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+                LARGE_INTEGER size{}; size.QuadPart = 3;
+                Check(writer && SetFilePointerEx(writer.get(), size, nullptr, FILE_BEGIN) && SetEndOfFile(writer.get()),
+                    "change deferred target without replacing it");
+            }
+            if (scenario == 3)
+                Check(MoveFileW(path.c_str(), parked.c_str()), "remove deferred target name");
+            JobPipe job;
+            DWORD status = ERROR_GEN_FAILURE;
+            ThinWireReply reply{};
+            const bool sent = job.Open() && job.Thin(source, sourceLeaf, sourceId, deep, leaf,
+                Operation::ThinTargetOverwriteScan, nullptr, false, status, reply, input.get(),
+                INVALID_HANDLE_VALUE, false, 28u, &evidence);
+            const bool shouldMatch = scenario == 0 || (scenario == 2 && !fullRevision);
+            auto output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+            Check(sent && (shouldMatch ? !status && output : status == ERROR_REVISION_MISMATCH && !output),
+                "dispatcher validates native deferred evidence before overwrite");
+            output.reset();
+            if (scenario == 1)
+                Check(HasByte(path, 0x36) && HasByte(parked, 0x35), "replacement and original stay intact");
+            if (scenario == 3)
+                Check(IsAbsent(path) && HasByte(parked, 0x35), "missing deferred name is not recreated");
+            if (scenario == 2 && fullRevision)
+            {
+                ThinOverwriteSnapshot preserved;
+                Check(preserved.Read(path) && preserved.size == 3, "changed revision is not truncated");
+            }
+            job.Finish();
+        }
     }
 
     for (bool asynchronous : {false, true})

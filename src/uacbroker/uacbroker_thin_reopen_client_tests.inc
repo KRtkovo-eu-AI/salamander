@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Send deferred evidence through the real thin client. | Cover the Scan Ahead request frame in both I/O modes. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Test write-only target reopen through the actual client. | Keep the native overwrite size check from acquiring read access. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Reuse actual client Retry cases for overwritten targets. | Check cancellation, fresh opens and cleanup through the new request. | #731 | GPT-6 |
 // | 2026-11-14 | Verify native cleanup through the real thin client. | Confirm identified partial deletion and cleaned-up preparation failure. | #731 | GPT-6 |
@@ -36,9 +37,10 @@ void CheckThinAnchorFailure(const Directory& source, const Directory& target)
 }
 
 void CheckThinClientReopen(const Directory& source, const Directory& target, bool asynchronous,
-                          bool overwrite = false, bool failOverwriteHandoff = false)
+                          bool overwrite = false, bool failOverwriteHandoff = false, bool staleScan = false)
 {
     const wchar_t* root = failOverwriteHandoff ? L"overwrite-failed-\u6771" :
+        staleScan ? (asynchronous ? L"overwrite-stale-async" : L"overwrite-stale-sync") :
         overwrite ? (asynchronous ? L"overwrite-async-\u6771" : L"overwrite-sync-\u6771") :
         (asynchronous ? L"reopen-async-\u6771" : L"reopen-sync-\u6771");
     constexpr wchar_t leaf[] = L"payload-\u65e5.txt";
@@ -110,15 +112,34 @@ void CheckThinClientReopen(const Directory& source, const Directory& target, boo
     const auto initialKind = overwrite ? UacF7::ThinOpenKind::TargetOverwrite : UacF7::ThinOpenKind::TargetCreate;
     if (overwrite && (!WriteByte(targetPath, 0x31) || !WriteByte(targetPath + L":data", 0x32)))
     { Check(false, "prepare actual-client overwrite including ADS"); return; }
+    UacF7::ThinScanEvidence scan{};
+    if (overwrite)
+    {
+        auto metadata = Adopt(CreateFileW(targetPath.c_str(), FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+        scan.kind = UacF7::ThinScanEvidence::Kind::Revision;
+        if (!metadata || UacZipUpdate::ReadRevision(metadata.get(), scan.revision))
+        { Check(false, "capture actual-client deferred evidence"); return; }
+    }
     const auto cancelledCreate = thin.Open(nullptr, request, initialKind, asynchronous, false,
                                            nullptr, UacF7::ThinOpenedSource{input.get()},
-                                           UacF7::ThinCancelEvent{cancelledEvent.get()});
+                                           UacF7::ThinCancelEvent{cancelledEvent.get()}, overwrite ? &scan : nullptr);
     Check(cancelledCreate.error == ERROR_CANCELLED && !cancelledCreate.unknown &&
           cancelledCreate.file == INVALID_HANDLE_VALUE && thin.IsOpen() &&
           (overwrite ? HasByte(targetPath, 0x31) && HasByte(targetPath + L":data", 0x32) : IsAbsent(targetPath)),
           "cancelled initial target open preserves existing data and the job");
+    if (staleScan)
+    {
+        ++scan.revision.size;
+        const auto rejected = thin.Open(nullptr, request, initialKind, asynchronous, false,
+            nullptr, UacF7::ThinOpenedSource{input.get()}, {}, &scan);
+        Check(rejected.error == ERROR_REVISION_MISMATCH && !rejected.unknown &&
+              rejected.file == INVALID_HANDLE_VALUE && thin.IsOpen() && HasByte(targetPath, 0x31) &&
+              HasByte(targetPath + L":data", 0x32), "stale conflict evidence preserves target and keeps session");
+        --scan.revision.size;
+    }
     const auto created = thin.Open(nullptr, request, initialKind, asynchronous, false,
-                                   nullptr, UacF7::ThinOpenedSource{input.get()});
+                                   nullptr, UacF7::ThinOpenedSource{input.get()}, {}, overwrite ? &scan : nullptr);
     auto output = Adopt(created.file);
     if (failOverwriteHandoff)
     {

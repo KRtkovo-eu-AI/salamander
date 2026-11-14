@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Recheck Scan Ahead evidence after UAC consent. | Preserve native deferred overwrite decisions without a general revision check. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Route plain protected F5 overwrites through the native worker. | Use scoped file handles while retaining native conflict and transfer handling. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Track write-only reopened target handles. | Preserve target identity and cleanup ownership for native overwrite checks. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Read protected overwrite attributes through the approved session. | Preserve the native hidden and system overwrite confirmations. | #731 | gpt-6.1-terra |
@@ -7189,9 +7190,27 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
     dialog.PendingThinConsent.reset();
     scopeMayHaveStarted = true;
     pendingConsent = false;
+    UacF7::ThinScanEvidence scan{};
+    const bool scanOverwrite = kind == UacF7::ThinOpenKind::TargetOverwrite &&
+                               dialog.ConflictDecisionInjected && dialog.InjectedTargetIdentityValid;
+    if (scanOverwrite)
+    {
+        if (operation.ScannedTargetRevision.attributes)
+        {
+            scan.kind = UacF7::ThinScanEvidence::Kind::Revision;
+            scan.revision = operation.ScannedTargetRevision;
+        }
+        else
+        {
+            scan.kind = UacF7::ThinScanEvidence::Kind::LegacyIdentity;
+            scan.legacyVolume = dialog.InjectedTargetVolumeSerial;
+            scan.legacyIndex = dialog.InjectedTargetFileIndex;
+        }
+    }
     const auto result = session->Open(progress, *request, kind, overlapped, false,
         (kind == UacF7::ThinOpenKind::TargetRetry || kind == UacF7::ThinOpenKind::TargetReopenWrite) ? &target : nullptr,
-        UacF7::ThinOpenedSource{openedSource}, UacF7::ThinCancelEvent{dialog.CancelWorkerEvent});
+        UacF7::ThinOpenedSource{openedSource}, UacF7::ThinCancelEvent{dialog.CancelWorkerEvent},
+        scanOverwrite ? &scan : nullptr);
     if (!hadStarted && !brokerHandleDelivered && !targetCreatedByBroker &&
         result.preProbeFailure && result.error != ERROR_SUCCESS && result.error != ERROR_CANCELLED &&
         result.file == INVALID_HANDLE_VALUE &&
@@ -9254,18 +9273,17 @@ COPY_AGAIN:
 #ifdef SAM_UAC_THIN_COPY_TEST
                                     if (thin.active && out == INVALID_HANDLE_VALUE && GetLastError() == ERROR_ACCESS_DENIED)
                                     {
-                                        // Scan Ahead must revalidate after consent as well. Until
-                                        // that identity reaches the broker, report the limitation
-                                        // instead of repeatedly requeuing an unchanged conflict.
-                                        if (dlgData.ConflictDecisionInjected && dlgData.InjectedTargetIdentityValid)
-                                        {
-                                            err = ERROR_NOT_SUPPORTED;
-                                            goto NORMAL_ERROR;
-                                        }
                                         out = THIN_OPEN_TARGET_OVERWRITE(&thin, out, asyncPar->UseAsyncAlg != FALSE);
                                         if (out == INVALID_HANDLE_VALUE)
                                         {
                                             err = GetLastError();
+                                            if (err == ERROR_REVISION_MISMATCH && dlgData.ConflictDecisionInjected)
+                                            {
+                                                HANDLES(CloseHandle(in));
+                                                in = NULL;
+                                                dlgData.ConflictTargetChanged = TRUE;
+                                                return TRUE;
+                                            }
                                             if (thin.terminal)
                                             {
                                                 HANDLES(CloseHandle(in));
