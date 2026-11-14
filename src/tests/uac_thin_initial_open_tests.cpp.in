@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Test real Scan Ahead fallback over actual metadata handles. | Check denied probes and cancellation without changing target content. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Test protected target attribute fallback. | Preserve the native hidden and system confirmation without requesting file contents. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Include overwrite in the thin-open fixture. | Exercise the new worker target role. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Exercise revalidation after unavailable identity probes. | Preserve fixed identities while allowing safe Retry and blocking terminal ownership states. | #731 | GPT-6 |
@@ -22,6 +23,17 @@ namespace UacF7 {
 enum class ThinOpenKind { Source, TargetCreate, TargetRetry, TargetProbe, TargetOverwrite };
 enum class Operation { Copy };
 struct MoveFileIdentity { unsigned long long serial = 0; unsigned char id[16]{}; };
+struct ArchiveRevision { DWORD attributes = 0, volume = 0; ULONGLONG index = 0, size = 0; };
+static bool CaptureOverwriteRevision(HANDLE file, ArchiveRevision& value) {
+    BY_HANDLE_FILE_INFORMATION info{};
+    if (!GetFileInformationByHandle(file, &info)) return false;
+    value.attributes = info.dwFileAttributes; value.volume = info.dwVolumeSerialNumber;
+    value.index = (static_cast<ULONGLONG>(info.nFileIndexHigh) << 32) | info.nFileIndexLow;
+    value.size = (static_cast<ULONGLONG>(info.nFileSizeHigh) << 32) | info.nFileSizeLow; return true;
+}
+static bool SameFileRevision(const ArchiveRevision& a, const ArchiveRevision& b) {
+    return a.attributes == b.attributes && a.volume == b.volume && a.index == b.index && a.size == b.size;
+}
 static int captureCalls = 0, prepareCalls = 0;
 static unsigned char preparedSourceId = 1;
 static bool nativeIdentity = false, failNativeCapture = false;
@@ -55,11 +67,13 @@ struct PreparedTransfer {
 constexpr DWORD OPFL_UAC_TRANSFER_SOURCE = 0x100;
 constexpr DWORD OPFL_UAC_TRANSFER_LISTED = 0x200;
 struct FakeSession { int closes = 0; };
-struct FakeOperation { DWORD OpFlags = 0; std::wstring SourceNameW, TargetNameW; const char* TargetName = ""; bool TargetNameWValid = true; struct { ULONGLONG Value = 0; } FileSize; };
+struct FakeOperation { DWORD OpFlags = 0; std::wstring SourceNameW, TargetNameW; const char* TargetName = ""; bool TargetNameWValid = true; struct { ULONGLONG Value = 0; } FileSize; UacF7::ArchiveRevision ScannedTargetRevision{}; };
 struct FakeScript {};
 struct FakeListed { std::unique_ptr<UacF7::PreparedTransfer> Request; };
 static const FakeListed* ListedTransferSource(const FakeOperation&, const FakeScript&) { return nullptr; }
-struct FakeDialog { BOOL* CancelWorker = nullptr; HANDLE CancelWorkerEvent = nullptr, WorkerNotSuspended = nullptr; BOOL SkipAllFileOpenIn = FALSE, SkipAllFileOpenOut = FALSE; };
+struct FakeDialog { BOOL* CancelWorker = nullptr; HANDLE CancelWorkerEvent = nullptr, WorkerNotSuspended = nullptr; BOOL SkipAllFileOpenIn = FALSE, SkipAllFileOpenOut = FALSE; BOOL ConflictDecisionInjected = FALSE, InjectedTargetIdentityValid = FALSE; DWORD InjectedTargetVolumeSerial = 0; ULONGLONG InjectedTargetFileIndex = 0; };
+using COperation = FakeOperation;
+using CProgressDlgData = FakeDialog;
 struct CThinCopyWorker {
     FakeOperation operation;
     FakeScript script;
@@ -68,7 +82,7 @@ struct CThinCopyWorker {
     HANDLE* sourceHandle = nullptr;
     std::unique_ptr<UacF7::PreparedTransfer> request;
     UacF7::MoveFileIdentity earlierSource{}, target{};
-    bool active = true, terminal = false, earlierSourceRequired = false, earlierSourceKnown = false, sourceVerified = true;
+    bool active = true, terminal = false, scanProbeError = false, earlierSourceRequired = false, earlierSourceKnown = false, sourceVerified = true;
     bool sourceContinuityLost = false, targetContinuityLost = false;
     bool scopeMayHaveStarted = false, targetKnown = false, suppressLocalCleanup = false;
     bool targetCreatedByBroker = false, nativeTargetOverwrite = false, cleanupUncertain = false;
@@ -109,6 +123,36 @@ static void ThinCopyTestSignalPreserve(const wchar_t*) {}
 @@PREPARATION@@
 @@REMEMBER_SOURCE@@
 @@METHODS@@
+static DWORD fakeScanError = ERROR_SUCCESS;
+static std::wstring GetParallelCopyPathW(const COperation* operation, BOOL) { return operation->TargetNameW; }
+static std::wstring SalPathAddExtendedPrefixW(const wchar_t* value) { return value; }
+static BOOL GetParallelFileIdentity(const std::wstring& path, DWORD& volume, ULONGLONG& index) {
+    if (fakeScanError) { SetLastError(fakeScanError); return FALSE; }
+    HANDLE file = CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                              nullptr, OPEN_EXISTING, 0, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return FALSE;
+    BY_HANDLE_FILE_INFORMATION info{};
+    const BOOL ok = GetFileInformationByHandle(file, &info);
+    RealClose(file);
+    if (ok) { volume = info.dwVolumeSerialNumber; index = (static_cast<ULONGLONG>(info.nFileIndexHigh) << 32) | info.nFileIndexLow; }
+    return ok;
+}
+static BOOL ValidateInjectedTargetIdentity(COperation* operation, CProgressDlgData& dialog) {
+    DWORD volume = 0; ULONGLONG index = 0;
+    if (!GetParallelFileIdentity(operation->TargetNameW, volume, index)) return FALSE;
+    if (operation->ScannedTargetRevision.attributes) {
+        HANDLE file = CreateFileW(operation->TargetNameW.c_str(), FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr);
+        if (file == INVALID_HANDLE_VALUE) return FALSE;
+        UacF7::ArchiveRevision actual{};
+        const bool read = UacF7::CaptureOverwriteRevision(file, actual);
+        RealClose(file);
+        return read && UacF7::SameFileRevision(actual, operation->ScannedTargetRevision);
+    }
+    return volume == dialog.InjectedTargetVolumeSerial && index == dialog.InjectedTargetFileIndex;
+}
+@@LEGACY_SCAN@@
+@@SCAN_HELPER@@
 static bool ThinCopyTestDenyOpen(CThinCopyWorker*, bool) { return false; }
 static bool ThinCopyTestDenyReopen(CThinCopyWorker*, bool) { return false; }
 static HANDLE ThinCopyTestDeniedHandle() { SetLastError(ERROR_ACCESS_DENIED); return INVALID_HANDLE_VALUE; }
@@ -131,6 +175,51 @@ int wmain(int argc, wchar_t** argv) {
     int failures = 0;
     if (argc != 2) return 1;
     const std::wstring fixture = argv[1];
+    {
+        BOOL cancelled = FALSE;
+        CThinCopyWorker scan;
+        scan.dialog.CancelWorker = &cancelled;
+        scan.dialog.ConflictDecisionInjected = TRUE;
+        scan.dialog.InjectedTargetIdentityValid = TRUE;
+        scan.operation.TargetNameW = fixture + L"\\replacement.txt";
+        HANDLE observed = CreateFileW(scan.operation.TargetNameW.c_str(), FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr);
+        BY_HANDLE_FILE_INFORMATION info{};
+        Check(observed != INVALID_HANDLE_VALUE && GetFileInformationByHandle(observed, &info) &&
+              UacF7::CaptureOverwriteRevision(observed, scan.operation.ScannedTargetRevision),
+              "capture real Scan Ahead fixture metadata", failures);
+        RealClose(observed);
+        scan.dialog.InjectedTargetVolumeSerial = info.dwVolumeSerialNumber;
+        scan.dialog.InjectedTargetFileIndex = (static_cast<ULONGLONG>(info.nFileIndexHigh) << 32) | info.nFileIndexLow;
+        fakeScanError = ERROR_ACCESS_DENIED;
+        for (bool legacy : {false, true}) {
+            scan.opened = CreateFileW(scan.operation.TargetNameW.c_str(), FILE_READ_ATTRIBUTES,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr);
+            Check(ThinValidateInjectedTarget(&scan, &scan.operation, scan.dialog, legacy) && !scan.scanProbeError &&
+                  scan.lastKind == UacF7::ThinOpenKind::TargetProbe,
+                  "denied Scan Ahead check uses approved metadata probe", failures);
+            ++scan.dialog.InjectedTargetFileIndex;
+            ++scan.operation.ScannedTargetRevision.size;
+            scan.opened = CreateFileW(scan.operation.TargetNameW.c_str(), FILE_READ_ATTRIBUTES,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr);
+            Check(!ThinValidateInjectedTarget(&scan, &scan.operation, scan.dialog, legacy) && !scan.scanProbeError,
+                  "probe distinguishes a changed conflict from a read error", failures);
+            --scan.dialog.InjectedTargetFileIndex;
+            --scan.operation.ScannedTargetRevision.size;
+        }
+        scan.opened = INVALID_HANDLE_VALUE;
+        scan.openedError = ERROR_CANCELLED;
+        Check(!ThinValidateInjectedTarget(&scan, &scan.operation, scan.dialog, true) && scan.scanProbeError &&
+              GetLastError() == ERROR_CANCELLED, "declined Scan Ahead probe is an error, not a changed conflict", failures);
+        scan.openedError = ERROR_FILE_NOT_FOUND;
+        Check(!ThinValidateInjectedTarget(&scan, &scan.operation, scan.dialog, true) && !scan.scanProbeError &&
+              GetLastError() == ERROR_FILE_INVALID, "missing probed target requests a new conflict decision", failures);
+        fakeScanError = ERROR_SHARING_VIOLATION;
+        const int calls = scan.openCalls;
+        Check(!ThinValidateInjectedTarget(&scan, &scan.operation, scan.dialog, true) && !scan.scanProbeError &&
+              scan.openCalls == calls, "non-access error does not start elevation", failures);
+        fakeScanError = ERROR_SUCCESS;
+    }
     {
         CThinCopyWorker probe;
         BOOL cancelled = FALSE;

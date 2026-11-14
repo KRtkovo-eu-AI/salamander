@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Probe inaccessible Scan Ahead targets through the approved job. | Reach the native conflict path without treating access denial as a replacement. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Recheck Scan Ahead evidence after UAC consent. | Preserve native deferred overwrite decisions without a general revision check. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Route plain protected F5 overwrites through the native worker. | Use scoped file handles while retaining native conflict and transfer handling. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Track write-only reopened target handles. | Preserve target identity and cleanup ownership for native overwrite checks. | #731 | gpt-6.1-terra |
@@ -2441,6 +2442,7 @@ struct CThinCopyWorker
     bool cleanupUncertain = false;
     bool sourceVerified = false;
     bool terminal = false;
+    bool scanProbeError = false;
 
     CThinCopyWorker(COperation& op, COperations& batch, CProgressDlgData& data, HWND owner, HANDLE* source)
         : operation(op), script(batch), dialog(data), progress(owner), sourceHandle(source) {}
@@ -2807,6 +2809,80 @@ static HANDLE ThinCopyOpenLocalRetry(CThinCopyWorker* context, bool overlapped)
 #endif
 
 static BOOL ValidateInjectedTargetIdentity(COperation* operation, CProgressDlgData& dialogData);
+static BOOL ValidateInjectedLegacyIdentity(COperation* operation, CProgressDlgData& dialogData)
+{
+    DWORD volume = 0;
+    ULONGLONG index = 0;
+    const std::wstring path = SalPathAddExtendedPrefixW(GetParallelCopyPathW(operation, FALSE).c_str());
+    if (!GetParallelFileIdentity(path, volume, index)) return FALSE;
+    const bool matches = volume == dialogData.InjectedTargetVolumeSerial && index == dialogData.InjectedTargetFileIndex;
+    if (!matches) SetLastError(ERROR_FILE_INVALID);
+    return matches;
+}
+#ifdef SAM_UAC_THIN_COPY_TEST
+static BOOL ThinValidateInjectedTarget(CThinCopyWorker* thin, COperation* operation,
+                                       CProgressDlgData& dialogData, bool legacyOnly)
+{
+    if (thin) thin->scanProbeError = false;
+    if (!dialogData.ConflictDecisionInjected || !dialogData.InjectedTargetIdentityValid) return TRUE;
+    if (!legacyOnly)
+    {
+        SetLastError(ERROR_SUCCESS);
+        if (ValidateInjectedTargetIdentity(operation, dialogData)) return TRUE;
+        if (GetLastError() != ERROR_ACCESS_DENIED || !thin || !thin->active) return FALSE;
+    }
+    else
+    {
+        SetLastError(ERROR_SUCCESS);
+        if (ValidateInjectedLegacyIdentity(operation, dialogData)) return TRUE;
+        if (GetLastError() != ERROR_ACCESS_DENIED || !thin || !thin->active) return FALSE;
+    }
+    SetLastError(ERROR_ACCESS_DENIED);
+    HANDLE probe = ThinCopyOpened(thin, INVALID_HANDLE_VALUE, UacF7::ThinOpenKind::TargetProbe,
+                                  false, ThinOpenPhase::Probe);
+    if (probe == INVALID_HANDLE_VALUE)
+    {
+        const DWORD error = GetLastError();
+        if (error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND)
+        {
+            SetLastError(ERROR_FILE_INVALID);
+            return FALSE; // The previously observed target is gone.
+        }
+        thin->scanProbeError = true;
+        return FALSE;
+    }
+    bool matches = false, read = false;
+    if (!legacyOnly && operation->ScannedTargetRevision.attributes)
+    {
+        UacF7::ArchiveRevision current{};
+        read = UacF7::CaptureOverwriteRevision(probe, current);
+        matches = read && UacF7::SameFileRevision(operation->ScannedTargetRevision, current);
+    }
+    else
+    {
+        BY_HANDLE_FILE_INFORMATION info{};
+        read = GetFileInformationByHandle(probe, &info) != FALSE;
+        const ULONGLONG index = (static_cast<ULONGLONG>(info.nFileIndexHigh) << 32) | info.nFileIndexLow;
+        matches = read && info.dwVolumeSerialNumber == dialogData.InjectedTargetVolumeSerial &&
+                  index == dialogData.InjectedTargetFileIndex;
+    }
+    const DWORD error = read ? ERROR_SUCCESS : GetLastError();
+    HANDLES(CloseHandle(probe));
+    if (!read)
+    {
+        thin->scanProbeError = true;
+        SetLastError(error ? error : ERROR_GEN_FAILURE);
+    }
+    return matches;
+}
+#define THIN_VALIDATE_SCAN(ctx, op, dialog, legacy) ThinValidateInjectedTarget((ctx), (op), (dialog), (legacy))
+#define THIN_SCAN_PROBE_ERROR(ctx) ((ctx)->scanProbeError)
+#define THIN_SCAN_TERMINAL(ctx) ((ctx)->terminal)
+#else
+#define THIN_VALIDATE_SCAN(ctx, op, dialog, legacy) ((legacy) ? ValidateInjectedLegacyIdentity((op), (dialog)) : ValidateInjectedTargetIdentity((op), (dialog)))
+#define THIN_SCAN_PROBE_ERROR(ctx) false
+#define THIN_SCAN_TERMINAL(ctx) false
+#endif
 
 struct CProgressOwnedData
 {
@@ -8893,8 +8969,18 @@ COPY_AGAIN:
                         if (transferError)
                             goto NORMAL_ERROR;
                         if (dlgData.ConflictDecisionInjected && op->ScannedTargetRevision.attributes &&
-                            !ValidateInjectedTargetIdentity(op, dlgData))
+                            !THIN_VALIDATE_SCAN(&thin, op, dlgData, false))
                         {
+                            if (THIN_SCAN_PROBE_ERROR(&thin))
+                            {
+                                err = GetLastError();
+                                if (THIN_SCAN_TERMINAL(&thin))
+                                {
+                                    if (in != NULL && in != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(in));
+                                    return FALSE;
+                                }
+                                goto NORMAL_ERROR;
+                            }
                             HANDLES(CloseHandle(in));
                             dlgData.ConflictTargetChanged = TRUE;
                             return TRUE;
@@ -9080,13 +9166,18 @@ COPY_AGAIN:
                             if (dlgData.ConflictDecisionInjected && dlgData.InjectedConflictType == cmctFileExists &&
                                 dlgData.InjectedTargetIdentityValid)
                             {
-                                DWORD openedVolumeSerial;
-                                ULONGLONG openedFileIndex;
-                                std::wstring openedTarget = SalPathAddExtendedPrefixW(GetParallelCopyPathW(op, FALSE).c_str());
-                                if (!GetParallelFileIdentity(openedTarget, openedVolumeSerial, openedFileIndex) ||
-                                    openedVolumeSerial != dlgData.InjectedTargetVolumeSerial ||
-                                    openedFileIndex != dlgData.InjectedTargetFileIndex)
+                                if (!THIN_VALIDATE_SCAN(&thin, op, dlgData, true))
                                 {
+                                    if (THIN_SCAN_PROBE_ERROR(&thin))
+                                    {
+                                        err = GetLastError();
+                                        if (THIN_SCAN_TERMINAL(&thin))
+                                        {
+                                            if (in != NULL && in != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(in));
+                                            return FALSE;
+                                        }
+                                        goto NORMAL_ERROR;
+                                    }
                                     HANDLES(CloseHandle(in));
                                     in = NULL;
                                     dlgData.ConflictTargetChanged = TRUE;
@@ -9173,8 +9264,18 @@ COPY_AGAIN:
                             {
                                 if (targetCannotOpenForWrite || mustDeleteFileBeforeOverwrite == 1 /* yes */)
                                 { // the file must be deleted first
-                                    if (!ValidateInjectedTargetIdentity(op, dlgData))
+                                    if (!THIN_VALIDATE_SCAN(&thin, op, dlgData, false))
                                     {
+                                        if (THIN_SCAN_PROBE_ERROR(&thin))
+                                        {
+                                            err = GetLastError();
+                                            if (THIN_SCAN_TERMINAL(&thin))
+                                            {
+                                                if (in != NULL && in != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(in));
+                                                return FALSE;
+                                            }
+                                            goto NORMAL_ERROR;
+                                        }
                                         dlgData.ConflictTargetChanged = TRUE;
                                         return TRUE;
                                     }
@@ -9246,8 +9347,18 @@ COPY_AGAIN:
                                     if (attr != INVALID_FILE_ATTRIBUTES &&
                                         (attr & (FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)))
                                     { // CREATE_ALWAYS does not play well with read-only, hidden, or system attributes, so drop them if needed
-                                        if (!ValidateInjectedTargetIdentity(op, dlgData))
+                                        if (!THIN_VALIDATE_SCAN(&thin, op, dlgData, false))
                                         {
+                                            if (THIN_SCAN_PROBE_ERROR(&thin))
+                                            {
+                                                err = GetLastError();
+                                                if (THIN_SCAN_TERMINAL(&thin))
+                                                {
+                                                    if (in != NULL && in != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(in));
+                                                    return FALSE;
+                                                }
+                                                goto NORMAL_ERROR;
+                                            }
                                             dlgData.ConflictTargetChanged = TRUE;
                                             return TRUE;
                                         }
@@ -9260,8 +9371,18 @@ COPY_AGAIN:
                                     fileAttrs = asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN |
                                                 (!lossEncryptionAttr && copyAsEncrypted ? FILE_ATTRIBUTE_ENCRYPTED : 0) | // setting attributes during CREATE_ALWAYS works since XP and is the only way to apply Encrypted attribute when the file denies read access
                                                 (script->CopyAttrs ? (op->Attr & (FILE_ATTRIBUTE_COMPRESSED | (lossEncryptionAttr ? 0 : FILE_ATTRIBUTE_ENCRYPTED))) : 0);
-                                    if (!ValidateInjectedTargetIdentity(op, dlgData))
+                                    if (!THIN_VALIDATE_SCAN(&thin, op, dlgData, false))
                                     {
+                                        if (THIN_SCAN_PROBE_ERROR(&thin))
+                                        {
+                                            err = GetLastError();
+                                            if (THIN_SCAN_TERMINAL(&thin))
+                                            {
+                                                if (in != NULL && in != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(in));
+                                                return FALSE;
+                                            }
+                                            goto NORMAL_ERROR;
+                                        }
                                         dlgData.ConflictTargetChanged = TRUE;
                                         return TRUE;
                                     }
@@ -9295,8 +9416,18 @@ COPY_AGAIN:
 #endif
                                     if (out == INVALID_HANDLE_VALUE && fileAttrs != (asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN))
                                     {
-                                        if (!ValidateInjectedTargetIdentity(op, dlgData))
+                                        if (!THIN_VALIDATE_SCAN(&thin, op, dlgData, false))
                                         {
+                                            if (THIN_SCAN_PROBE_ERROR(&thin))
+                                            {
+                                                err = GetLastError();
+                                                if (THIN_SCAN_TERMINAL(&thin))
+                                                {
+                                                    if (in != NULL && in != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(in));
+                                                    return FALSE;
+                                                }
+                                                goto NORMAL_ERROR;
+                                            }
                                             dlgData.ConflictTargetChanged = TRUE;
                                             return TRUE;
                                         }
@@ -9306,16 +9437,36 @@ COPY_AGAIN:
                                     if (script->CopyAttrs && out == INVALID_HANDLE_VALUE)
                                     { // if read access to the directory is denied (we added it only for setting the Compressed attribute), try opening the file for write only
                                         access = GENERIC_WRITE;
-                                        if (!ValidateInjectedTargetIdentity(op, dlgData))
+                                        if (!THIN_VALIDATE_SCAN(&thin, op, dlgData, false))
                                         {
+                                            if (THIN_SCAN_PROBE_ERROR(&thin))
+                                            {
+                                                err = GetLastError();
+                                                if (THIN_SCAN_TERMINAL(&thin))
+                                                {
+                                                    if (in != NULL && in != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(in));
+                                                    return FALSE;
+                                                }
+                                                goto NORMAL_ERROR;
+                                            }
                                             dlgData.ConflictTargetChanged = TRUE;
                                             return TRUE;
                                         }
                                         out = HANDLES_Q(CreateFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), access, 0, NULL, CREATE_ALWAYS, fileAttrs, NULL));
                                         if (out == INVALID_HANDLE_VALUE && fileAttrs != (asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN))
                                         {
-                                            if (!ValidateInjectedTargetIdentity(op, dlgData))
+                                            if (!THIN_VALIDATE_SCAN(&thin, op, dlgData, false))
                                             {
+                                                if (THIN_SCAN_PROBE_ERROR(&thin))
+                                                {
+                                                    err = GetLastError();
+                                                    if (THIN_SCAN_TERMINAL(&thin))
+                                                    {
+                                                        if (in != NULL && in != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(in));
+                                                        return FALSE;
+                                                    }
+                                                    goto NORMAL_ERROR;
+                                                }
                                                 dlgData.ConflictTargetChanged = TRUE;
                                                 return TRUE;
                                             }
@@ -9334,8 +9485,18 @@ COPY_AGAIN:
                                         //  the "read-only" attribute because the current user is not the owner)
                                         if (chAttr)
                                         {
-                                            if (!ValidateInjectedTargetIdentity(op, dlgData))
+                                            if (!THIN_VALIDATE_SCAN(&thin, op, dlgData, false))
                                             {
+                                                if (THIN_SCAN_PROBE_ERROR(&thin))
+                                                {
+                                                    err = GetLastError();
+                                                    if (THIN_SCAN_TERMINAL(&thin))
+                                                    {
+                                                        if (in != NULL && in != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(in));
+                                                        return FALSE;
+                                                    }
+                                                    goto NORMAL_ERROR;
+                                                }
                                                 dlgData.ConflictTargetChanged = TRUE;
                                                 return TRUE;
                                             }
@@ -9366,8 +9527,18 @@ COPY_AGAIN:
                                         out = INVALID_HANDLE_VALUE;
                                         if (chAttr)
                                         {
-                                            if (!ValidateInjectedTargetIdentity(op, dlgData))
+                                            if (!THIN_VALIDATE_SCAN(&thin, op, dlgData, false))
                                             {
+                                                if (THIN_SCAN_PROBE_ERROR(&thin))
+                                                {
+                                                    err = GetLastError();
+                                                    if (THIN_SCAN_TERMINAL(&thin))
+                                                    {
+                                                        if (in != NULL && in != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(in));
+                                                        return FALSE;
+                                                    }
+                                                    goto NORMAL_ERROR;
+                                                }
                                                 dlgData.ConflictTargetChanged = TRUE;
                                                 return TRUE;
                                             }
@@ -12738,16 +12909,21 @@ static BOOL ValidateInjectedTargetIdentity(COperation* operation, CProgressDlgDa
         if (file == INVALID_HANDLE_VALUE)
             return FALSE;
         UacF7::ArchiveRevision current;
-        const bool matches = UacF7::CaptureOverwriteRevision(file, current) &&
-                             UacF7::SameFileRevision(operation->ScannedTargetRevision, current);
+        const bool captured = UacF7::CaptureOverwriteRevision(file, current);
+        const DWORD error = captured ? ERROR_SUCCESS : GetLastError();
+        const bool matches = captured && UacF7::SameFileRevision(operation->ScannedTargetRevision, current);
         HANDLES(CloseHandle(file));
+        if (!captured) SetLastError(error ? error : ERROR_GEN_FAILURE);
+        else if (!matches) SetLastError(ERROR_FILE_INVALID);
         return matches;
     }
     DWORD volumeSerial;
     ULONGLONG fileIndex;
-    return GetParallelFileIdentity(target, volumeSerial, fileIndex) &&
-           volumeSerial == dialogData.InjectedTargetVolumeSerial &&
-           fileIndex == dialogData.InjectedTargetFileIndex;
+    if (!GetParallelFileIdentity(target, volumeSerial, fileIndex)) return FALSE;
+    const bool matches = volumeSerial == dialogData.InjectedTargetVolumeSerial &&
+                         fileIndex == dialogData.InjectedTargetFileIndex;
+    if (!matches) SetLastError(ERROR_FILE_INVALID);
+    return matches;
 }
 
 static BOOL CanPrepareParallelDirectory(const COperations* script, const COperation* operation);

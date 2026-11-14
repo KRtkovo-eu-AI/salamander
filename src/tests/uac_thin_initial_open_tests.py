@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Exercise the actual Scan Ahead metadata fallback. | Check denial, cancellation and changed targets without a GUI. | #731 | gpt-6.1-terra |
 # | 2026-11-14 | Test recoverable identity queries and fixed scope identities. | Distinguish temporary metadata failures from substitutions and terminal states. | #731 | GPT-6 |
 # | 2026-11-13 | Test scoped target continuity before probe. | Reject substituted targets without elevating or deleting them. | #731 | GPT-6 |
 # | 2026-11-13 | Check resume waits around scoped elevation. | Detect pause regression before preparation, consent and broker I/O. | #731 | GPT-6 |
@@ -34,6 +35,12 @@ def main():
     begin = worker.index("bool CThinCopyWorker::RememberSource(")
     end = worker.index("bool CThinCopyWorker::ReportTargetFailure(", begin)
     remember = worker[begin:end]
+    begin = worker.index("static BOOL ValidateInjectedLegacyIdentity(")
+    end = worker.index("#ifdef SAM_UAC_THIN_COPY_TEST", begin)
+    legacy_scan = worker[begin:end]
+    begin = worker.index("static BOOL ThinValidateInjectedTarget(")
+    end = worker.index("#define THIN_VALIDATE_SCAN", begin)
+    scan = worker[begin:end]
     begin = worker.index("#define THIN_OPEN_SOURCE(ctx, local, overlapped)")
     end = worker.index("\n#else", worker.index("#define THIN_DELETE_TARGET", begin))
     macros = worker[begin:end]
@@ -55,7 +62,8 @@ def main():
     template = (ROOT / "src/tests/uac_thin_initial_open_tests.cpp.in").read_text(encoding="utf-8")
     code = (template.replace("@@PHASE@@", phase).replace("@@METHODS@@", methods)
             .replace("@@PREPARATION@@", preparation).replace("@@REMEMBER_SOURCE@@", remember)
-            .replace("@@MACROS@@", macros).replace("@@LOCAL_RETRY@@", local_retry))
+            .replace("@@MACROS@@", macros).replace("@@LOCAL_RETRY@@", local_retry)
+            .replace("@@LEGACY_SCAN@@", legacy_scan).replace("@@SCAN_HELPER@@", scan))
     if "@@" in code:
         raise RuntimeError("Missing test template replacement")
     env = compiler_environment()
