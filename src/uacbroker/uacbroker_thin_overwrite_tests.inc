@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Check both native deferred-conflict evidence forms. | Distinguish legacy identity from the existing full revision comparison. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Reject a write-only reopen flag on other operations. | Keep the handle-access contract bound to a verified reopen. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Compare stream queries on native and transferred handles. | Verify the real worker can execute its existing ADS cleanup step. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Compare scoped overwrite with the native file open. | Exercise actual NTFS and dispatcher behavior before worker integration. | #731 | GPT-6 |
@@ -52,6 +53,60 @@ void CheckThinOverwrite(const Directory& source, const Directory& target, const 
         !deep.Open(nested.File(std::wstring(120, L'y') + L"-日").c_str()))
     { Check(false, "prepare long Unicode overwrite parent"); return; }
     Check(deep.path.size() > 260, "overwrite uses actual long Unicode parent");
+
+    {
+        const auto path = deep.File(L"scan-evidence-東.txt");
+        const auto parked = deep.File(L"scan-evidence-parked.txt");
+        Check(WriteByte(path, 0x21), "prepare Scan Ahead target");
+        auto anchor = Adopt(CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+        BY_HANDLE_FILE_INFORMATION info{};
+        ThinScanEvidence legacy{}, revision{};
+        legacy.kind = ThinScanEvidence::Kind::LegacyIdentity;
+        revision.kind = ThinScanEvidence::Kind::Revision;
+        if (!anchor || !GetFileInformationByHandle(anchor.get(), &info) ||
+            UacZipUpdate::ReadRevision(anchor.get(), revision.revision))
+        { Check(false, "capture Scan Ahead evidence"); return; }
+        legacy.legacyVolume = info.dwVolumeSerialNumber;
+        legacy.legacyIndex = (static_cast<ULONGLONG>(info.nFileIndexHigh) << 32) | info.nFileIndexLow;
+        Check(!CheckThinScanEvidence(anchor.get(), legacy) && !CheckThinScanEvidence(anchor.get(), revision),
+            "both native evidence forms accept their original target");
+        auto writer = Adopt(CreateFileW(path.c_str(), GENERIC_WRITE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+        LARGE_INTEGER size{}; size.QuadPart = 3;
+        Check(writer && SetFilePointerEx(writer.get(), size, nullptr, FILE_BEGIN) && SetEndOfFile(writer.get()),
+            "change original target size without changing its identity");
+        writer.reset();
+        Check(!CheckThinScanEvidence(anchor.get(), legacy) &&
+              CheckThinScanEvidence(anchor.get(), revision) == ERROR_FILE_INVALID,
+            "legacy identity tolerates content change while revision rejects it");
+        Check(MoveFileW(path.c_str(), parked.c_str()) && WriteByte(path, 0x22),
+            "replace Scan Ahead pathname");
+        auto replacement = Adopt(CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+        Check(replacement && CheckThinScanEvidence(replacement.get(), legacy) == ERROR_FILE_INVALID &&
+              CheckThinScanEvidence(replacement.get(), revision) == ERROR_FILE_INVALID,
+            "both evidence forms reject a replacement object");
+        Handle deniedFile, deniedAnchor;
+        bool overwritten = false;
+        Check(OpenThinOverwriteTarget(deep.handle.get(), L"scan-evidence-東.txt", sourceId, false,
+                deniedFile, deniedAnchor, overwritten, &legacy) == ERROR_FILE_INVALID &&
+              !overwritten && !deniedFile && HasByte(path, 0x22),
+            "overwrite checks legacy identity before mutating replacement");
+        deniedAnchor.reset();
+        ThinOverwriteSnapshot preserved;
+        Check(OpenThinOverwriteTarget(deep.handle.get(), L"scan-evidence-parked.txt", sourceId, false,
+                deniedFile, deniedAnchor, overwritten, &revision) == ERROR_FILE_INVALID &&
+              !overwritten && !deniedFile && preserved.Read(parked) && preserved.size == 3,
+            "overwrite checks full revision before mutating original");
+        ThinScanEvidence invalid{};
+        Check(CheckThinScanEvidence(anchor.get(), invalid) == ERROR_INVALID_PARAMETER,
+            "unknown Scan Ahead evidence kind is refused");
+        deniedAnchor.reset();
+        Check(!OpenThinOverwriteTarget(deep.handle.get(), L"scan-evidence-parked.txt", sourceId, false,
+                deniedFile, deniedAnchor, overwritten, &legacy) && overwritten && deniedFile && HasByte(path, 0x22),
+            "matching legacy identity permits overwrite of the verified object");
+    }
 
     for (bool asynchronous : {false, true})
     {

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Compare deferred conflict evidence on an open target. | Preserve both native Scan Ahead checks before privileged mutation. | #731 | gpt-6.1-terra |
 | 2026-11-14 | Support write-only reopening of an owned target. | Match the worker's post-overwrite open without extra read rights. | #731 | gpt-6.1-terra |
 | 2026-11-14 | Open protected overwrite targets for the native F5 worker. | Preserve kernel overwrite semantics without following a replaced pathname. | #731 | GPT-6 |
 | 2026-11-14 | Clean up identity-anchored thin targets without content exclusivity. | Preserve native cancellation semantics while refusing substituted objects. | #731 | GPT-6 |
@@ -2425,8 +2426,40 @@ DWORD DuplicateThinToHost(HANDLE host, DWORD hostPid, HANDLE source, DWORD acces
 }
 
 #if defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_REOPEN_PROTOTYPE)
+// Scan Ahead has two existing forms of evidence. This is not an additional
+// revision requirement for ordinary overwrite confirmations.
+struct ThinScanEvidence
+{
+    enum class Kind : DWORD { LegacyIdentity = 1, Revision = 2 };
+    Kind kind{};
+    DWORD legacyVolume = 0;
+    ULONGLONG legacyIndex = 0;
+    UacF7::ArchiveRevision revision{};
+};
+
+DWORD CheckThinScanEvidence(HANDLE file, const ThinScanEvidence& expected)
+{
+    if (expected.kind == ThinScanEvidence::Kind::LegacyIdentity)
+    {
+        BY_HANDLE_FILE_INFORMATION current{};
+        if (!GetFileInformationByHandle(file, &current)) return GetLastError();
+        const ULONGLONG index = (static_cast<ULONGLONG>(current.nFileIndexHigh) << 32) | current.nFileIndexLow;
+        return current.dwVolumeSerialNumber == expected.legacyVolume && index == expected.legacyIndex ?
+            ERROR_SUCCESS : ERROR_FILE_INVALID;
+    }
+    if (expected.kind == ThinScanEvidence::Kind::Revision)
+    {
+        UacF7::ArchiveRevision current{};
+        const DWORD error = UacZipUpdate::ReadRevision(file, current);
+        if (error) return error;
+        if (!UacF7::IsNativePlainCopyFile(current.attributes)) return ERROR_FILE_INVALID;
+        return UacF7::SameFileRevision(current, expected.revision) ? ERROR_SUCCESS : ERROR_FILE_INVALID;
+    }
+    return ERROR_INVALID_PARAMETER;
+}
+
 DWORD OpenThinOverwriteTarget(HANDLE parent, std::wstring_view leaf, const FILE_ID_INFO& source, bool overlapped,
-                             Handle& file, Handle& anchor, bool& overwritten)
+                             Handle& file, Handle& anchor, bool& overwritten, const ThinScanEvidence* scan = nullptr)
 {
     overwritten = false;
     HANDLE raw = nullptr;
@@ -2445,6 +2478,11 @@ DWORD OpenThinOverwriteTarget(HANDLE parent, std::wstring_view leaf, const FILE_
         (attributes.FileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT |
             FILE_ATTRIBUTE_COMPRESSED | FILE_ATTRIBUTE_SPARSE_FILE | FILE_ATTRIBUTE_ENCRYPTED)))
         return ERROR_NOT_SUPPORTED;
+    if (scan)
+    {
+        error = CheckThinScanEvidence(anchor.get(), *scan);
+        if (error) return error;
+    }
 #ifdef SAM_UAC_BROKER_JOB_TEST
     if (activeThinOverwritePause)
     {
