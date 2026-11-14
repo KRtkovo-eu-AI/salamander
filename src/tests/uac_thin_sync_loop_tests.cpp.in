@@ -4,6 +4,7 @@
 #include <windows.h>
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <sstream>
 #include <string>
@@ -92,8 +93,64 @@ static BOOL TestWrite(HANDLE h, LPCVOID b, DWORD n, LPDWORD w, LPOVERLAPPED o) {
 
 static int failures = 0;
 static void Check(bool ok, const char* label) { std::printf("%s %s\n", ok ? "PASS" : "FAIL", label); if (!ok) ++failures; }
+struct HandleReceipt { ULONG_PTR input = 0, output = 0; DWORD error = ERROR_SUCCESS; };
+static int HandlePeer(const wchar_t* source, const wchar_t* target, DWORD parentId, const wchar_t* receiptPath)
+{
+    HandleReceipt receipt{};
+    HANDLE parent = OpenProcess(PROCESS_DUP_HANDLE, FALSE, parentId);
+    HANDLE in = CreateFileW(source, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+    HANDLE out = CreateFileW(target, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, 0, nullptr);
+    HANDLE duplicated = nullptr;
+    if (!parent || in == INVALID_HANDLE_VALUE || out == INVALID_HANDLE_VALUE)
+        receipt.error = GetLastError();
+    else if (!DuplicateHandle(GetCurrentProcess(), in, parent, &duplicated, 0, FALSE, DUPLICATE_SAME_ACCESS))
+        receipt.error = GetLastError();
+    else
+    {
+        receipt.input = reinterpret_cast<ULONG_PTR>(duplicated);
+        duplicated = nullptr;
+        if (!DuplicateHandle(GetCurrentProcess(), out, parent, &duplicated, 0, FALSE, DUPLICATE_SAME_ACCESS))
+            receipt.error = GetLastError();
+        else receipt.output = reinterpret_cast<ULONG_PTR>(duplicated);
+    }
+    if (in != INVALID_HANDLE_VALUE) CloseHandle(in);
+    if (out != INVALID_HANDLE_VALUE) CloseHandle(out);
+    if (parent) CloseHandle(parent);
+    HANDLE file = CreateFileW(receiptPath, GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+    DWORD bytes = 0;
+    const bool recorded = file != INVALID_HANDLE_VALUE && WriteFile(file, &receipt, sizeof(receipt), &bytes, nullptr) && bytes == sizeof(receipt);
+    if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
+    return recorded && !receipt.error ? 0 : 5;
+}
+
+static bool ReceivePeerHandles(const std::wstring& source, const std::wstring& target,
+                               const std::wstring& receiptPath, HANDLE& input, HANDLE& output)
+{
+    wchar_t image[32768]{};
+    if (!GetModuleFileNameW(nullptr, image, _countof(image))) return false;
+    std::wstring command = L"\"" + std::wstring(image) + L"\" --handle-peer \"" + source + L"\" \"" + target +
+        L"\" " + std::to_wstring(GetCurrentProcessId()) + L" \"" + receiptPath + L"\"";
+    STARTUPINFOW startup{}; startup.cb = sizeof(startup);
+    PROCESS_INFORMATION process{};
+    if (!CreateProcessW(image, command.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &startup, &process)) return false;
+    CloseHandle(process.hThread);
+    const DWORD wait = WaitForSingleObject(process.hProcess, 10000);
+    if (wait == WAIT_TIMEOUT) { TerminateProcess(process.hProcess, 99); WaitForSingleObject(process.hProcess, 5000); }
+    DWORD exitCode = 1;
+    const bool exited = wait == WAIT_OBJECT_0 && GetExitCodeProcess(process.hProcess, &exitCode) && exitCode == 0;
+    CloseHandle(process.hProcess);
+    HandleReceipt receipt{};
+    HANDLE file = CreateFileW(receiptPath.c_str(), GENERIC_READ, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+    DWORD bytes = 0;
+    const bool read = file != INVALID_HANDLE_VALUE && ReadFile(file, &receipt, sizeof(receipt), &bytes, nullptr) && bytes == sizeof(receipt);
+    if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
+    if (read) { input = reinterpret_cast<HANDLE>(receipt.input); output = reinterpret_cast<HANDLE>(receipt.output); }
+    return exited && read && !receipt.error && input && output;
+}
 int wmain(int argc, wchar_t** argv)
 {
+    if (argc == 6 && std::wstring(argv[1]) == L"--handle-peer")
+        return HandlePeer(argv[2], argv[3], wcstoul(argv[4], nullptr, 10), argv[5]);
     if (argc != 2) return 2;
     const std::wstring root = argv[1];
     const std::wstring source = root + L"\\source-\u6771.bin", target = root + L"\\target-\u65e5.bin";
@@ -103,11 +160,29 @@ int wmain(int argc, wchar_t** argv)
     DWORD written = 0;
     if (seed == INVALID_HANDLE_VALUE || !WriteFile(seed, expected.data(), static_cast<DWORD>(expected.size()), &written, nullptr)) return 3;
     CloseHandle(seed);
-    for (int mode = 0; mode != 6; ++mode)
+    for (int mode = 0; mode != 7; ++mode)
     {
-        HANDLE in = CreateFileW(source.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
-        HANDLE out = CreateFileW(target.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, 0, nullptr);
-        if (in == INVALID_HANDLE_VALUE || out == INVALID_HANDLE_VALUE) return 4;
+        HANDLE in = nullptr, out = nullptr;
+        const std::wstring receiptPath = root + L"\\handle-receipt.bin";
+        if (mode == 6)
+        {
+            if (!ReceivePeerHandles(source, target, receiptPath, in, out))
+            { if (in) CloseHandle(in); if (out) CloseHandle(out); return 4; }
+            Check(DeleteFileW(receiptPath.c_str()) != FALSE, "remove the exact process receipt");
+            BYTE probe = 0; DWORD count = 0;
+            const BOOL sourceWrite = WriteFile(in, &probe, 1, &count, nullptr);
+            const DWORD sourceError = sourceWrite ? ERROR_SUCCESS : GetLastError();
+            const BOOL targetRead = ReadFile(out, &probe, 1, &count, nullptr);
+            const DWORD targetError = targetRead ? ERROR_SUCCESS : GetLastError();
+            Check(!sourceWrite && sourceError == ERROR_ACCESS_DENIED && !targetRead && targetError == ERROR_ACCESS_DENIED,
+                  "duplicated source and target retain only their intended data access");
+        }
+        else
+        {
+            in = CreateFileW(source.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+            out = CreateFileW(target.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, 0, nullptr);
+            if (in == INVALID_HANDLE_VALUE || out == INVALID_HANDLE_VALUE) return 4;
+        }
         BOOL cancel = FALSE, error = FALSE, skipped = FALSE, again = FALSE;
         HANDLE resumed = CreateEventW(nullptr, TRUE, TRUE, nullptr);
         CProgressDlgData dialog{&cancel, resumed, nullptr};
@@ -115,7 +190,7 @@ int wmain(int argc, wchar_t** argv)
         COperations script; script.TotalSize = op.Size;
         CQuadWord done, total, size(expected.size());
         int limit = 32768, alloc = 0; std::vector<BYTE> buffer(limit);
-        CThinCopyWorker thin; writes = dialogCount = 0; injectFault = mode > 0 && mode < 5; didFault = false;
+        CThinCopyWorker thin; writes = dialogCount = 0; injectFault = (mode > 0 && mode < 5) || mode == 6; didFault = false;
         failConnectionAfterWrite = mode == 5;
         dialogChoice = mode == 2 ? IDB_SKIP : mode == 3 ? IDB_SKIPALL : mode == 4 ? IDCANCEL : IDRETRY;
         DoCopyFileLoopOrig(in, out, buffer.data(), limit, &script, dialog, FALSE, &op, total, error, skipped,
@@ -125,8 +200,9 @@ int wmain(int argc, wchar_t** argv)
         std::vector<BYTE> actual(expected.size()); DWORD got = 0;
         const BOOL read = verify != INVALID_HANDLE_VALUE && ReadFile(verify, actual.data(), static_cast<DWORD>(actual.size()), &got, nullptr);
         if (verify != INVALID_HANDLE_VALUE) CloseHandle(verify);
-        if (mode < 2)
+        if (mode < 2 || mode == 6)
             Check(!error && !skipped && !again && done.Value == expected.size() && read && got == expected.size() && actual == expected,
+                  mode == 6 ? "native sync loop and Retry copy via cross-process duplicated handles" :
                   mode ? "native sync loop recovers after injected write fault" : "native sync loop copies exact bytes");
         else if (mode < 5)
             Check((mode == 4 ? error && !skipped : !error && skipped) && !again && done.Value == 32768 &&
@@ -139,8 +215,8 @@ int wmain(int argc, wchar_t** argv)
             Check(error && !skipped && !again && thin.reports == 1 && writes == 1 && read && got == 32768 &&
                   std::equal(actual.begin(), actual.begin() + got, expected.begin()),
                   "sync loop stops after simulated connection loss without writing another block");
-        Check(mode > 0 && mode < 5 ? didFault && dialogCount == 1 : !didFault && dialogCount == 0,
-              mode > 0 && mode < 5 ? "injected fault shows one native error decision" : "no native error decision needed");
+        Check(injectFault ? didFault && dialogCount == 1 : !didFault && dialogCount == 0,
+              injectFault ? "injected fault shows one native error decision" : "no native error decision needed");
     }
     Check(DeleteFileW(source.c_str()) && DeleteFileW(target.c_str()), "remove only test fixtures");
     return failures ? 1 : 0;
