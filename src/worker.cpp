@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Check the thin job between native copy operations. | Stop after detected broker loss and drain issued async I/O. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Probe inaccessible Scan Ahead targets through the approved job. | Reach the native conflict path without treating access denial as a replacement. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Recheck Scan Ahead evidence after UAC consent. | Preserve native deferred overwrite decisions without a general revision check. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Route plain protected F5 overwrites through the native worker. | Use scoped file handles while retaining native conflict and transfer handling. | #731 | gpt-6.1-terra |
@@ -2520,6 +2521,10 @@ struct CThinCopyWorker
     void RememberTarget(HANDLE file, bool force = false);
     bool ValidateRetriedTarget(HANDLE file);
     bool Scoped() const { return active && session != nullptr && scopeMayHaveStarted; }
+    DWORD CheckTransferConnection() const
+    {
+        return Scoped() && brokerHandleDelivered ? session->CheckTransport() : ERROR_SUCCESS;
+    }
     bool NativeOverwrite() const { return nativeTargetOverwrite && !targetCreatedByBroker && !cleanupUncertain && !suppressLocalCleanup; }
     bool ScopedTarget() const { return Scoped() && !NativeOverwrite(); }
     bool ReportTargetFailure(DWORD error, int caption = IDS_ERRORDELETINGFILE);
@@ -5290,9 +5295,33 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
     DWORD written;
     while (1)
     {
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (thin)
+        {
+            const DWORD error = thin->CheckTransferConnection();
+            if (error != ERROR_SUCCESS)
+            {
+                thin->ReportTargetFailure(error, IDS_ERRORREADINGFILE);
+                copyError = TRUE;
+                return;
+            }
+        }
+#endif
         if (THIN_COPY_READ(in, buffer, limitBufferSize, &read, NULL))
         {
             autoRetryAttemptsSNAP = 0;
+#ifdef SAM_UAC_THIN_COPY_TEST
+            if (thin)
+            {
+                const DWORD error = thin->CheckTransferConnection();
+                if (error != ERROR_SUCCESS)
+                {
+                    thin->ReportTargetFailure(error, IDS_ERRORREADINGFILE);
+                    copyError = TRUE;
+                    return;
+                }
+            }
+#endif
             if (read == 0)
                 break;                                                     // EOF
             if (!script->ChangeSpeedLimit)                                 // when the speed limit can change, this is not a suitable wait point
@@ -5302,6 +5331,19 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
                 copyError = TRUE; // goto COPY_ERROR
                 return;
             }
+
+#ifdef SAM_UAC_THIN_COPY_TEST
+            if (thin)
+            {
+                const DWORD error = thin->CheckTransferConnection();
+                if (error != ERROR_SUCCESS)
+                {
+                    thin->ReportTargetFailure(error, IDS_ERRORREADINGFILE);
+                    copyError = TRUE;
+                    return;
+                }
+            }
+#endif
 
             while (1)
             {
@@ -6371,6 +6413,20 @@ BOOL CCopy_Context::HandleSuspModeAndCancel(BOOL* copyError)
         *copyError = TRUE; // goto COPY_ERROR
         return TRUE;
     }
+#ifdef SAM_UAC_THIN_COPY_TEST
+    if (Thin)
+    {
+        const DWORD connectionError = Thin->CheckTransferConnection();
+        if (connectionError != ERROR_SUCCESS)
+        {
+            CancelOpPhase1();
+            CancelOpPhase2(-1);
+            Thin->ReportTargetFailure(connectionError, IDS_ERRORREADINGFILE);
+            *copyError = TRUE;
+            return TRUE;
+        }
+    }
+#endif
     return FALSE;
 }
 
@@ -6411,6 +6467,20 @@ void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, vo
     BOOL doCopy = TRUE;
     while (doCopy)
     {
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (thin)
+        {
+            const DWORD connectionError = thin->CheckTransferConnection();
+            if (connectionError != ERROR_SUCCESS)
+            {
+                ctx.CancelOpPhase1();
+                ctx.CancelOpPhase2(-1);
+                thin->ReportTargetFailure(connectionError, IDS_ERRORREADINGFILE);
+                copyError = TRUE;
+                return;
+            }
+        }
+#endif
         if (ctx.ForceOp != fopWriting && ctx.FreeBlocks > 0 && !ctx.ReadingDone && ctx.ReadingBlocks < (numOfBlocks + 1) / 2) // read in parallel at most up to half of the blocks
         {
             DWORD toRead = ctx.ReadOffset + CQuadWord(limitBufferSize, 0) <= fileSize ? limitBufferSize : (fileSize - ctx.ReadOffset).LoDWord;
@@ -6647,6 +6717,20 @@ void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, vo
                 return; // cancel
         }
     }
+#ifdef SAM_UAC_THIN_COPY_TEST
+    if (thin)
+    {
+        const DWORD connectionError = thin->CheckTransferConnection();
+        if (connectionError != ERROR_SUCCESS)
+        {
+            ctx.CancelOpPhase1();
+            ctx.CancelOpPhase2(-1);
+            thin->ReportTargetFailure(connectionError, IDS_ERRORREADINGFILE);
+            copyError = TRUE;
+            return;
+        }
+    }
+#endif
     if (ctx.ReadOffset != ctx.WriteOffset || operationDone != ctx.WriteOffset)
         TRACE_C("DoCopyFileLoopAsync(): unexpected situation after copy: ReadOffset != WriteOffset || operationDone != ctx.WriteOffset");
 

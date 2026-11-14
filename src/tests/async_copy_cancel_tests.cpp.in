@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-14 | Exercise native async suspension on connection loss. | Verify a real pending read is drained before error reporting. | #731 | gpt-6.1-terra |
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-13 | Test issued asynchronous I/O at cancellation. | Exercise native state and drain with real pending pipe requests. | #731 | GPT-6 |
 #include <windows.h>
@@ -73,6 +74,21 @@ static BOOL ObservedGetOverlappedResult(HANDLE file, OVERLAPPED* overlapped, DWO
 @@ENUMS@@
 struct COperations { BOOL ChangeSpeedLimit = FALSE; };
 struct CProgressDlgData { BOOL* CancelWorker = nullptr; HANDLE WorkerNotSuspended = nullptr; };
+struct CThinCopyWorker
+{
+    DWORD error = ERROR_SUCCESS;
+    unsigned reports = 0;
+    OVERLAPPED* pending = nullptr;
+    bool drainedBeforeReport = false;
+    DWORD CheckTransferConnection() const { return error; }
+    bool ReportTargetFailure(DWORD, int)
+    {
+        ++reports;
+        drainedBeforeReport = pending && HasOverlappedIoCompleted(pending);
+        return false;
+    }
+};
+#define IDS_ERRORREADINGFILE 1
 struct CCopy_Context
 {
     CAsyncCopyParams* AsyncPar = nullptr;
@@ -89,17 +105,22 @@ struct CCopy_Context
     HANDLE* In = nullptr;
     HANDLE* Out = nullptr;
     COperations* Script = nullptr;
+    CThinCopyWorker* Thin = nullptr;
     BOOL StartReading(int, DWORD, DWORD*, BOOL);
     BOOL StartWriting(int, DWORD*);
     void FreeBlock(int);
     void CancelOpPhase1();
     void CancelOpPhase2(int);
+    BOOL HandleSuspModeAndCancel(BOOL*);
 };
 // A pipe is deliberately not seekable. Seeking is not part of this test.
 static BOOL SalSetFilePointer(HANDLE, const CQuadWord&) { return TRUE; }
 @@ISSUE@@
 @@FREE@@
 @@DRAIN@@
+#define SAM_UAC_THIN_COPY_TEST
+@@SUSPEND@@
+#undef SAM_UAC_THIN_COPY_TEST
 
 struct Pipe
 {
@@ -412,6 +433,38 @@ static void TestCompletedWrite()
     CloseHandle(resumed);
 }
 
+static void TestConnectionLossWithPendingRead()
+{
+    Pipe pipe;
+    if (!pipe.Open(true, 91)) { Check(false, "create pipe for connection-loss drain"); return; }
+    CAsyncCopyParams async;
+    async.Init(TRUE);
+    if (async.Failed() || !async.Buffers[0]) { Check(false, "allocate connection-loss buffer"); return; }
+    BOOL cancelled = FALSE, copyError = FALSE;
+    HANDLE input = pipe.server, output = nullptr;
+    HANDLE resumed = CreateEventW(nullptr, TRUE, TRUE, nullptr);
+    if (!resumed) { Check(false, "create resume event for connection-loss test"); return; }
+    COperations ops;
+    CProgressDlgData dialog;
+    dialog.CancelWorker = &cancelled; dialog.WorkerNotSuspended = resumed;
+    CThinCopyWorker thin;
+    CCopy_Context ctx;
+    ctx.AsyncPar = &async; ctx.DlgData = &dialog; ctx.In = &input; ctx.Out = &output;
+    ctx.Script = &ops; ctx.Thin = &thin;
+    DWORD error = ERROR_SUCCESS;
+    const BOOL started = ctx.StartReading(0, 4096, &error, FALSE);
+    Check(started && !HasOverlappedIoCompleted(async.GetOverlapped(0)),
+          "connection-loss fixture has a real pending read");
+    thin.error = ERROR_BROKEN_PIPE; thin.pending = async.GetOverlapped(0);
+    const BOOL stopped = ctx.HandleSuspModeAndCancel(&copyError);
+    Check(stopped && copyError && thin.reports == 1 && thin.drainedBeforeReport,
+          "connection loss drains issued I/O before reporting and stopping");
+    Check(ctx.ReadingBlocks == 0 && ctx.FreeBlocks == 8 && ctx.BlockState[0] == cbsFree,
+          "connection-loss drain restores native block accounting");
+    DrainUnexpectedPending(input, async.GetOverlapped(0));
+    CloseHandle(resumed);
+}
+
 int wmain(int argc, wchar_t** argv)
 {
     if (argc != 2) return 2;
@@ -428,5 +481,6 @@ int wmain(int argc, wchar_t** argv)
     TestEOF(argv[1], true, true);
     TestCompletedRead();
     TestCompletedWrite();
+    TestConnectionLossWithPendingRead();
     return failures ? 1 : 0;
 }
