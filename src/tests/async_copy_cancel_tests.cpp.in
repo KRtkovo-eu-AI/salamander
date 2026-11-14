@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-14 | Exercise native async suspension on connection loss. | Verify a real pending read is drained before error reporting. | #731 | gpt-6.1-terra |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Exercise real peer loss while workers are paused. | Connect pause handling to the actual transport check. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Connect the actual transport check to pending native I/O. | Exercise a real peer process exit in the same isolated scenario. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Exercise async wait on connection loss and completion. | Check real pending I/O is drained only after loss. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Exercise all async pause modes and completed-write loss. | Check tracked I/O drains before loss is reported. | #731 | gpt-6.1-terra |
@@ -665,17 +666,17 @@ struct ExternalSessionPeer
     }
 };
 
-static void TestExternalLossDuringPendingIo()
+static void TestExternalLossDuringPendingIo(int mode)
 {
     Pipe io;
     ExternalSessionPeer peer;
-    if (!io.Open(true, 97) || !peer.Open()) { Check(false, "create separate I/O and external session pipes"); return; }
+    if (!io.Open(true, 97 + mode) || !peer.Open()) { Check(false, "create separate I/O and external session pipes"); return; }
     CAsyncCopyParams async;
     async.Init(TRUE);
     if (async.Failed() || !async.Buffers[0]) { Check(false, "allocate external-loss buffer"); return; }
     BOOL cancelled = FALSE, copyError = FALSE;
     HANDLE input = io.server, output = nullptr;
-    HANDLE resumed = CreateEventW(nullptr, TRUE, TRUE, nullptr);
+    HANDLE resumed = CreateEventW(nullptr, TRUE, mode == 0 ? TRUE : FALSE, nullptr);
     if (!resumed) { Check(false, "create external-loss resume event"); return; }
     UacF7::ThinCopySession transport;
     transport.owned.pipe = peer.server;
@@ -694,14 +695,30 @@ static void TestExternalLossDuringPendingIo()
     std::thread watcher([&] {
         Sleep(150); peerStopped.store(peer.Stop()); Sleep(1500);
         CancelIoEx(input, async.GetOverlapped(0)); // bounded test cleanup
+        SetEvent(resumed);
     });
     const ULONGLONG start = GetTickCount64();
-    const BOOL stopped = ctx.WaitForPendingTransfer(input, async.GetOverlapped(0), &bytes, &copyError);
+    BOOL stopped = FALSE;
+    if (mode == 0)
+        stopped = ctx.WaitForPendingTransfer(input, async.GetOverlapped(0), &bytes, &copyError);
+    else if (mode == 1)
+        stopped = ctx.HandleSuspModeAndCancel(&copyError);
+    else
+        stopped = thin.WaitTransferResume() == ERROR_BROKEN_PIPE;
     const ULONGLONG elapsed = GetTickCount64() - start;
+    const bool beforeResume = WaitForSingleObject(resumed, 0) == WAIT_TIMEOUT;
     watcher.join();
-    Check(peerStopped.load() && stopped && copyError && thin.reports == 1 && thin.drainedBeforeReport &&
-          elapsed < 1400 && ctx.ReadingBlocks == 0 && ctx.FreeBlocks == 8,
-          "actual transport detects external process death and drains pending I/O");
+    if (mode == 2)
+    {
+        Check(peerStopped.load() && stopped && !copyError && !thin.reports && beforeResume && elapsed < 1400,
+              "actual transport detects external process death during sync pause");
+        ctx.CancelOpPhase1(); ctx.CancelOpPhase2(-1);
+    }
+    else
+        Check(peerStopped.load() && stopped && copyError && thin.reports == 1 && thin.drainedBeforeReport &&
+              elapsed < 1400 && ctx.ReadingBlocks == 0 && ctx.FreeBlocks == 8 && (mode == 0 || beforeResume),
+              mode == 0 ? "actual transport detects external process death and drains pending I/O" :
+                          "actual transport detects external process death during async pause and drains I/O");
     DrainUnexpectedPending(input, async.GetOverlapped(0));
     CloseHandle(resumed);
 }
@@ -803,7 +820,9 @@ int wmain(int argc, wchar_t** argv)
     TestPausedConnectionLoss(true);
     TestPendingWait(true);
     TestPendingWait(false);
-    TestExternalLossDuringPendingIo();
+    TestExternalLossDuringPendingIo(0);
+    TestExternalLossDuringPendingIo(1);
+    TestExternalLossDuringPendingIo(2);
     TestCompletedWritePauseLoss();
     TestSynchronousPauseConnectionLoss();
     return failures ? 1 : 0;
