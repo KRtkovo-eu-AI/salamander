@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Reuse saved Find identities in refinement. | Preserve exact protected-file authorization on repeat searches. | #731 | GPT-6 |
 // | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
 // | 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
 // | 2026-11-14 | Reuse an approved search-root session for denied descendants. | Avoid repeated prompts while retaining the exact search scope. | #731 | GPT-6 |
@@ -2086,7 +2087,8 @@ public:
 
     bool Prepare(CGrepData* search, std::wstring deniedPath, CMaskGroup* masksGroup,
                  BOOL recursive, int searchRootLength, const std::shared_ptr<CFindIgnore>& ignore,
-                 unsigned scope, const WIN32_FIND_DATAW* file, const std::wstring& searchRoot = {})
+                 unsigned scope, const WIN32_FIND_DATAW* file, const std::wstring& searchRoot = {},
+                 std::shared_ptr<const UacF7::PreparedLeaf> known = {})
     {
         path = std::move(deniedPath);
         singleFile = file != nullptr;
@@ -2095,13 +2097,15 @@ public:
             return false;
         const auto& root = search->ProtectedRoot;
         const std::wstring& consentRoot = searchRoot.empty() ? path : searchRoot;
-        const bool prepared = singleFile && searchRoot.empty() ? session.PrepareFile(path) :
+        const bool prepared = known ? session.PrepareFileFromView(path, *known) :
+            singleFile && searchRoot.empty() ? session.PrepareFile(path) :
             root && consentRoot == root->path ? session.PrepareFindRoot(*root, readContent) :
             session.PrepareFind(consentRoot, readContent);
         if (!prepared)
             return false;
 
         data = search;
+        knownFile = std::move(known);
         masks = masksGroup;
         includeSubDirs = recursive != FALSE;
         rootLength = searchRootLength;
@@ -2255,7 +2259,8 @@ private:
 
         if (size != listedSize.Value || CompareFileTime(&modified, &file.ftLastWriteTime) != 0 ||
             !FindListedIdentityMatches(listedIdentity, revision) ||
-            (singleFile && ActiveSession().GetRoot() != filePath && !capturedFile.MatchesReadSource(revision)))
+            (singleFile && ActiveSession().GetRoot() != filePath && !capturedFile.MatchesReadSource(revision)) ||
+            (knownFile && !knownFile->MatchesReadSource(revision)))
             error = ERROR_FILE_INVALID;
         const bool match = !error && predicates.Match(data, ActiveSession(), filePath, pathText, listedSize, error);
         const DWORD closeError = ActiveSession().CloseContent();
@@ -2440,8 +2445,8 @@ private:
             duplicateIdentity = std::make_shared<UacF7::MoveFileIdentity>(*listedIdentity);
         constexpr DWORD excluded = FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT |
                                    FILE_ATTRIBUTE_ENCRYPTED | FILE_ATTRIBUTE_OFFLINE;
-        std::shared_ptr<UacF7::PreparedLeaf> foundView;
-        if (!(file.dwFileAttributes & excluded) && !file.nFileSizeHigh &&
+        std::shared_ptr<const UacF7::PreparedLeaf> foundView = singleFile ? knownFile : nullptr;
+        if (!foundView && !(file.dwFileAttributes & excluded) && !file.nFileSizeHigh &&
             file.nFileSizeLow <= UacF7::maxViewerSnapshotBytes)
         {
             try
@@ -2487,6 +2492,7 @@ private:
     UacF7::ListingSession session;
     UacF7::ListingSession* borrowedSession = nullptr; // queue retains its owning request
     UacF7::PreparedLeaf capturedFile;
+    std::shared_ptr<const UacF7::PreparedLeaf> knownFile;
     ProtectedFindPredicates predicates;
     std::wstring path;
     std::shared_ptr<CFindIgnore> ignoreSnapshot;
@@ -2515,7 +2521,7 @@ public:
         try
         {
             auto path = SalPathRemoveExtendedPrefixW(deniedPath.c_str());
-            return AddPath(search, std::move(path), masks, recursive, rootLength, ignore, file, searchRoot);
+            return AddPath(search, std::move(path), masks, recursive, rootLength, ignore, file, searchRoot, {});
         }
         catch (const std::bad_alloc&)
         {
@@ -2528,7 +2534,7 @@ public:
     {
         try
         {
-            return AddPath(search, search->ProtectedRoot->path, masks, recursive, rootLength, ignore, nullptr, search->ProtectedRoot->path);
+            return AddPath(search, search->ProtectedRoot->path, masks, recursive, rootLength, ignore, nullptr, search->ProtectedRoot->path, {});
         }
         catch (const std::bad_alloc&)
         {
@@ -2545,7 +2551,7 @@ public:
         file.ftLastWriteTime = item.LastWrite;
         try
         {
-            return AddPath(search, SalPathRemoveExtendedPrefixW(path.c_str()), masks, FALSE, 0, {}, &file, {});
+            return AddPath(search, SalPathRemoveExtendedPrefixW(path.c_str()), masks, FALSE, 0, {}, &file, {}, item.FoundView);
         }
         catch (const std::bad_alloc&)
         {
@@ -2586,19 +2592,20 @@ public:
 
 private:
     FindQueueResult AddPath(CGrepData* search, std::wstring path, CMaskGroup* masks, BOOL recursive, int rootLength,
-                 const std::shared_ptr<CFindIgnore>& ignore, const WIN32_FIND_DATAW* file, const std::wstring& searchRoot)
+                 const std::shared_ptr<CFindIgnore>& ignore, const WIN32_FIND_DATAW* file, const std::wstring& searchRoot,
+                 std::shared_ptr<const UacF7::PreparedLeaf> known)
     {
         if (search->StopSearch)
             return FindQueueResult::Stopped;
         for (size_t i = 0; i < count; ++i)
-            if (requests[i]->Matches(path, masks, file != nullptr) &&
+            if (!known && requests[i]->Matches(path, masks, file != nullptr) &&
                 (!search->Refine || (file && requests[i]->MergeRefinedRow(*file))))
                 return FindQueueResult::Added;
         if (count == requests.size())
             return FindQueueResult::Limit;
         auto request = std::make_unique<FindProtectedRequest>();
         if (!request->Prepare(search, std::move(path), masks, recursive, rootLength, ignore,
-                              static_cast<unsigned>(count + 1), file, searchRoot))
+                              static_cast<unsigned>(count + 1), file, searchRoot, std::move(known)))
             return search->StopSearch ? FindQueueResult::Stopped : FindQueueResult::Failed;
         if (search->StopSearch)
             return FindQueueResult::Stopped;
@@ -2799,10 +2806,16 @@ void RefineData(CMaskGroup* masksGroup, CGrepData* data)
         if (ok && !( !refineData->NameW.empty() ? masksGroup->AgreeMasksW(refineData->NameW.c_str(), NULL) : masksGroup->AgreeMasks(refineData->Name, NULL)))
             ok = FALSE;
 
-        // Refinement must not read a replacement by pathname after a protected search.
-        // The existing FindContent scope cannot yet reuse this result's captured identity.
+        // Reuse the saved identity, not a fresh pathname lookup, for protected results.
         if (ok && refineData->ProtectedOrigin && !refineData->IsDir && (data->Criteria.HasTags() || data->Grep))
         {
+            if (refineData->FoundView)
+            {
+                const auto path = refineData->GetFullNameW();
+                const auto queued = protectedQueue.AddRefined(data, path, masksGroup, *refineData);
+                if (queued == FindQueueResult::Added || queued == FindQueueResult::Stopped)
+                    continue;
+            }
             ok = FALSE;
             if (!data->StopSearch)
             {

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-15 | Reuse saved Find identities in refinement. | Preserve exact protected-file authorization on repeat searches. | #731 | GPT-6 |
 # | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
 # | 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
 # | 2026-11-12 | Check paged and legacy Find session loss. | Preserve cancellation and avoid crossing protected scopes. | #731 | GPT-6.1 Terra |
@@ -66,6 +67,8 @@ def main() -> int:
     publish = function_body(find_cpp, "void PublishCandidate(")
     ordered(publish, "maxViewerSnapshotBytes", "ActiveSession().PrepareViewer(filePath",
             "AddFoundItem(", "std::move(foundView)")
+    require("foundView = singleFile ? knownFile : nullptr" in publish,
+            "retained refine results must keep their captured identity after refusal")
     host = (ROOT / "src" / "fileswn5.cpp").read_text(encoding="utf-8-sig")
     internal = function_body(host, "BOOL ViewFileInt(")
     controller = function_body(host, "static bool PrepareProtectedViewerSnapshot(")
@@ -302,6 +305,10 @@ def main() -> int:
     require("file->GetFullNameW().c_str(), CP_UTF8" in focused and "MAX_PATH" not in focused,
             "Find handler actions must accept the full focused path")
     refine = function_body(find_cpp, "void RefineData(")
+    require("if (refineData->FoundView)" in refine and
+            "protectedQueue.AddRefined(data, path, masksGroup, *refineData)" in refine and
+            "IDS_UAC_FIND_REFINE_IDENTITY_UNAVAILABLE" in refine,
+            "protected refinement must reuse a captured file identity and fail closed when unavailable")
     require("refineData->GetFullNameW()" in refine and
             "protectedQueue.AddRefined(data, fullPath, masksGroup, *refineData)" in refine and
             "apiPath.c_str()" in refine,

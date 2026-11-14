@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Reuse saved Find identities in refinement. | Preserve exact protected-file authorization on repeat searches. | #731 | GPT-6 |
 | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
 | 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
 | 2026-11-14 | Separate name-only Find authorization from panel content access. | Keep search rights limited to the requested read capability. | #731 | GPT-6 |
@@ -1129,6 +1130,7 @@ public:
     bool Prepare(const std::wstring& path, bool findContent = false);
     bool PrepareFind(const std::wstring& path, bool readContent);
     bool PrepareFile(const std::wstring& path);
+    bool PrepareFileFromView(const std::wstring& path, const PreparedLeaf& file);
     bool PrepareExactFindViewer(const std::wstring& path, DWORD attributes, PreparedLeaf& viewer) const;
     bool PrepareAllocationFile(const std::wstring& path, const PreparedLeaf& file);
     bool PrepareFindRoot(const FindRootIdentity& identity, bool readContent);

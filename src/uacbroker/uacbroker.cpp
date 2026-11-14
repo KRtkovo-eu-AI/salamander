@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Reuse saved Find identities in refinement. | Preserve exact protected-file authorization on repeat searches. | #731 | GPT-6 |
 | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
 | 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
 | 2026-11-14 | Enforce metadata-only Find authorization. | Distinguish name searches from panel and content reads. | #731 | GPT-6 |
@@ -7474,12 +7475,40 @@ bool ListingSession::PrepareFile(const std::wstring& path)
     return true;
 }
 
+bool ListingSession::PrepareFileFromView(const std::wstring& path, const PreparedLeaf& file)
+{
+    ListingForegroundLock lock(mutex, foregroundWaiters);
+    if (starting || pipe || !root.empty() || path.empty() || file.operation != Operation::View ||
+        (!file.parent && !file.identityFromListing))
+        return false;
+    std::wstring_view display(path);
+    if (display.substr(0, 4) == LR"(\\?\)") display.remove_prefix(4);
+    if (display.size() < 4 || display[1] != L':' || display[2] != L'\\') return false;
+    const std::wstring drive(display.substr(0, 3));
+    wchar_t volume[volumeLength + 2]{};
+    if (!GetVolumeNameForVolumeMountPointW(drive.c_str(), volume, ARRAYSIZE(volume)) ||
+        wcslen(volume) != volumeLength + 1 ||
+        !UacDirectoryLeaf::Equal(std::wstring_view(volume, volumeLength), file.volume)) return false;
+    const auto expected = file.relative.empty() ? file.leaf : file.relative + L"\\" + file.leaf;
+    if (display.substr(3) != expected) return false;
+    prepared.volume = file.volume;
+    prepared.relative = file.relative;
+    prepared.leaf = file.leaf;
+    prepared.serial = file.serial;
+    std::memcpy(prepared.fileId, file.fileId, sizeof(prepared.fileId));
+    std::memcpy(prepared.sourceId, file.sourceId, sizeof(prepared.sourceId));
+    prepared.identityFromListing = true;
+    prepared.operation = Operation::FindFile;
+    root = path;
+    return true;
+}
+
 bool ListingSession::PrepareExactFindViewer(const std::wstring& path, DWORD attributes, PreparedLeaf& viewer) const
 {
     ListingForegroundLock lock(mutex, foregroundWaiters);
     constexpr DWORD excluded = FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT |
                                FILE_ATTRIBUTE_ENCRYPTED | FILE_ATTRIBUTE_OFFLINE;
-    if (!pipe || prepared.operation != Operation::FindFile || !prepared.parent || path != root || path.empty() ||
+    if (!pipe || prepared.operation != Operation::FindFile || (!prepared.parent && !prepared.identityFromListing) || path != root || path.empty() ||
         (attributes & excluded) || viewer.parent || viewer.source || viewer.identityFromListing ||
         !viewer.volume.empty() || !viewer.relative.empty() || !viewer.leaf.empty())
         return false;

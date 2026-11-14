@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Reuse protected result identities in refinement. | Record bounded implementation and remaining multi-item scope. | #731 | GPT-6 |
 | 2026-11-15 | Record selected-size and duplicate-read consent reuse. | Track exact scope, automated evidence and remaining Find gaps. | #731 | GPT-6 |
 | 2026-11-14 | Record scoped Find session reuse and remaining batch gaps. | Distinguish implemented search coverage, automated checks and outstanding user verification. | #731 | GPT-6 |
 | 2026-11-14 | Record operation-wide read consent requirements and user reports. | Track repeated size and Find prompts and F3 panel-session reuse. | #731 | GPT-6 |
@@ -623,6 +624,14 @@
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
+
+## Refine chráněného výsledku — 15. listopadu 2026
+
+- **Implementováno:** refine může požádat o čtení chráněného výsledku, pokud tento výsledek již obsahuje připravenou identitu souboru. Předává se původní rodič a identita souboru, bez nového zachycení náhrady podle názvu; zobrazovaná cesta musí odpovídat připravené cestě a svazku. Při dalším čtení se identita znovu porovnává. Zachovává se i při ponechání výsledku po odmítnutí. Bez dříve uložené identity zůstává výsledek neúplný.
+- **Automatické ověření:** stávající test fronty ověřuje předání uložené identity a test chráněného průchodu odmítnutí náhradního souboru se stejnými metadaty. Dále procházejí testy identity prohlížeče a plánování Findu v Debug i Release. Systémový dialog ani Computer Use se nespouštěly.
+- **Sestavení:** Release x64 v `C:\Samandarin\builds\uac-find-refine-20261115\salamander\Release_x64`; SHA-256 hosta `A10FFE2D2DA6D00B244F393A434DDBF1C1D252909A0B07FE43173C76156BEB74`, brokeru `A53684B8C7169E07E365D11B3F1F2A9E3169267C3B6C23D5EFA6C53728EA1A3D`. Jde o nenainstalovaný výstup sestavení, s níže uvedeným otevřeným omezením rozsahu.
+- **Zbývá:** více různých chráněných výsledků v refine dosud nemá společnou přesně omezenou relaci; schválení prvního nepovoluje sourozence a ostatní se označí jako neúplné. Stejně zůstává otevřený Find přes více nezávislých kořenů. Větší výsledky nebo jiné položky bez uložené `FoundView` identity zatím nelze takto obnovit. Uživatelské potvrzení nové cesty čeká.
+- **Otevřená hranice rozsahu Findu:** při nerekurzivním hledání současné relace `FindList` a `FindContent` umožňují požadavky i pro potomky schváleného kořene, přestože samotný worker je neprochází. Broker musí dostat a vynucovat také nerekurzivní rozsah; dosavadní testy ověřují hranici kořene, nikoli tuto hloubku. Dokud to není opraveno, nelze tvrdit, že je oprávnění Findu přesně omezené na každou uživatelovu operaci.
 
 ## Sdílení souhlasu — 15. listopadu 2026
 

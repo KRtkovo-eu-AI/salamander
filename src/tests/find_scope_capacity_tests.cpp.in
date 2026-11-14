@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Reuse saved Find identities in refinement. | Preserve exact protected-file authorization on repeat searches. | #731 | GPT-6 |
 // | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
 // | 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
 // | 2026-11-14 | Check refusal across queued Find scopes. | Avoid repeated UAC prompts after a declined search. | #731 | GPT-6 |
@@ -152,10 +153,11 @@ struct PreparedLeaf { bool PrepareView(const std::wstring&) { return true; } };
 }
 using FindProtectedSessions = std::array<UacF7::ListingSession*, maxFindProtectedScopes>;
 struct FixtureSize { DWORD LoDWord = 0, HiDWord = 0; };
-struct CFoundFilesData { DWORD Attr = 0; FixtureSize Size; FILETIME LastWrite{}; };
+struct CFoundFilesData { DWORD Attr = 0; FixtureSize Size; FILETIME LastWrite{}; std::shared_ptr<const UacF7::PreparedLeaf> FoundView; };
 static bool failPrepare, stopAfterPrepare, failStart;
 static DWORD finishError;
 static int starts, preparations, finishes, omitted, reused;
+static bool preparedKnownIdentity;
 struct FindProtectedRequest {
     std::wstring path;
     CMaskGroup* masks = nullptr;
@@ -163,7 +165,9 @@ struct FindProtectedRequest {
     DWORD attributes = 0;
     UacF7::ListingSession session;
     bool Prepare(CGrepData* data, std::wstring name, CMaskGroup* mask, BOOL, int,
-                 const std::shared_ptr<CFindIgnore>&, unsigned, const WIN32_FIND_DATAW* file, const std::wstring&) {
+                 const std::shared_ptr<CFindIgnore>&, unsigned, const WIN32_FIND_DATAW* file, const std::wstring&,
+                 std::shared_ptr<const UacF7::PreparedLeaf> known) {
+        preparedKnownIdentity = known != nullptr;
         ++preparations; path = std::move(name); masks = mask; singleFile = file != nullptr;
         attributes = file ? file->dwFileAttributes : 0;
         if (stopAfterPrepare) data->StopSearch = true;
@@ -408,6 +412,12 @@ int main() {
         Check(DigestDenied(&digest, &row, remaining) == ERROR_SUCCESS && remaining == 0 &&
               digestAuthorizations == 1 && !digest.IncompleteReasons,
               "an available file consent is consumed and authorized normally");
+    }
+    {
+        CGrepData refine; refine.Refine = 1; FindProtectedQueue items; CFoundFilesData row;
+        row.FoundView = std::make_shared<UacF7::PreparedLeaf>(); preparedKnownIdentity = false;
+        Check(items.AddRefined(&refine, L"C:\\identity-file", &mask, row) == FindQueueResult::Added && preparedKnownIdentity,
+              "refine forwards the captured identity to its protected request");
     }
     {
         CGrepData refine; refine.Refine = 1; FindProtectedQueue items; CFoundFilesData row;

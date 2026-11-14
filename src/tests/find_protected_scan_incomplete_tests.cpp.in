@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Reuse saved Find identities in refinement. | Preserve exact protected-file authorization on repeat searches. | #731 | GPT-6 |
 // | 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
 // | 2026-11-12 | Exercise bounded paged Find traversal. | Preserve Stop, errors and DFS while removing the wide-directory cap. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Exercise independently bounded protected Find listings. | Preserve wide tree coverage and depth, session and cancellation limits. | #731 | GPT-6.1 Terra |
@@ -137,7 +138,7 @@ DWORD FakeSession::OpenContent(const std::wstring&, ULONGLONG& size, FILETIME& m
     size = contentSize; modified = {}; if (stopOnOpen) data->StopSearch = true; return contentError;
 }
 namespace UacF7 { using ListingSession = FakeSession; using ArchiveRevision = UacRevision;
-struct PreparedLeaf { bool MatchesReadSource(const UacRevision&) const { return true; } }; }
+struct PreparedLeaf { bool matches = true; bool MatchesReadSource(const UacRevision&) const { return matches; } }; }
 @@IDENTITY_MATCH@@
 struct CQuadWord { ULONGLONG Value = 0; };
 static std::string SalWideToMultiBytePath(const wchar_t* path, unsigned) { std::string result; while (*path) result += static_cast<char>(*path++); return result; }
@@ -158,7 +159,7 @@ struct Predicates {
     }
 };
 struct FindProtectedRequest {
-    CGrepData* data; FakeSession session; UacF7::PreparedLeaf capturedFile; std::shared_ptr<CFindIgnore> ignoreSnapshot;
+    CGrepData* data; FakeSession session; UacF7::PreparedLeaf capturedFile; std::shared_ptr<const UacF7::PreparedLeaf> knownFile; std::shared_ptr<CFindIgnore> ignoreSnapshot;
     int rootLength = 0; bool includeSubDirs = true, singleFile = false, startOk = true; int starts = 0;
     HANDLE launchThread = nullptr; std::optional<Consent> consent; Predicates predicates;
     std::wstring path = L"C:\\root"; std::vector<std::pair<std::wstring, DWORD>> logs;
@@ -377,6 +378,11 @@ int main() {
       Check(!scan.MatchFile(scan.path,file,size,&identity) && data.IncompleteReasons==FindIncompleteProtectedFailure &&
             scan.logs.size()==1 && scan.logs[0].second==ERROR_FILE_INVALID,
             "a same-size, same-time file with changed ID is rejected before content matching"); }
+    { CGrepData data; FindProtectedRequest scan(data); CQuadWord size{}; auto file = File(L"file");
+      auto saved = std::make_shared<UacF7::PreparedLeaf>(); saved->matches = false; scan.knownFile = saved;
+      Check(!scan.MatchFile(scan.path,file,size) && data.IncompleteReasons==FindIncompleteProtectedFailure &&
+            scan.logs.size()==1 && scan.logs[0].second==ERROR_FILE_INVALID,
+            "refine rejects a replacement that differs from the saved protected identity"); }
     { UacF7::MoveFileIdentity identity{}; UacF7::ArchiveRevision revision{}; identity.serial=7; identity.id[0]=4;
       revision.serial=7; revision.fileId[0]=4;
       Check(FindListedIdentityMatches(&identity,revision), "matching identity allows the deferred content read");
