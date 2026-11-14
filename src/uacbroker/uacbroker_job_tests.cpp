@@ -2848,6 +2848,10 @@ constexpr bool linkedAsync = false;
 #endif
 extern "C" BOOL RunLinkedNativeCopyLoop(HANDLE*, HANDLE*, const wchar_t*, const wchar_t*, ULONGLONG, ULONGLONG,
                                         void*, DWORD (*)(void*), HANDLE (*)(void*), bool (*)(void*), BOOL);
+#ifdef SAM_UAC_LOOP_LINK_ASYNC
+extern "C" BOOL RunLinkedNativeReadRetryLoop(HANDLE*, HANDLE*, const wchar_t*, const wchar_t*, ULONGLONG,
+                                             void*, DWORD (*)(void*), HANDLE (*)(void*));
+#endif
 #ifdef SAM_UAC_LINK_PREALLOC
 extern "C" BOOL RunLinkedPreallocationFallback(HANDLE*, HANDLE*, const wchar_t*, void*, bool (*)(void*));
 #endif
@@ -2861,11 +2865,27 @@ struct LinkedThinContext
     bool corruptBeforeRetry = false;
     unsigned reopenCount = 0;
     unsigned discardCount = 0;
+    unsigned sourceReopenCount = 0;
 };
 static DWORD LinkedThinCheck(void* context)
 {
     return static_cast<LinkedThinContext*>(context)->thin->CheckTransport();
 }
+#ifdef SAM_UAC_LOOP_LINK_ASYNC
+static HANDLE LinkedThinRetrySource(void* context)
+{
+    auto& state = *static_cast<LinkedThinContext*>(context);
+    const auto reopened = state.thin->Open(nullptr, *state.request, UacF7::ThinOpenKind::Source, true, false, nullptr);
+    if (reopened.error || reopened.unknown || reopened.file == INVALID_HANDLE_VALUE)
+    {
+        SetLastError(reopened.error ? reopened.error : ERROR_GEN_FAILURE);
+        return INVALID_HANDLE_VALUE;
+    }
+    state.source = reopened.file;
+    ++state.sourceReopenCount;
+    return reopened.file;
+}
+#endif
 static HANDLE LinkedThinRetry(void* context)
 {
     auto& state = *static_cast<LinkedThinContext*>(context);
@@ -2895,8 +2915,11 @@ static bool LinkedThinDiscard(void* context)
     return true;
 }
 #endif
-void CheckThinClientPlannedTree(const Directory& source, const Directory& target, bool mismatch = false, int sizeChange = 0, bool sourceEa = false)
+void CheckThinClientPlannedTree(const Directory& source, const Directory& target, bool mismatch = false, int sizeChange = 0, bool sourceEa = false, bool readRetry = false)
 {
+#ifndef SAM_UAC_LOOP_LINK_ASYNC
+    (void)readRetry;
+#endif
 #ifndef SAM_UAC_LOOP_LINK_HARNESS
     (void)mismatch;
     (void)sizeChange;
@@ -3103,14 +3126,23 @@ void CheckThinClientPlannedTree(const Directory& source, const Directory& target
     LinkedThinContext loopContext{&thin, &request, created.targetIdentity, input.get(), targetFile.c_str(), mismatch};
     HANDLE rawInput = input.release();
     HANDLE rawOutput = output.release();
-    const bool targetCreated = !created.error && !created.unknown && rawOutput && rawOutput != INVALID_HANDLE_VALUE &&
-        SetFilePointerEx(rawInput, zero, nullptr, FILE_BEGIN) &&
-        RunLinkedNativeCopyLoop(&rawInput, &rawOutput, sourceFile.c_str(), targetFile.c_str(), sourceSize, expected.size(),
-                                &loopContext, LinkedThinCheck, LinkedThinRetry, LinkedThinDiscard, mismatch) &&
-        loopContext.reopenCount == 1 && loopContext.discardCount == (mismatch ? 1u : 0u);
+    bool targetCreated = !created.error && !created.unknown && rawOutput && rawOutput != INVALID_HANDLE_VALUE &&
+        SetFilePointerEx(rawInput, zero, nullptr, FILE_BEGIN);
+#ifdef SAM_UAC_LOOP_LINK_ASYNC
+    if (targetCreated && readRetry)
+        targetCreated = RunLinkedNativeReadRetryLoop(&rawInput, &rawOutput, sourceFile.c_str(), targetFile.c_str(), sourceSize,
+                                                     &loopContext, LinkedThinCheck, LinkedThinRetrySource) &&
+                        loopContext.sourceReopenCount == 1 && !loopContext.reopenCount && !loopContext.discardCount;
+    else
+#endif
+        targetCreated = targetCreated &&
+            RunLinkedNativeCopyLoop(&rawInput, &rawOutput, sourceFile.c_str(), targetFile.c_str(), sourceSize, expected.size(),
+                                    &loopContext, LinkedThinCheck, LinkedThinRetry, LinkedThinDiscard, mismatch) &&
+            loopContext.reopenCount == 1 && loopContext.discardCount == (mismatch ? 1u : 0u);
     input.reset(rawInput);
     output.reset(rawOutput);
-    Check(targetCreated, useOverlapped ? "native asynchronous loop retries through actual client and dispatcher" :
+    Check(targetCreated, readRetry ? "native asynchronous source retry reopens through actual client and dispatcher" :
+                         useOverlapped ? "native asynchronous loop retries through actual client and dispatcher" :
                                        "native synchronous loop retries through actual client and dispatcher");
     if (mismatch)
     {
@@ -5226,6 +5258,13 @@ int wmain(int argc, wchar_t** argv)
     }
 #ifdef SAM_UAC_CLIENT_PIPE_HARNESS
 #ifdef SAM_UAC_LOOP_LINK_HARNESS
+#ifdef SAM_UAC_LOOP_LINK_ASYNC
+    if (argc == 2 && !wcscmp(argv[1], L"--thin-client-planned-read-retry-only"))
+    {
+        CheckThinClientPlannedTree(source, target, false, 0, false, true);
+        return failures ? 1 : 0;
+    }
+#endif
     if (argc == 2 && !wcscmp(argv[1], L"--thin-client-planned-ea-only"))
     {
         CheckThinClientPlannedTree(source, target, false, 0, true);

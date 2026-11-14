@@ -44,13 +44,14 @@ def main():
     crash_mode.add_argument('--client-planned-shrink-only', action='store_true')
     crash_mode.add_argument('--client-planned-ea-only', action='store_true')
     crash_mode.add_argument('--client-planned-async-only', action='store_true')
+    crash_mode.add_argument('--client-planned-async-read-retry-only', action='store_true')
     crash_mode.add_argument('--client-planned-async-mismatch-only', action='store_true')
     crash_mode.add_argument('--client-planned-preallocation-only', action='store_true')
     args = parser.parse_args()
     env = compiler_environment()
     compiler = shutil.which('cl', path=env.get('PATH'))
     flags = ('/MTd', '/Od', '/D_DEBUG') if args.configuration == 'Debug' else ('/MT', '/O2', '/DNDEBUG')
-    async_loop = args.client_planned_async_only or args.client_planned_async_mismatch_only
+    async_loop = args.client_planned_async_only or args.client_planned_async_mismatch_only or args.client_planned_async_read_retry_only
     linked_loop = args.client_planned_loop_only or args.client_planned_mismatch_only or args.client_planned_grow_only or args.client_planned_shrink_only or args.client_planned_ea_only or args.client_planned_preallocation_only or async_loop
     client_mode = args.client_reopen_only or args.client_lost_budget_only or args.client_external_lost_budget_only or args.client_connection_only or args.client_planned_only or linked_loop
     if args.owned_cleanup_only or client_mode or args.overwrite_only or args.lost_reply_only or args.external_lost_reply_only:
@@ -146,6 +147,8 @@ def main():
                 command.append('--thin-client-planned-ea-only')
             if args.client_planned_async_only:
                 command.append('--thin-client-planned-only')
+            if args.client_planned_async_read_retry_only:
+                command.append('--thin-client-planned-read-retry-only')
             if args.client_planned_async_mismatch_only:
                 command.append('--thin-client-planned-mismatch-only')
             if args.client_planned_preallocation_only:
