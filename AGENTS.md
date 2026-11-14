@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Define shared read-consent scope for sizes, Find and panel F3. | Avoid repeated elevation within an already approved operation. | #731 | GPT-6 |
 | 2026-11-14 | Make UAC verification noninteractive until further notice. | Keep user-run checks separate from automatic evidence. | #731 | GPT-6 |
 | 2026-11-14 | Require concrete reasons for additional UAC acceptance gates. | Prevent stronger-than-native guarantees from expanding the refactor again. | #731 | GPT-6 |
 | 2026-11-14 | Define native-worker UAC refactor acceptance. | Replace absolute handle and consistency requirements with scoped privilege checks. | #731 | GPT-6 |
@@ -13,6 +14,15 @@
 These rules apply to all future agentic development in this repository.
 
 ## UAC refactor: binding scope (2026-11-14)
+
+### Shared read consent (user requirements, 2026-11-14)
+
+- One directory-size operation (including Ctrl+Q, Space and selected items) has at most one UAC consent for its selected scope and traversed subtrees; siblings are not new batches.
+- One recursive Find has at most one consent for its requested search scope and read capability. Continue searching accessible locations while consent is pending; do not prompt for each protected subtree.
+- Reuse the live approved panel read session inside its scope for navigation, refresh, sizes and internal F3; F3 must not prompt or launch another helper when that session authorizes the read.
+- Reuse the actual authenticated session, not a consent flag. The application remains unelevated; read consent does not grant writes, external elevated programs or access outside the approved operation scope.
+- A refusal applies to the rest of the current operation. Continue accessible work and indicate incomplete results clearly; a later independent operation may ask again.
+- Denial even to an approved administrator is a genuine failure or omission, never a reason for repeated prompts or ACL/owner changes. A disconnected session is not valid and must not cause automatic prompt loops.
 
 Until the user changes this instruction, do not use Computer Use, run Samandarin, brokers, pilots, installers or acceptance scripts interactively, trigger UAC, or request interactive confirmation. Build and run relevant existing noninteractive automated tests; skip tests requiring interaction or elevation and report them. Add a targeted regression test only for changed behavior or a concrete uncovered defect. The user performs interactive checks independently: distinguish implemented, automatically verified, user verified, user-reported defect and not yet user verified. Treat the user's report as user evidence, and after a fix explicitly mark user confirmation pending. Do not make interactive acceptance a prerequisite for completing an implementation step. Preserve other UAC security and native-behavior requirements.
 
