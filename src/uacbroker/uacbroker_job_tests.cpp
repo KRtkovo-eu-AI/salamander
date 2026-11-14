@@ -3103,11 +3103,11 @@ void CheckThinClientPlannedTree(const Directory& source, const Directory& target
               "changed copied prefix restarts and client deletes only the owned target");
         if (!targetCreated || input || output || !IsAbsent(targetFile) || !thin.IsOpen()) return;
         original.reset();
-        const auto restartedSource = thin.Open(nullptr, request, UacF7::ThinOpenKind::Source, false, false, nullptr);
+        const auto restartedSource = thin.Open(nullptr, request, UacF7::ThinOpenKind::Source, useOverlapped, false, nullptr);
         input = Adopt(restartedSource.file);
         if (restartedSource.error || restartedSource.unknown || !input)
         { Check(false, "reopen source on the same session after restart"); return; }
-        const auto restartedTarget = thin.Open(nullptr, request, UacF7::ThinOpenKind::TargetCreate, false, false,
+        const auto restartedTarget = thin.Open(nullptr, request, UacF7::ThinOpenKind::TargetCreate, useOverlapped, false,
                                                nullptr, UacF7::ThinOpenedSource{input.get()});
         output = Adopt(restartedTarget.file);
         if (restartedTarget.error || restartedTarget.unknown || !output)

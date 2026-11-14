@@ -54,7 +54,6 @@ extern "C" BOOL RunLinkedNativeCopyLoop(HANDLE* input, HANDLE* output, const wch
                                         ULONGLONG fileBytes, ULONGLONG expectedBytes, void* context, DWORD (*check)(void*),
                                         HANDLE (*retry)(void*), bool (*discard)(void*), BOOL expectRestart)
 {
-    if (expectRestart) return FALSE; // This fixture does not yet cover a changed prefix.
     BOOL cancel=FALSE, error=FALSE, skipped=FALSE, again=FALSE;
     HANDLE resumed=CreateEventW(nullptr, TRUE, TRUE, nullptr);
     if (!resumed) return FALSE;
@@ -73,7 +72,8 @@ extern "C" BOOL RunLinkedNativeCopyLoop(HANDLE* input, HANDLE* output, const wch
     DoCopyFileLoopAsync(&parameters, *input, *output, nullptr, limit, &script, dialog, FALSE, &op,
                         total, error, skipped, nullptr, done, size, 1024, allocation, again, previous, &thin);
     CloseHandle(resumed);
-    return !error && !skipped && !again && !thin.reports && didFault && dialogCount == 1 && done.Value == expectedBytes;
+    return !error && !skipped && (again != FALSE) == (expectRestart != FALSE) && !thin.reports &&
+           didFault && dialogCount == 1 && (expectRestart || done.Value == expectedBytes);
 }
 '''
     args.emit_linked.write_text(code, encoding='utf-8')
