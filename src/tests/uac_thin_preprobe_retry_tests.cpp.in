@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Update batch-consent harness for native overwrite and Scan Ahead. | Keep actual worker session-selection tests current. | #731 | gpt-6.1-terra |
 // | 2026-11-13 | Cover invalid cancellation after handle delivery. | Reject a received handle when cancellation can no longer be observed. | #731 | GPT-6 |
 // | 2026-11-13 | Test retained batch consent across copy items. | Reject changed scopes and ambiguous broker outcomes. | #731 | GPT-6 |
 // | 2026-11-13 | Model experimental planned custody. | Keep retry tests aligned with item-scoped sessions. | #731 | GPT-6 |
@@ -17,9 +18,17 @@
 #include <string>
 
 namespace UacF7 {
-enum class ThinOpenKind { Source, TargetCreate, TargetRetry, TargetProbe };
+enum class ThinOpenKind { Source, TargetCreate, TargetRetry, TargetProbe, TargetOverwrite, TargetReopenWrite };
 enum class TransferPromptKind { ThinPlainCopy };
 struct MoveFileIdentity { ULONGLONG serial = 0; unsigned char id[16]{}; };
+struct ArchiveRevision { DWORD attributes = 0; };
+struct ThinScanEvidence {
+    enum class Kind { None, LegacyIdentity, Revision };
+    Kind kind = Kind::None;
+    ArchiveRevision revision{};
+    DWORD legacyVolume = 0;
+    ULONGLONG legacyIndex = 0;
+};
 enum class Operation { Copy, Move, Metadata };
 static Operation TransferJobFamily(Operation operation) { return operation; }
 static bool IsSpecialTimestampFile(DWORD) { return false; }
@@ -61,6 +70,8 @@ struct TransferPrompt {
 };
 static ThinOpenResult nextResult;
 static int opens = 0;
+static bool scanCaptured = false;
+static ThinScanEvidence capturedScan{};
 static bool nextSessionOpen = false;
 static bool cancelDuringOpen = false, invalidateDuringOpen = false;
 struct ThinCopySession {
@@ -70,8 +81,10 @@ struct ThinCopySession {
     bool Attach(ThinCopySession&, const PreparedTransfer&) { return false; }
     bool TakePlanned(std::unique_ptr<ThinCopySession>&, const PreparedTransfer&) { return false; }
     ThinOpenResult Open(HWND, const PreparedTransfer&, ThinOpenKind, bool, bool,
-                        const MoveFileIdentity*, ThinOpenedSource, ThinCancelEvent cancel) {
+                        const MoveFileIdentity*, ThinOpenedSource, ThinCancelEvent cancel,
+                        const ThinScanEvidence* scan) {
         ++opens; isOpen = nextSessionOpen;
+        scanCaptured = scan != nullptr; if (scan) capturedScan = *scan;
         if (cancelDuringOpen) SetEvent(cancel.value);
         if (invalidateDuringOpen) CloseHandle(cancel.value);
         return nextResult;
@@ -80,9 +93,9 @@ struct ThinCopySession {
 }
 struct SourcePlan { std::unique_ptr<UacF7::ThinCopySession> Session; };
 struct Script { SourcePlan* CopySource = nullptr; int Count = 1; };
-struct Operation { std::wstring SourceNameW = L"source", TargetNameW = L"target"; };
+struct Operation { std::wstring SourceNameW = L"source", TargetNameW = L"target"; UacF7::ArchiveRevision ScannedTargetRevision{}; };
 static HANDLE testEvent = nullptr;
-struct Dialog { std::list<UacF7::ThinCopySession> ThinCopyJobs; std::optional<UacF7::TransferJobScope> PendingThinConsent; BOOL* CancelWorker = nullptr; HANDLE CancelWorkerEvent = testEvent; };
+struct Dialog { std::list<UacF7::ThinCopySession> ThinCopyJobs; std::optional<UacF7::TransferJobScope> PendingThinConsent; BOOL* CancelWorker = nullptr; HANDLE CancelWorkerEvent = testEvent; bool ConflictDecisionInjected = false, InjectedTargetIdentityValid = false; DWORD InjectedTargetVolumeSerial = 0; ULONGLONG InjectedTargetFileIndex = 0; };
 constexpr UINT WM_USER_DIALOG = WM_USER + 42;
 constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER = 1;
 static int prompts = 0, reported = 0, waits = 0;
@@ -112,7 +125,7 @@ struct CThinCopyWorker {
     bool plannedTaken = false;
     UacF7::MoveFileIdentity target{};
     bool active = true, terminal = false, sourceVerified = true, targetKnown = true;
-    bool scopeMayHaveStarted = false, pendingConsent = false, brokerHandleDelivered = false, targetCreatedByBroker = false, batchScopeApproved = false;
+    bool scopeMayHaveStarted = false, pendingConsent = false, brokerHandleDelivered = false, targetCreatedByBroker = false, batchScopeApproved = false, nativeTargetOverwrite = false;
     bool WaitBeforeElevation() {
         ++waits;
         if (CancelBeforeElevation()) return false;
@@ -153,6 +166,7 @@ static void Check(bool value, const char* label, int& failures) {
 static void Reset() {
     prompts = reported = waits = UacF7::opens = 0; approval = waitOkay = true; scopeShown = false; UacF7::failScope = false;
     UacF7::nextResult = {}; UacF7::nextSessionOpen = false;
+    UacF7::scanCaptured = false; UacF7::capturedScan = {};
     UacF7::cancelDuringOpen = UacF7::invalidateDuringOpen = false;
 }
 int main() {
@@ -262,6 +276,49 @@ int main() {
         Check(worker.Open(UacF7::ThinOpenKind::Source, false) == INVALID_HANDLE_VALUE &&
               worker.scopeMayHaveStarted && !worker.pendingConsent && prompts == 0,
               "existing batch session never becomes pre-probe again", failures);
+    }
+    for (bool matching : {true, false}) {
+        Reset(); scopeShown = true; UacF7::nextSessionOpen = true;
+        UacF7::nextResult.error = ERROR_SUCCESS; UacF7::nextResult.file = file;
+        CThinCopyWorker first; first.dialog.CancelWorker = &cancelled; first.script.Count = 2;
+        const bool firstOpened = first.Open(UacF7::ThinOpenKind::Source, false) == file && prompts == 1 &&
+                                 first.dialog.ThinCopyJobs.size() == 1;
+        if (!firstOpened) { Check(false, "first batch item opens a session", failures); continue; }
+        first.dialog.ThinCopyJobs.front().matches = matching;
+        CThinCopyWorker next; next.dialog.CancelWorker = &cancelled; next.script.Count = 2;
+        next.dialog.ThinCopyJobs.splice(next.dialog.ThinCopyJobs.end(), first.dialog.ThinCopyJobs);
+        const bool opened = next.Open(UacF7::ThinOpenKind::Source, false) == file;
+        Check(opened && prompts == (matching ? 1 : 2) && UacF7::opens == 2 &&
+              next.dialog.ThinCopyJobs.size() == (matching ? 1u : 2u),
+              matching ? "next matching item reuses the live batch session without another prompt" :
+                         "nonmatching item obtains a separate consent and session", failures);
+    }
+    for (bool revision : {false, true}) {
+        Reset(); UacF7::nextSessionOpen = true;
+        UacF7::nextResult.error = ERROR_SUCCESS; UacF7::nextResult.file = file;
+        CThinCopyWorker worker; worker.dialog.CancelWorker = &cancelled;
+        HANDLE source = file; worker.sourceHandle = &source;
+        worker.dialog.ConflictDecisionInjected = worker.dialog.InjectedTargetIdentityValid = true;
+        worker.dialog.InjectedTargetVolumeSerial = 37; worker.dialog.InjectedTargetFileIndex = 123;
+        worker.operation.ScannedTargetRevision.attributes = revision ? FILE_ATTRIBUTE_ARCHIVE : 0;
+        const bool opened = worker.Open(UacF7::ThinOpenKind::TargetOverwrite, false) == file;
+        Check(opened && UacF7::scanCaptured &&
+              (revision ? UacF7::capturedScan.kind == UacF7::ThinScanEvidence::Kind::Revision &&
+                          UacF7::capturedScan.revision.attributes == FILE_ATTRIBUTE_ARCHIVE :
+                          UacF7::capturedScan.kind == UacF7::ThinScanEvidence::Kind::LegacyIdentity &&
+                          UacF7::capturedScan.legacyVolume == 37 && UacF7::capturedScan.legacyIndex == 123),
+              "deferred overwrite forwards its native Scan Ahead evidence", failures);
+    }
+    for (int missing = 0; missing < 2; ++missing) {
+        Reset(); UacF7::nextSessionOpen = true;
+        UacF7::nextResult.error = ERROR_SUCCESS; UacF7::nextResult.file = file;
+        CThinCopyWorker worker; worker.dialog.CancelWorker = &cancelled;
+        HANDLE source = file; worker.sourceHandle = &source;
+        worker.dialog.ConflictDecisionInjected = missing != 0;
+        worker.dialog.InjectedTargetIdentityValid = missing != 1;
+        worker.operation.ScannedTargetRevision.attributes = FILE_ATTRIBUTE_ARCHIVE;
+        Check(worker.Open(UacF7::ThinOpenKind::TargetOverwrite, false) == file && !UacF7::scanCaptured,
+              "ordinary overwrite does not acquire a deferred Scan Ahead check", failures);
     }
     {
         Reset(); scopeShown = true;
