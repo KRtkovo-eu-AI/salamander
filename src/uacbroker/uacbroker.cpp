@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Open protected overwrite targets for the native F5 worker. | Preserve kernel overwrite semantics without following a replaced pathname. | #731 | GPT-6 |
 | 2026-11-14 | Clean up identity-anchored thin targets without content exclusivity. | Preserve native cancellation semantics while refusing substituted objects. | #731 | GPT-6 |
 | 2026-11-14 | Return explicit errors when thin handle transfer cannot start. | Never report success from a stale last-error value after host liveness fails. | #731 | GPT-6 |
 | 2026-11-14 | Preserve uncertainty if closing a rejected thin handle fails. | Retire the affected session rather than claiming ownership was resolved. | #731 | GPT-6 |
@@ -703,6 +704,7 @@ thread_local ThinIdentityScanPause* activeThinIdentityScanPause = nullptr;
 thread_local bool activeThinFailCreatedTransfer = false;
 #ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
 thread_local bool activeThinFailAnchorOpen = false;
+thread_local ThinIdentityScanPause* activeThinOverwritePause = nullptr;
 #endif
 #endif
 static_assert(sizeof(ThinWireReply) == 32);
@@ -710,7 +712,8 @@ inline bool IsThinOpen(Operation operation)
 {
     return operation == Operation::ThinOpenSource || operation == Operation::ThinTargetCreate ||
            operation == Operation::ThinTargetRetry || operation == Operation::ThinTargetProbe ||
-           operation == Operation::ThinDiscardTarget || operation == Operation::ThinTargetRelease;
+           operation == Operation::ThinDiscardTarget || operation == Operation::ThinTargetRelease ||
+           operation == Operation::ThinTargetOverwrite;
 }
 #ifdef SAM_UAC_PROBE_FAULT_TEST
 // Test-only scheduling seam; no production project defines this macro.
@@ -2421,6 +2424,68 @@ DWORD DuplicateThinToHost(HANDLE host, DWORD hostPid, HANDLE source, DWORD acces
 }
 
 #if defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_REOPEN_PROTOTYPE)
+DWORD OpenThinOverwriteTarget(HANDLE parent, std::wstring_view leaf, const FILE_ID_INFO& source, bool overlapped,
+                             Handle& file, Handle& anchor, bool& overwritten)
+{
+    overwritten = false;
+    HANDLE raw = nullptr;
+    DWORD error = UacRenameLeaf::Detail::OpenFile(parent, leaf, raw, FILE_WRITE_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, FILE_OPEN, 0);
+    anchor = Adopt(raw);
+    if (error) return error;
+    FILE_ATTRIBUTE_TAG_INFO attributes{};
+    FILE_STANDARD_INFO standard{};
+    FILE_ID_INFO identity{};
+    if (!GetFileInformationByHandleEx(anchor.get(), FileAttributeTagInfo, &attributes, sizeof(attributes)) ||
+        !GetFileInformationByHandleEx(anchor.get(), FileStandardInfo, &standard, sizeof(standard)) ||
+        !GetFileInformationByHandleEx(anchor.get(), FileIdInfo, &identity, sizeof(identity))) return GetLastError();
+    if (UacRenameLeaf::Detail::SameSource(identity, source)) return ERROR_SHARING_VIOLATION;
+    if (standard.Directory || standard.DeletePending || standard.NumberOfLinks != 1 ||
+        (attributes.FileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT |
+            FILE_ATTRIBUTE_COMPRESSED | FILE_ATTRIBUTE_SPARSE_FILE | FILE_ATTRIBUTE_ENCRYPTED)))
+        return ERROR_NOT_SUPPORTED;
+#ifdef SAM_UAC_BROKER_JOB_TEST
+    if (activeThinOverwritePause)
+    {
+        auto* pause = activeThinOverwritePause;
+        activeThinOverwritePause = nullptr;
+        if (!SetEvent(pause->reached) || WaitForSingleObject(pause->resume, 10000) != WAIT_OBJECT_0)
+            return ERROR_TIMEOUT;
+    }
+#endif
+    const bool clearAttributes = (attributes.FileAttributes &
+        (FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)) != 0;
+    FILE_BASIC_INFO basic{};
+    if (clearAttributes)
+    {
+        basic.FileAttributes = FILE_ATTRIBUTE_NORMAL;
+        if (!SetFileInformationByHandle(anchor.get(), FileBasicInfo, &basic, sizeof(basic))) return GetLastError();
+    }
+    // An empty relative name reopens this file object, not the old pathname.
+    // FILE_OVERWRITE retains its ID/security/creation time and performs the
+    // filesystem's truncation and ADS removal, unlike SetEndOfFile. The data
+    // open has the native worker's exclusive sharing and sync/async mode.
+    raw = nullptr;
+    error = UacRenameLeaf::Detail::OpenFile(anchor.get(), L"", raw, GENERIC_WRITE, 0,
+        FILE_OVERWRITE, FILE_SEQUENTIAL_ONLY, nullptr, false, overlapped);
+    file = Adopt(raw);
+    if (error)
+    {
+        if (clearAttributes)
+        {
+            basic.FileAttributes = attributes.FileAttributes;
+            if (!SetFileInformationByHandle(anchor.get(), FileBasicInfo, &basic, sizeof(basic)))
+                return ERROR_PARTIAL_COPY;
+        }
+        return error;
+    }
+    overwritten = true;
+    FILE_ID_INFO actual{};
+    if (!GetFileInformationByHandleEx(file.get(), FileIdInfo, &actual, sizeof(actual)) ||
+        !UacRenameLeaf::Detail::SameSource(actual, identity)) return ERROR_PARTIAL_COPY;
+    return ERROR_SUCCESS;
+}
+
 DWORD DiscardThinOwnedTarget(HANDLE parent, std::wstring_view leaf,
                             const FILE_ID_INFO& expected, HANDLE anchor)
 {
@@ -2534,6 +2599,10 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         if (release) return ERROR_INVALID_DATA;
 #endif
         const bool sourceRole = header.operation == Operation::ThinOpenSource;
+        const bool overwrite = header.operation == Operation::ThinTargetOverwrite;
+#if !defined(SAM_UAC_THIN_COPY_TEST) || !defined(SAM_UAC_THIN_REOPEN_PROTOTYPE)
+        if (overwrite) { result = ERROR_NOT_SUPPORTED; return ERROR_SUCCESS; }
+#endif
         const auto targetRoot = OpenVolumeRoot(targetVolume);
         if (!targetRoot) { result = ERROR_NOT_SUPPORTED; return ERROR_SUCCESS; }
         std::vector<Handle> sourcePins, targetPins;
@@ -2703,7 +2772,7 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
             for (auto i = state.created.begin(); i != state.created.end(); ++i)
                 if (UacRenameLeaf::Detail::SameSource(i->parent, expectedParent.file) && i->leaf == targetLeaf)
                 { record = i; break; }
-        if (create && record != state.created.end())
+        if ((create || overwrite) && record != state.created.end())
             { result = ERROR_FILE_EXISTS; return ERROR_SUCCESS; }
         if ((retry || discard || release) &&
             (record == state.created.end() || !UacRenameLeaf::Detail::SameSource(record->source, expectedFile) ||
@@ -2739,7 +2808,7 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         }
 #endif
 
-        if (create)
+        if (create || overwrite)
         {
             // Build the complete record before adding it to the job: name
             // allocation can throw and must not leave an incomplete entry.
@@ -2759,7 +2828,7 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
 #endif
 #endif
         ACCESS_MASK duplicateAccess = 0;
-        bool madeTarget = false, targetIdentityValid = false;
+        bool madeTarget = false, targetIdentityValid = false, overwritten = false;
         if (sourceRole)
         {
             file = std::move(source);
@@ -2780,6 +2849,21 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
                     disposition, FILE_SEQUENTIAL_ONLY, nullptr, false, overlapped && !discard);
             };
 #ifdef SAM_UAC_THIN_COPY_TEST
+#ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
+            if (overwrite)
+            {
+                error = OpenThinOverwriteTarget(targetParent, targetLeaf, expectedFile, overlapped, file, targetAnchor, overwritten);
+                // CREATE_ALWAYS also creates a target removed after the
+                // conflict dialog. CREATE_NEW never touches a replacement.
+                if (error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND)
+                {
+                    error = open(FILE_CREATE);
+                    file = Adopt(raw);
+                    madeTarget = !error;
+                }
+            }
+            else
+#endif
             if (retry && retain)
             {
 #ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
@@ -2809,12 +2893,12 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
             else
 #endif
                 error = open(create ? FILE_CREATE : FILE_OPEN);
-            madeTarget = create && !error;
+            madeTarget = madeTarget || (create && !error);
             // Retry is an identity-bound reopen, never a new-file request.
             // Preserve the recorded identity and the native missing-file error.
             if (retry && (error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND))
                 error = ERROR_FILE_NOT_FOUND;
-            file = Adopt(raw);
+            if (!overwrite) file = Adopt(raw);
             if (!error)
             {
                 targetIdentityValid = GetFileInformationByHandleEx(file.get(), FileIdInfo, &reply.target, sizeof(reply.target)) != FALSE;
@@ -2828,7 +2912,7 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
                  FILE_ATTRIBUTE_COMPRESSED | FILE_ATTRIBUTE_SPARSE_FILE | FILE_ATTRIBUTE_ENCRYPTED))))
                 error = ERROR_NOT_SUPPORTED;
 #if defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_REOPEN_PROTOTYPE)
-            if (!error && create && retain)
+            if (!error && (create || overwrite) && retain && !targetAnchor)
             {
                 // Acquire the second file object while the exclusive creator
                 // still pins this name. OpenFile requests attributes and
@@ -2900,7 +2984,8 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         if (error)
         {
             if (cleanupCreated()) error = ERROR_PARTIAL_COPY;
-            if (create) state.created.pop_back();
+            if (overwritten) error = ERROR_PARTIAL_COPY;
+            if (create || overwrite) state.created.pop_back();
             result = error == ERROR_ALREADY_EXISTS && create ? ERROR_FILE_EXISTS : error;
             return ERROR_SUCCESS;
         }
@@ -2922,11 +3007,11 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         }
         HANDLE remote = nullptr;
 #if defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_BROKER_JOB_TEST)
-        if (create && activeThinFailCreatedTransfer)
+        if ((create || overwrite) && activeThinFailCreatedTransfer)
         {
             activeThinFailCreatedTransfer = false;
             if (cleanupCreated()) error = ERROR_PARTIAL_COPY;
-            else error = ERROR_ACCESS_DENIED;
+            else error = overwritten ? ERROR_PARTIAL_COPY : ERROR_ACCESS_DENIED;
             state.created.pop_back();
             result = error;
             return ERROR_SUCCESS;
@@ -2936,11 +3021,12 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         if (error)
         {
             if (cleanupCreated()) error = ERROR_PARTIAL_COPY;
-            if (create) state.created.pop_back();
+            if (overwritten) error = ERROR_PARTIAL_COPY;
+            if (create || overwrite) state.created.pop_back();
             result = error;
             return ERROR_SUCCESS;
         }
-        if (create)
+        if (create || overwrite)
         {
             record->target = reply.target;
 #ifdef SAM_UAC_THIN_COPY_TEST
@@ -6232,6 +6318,7 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
     case ThinOpenKind::TargetProbe: operation = Operation::ThinTargetProbe; break;
     case ThinOpenKind::Discard: operation = Operation::ThinDiscardTarget; break;
     case ThinOpenKind::Release: operation = Operation::ThinTargetRelease; break;
+    case ThinOpenKind::TargetOverwrite: operation = Operation::ThinTargetOverwrite; break;
     default: output.error = ERROR_INVALID_PARAMETER; return output;
     }
     if ((kind == ThinOpenKind::TargetRetry || kind == ThinOpenKind::Discard || kind == ThinOpenKind::Release) && !expectedTarget)
@@ -6503,7 +6590,8 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
             // later operations silently continue under inconsistent identity.
             // A failed close also leaves ownership uncertain for read-only
             // replies; never retry the close or silently reuse the session.
-            output.unknown = !closed || kind == ThinOpenKind::TargetCreate || kind == ThinOpenKind::TargetRetry;
+            output.unknown = !closed || kind == ThinOpenKind::TargetCreate || kind == ThinOpenKind::TargetRetry ||
+                             kind == ThinOpenKind::TargetOverwrite;
             return output;
         }
         output.file = received;

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Test thin overwrite through the actual dispatcher. | Check native truncation, sharing, object binding and partial handoff. | #731 | GPT-6 |
 // | 2026-11-14 | Dispatch owned-target cleanup cases through the actual pipe. | Separate reopen cleanup evidence from historical retained-writer tests. | #731 | GPT-6 |
 // | 2026-11-14 | Exercise dispatcher shutdown after host process death. | Verify scoped resources are released when the real peer disappears. | #731 | GPT-6 |
 // | 2026-11-14 | Exercise thin dispatcher across a real process crash. | Verify the lifetime of already transferred handles without claiming UAC acceptance. | #731 | GPT-6 |
@@ -270,7 +271,7 @@ public:
 #ifdef SAM_UAC_THIN_COPY_TEST
               , ThinIdentityScanPause* thinPause = nullptr, bool failCreatedTransfer = false
 #ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
-              , bool failAnchorOpen = false
+              , bool failAnchorOpen = false, ThinIdentityScanPause* overwritePause = nullptr
 #endif
 #endif
               )
@@ -288,7 +289,7 @@ public:
 #ifdef SAM_UAC_THIN_COPY_TEST
                                  , thinPause, failCreatedTransfer
 #ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
-                                 , failAnchorOpen
+                                 , failAnchorOpen, overwritePause
 #endif
 #endif
                                  ] {
@@ -340,6 +341,7 @@ public:
                 activeThinFailCreatedTransfer = failCreatedTransfer;
 #ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
                 activeThinFailAnchorOpen = failAnchorOpen;
+                activeThinOverwritePause = overwritePause;
 #endif
 #endif
                 dispatchError = ServeTransferJob(install, peer.get(), GetCurrentProcess(), GetCurrentProcessId(),
@@ -349,6 +351,7 @@ public:
                 activeThinFailCreatedTransfer = false;
 #ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
                 activeThinFailAnchorOpen = false;
+                activeThinOverwritePause = nullptr;
 #endif
 #endif
             }
@@ -4876,6 +4879,7 @@ void CheckThinHostCrash(const Directory& source, const Directory& target)
 #include "uacbroker_thin_cleanup_contract_tests.inc"
 #if defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_REOPEN_PROTOTYPE)
 #include "uacbroker_thin_owned_cleanup_tests.inc"
+#include "uacbroker_thin_overwrite_tests.inc"
 #endif
 }
 
@@ -4919,6 +4923,11 @@ int wmain(int argc, wchar_t** argv)
         return failures ? 1 : 0;
     }
 #ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
+    if (argc == 2 && !wcscmp(argv[1], L"--thin-overwrite-only"))
+    {
+        CheckThinOverwrite(source, target, outside);
+        return failures ? 1 : 0;
+    }
     if (argc == 2 && !wcscmp(argv[1], L"--thin-owned-cleanup-only"))
     {
         CheckThinOwnedCleanup(source, target, outside);
@@ -4932,6 +4941,9 @@ int wmain(int argc, wchar_t** argv)
         CheckThinAnchorFailure(source, target);
         CheckThinClientReopen(source, target, false);
         CheckThinClientReopen(source, target, true);
+        CheckThinClientReopen(source, target, false, true);
+        CheckThinClientReopen(source, target, true, true);
+        CheckThinClientReopen(source, target, false, true, true);
         return failures ? 1 : 0;
     }
 #endif

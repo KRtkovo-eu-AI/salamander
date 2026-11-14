@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Add isolated native overwrite dispatcher cases. | Compare actual NTFS behavior without claiming complete F5 or UAC acceptance. | #731 | GPT-6 |
 # | 2026-11-14 | Run identity-anchored cleanup through the real dispatcher. | Verify own-object deletion, replacement refusal and failed creation handoff. | #731 | GPT-6 |
 # | 2026-11-14 | Run an isolated host-process crash case. | Check that the real dispatcher exits when its peer dies. | #731 | GPT-6 |
 # | 2026-11-14 | Run the external dispatcher crash case. | Test real cross-process handle lifetime separately from UAC. | #731 | GPT-6 |
@@ -22,12 +23,13 @@ def main():
     crash_mode.add_argument('--process-crash-only', action='store_true')
     crash_mode.add_argument('--host-crash-only', action='store_true')
     crash_mode.add_argument('--owned-cleanup-only', action='store_true')
+    crash_mode.add_argument('--overwrite-only', action='store_true')
     crash_mode.add_argument('--client-reopen-only', action='store_true')
     args = parser.parse_args()
     env = compiler_environment()
     compiler = shutil.which('cl', path=env.get('PATH'))
     flags = ('/MTd', '/Od', '/D_DEBUG') if args.configuration == 'Debug' else ('/MT', '/O2', '/DNDEBUG')
-    if args.owned_cleanup_only or args.client_reopen_only:
+    if args.owned_cleanup_only or args.client_reopen_only or args.overwrite_only:
         flags += ('/DSAM_UAC_THIN_REOPEN_PROTOTYPE',)
     if args.client_reopen_only:
         flags += ('/DSAM_UAC_CLIENT_PIPE_HARNESS', '/DSAM_UAC_THIN_PLANNED_PROTOTYPE')
@@ -67,6 +69,8 @@ def main():
                 command.append('--thin-host-crash-only')
             if args.owned_cleanup_only:
                 command.append('--thin-owned-cleanup-only')
+            if args.overwrite_only:
+                command.append('--thin-overwrite-only')
             if args.client_reopen_only:
                 command.append('--thin-client-reopen-only')
             return run(command, cwd=temp, env=env, timeout=25).returncode

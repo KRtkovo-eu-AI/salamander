@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Reuse actual client Retry cases for overwritten targets. | Check cancellation, fresh opens and cleanup through the new request. | #731 | GPT-6 |
 // | 2026-11-14 | Verify native cleanup through the real thin client. | Confirm identified partial deletion and cleaned-up preparation failure. | #731 | GPT-6 |
 // | 2026-11-13 | Check metadata-probe mutation rights. | Verify the broker does not grant time changes or deletion. | #731 | GPT-6 |
 // | 2026-11-13 | Verify overwrite-probe metadata access. | Preserve native conflict details without granting file content access. | #731 | GPT-6 |
@@ -33,9 +34,12 @@ void CheckThinAnchorFailure(const Directory& source, const Directory& target)
           "anchor-open failure cleans its identified creation without returning a handle");
 }
 
-void CheckThinClientReopen(const Directory& source, const Directory& target, bool asynchronous)
+void CheckThinClientReopen(const Directory& source, const Directory& target, bool asynchronous,
+                          bool overwrite = false, bool failOverwriteHandoff = false)
 {
-    const wchar_t* root = asynchronous ? L"reopen-async-\u6771" : L"reopen-sync-\u6771";
+    const wchar_t* root = failOverwriteHandoff ? L"overwrite-failed-\u6771" :
+        overwrite ? (asynchronous ? L"overwrite-async-\u6771" : L"overwrite-sync-\u6771") :
+        (asynchronous ? L"reopen-async-\u6771" : L"reopen-sync-\u6771");
     constexpr wchar_t leaf[] = L"payload-\u65e5.txt";
     std::wstring cwd(32768, L'\0');
     const DWORD length = GetCurrentDirectoryW(static_cast<DWORD>(cwd.size()), cwd.data());
@@ -59,7 +63,8 @@ void CheckThinClientReopen(const Directory& source, const Directory& target, boo
     DWORD status = ERROR_GEN_FAILURE;
     ListingReply listing{};
     std::vector<UacF7::TreeCopySourceEntry> rows;
-    const bool planned = pipe.Open() &&
+    const bool planned = pipe.Open(nullptr, nullptr, Operation::FindContent, nullptr, false,
+                                   nullptr, failOverwriteHandoff) &&
         pipe.Request(Operation::PlanCopyTree, source, root, status, &target, nullptr, nullptr,
                      false, nullptr, nullptr, 0) && !status &&
         pipe.ListTreeSource(from, {}, from.identity.file, listing, rows) &&
@@ -101,17 +106,37 @@ void CheckThinClientReopen(const Directory& source, const Directory& target, boo
     auto input = Adopt(opened.file);
     if (opened.error || opened.unknown || !input)
     { Check(false, "open verified source through actual client"); return; }
-    const auto cancelledCreate = thin.Open(nullptr, request, UacF7::ThinOpenKind::TargetCreate, asynchronous, false,
+    const auto initialKind = overwrite ? UacF7::ThinOpenKind::TargetOverwrite : UacF7::ThinOpenKind::TargetCreate;
+    if (overwrite && (!WriteByte(targetPath, 0x31) || !WriteByte(targetPath + L":data", 0x32)))
+    { Check(false, "prepare actual-client overwrite including ADS"); return; }
+    const auto cancelledCreate = thin.Open(nullptr, request, initialKind, asynchronous, false,
                                            nullptr, UacF7::ThinOpenedSource{input.get()},
                                            UacF7::ThinCancelEvent{cancelledEvent.get()});
     Check(cancelledCreate.error == ERROR_CANCELLED && !cancelledCreate.unknown &&
-          cancelledCreate.file == INVALID_HANDLE_VALUE && IsAbsent(targetPath) && thin.IsOpen(),
-          "cancelled target create leaves no target and preserves the job");
-    const auto created = thin.Open(nullptr, request, UacF7::ThinOpenKind::TargetCreate, asynchronous, false,
+          cancelledCreate.file == INVALID_HANDLE_VALUE && thin.IsOpen() &&
+          (overwrite ? HasByte(targetPath, 0x31) && HasByte(targetPath + L":data", 0x32) : IsAbsent(targetPath)),
+          "cancelled initial target open preserves existing data and the job");
+    const auto created = thin.Open(nullptr, request, initialKind, asynchronous, false,
                                    nullptr, UacF7::ThinOpenedSource{input.get()});
     auto output = Adopt(created.file);
+    if (failOverwriteHandoff)
+    {
+        auto inspect = Adopt(CreateFileW(targetPath.c_str(), FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+        LARGE_INTEGER size{};
+        Check(created.error == ERROR_PARTIAL_COPY && created.unknown && !output && !thin.IsOpen() &&
+            inspect && GetFileSizeEx(inspect.get(), &size) && size.QuadPart == 0 && HasByte(sourcePath, 0x67),
+            "actual client retires failed overwrite handoff and retains truncated object");
+        return;
+    }
     if (created.error || created.unknown || !output)
     { Check(false, "create anchored target through actual client"); return; }
+    if (overwrite)
+    {
+        LARGE_INTEGER size{};
+        Check(GetFileSizeEx(output.get(), &size) && !size.QuadPart && IsAbsent(targetPath + L":data"),
+            "actual client returns truncated output with native ADS semantics");
+    }
 
     auto event = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
     OVERLAPPED io{};
