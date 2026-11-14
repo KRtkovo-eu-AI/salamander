@@ -51,6 +51,9 @@ def main():
     begin = worker.index("static bool ThinCopyTestDenyOverwrite(")
     end = worker.index("\n// Force a retry-only denial", begin)
     deny_overwrite = worker[begin:end]
+    begin = worker.index("static bool ThinCopyTestDenyOpen(")
+    end = worker.index("\n// Exercise the native overwrite path", begin)
+    deny_open = worker[begin:end]
     begin = worker.index("HANDLE CThinCopyWorker::Open(")
     end = worker.index("HANDLE CThinCopyWorker::CancelReceivedHandle(", begin)
     open_code = worker[begin:end]
@@ -68,7 +71,7 @@ def main():
             .replace("@@PREPARATION@@", preparation).replace("@@REMEMBER_SOURCE@@", remember)
             .replace("@@MACROS@@", macros).replace("@@LOCAL_RETRY@@", local_retry)
             .replace("@@LEGACY_SCAN@@", legacy_scan).replace("@@SCAN_HELPER@@", scan)
-            .replace("@@DENY_OVERWRITE@@", deny_overwrite))
+            .replace("@@DENY_OVERWRITE@@", deny_overwrite).replace("@@DENY_OPEN@@", deny_open))
     if "@@" in code:
         raise RuntimeError("Missing test template replacement")
     env = compiler_environment()

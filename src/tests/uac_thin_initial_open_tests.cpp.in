@@ -88,6 +88,7 @@ struct CThinCopyWorker {
     bool sourceContinuityLost = false, targetContinuityLost = false;
     bool scopeMayHaveStarted = false, targetKnown = false, suppressLocalCleanup = false;
     bool targetCreatedByBroker = false, nativeTargetOverwrite = false, nativeTargetCreated = false, cleanupUncertain = false;
+    bool labSourceOpenDenied = false, labTargetOpenDenied = false;
     int openCalls = 0, refusedCleanup = 0;
     UacF7::ThinOpenKind lastKind = UacF7::ThinOpenKind::Source;
     bool lastOverlapped = false;
@@ -157,7 +158,7 @@ static BOOL ValidateInjectedTargetIdentity(COperation* operation, CProgressDlgDa
 @@LEGACY_SCAN@@
 @@SCAN_HELPER@@
 @@DENY_OVERWRITE@@
-static bool ThinCopyTestDenyOpen(CThinCopyWorker*, bool) { return false; }
+@@DENY_OPEN@@
 static bool ThinCopyTestDenyReopen(CThinCopyWorker*, bool) { return false; }
 static HANDLE ThinCopyTestDeniedHandle() { SetLastError(ERROR_ACCESS_DENIED); return INVALID_HANDLE_VALUE; }
 static std::wstring WorkerOperationPathW(const char*, const wchar_t* value) { return value ? value : L""; }
@@ -179,6 +180,27 @@ int wmain(int argc, wchar_t** argv) {
     int failures = 0;
     if (argc != 2) return 1;
     const std::wstring fixture = argv[1];
+    {
+        CThinCopyWorker first, second;
+        SetEnvironmentVariableW(L"SAM_UAC_TEST_DENY_OPEN", L"source-each");
+        SetEnvironmentVariableW(L"SAM_UAC_THIN_UNELEVATED_TEST", nullptr);
+        SetLastError(ERROR_SHARING_VIOLATION);
+        Check(!ThinCopyTestDenyOpen(&first, false) && GetLastError() == ERROR_SHARING_VIOLATION,
+              "per-item injection requires laboratory mode and preserves last error", failures);
+        SetEnvironmentVariableW(L"SAM_UAC_THIN_UNELEVATED_TEST", L"1");
+        Check(ThinCopyTestDenyOpen(&first, false) && !ThinCopyTestDenyOpen(&first, false) &&
+              ThinCopyTestDenyOpen(&second, false) && !ThinCopyTestDenyOpen(&second, false),
+              "per-item injection denies each active source exactly once", failures);
+        Check(!ThinCopyTestDenyOpen(&second, true), "source injection does not affect target", failures);
+        CThinCopyWorker inactive; inactive.active = false;
+        Check(!ThinCopyTestDenyOpen(&inactive, false), "per-item injection requires an active worker", failures);
+        SetEnvironmentVariableW(L"SAM_UAC_TEST_DENY_OPEN", L"target-each");
+        Check(ThinCopyTestDenyOpen(&first, true) && !ThinCopyTestDenyOpen(&first, true) &&
+              ThinCopyTestDenyOpen(&second, true) && !ThinCopyTestDenyOpen(&second, true),
+              "per-item injection denies each active target exactly once", failures);
+        SetEnvironmentVariableW(L"SAM_UAC_TEST_DENY_OPEN", nullptr);
+        SetEnvironmentVariableW(L"SAM_UAC_THIN_UNELEVATED_TEST", nullptr);
+    }
     {
         CThinCopyWorker test;
         SetEnvironmentVariableW(L"SAM_UAC_THIN_UNELEVATED_TEST", nullptr);

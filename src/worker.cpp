@@ -2461,6 +2461,9 @@ struct CThinCopyWorker
     bool sourceVerified = false;
     bool terminal = false;
     bool scanProbeError = false;
+    // Test-only injection state belongs to the item, not the whole process.
+    bool labSourceOpenDenied = false;
+    bool labTargetOpenDenied = false;
 
     CThinCopyWorker(COperation& op, COperations& batch, CProgressDlgData& data, HWND owner, HANDLE* source)
         : operation(op), script(batch), dialog(data), progress(owner), sourceHandle(source) {}
@@ -2792,16 +2795,26 @@ static bool ThinCopyTestDenyOpen(CThinCopyWorker* context, bool target)
     wchar_t mode[16]{};
     const DWORD length = GetEnvironmentVariableW(L"SAM_UAC_TEST_DENY_OPEN", mode, _countof(mode));
     bool injected = false;
-    if (length && length < _countof(mode) &&
+    wchar_t lab[2]{};
+    const bool each = length && length < _countof(mode) &&
+        _wcsicmp(mode, target ? L"target-each" : L"source-each") == 0 &&
+        GetEnvironmentVariableW(L"SAM_UAC_THIN_UNELEVATED_TEST", lab, _countof(lab)) == 1 && lab[0] == L'1';
+    if (each)
+    {
+        bool& denied = target ? context->labTargetOpenDenied : context->labSourceOpenDenied;
+        injected = !denied;
+        denied = true;
+    }
+    else if (length && length < _countof(mode) &&
         (_wcsicmp(mode, L"both") == 0 || _wcsicmp(mode, target ? L"target" : L"source") == 0))
     {
         static volatile LONG sourceInjected = 0;
         static volatile LONG targetInjected = 0;
         injected = InterlockedCompareExchange(target ? &targetInjected : &sourceInjected, 1, 0) == 0;
-        if (injected)
-            ThinCopyTestSignalPreserve(target ? L"SAM_UAC_TEST_TARGET_DENIED_EVENT" :
-                                               L"SAM_UAC_TEST_SOURCE_DENIED_EVENT");
     }
+    if (injected)
+        ThinCopyTestSignalPreserve(target ? L"SAM_UAC_TEST_TARGET_DENIED_EVENT" :
+                                           L"SAM_UAC_TEST_SOURCE_DENIED_EVENT");
     SetLastError(savedError);
     return injected;
 }
