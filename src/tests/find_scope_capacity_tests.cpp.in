@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Restrict nonrecursive Find consent. | Keep the broker inside the user-requested search depth. | #731 | GPT-6 |
 // | 2026-11-15 | Reuse saved Find identities in refinement. | Preserve exact protected-file authorization on repeat searches. | #731 | GPT-6 |
 // | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
 // | 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
@@ -166,7 +167,7 @@ struct FindProtectedRequest {
     UacF7::ListingSession session;
     bool Prepare(CGrepData* data, std::wstring name, CMaskGroup* mask, BOOL, int,
                  const std::shared_ptr<CFindIgnore>&, unsigned, const WIN32_FIND_DATAW* file, const std::wstring&,
-                 std::shared_ptr<const UacF7::PreparedLeaf> known) {
+                 std::shared_ptr<const UacF7::PreparedLeaf> known, bool) {
         preparedKnownIdentity = known != nullptr;
         ++preparations; path = std::move(name); masks = mask; singleFile = file != nullptr;
         attributes = file ? file->dwFileAttributes : 0;
@@ -188,10 +189,10 @@ std::wstring SalPathRemoveExtendedPrefixW(const wchar_t* path) { return path; }
 @@QUEUE@@
 static int digestAuthorizations;
 static DWORD digestAuthorizationResult;
-DWORD AuthorizeFindFile(CGrepData*, const std::wstring&, UacF7::ListingSession& session) {
+DWORD AuthorizeFindFile(CGrepData*, const std::wstring&, UacF7::ListingSession& session, bool) {
     ++digestAuthorizations; if (!digestAuthorizationResult) { session.open = true; session.covers = true; } return digestAuthorizationResult;
 }
-std::wstring FindSearchRootForFile(CGrepData*, const std::wstring&) { return L"C:\\"; }
+std::wstring FindSearchRootForFile(CGrepData*, const std::wstring&, bool& recursive) { recursive = false; return L"C:\\"; }
 static DWORD DigestDenied(CGrepData* data, CFoundFilesData* file, size_t& remainingFileConsents, UacF7::ListingSession* approved = nullptr, UacF7::ListingSession* existingDigest = nullptr)
 {
     DWORD error = ERROR_ACCESS_DENIED;

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Restrict nonrecursive Find consent. | Keep the broker inside the user-requested search depth. | #731 | GPT-6 |
 // | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
 // | 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
 // | 2026-11-14 | Version metadata-only Find scopes. | Prevent mixed brokers from applying panel content rights to name-only searches. | #731 | GPT-6 |
@@ -41,7 +42,7 @@
 // | 2026-11-09 | Share the UAC protocol marker. | Keep the handshake and executable resource on one version. | | GPT-6.1 Sol (Codex) |
 #pragma once
 
-#define SAM_UAC_PROTOCOL_VERSION 49
+#define SAM_UAC_PROTOCOL_VERSION 50
 #define SAM_UAC_PROTOCOL_RESOURCE 63001
 #define SAM_UAC_IMAGE_HOST 1
 #define SAM_UAC_IMAGE_BROKER 2

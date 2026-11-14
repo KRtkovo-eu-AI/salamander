@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-15 | Restrict nonrecursive Find consent. | Keep the broker inside the user-requested search depth. | #731 | GPT-6 |
 # | 2026-11-15 | Reuse saved Find identities in refinement. | Preserve exact protected-file authorization on repeat searches. | #731 | GPT-6 |
 # | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
 # | 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
@@ -273,7 +274,7 @@ def main() -> int:
             "protectedSession->CloseContent()" in digest and
             digest.index("protectedSession->CloseContent()") < digest.index("context.finalize()"),
             "protected duplicate digests must use and validate the authorized content stream")
-    require("AuthorizeFindFile(data, searchRoot, digestSession)" in digest and
+    require("AuthorizeFindFile(data, searchRoot, digestSession, recursive)" in digest and
             "remainingFileConsents" in digest,
             "a denied ordinary duplicate read must have a bounded exact-file fallback")
     require("std::string(GetErrorText(error))" in digest and "IDS_FINDLOG_SKIP" not in digest,
@@ -290,8 +291,14 @@ def main() -> int:
     require("file->Size" not in before_digest and "if (file->Group)" in digest,
             "empty candidates must be verified without dereferencing a nonexistent digest")
     traversal = function_body(find_cpp, "void SearchDirectory(")
+    require(traversal.count("searchRoot, includeSubDirs != FALSE)") >= 2,
+            "both denied-directory and denied-file requests must retain the user's recursion scope")
+    digest_root = function_body(find_cpp, "static std::wstring FindSearchRootForFile(")
+    require("!search->IncludeSubDirs" in digest_root and "fullPath.find(L'\\\\', start)" in digest_root and
+            "recursive = search->IncludeSubDirs != FALSE" in digest_root,
+            "duplicate-content consent must not expand a nonrecursive search to nested files")
     require("if (openDenied)" in traversal and "protectedQueue.Add(data, fullPath" in traversal and
-            "ignoreList, &file, searchRoot)" in traversal,
+            "ignoreList, &file, searchRoot, includeSubDirs != FALSE)" in traversal,
             "a denied ordinary text or tag read must queue the exact wide file")
     require("FindFirstFileW(pattern.c_str(), &file)" in traversal and
             "FindNextFileW(find.get(), &file)" in traversal and

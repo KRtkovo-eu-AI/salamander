@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Restrict nonrecursive Find consent. | Keep the broker inside the user-requested search depth. | #731 | GPT-6 |
 | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
 | 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
 | 2026-11-14 | Limit metadata-only Find sessions to listings. | Prevent panel content rights from leaking into name-only searches. | #731 | GPT-6 |
@@ -93,13 +94,15 @@ inline bool ValidRequestScope(UacF7::Operation scope, DWORD pathLength, bool inv
         return inventory && !content;
     if (scope == UacF7::Operation::FileAllocation)
         return false; // Exact allocation permits only its separately typed request.
-    if (scope == UacF7::Operation::FindList)
+    if (scope == UacF7::Operation::FindList || scope == UacF7::Operation::FindFlatList)
         return !inventory && !content;
+    if (scope == UacF7::Operation::FindFlatContent)
+        return !inventory && (!content || pathLength != 0);
     if (scope == UacF7::Operation::FindFile)
         return content && !inventory && pathLength == 0;
     if (UacF7::IsComparisonScope(scope))
         return !inventory && (!content || (scope == UacF7::Operation::CompareContent && pathLength != 0));
-    return !content || ((scope == UacF7::Operation::FindContent || scope == UacF7::Operation::List) && !inventory && pathLength != 0);
+    return !content || ((scope == UacF7::Operation::FindContent || scope == UacF7::Operation::FindFlatContent || scope == UacF7::Operation::List) && !inventory && pathLength != 0);
 }
 
 // Root checks remain exclusive to CompareList; the Find roles can verify an

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Restrict nonrecursive Find consent. | Keep the broker inside the user-requested search depth. | #731 | GPT-6 |
 // | 2026-11-15 | Reuse saved Find identities in refinement. | Preserve exact protected-file authorization on repeat searches. | #731 | GPT-6 |
 // | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
 // | 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
@@ -987,11 +988,11 @@ struct FindConsent
     }
 };
 
-DWORD AuthorizeFindFile(CGrepData* data, const std::wstring& path, UacF7::ListingSession& session)
+DWORD AuthorizeFindFile(CGrepData* data, const std::wstring& path, UacF7::ListingSession& session, bool recursive)
 {
     if (data->StopSearch)
         return ERROR_CANCELLED;
-    if (!session.PrepareFind(path, true))
+    if (!session.PrepareFind(path, true, recursive))
         return ERROR_ACCESS_DENIED;
     FindConsent consent{data, path, session, FindConsentScope::Content};
     HANDLE thread = HANDLES(CreateThread(nullptr, 0, FindConsent::Launch, &consent, 0, nullptr));
@@ -1260,18 +1261,24 @@ static bool FindListedIdentityMatches(const UacF7::MoveFileIdentity* identity,
         memcmp(revision.fileId, identity->id, sizeof(identity->id)) == 0);
 }
 
-static std::wstring FindSearchRootForFile(CGrepData* data, const std::wstring& fullPath)
+static std::wstring FindSearchRootForFile(CGrepData* data, const std::wstring& fullPath, bool& recursive)
 {
     std::wstring searchRoot;
     for (int rootIndex = 0; rootIndex < data->Data->Count; ++rootIndex)
     {
-        const auto& directory = data->Data->At(rootIndex)->Dir;
+        const auto* search = data->Data->At(rootIndex);
+        const auto& directory = search->Dir;
         auto root = SalPathRemoveExtendedPrefixW(SalMultiByteToWidePath(directory.c_str(),
             IsValidPathUtf8Text(directory.c_str()) ? CP_UTF8 : CP_ACP).c_str());
         if (root.size() > 3 && root.back() == L'\\') root.pop_back();
         if (!root.empty() && fullPath.size() > root.size() && fullPath.compare(0, root.size(), root) == 0 &&
             (root.back() == L'\\' || fullPath[root.size()] == L'\\') && root.size() > searchRoot.size())
+        {
+            const size_t start = root.size() + (root.back() == L'\\' ? 0 : 1);
+            if (!search->IncludeSubDirs && fullPath.find(L'\\', start) != std::wstring::npos) continue;
+            recursive = search->IncludeSubDirs != FALSE;
             searchRoot = std::move(root);
+        }
     }
     return searchRoot;
 }
@@ -1339,8 +1346,9 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
                 else
                 {
                     --remainingFileConsents;
-                    const auto searchRoot = FindSearchRootForFile(data, fullPath);
-                    error = searchRoot.empty() ? ERROR_ACCESS_DENIED : AuthorizeFindFile(data, searchRoot, digestSession);
+                    bool recursive = false;
+                    const auto searchRoot = FindSearchRootForFile(data, fullPath, recursive);
+                    error = searchRoot.empty() ? ERROR_ACCESS_DENIED : AuthorizeFindFile(data, searchRoot, digestSession, recursive);
                     if (!error)
                     {
                         protectedSession = &digestSession;
@@ -2088,7 +2096,7 @@ public:
     bool Prepare(CGrepData* search, std::wstring deniedPath, CMaskGroup* masksGroup,
                  BOOL recursive, int searchRootLength, const std::shared_ptr<CFindIgnore>& ignore,
                  unsigned scope, const WIN32_FIND_DATAW* file, const std::wstring& searchRoot = {},
-                 std::shared_ptr<const UacF7::PreparedLeaf> known = {})
+                 std::shared_ptr<const UacF7::PreparedLeaf> known = {}, bool scopeRecursive = true)
     {
         path = std::move(deniedPath);
         singleFile = file != nullptr;
@@ -2099,8 +2107,8 @@ public:
         const std::wstring& consentRoot = searchRoot.empty() ? path : searchRoot;
         const bool prepared = known ? session.PrepareFileFromView(path, *known) :
             singleFile && searchRoot.empty() ? session.PrepareFile(path) :
-            root && consentRoot == root->path ? session.PrepareFindRoot(*root, readContent) :
-            session.PrepareFind(consentRoot, readContent);
+            root && consentRoot == root->path ? session.PrepareFindRoot(*root, readContent, scopeRecursive) :
+            session.PrepareFind(consentRoot, readContent, scopeRecursive);
         if (!prepared)
             return false;
 
@@ -2514,14 +2522,14 @@ class FindProtectedQueue
 public:
     FindQueueResult Add(CGrepData* search, const std::wstring& deniedPath, CMaskGroup* masks,
              BOOL recursive, int rootLength, const std::shared_ptr<CFindIgnore>& ignore,
-             const WIN32_FIND_DATAW* file = nullptr, const std::wstring& searchRoot = {})
+             const WIN32_FIND_DATAW* file = nullptr, const std::wstring& searchRoot = {}, bool scopeRecursive = true)
     {
         if (search->StopSearch)
             return FindQueueResult::Stopped;
         try
         {
             auto path = SalPathRemoveExtendedPrefixW(deniedPath.c_str());
-            return AddPath(search, std::move(path), masks, recursive, rootLength, ignore, file, searchRoot, {});
+            return AddPath(search, std::move(path), masks, recursive, rootLength, ignore, file, searchRoot, {}, scopeRecursive);
         }
         catch (const std::bad_alloc&)
         {
@@ -2534,7 +2542,7 @@ public:
     {
         try
         {
-            return AddPath(search, search->ProtectedRoot->path, masks, recursive, rootLength, ignore, nullptr, search->ProtectedRoot->path, {});
+            return AddPath(search, search->ProtectedRoot->path, masks, recursive, rootLength, ignore, nullptr, search->ProtectedRoot->path, {}, recursive != FALSE);
         }
         catch (const std::bad_alloc&)
         {
@@ -2551,7 +2559,7 @@ public:
         file.ftLastWriteTime = item.LastWrite;
         try
         {
-            return AddPath(search, SalPathRemoveExtendedPrefixW(path.c_str()), masks, FALSE, 0, {}, &file, {}, item.FoundView);
+            return AddPath(search, SalPathRemoveExtendedPrefixW(path.c_str()), masks, FALSE, 0, {}, &file, {}, item.FoundView, false);
         }
         catch (const std::bad_alloc&)
         {
@@ -2593,7 +2601,7 @@ public:
 private:
     FindQueueResult AddPath(CGrepData* search, std::wstring path, CMaskGroup* masks, BOOL recursive, int rootLength,
                  const std::shared_ptr<CFindIgnore>& ignore, const WIN32_FIND_DATAW* file, const std::wstring& searchRoot,
-                 std::shared_ptr<const UacF7::PreparedLeaf> known)
+                 std::shared_ptr<const UacF7::PreparedLeaf> known, bool scopeRecursive)
     {
         if (search->StopSearch)
             return FindQueueResult::Stopped;
@@ -2605,7 +2613,7 @@ private:
             return FindQueueResult::Limit;
         auto request = std::make_unique<FindProtectedRequest>();
         if (!request->Prepare(search, std::move(path), masks, recursive, rootLength, ignore,
-                              static_cast<unsigned>(count + 1), file, searchRoot, std::move(known)))
+                              static_cast<unsigned>(count + 1), file, searchRoot, std::move(known), scopeRecursive))
             return search->StopSearch ? FindQueueResult::Stopped : FindQueueResult::Failed;
         if (search->StopSearch)
             return FindQueueResult::Stopped;
@@ -2666,7 +2674,7 @@ void SearchDirectory(std::wstring directory, int startPathLen, CMaskGroup* masks
                     const DWORD error = GetLastError();
                     if (error == ERROR_ACCESS_DENIED)
                     {
-                        const auto queued = protectedQueue.Add(data, directory, masksGroup, includeSubDirs, startPathLen, ignoreList, nullptr, searchRoot);
+                        const auto queued = protectedQueue.Add(data, directory, masksGroup, includeSubDirs, startPathLen, ignoreList, nullptr, searchRoot, includeSubDirs != FALSE);
                         if (queued == FindQueueResult::Added || queued == FindQueueResult::Stopped)
                             return;
                         if (queued == FindQueueResult::Limit)
@@ -2735,7 +2743,7 @@ void SearchDirectory(std::wstring directory, int startPathLen, CMaskGroup* masks
                                 canQueueFile ? &openDenied : nullptr, ioPath.c_str());
                         if (openDenied)
                         {
-                            const auto queued = protectedQueue.Add(data, fullPath, masksGroup, FALSE, startPathLen, ignoreList, &file, searchRoot);
+                            const auto queued = protectedQueue.Add(data, fullPath, masksGroup, FALSE, startPathLen, ignoreList, &file, searchRoot, includeSubDirs != FALSE);
                             if (queued == FindQueueResult::Limit)
                                 ReportFindScopeLimit(data, fileText.c_str());
                             else if (queued == FindQueueResult::Failed && !data->StopSearch)

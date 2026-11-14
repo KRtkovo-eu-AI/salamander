@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Restrict nonrecursive Find consent. | Keep the broker inside the user-requested search depth. | #731 | GPT-6 |
 // | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
 // | 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
 // | 2026-11-14 | Check content denial for metadata-only Find. | Keep panel read authority out of a name-only search. | #731 | GPT-6 |
@@ -829,6 +830,14 @@ public:
     {
         DWORD status = ERROR_SUCCESS;
         return SendFindRequest(UacListing::inventoryRequest, path, GetTickCount64() + timeoutMs) &&
+               TransferRequest(server.get(), &status, sizeof(status), false, GetTickCount64() + timeoutMs) == ERROR_BROKEN_PIPE &&
+               Finish() == ERROR_ACCESS_DENIED;
+    }
+
+    bool RejectFlatPath(DWORD flags, std::wstring_view path)
+    {
+        DWORD status = ERROR_SUCCESS;
+        return SendFindRequest(flags, path, GetTickCount64() + timeoutMs) &&
                TransferRequest(server.get(), &status, sizeof(status), false, GetTickCount64() + timeoutMs) == ERROR_BROKEN_PIPE &&
                Finish() == ERROR_ACCESS_DENIED;
     }
@@ -2113,6 +2122,67 @@ void CheckInventoryScope(const Directory& source)
                   rejected.RejectFindRequest(flags | 1),
               "an inventory grant rejects content and leaf identities");
     }
+}
+
+void CheckFlatFindScope(const Directory& source)
+{
+    Directory root, nested;
+    if (!root.Open(source.File(L"find-flat-root").c_str()) ||
+        !nested.Open(root.File(L"child").c_str()) ||
+        !WriteByte(root.File(L"direct.txt"), 21) || !WriteByte(nested.File(L"nested.txt"), 22))
+    {
+        Check(false, "prepare flat Find fixture"); return;
+    }
+    UacF7::MoveFileIdentity identity{};
+    identity.serial = root.identity.file.VolumeSerialNumber;
+    std::memcpy(identity.id, root.identity.file.FileId.Identifier, sizeof(identity.id));
+    for (const auto scope : {Operation::FindFlatList, Operation::FindFlatContent})
+    {
+        JobPipe listing;
+        UacListing::PagedListingReply reply{};
+        std::vector<UacF7::PagedListingEntry> rows;
+        Check(listing.Open(nullptr, root.handle.get(), scope) &&
+                  listing.PageRequest(UacListing::PagedListingOp::Open, {}, &identity, reply, rows) && !reply.error,
+              "flat Find can list its exact root");
+        listing.Finish();
+        JobPipe directIdentity;
+        UacListing::LeafIdentity fileIdentity{};
+        Check(directIdentity.Open(nullptr, root.handle.get(), scope) &&
+                  directIdentity.QueryLeafIdentity(L"direct.txt", ERROR_SUCCESS, fileIdentity),
+              "flat Find can identify a direct file for a result");
+        JobPipe nestedContent;
+        Check(nestedContent.Open(nullptr, root.handle.get(), scope) &&
+                  (scope == Operation::FindFlatList ? nestedContent.RejectFindRequest(UacListing::contentRequest | 1) :
+                                                      nestedContent.RejectFlatPath(UacListing::contentRequest, L"child\\nested.txt")),
+              "flat Find rejects a nested content path");
+        JobPipe childListing;
+        Check(childListing.Open(nullptr, root.handle.get(), scope) && childListing.RejectFlatPath(0, L"child"),
+              "flat Find rejects enumeration of a child directory");
+        JobPipe childIdentity;
+        Check(childIdentity.Open(nullptr, root.handle.get(), scope) &&
+                  childIdentity.RejectFlatPath(UacListing::leafIdentityRequest | UacListing::directoryIdentityRequest, L"child"),
+              "flat Find cannot capture a child directory scope");
+        JobPipe inventory;
+        Check(inventory.Open(nullptr, root.handle.get(), scope) && inventory.RejectFindRequest(UacListing::inventoryRequest),
+              "flat Find cannot request a directory inventory");
+    }
+    JobPipe content;
+    Check(content.Open(nullptr, root.handle.get(), Operation::FindFlatContent) &&
+              content.OpenFindContent(L"direct.txt") && content.ReadAndCloseFindContent(21),
+          "flat content Find reads a direct file");
+    {
+        JobPipe initial;
+        DWORD status = ERROR_GEN_FAILURE;
+        Check(initial.Open(nullptr, nullptr, Operation::FindContent, nullptr, true) &&
+                  initial.StartFindRoot(source, L"find-flat-root", root.identity.file, status, Operation::FindFlatContent) &&
+                  status == ERROR_SUCCESS && initial.OpenFindContent(L"direct.txt") && initial.ReadAndCloseFindContent(21) &&
+                  initial.RejectFlatPath(UacListing::contentRequest, L"child\\nested.txt"),
+              "initial flat Find handshake retains the nonrecursive boundary");
+    }
+    JobPipe names;
+    Check(names.Open(nullptr, root.handle.get(), Operation::FindFlatList) &&
+              names.RejectFindRequest(UacListing::contentRequest | 1),
+          "flat metadata Find rejects content reads");
 }
 
 void CheckExactFindScope(const Directory& source)
@@ -5488,6 +5558,7 @@ int wmain(int argc, wchar_t** argv)
     CheckComparisonContent(source);
     CheckComparisonListing(source);
     CheckStoppedFindReply();
+    CheckFlatFindScope(source);
     CheckExactFindScope(source);
     CheckInventoryScope(source);
     CheckFileAllocation(source);
