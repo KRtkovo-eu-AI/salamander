@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Bound the extracted pre-consent cleanup block. | Keep the pause test aligned with batch consent handling. | #731 | GPT-6 |
 # | 2026-11-13 | Test thin F5 pause and cancellation before elevation. | Exercise actual wait methods without automating UAC. | #731 | GPT-6 |
 """Test extracted thin-worker waits; this is not complete F5 or actual UAC."""
 import argparse
@@ -34,7 +35,7 @@ def main():
     if not initial < prepare < before_prompt < prompt < after_prompt < broker:
         raise RuntimeError("Real Open no longer waits before preparation, consent and broker")
     erase_begin = opened.rfind("if (!WaitBeforeElevation())", prepare, prompt)
-    erase_end = opened.index("const auto source =", erase_begin)
+    erase_end = opened.index("\n                try\n", erase_begin)
     erase_block = opened[erase_begin:erase_end]
     template = (ROOT / "src/tests/uac_thin_pause_tests.cpp.in").read_text(encoding="utf-8")
     code = template.replace("@@WAIT_METHODS@@", methods).replace("@@ERASE_BLOCK@@", erase_block)

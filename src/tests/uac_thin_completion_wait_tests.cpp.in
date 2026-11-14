@@ -1,0 +1,48 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Test the real scoped completion wait. | Cover simultaneous cancellation and broker loss. | #731 | GPT-6 |
+#include <windows.h>
+#include <cstdio>
+struct Dialog { HANDLE WorkerNotSuspended; BOOL* CancelWorker; };
+struct CThinCopyWorker {
+    Dialog& dialog; bool scoped=true, brokerHandleDelivered=true; DWORD connection=ERROR_SUCCESS;
+    int reports=0, lastCaption=0; DWORD lastError=ERROR_SUCCESS;
+    bool Scoped() const { return scoped; }
+    DWORD CheckTransferConnection() const { return connection; }
+    DWORD WaitTransferResume() const;
+    void ReportTransferLoss(DWORD error, int caption) { ++reports; lastError=error; lastCaption=caption; }
+@@COMPLETION_METHOD@@
+};
+@@WAIT_METHOD@@
+int main() {
+    HANDLE ready=CreateEventW(nullptr, TRUE, TRUE, nullptr);
+    HANDLE paused=CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (!ready || !paused) return 2;
+    BOOL cancelled=FALSE; Dialog dialog{ready, &cancelled}; CThinCopyWorker thin{dialog};
+    int failures=0;
+    SetLastError(ERROR_SHARING_VIOLATION);
+    if (thin.WaitTransferResume()!=ERROR_SUCCESS || GetLastError()!=ERROR_SHARING_VIOLATION) ++failures;
+    thin.scoped=true; thin.connection=ERROR_BROKEN_PIPE; cancelled=TRUE;
+    if (thin.WaitCompletionResume(42) || thin.reports!=1 || thin.lastError!=ERROR_BROKEN_PIPE || thin.lastCaption!=42) ++failures;
+    thin.connection=ERROR_SUCCESS; thin.reports=0;
+    if (thin.WaitCompletionResume(42) || thin.reports) ++failures;
+    cancelled=FALSE;
+    if (!thin.WaitCompletionResume(42) || thin.reports) ++failures;
+    cancelled=TRUE;
+    if (thin.WaitTransferResume()!=ERROR_CANCELLED) ++failures;
+    thin.connection=ERROR_BROKEN_PIPE;
+    if (thin.WaitTransferResume()!=ERROR_BROKEN_PIPE) ++failures;
+    cancelled=FALSE; dialog.WorkerNotSuspended=paused;
+    if (thin.WaitTransferResume()!=ERROR_BROKEN_PIPE) ++failures;
+    HANDLE invalid=CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (!invalid || !CloseHandle(invalid)) return 2;
+    thin.connection=ERROR_SUCCESS; dialog.WorkerNotSuspended=invalid;
+    if (thin.WaitTransferResume()!=ERROR_INVALID_HANDLE) ++failures;
+    dialog.WorkerNotSuspended=ready; thin.scoped=false; thin.connection=ERROR_BROKEN_PIPE;
+    SetLastError(ERROR_SHARING_VIOLATION);
+    if (thin.WaitTransferResume()!=ERROR_SUCCESS || GetLastError()!=ERROR_SHARING_VIOLATION) ++failures;
+    CloseHandle(paused); CloseHandle(ready);
+    std::printf("%s real wait with real events, simulated connection\n", failures ? "FAIL" : "PASS");
+    return failures ? 1 : 0;
+}

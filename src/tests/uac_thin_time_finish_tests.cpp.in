@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Cover cancellation and connection loss while paused. | Avoid continuing metadata completion after a failed wait. | #731 | GPT-6 |
 // | 2026-11-14 | Test F5 time completion after session loss. | Stop metadata Retry before using handed-off handles. | #731 | GPT-6 |
 #include <windows.h>
 #include <cstdio>
@@ -9,11 +10,16 @@
 #define WM_USER_DIALOG (WM_APP + 20)
 constexpr int IDS_ERRORGETTINGFILETIME=1, IDS_ERRORSETTINGFILETIME=2;
 constexpr int IDB_IGNOREALL=300, IDB_IGNORE=301, IDB_SKIPALL=302, IDB_SKIP=303;
-struct State { bool lost=false, failTime=false, loseInDialog=false; int calls=0, reports=0, dialogs=0; } state;
+struct State { bool lost=false, failTime=false, loseInDialog=false; DWORD pauseError=ERROR_SUCCESS; int calls=0, reports=0, dialogs=0; } state;
 struct Thin {
     bool CheckCompletionConnection(int) {
         if (state.lost) { ++state.reports; return false; }
         return true;
+    }
+    bool WaitCompletionResume(int) {
+        if (state.pauseError==ERROR_SUCCESS) return true;
+        if (state.pauseError!=ERROR_CANCELLED) ++state.reports;
+        return false;
     }
 };
 struct Dialog { HANDLE WorkerNotSuspended; BOOL* CancelWorker; BOOL SkipAllGetFileTime=FALSE, IgnoreAllGetFileTimeErr=FALSE,
@@ -63,6 +69,10 @@ int main() {
         state={}; state.lost=true; if (phase(ready) || state.calls || state.reports!=1) ++failures;
         state={}; state.failTime=true; state.loseInDialog=true;
         if (phase(ready) || state.calls!=1 || state.dialogs!=1 || state.reports!=1) ++failures;
+        state={}; state.failTime=true; state.pauseError=ERROR_BROKEN_PIPE;
+        if (phase(ready) || state.calls!=1 || state.dialogs || state.reports!=1) ++failures;
+        state={}; state.failTime=true; state.pauseError=ERROR_CANCELLED;
+        if (phase(ready) || state.calls!=1 || state.dialogs || state.reports) ++failures;
     }
     CloseHandle(ready);
     std::printf("%s time completion, including loss during Retry dialog\n", failures ? "FAIL" : "PASS");

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Observe broker loss while paused during F5 completion. | Preserve uncertain targets even when cancellation coincides with disconnection. | #731 | GPT-6 |
 // | 2026-11-14 | Recheck thin-session liveness while finishing an F5 item. | Stop metadata updates after a detected broker loss. | #731 | GPT-6 |
 // | 2026-11-14 | Preserve scoped partial targets after terminal session loss. | Do not truncate broker-owned data when cleanup can no longer be verified. | #731 | GPT-6 |
 // | 2026-11-14 | Inject one overwrite denial in the unelevated laboratory build. | Exercise real scoped F5 overwrite without changing fixture ACLs. | #731 | GPT-6 |
@@ -2558,6 +2559,13 @@ struct CThinCopyWorker
         ReportTransferLoss(error, caption);
         return false;
     }
+    bool WaitCompletionResume(int caption)
+    {
+        const DWORD error = WaitTransferResume();
+        if (error == ERROR_SUCCESS) return true;
+        if (error != ERROR_CANCELLED) ReportTransferLoss(error, caption);
+        return false;
+    }
     bool NativeOverwrite() const { return nativeTargetOverwrite && !targetCreatedByBroker && !cleanupUncertain && !suppressLocalCleanup; }
     bool NativeTarget() const { return !targetCreatedByBroker && (nativeTargetCreated || NativeOverwrite()); }
     bool ScopedTarget() const { return Scoped() && !NativeTarget(); }
@@ -2597,14 +2605,12 @@ DWORD CThinCopyWorker::WaitTransferResume() const
     for (;;)
     {
         const DWORD wait = WaitForSingleObject(dialog.WorkerNotSuspended, 200);
-        if (*dialog.CancelWorker) return ERROR_CANCELLED;
-        if (wait != WAIT_OBJECT_0 && wait != WAIT_TIMEOUT)
-        {
-            const DWORD error = wait == WAIT_FAILED ? GetLastError() : ERROR_GEN_FAILURE;
-            return error ? error : ERROR_GEN_FAILURE;
-        }
+        const DWORD waitError = wait == WAIT_FAILED ? GetLastError() : ERROR_GEN_FAILURE;
         const DWORD error = CheckTransferConnection();
         if (error != ERROR_SUCCESS) return error;
+        if (*dialog.CancelWorker) return ERROR_CANCELLED;
+        if (wait != WAIT_OBJECT_0 && wait != WAIT_TIMEOUT)
+            return waitError ? waitError : ERROR_GEN_FAILURE;
         if (wait == WAIT_OBJECT_0)
         {
             SetLastError(saved);
@@ -8971,7 +8977,12 @@ COPY_AGAIN:
                         outSize.LoDWord = GetFileSize(out, &outSize.HiDWord);
                         if (inSize != outSize)
                         {                                                              // Lantastic 7.0: everything seems fine, but the result is wrong
-                            WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+#ifdef SAM_UAC_THIN_COPY_TEST
+                            if (!thin.WaitCompletionResume(IDS_ERRORWRITINGFILE))
+                                goto COPY_ERROR;
+#else
+                            WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE);
+#endif
                             if (*dlgData.CancelWorker)
                                 goto COPY_ERROR;
 
@@ -9025,7 +9036,12 @@ COPY_AGAIN:
                             break;
                         DWORD err = GetLastError();
 
-                        WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+#ifdef SAM_UAC_THIN_COPY_TEST
+                        if (!thin.WaitCompletionResume(IDS_ERRORGETTINGFILETIME))
+                            goto COPY_ERROR;
+#else
+                        WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE);
+#endif
                         if (*dlgData.CancelWorker)
                             goto COPY_ERROR;
 
@@ -9118,7 +9134,12 @@ COPY_AGAIN:
                                     break;
                                 DWORD err = GetLastError();
 
-                                WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                if (!thin.WaitCompletionResume(IDS_ERRORSETTINGFILETIME))
+                                    goto COPY_ERROR;
+#else
+                                WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE);
+#endif
                                 if (*dlgData.CancelWorker)
                                     goto COPY_ERROR;
 
