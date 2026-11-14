@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Include overwrite in the thin-open fixture. | Exercise the new worker target role. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Exercise revalidation after unavailable identity probes. | Preserve fixed identities while allowing safe Retry and blocking terminal ownership states. | #731 | GPT-6 |
 // | 2026-11-14 | Model native overwrite routing. | Keep target retry tests aligned with the worker. | #731 | GPT-6 |
 // | 2026-11-13 | Keep target continuity loss sticky across Retry. | Prevent later matching opens from clearing the cleanup guard. | #731 | gpt-6.1-terra |
@@ -17,7 +18,7 @@
 
 @@PHASE@@
 namespace UacF7 {
-enum class ThinOpenKind { Source, TargetCreate, TargetRetry, TargetProbe };
+enum class ThinOpenKind { Source, TargetCreate, TargetRetry, TargetProbe, TargetOverwrite };
 enum class Operation { Copy };
 struct MoveFileIdentity { unsigned long long serial = 0; unsigned char id[16]{}; };
 static int captureCalls = 0, prepareCalls = 0;
@@ -149,6 +150,11 @@ int wmain(int argc, wchar_t** argv) {
         Check(output == INVALID_HANDLE_VALUE && GetLastError() == ERROR_ACCESS_DENIED && !target.terminal &&
               target.openCalls == 0 && target.session == (shared ? &existing : nullptr) && existing.closes == 0,
               shared ? "initial target Skip All preserves approved session" : "initial target Skip All avoids elevation", failures);
+        SetLastError(ERROR_ACCESS_DENIED);
+        output = THIN_OPEN_TARGET_OVERWRITE(&target, INVALID_HANDLE_VALUE, true);
+        Check(output == INVALID_HANDLE_VALUE && GetLastError() == ERROR_ACCESS_DENIED && !target.terminal &&
+              target.openCalls == 0 && target.session == (shared ? &existing : nullptr) && existing.closes == 0,
+              "initial overwrite respects target Skip All", failures);
     }
     for (DWORD error : {ERROR_FILE_NOT_FOUND, ERROR_PATH_NOT_FOUND}) {
         CThinCopyWorker listed; listed.dialog.CancelWorker = &cancelled; listed.operation.OpFlags = OPFL_UAC_TRANSFER_SOURCE;
@@ -171,6 +177,11 @@ int wmain(int argc, wchar_t** argv) {
         Check(output == target.opened && target.openCalls == 1 &&
               target.lastKind == UacF7::ThinOpenKind::TargetCreate && !target.terminal,
               "source open Skip All does not suppress initial target elevation", failures);
+        SetLastError(ERROR_ACCESS_DENIED);
+        output = THIN_OPEN_TARGET_OVERWRITE(&target, INVALID_HANDLE_VALUE, true);
+        Check(output == target.opened && target.openCalls == 2 && target.lastOverlapped &&
+              target.lastKind == UacF7::ThinOpenKind::TargetOverwrite && !target.terminal,
+              "overwrite opens with the requested I/O mode", failures);
     }
     {
         CThinCopyWorker source; source.dialog.CancelWorker = &cancelled; source.dialog.SkipAllFileOpenIn = TRUE;
