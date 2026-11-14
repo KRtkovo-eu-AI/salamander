@@ -40,6 +40,11 @@ def main():
     suspend = extract(worker, "BOOL CCopy_Context::HandleSuspModeAndCancel(", "void DoCopyFileLoopAsync(")
     wait_resume = extract(worker, "DWORD CThinCopyWorker::WaitTransferResume()", "bool CThinCopyWorker::CancelBeforeElevation()")
     transport = extract(broker, "DWORD ThinCopySession::CheckTransport() const", "\n#endif\n\nbool ThinCopySession::Matches(")
+    sync_loop = extract(worker, "void DoCopyFileLoopOrig(", "enum CCopy_BlkState")
+    write_retry = sync_loop.split("case IDRETRY: // on a network", 1)[1].split("if (out != NULL)", 1)[0]
+    read_retry = sync_loop.split("            RETRY_COPY:", 1)[1].split("if (in != NULL)", 1)[0]
+    write_guard = extract(write_retry, "#ifdef SAM_UAC_THIN_COPY_TEST", "#endif") + "#endif\n"
+    read_guard = extract(read_retry, "#ifdef SAM_UAC_THIN_COPY_TEST", "#endif") + "#endif\n"
     buffer = re.search(r"^#define ASYNC_COPY_BUF_SIZE \([^\r\n]*", header, re.MULTILINE)
     if not buffer:
         raise RuntimeError("native copy buffer definition missing")
@@ -47,7 +52,8 @@ def main():
     code = (template.replace("@@BUFFER@@", buffer.group(0)).replace("@@ASYNC@@", async_params)
             .replace("@@ENUMS@@", enums).replace("@@ISSUE@@", issue)
             .replace("@@FREE@@", free).replace("@@DRAIN@@", drain).replace("@@SUSPEND@@", suspend)
-            .replace("@@WAIT_RESUME@@", wait_resume).replace("@@TRANSPORT@@", transport))
+            .replace("@@WAIT_RESUME@@", wait_resume).replace("@@TRANSPORT@@", transport)
+            .replace("@@SYNC_WRITE_RETRY_GUARD@@", write_guard).replace("@@SYNC_READ_RETRY_GUARD@@", read_guard))
     if "@@" in code:
         raise RuntimeError("unexpanded native test placeholder")
     env = compiler_environment()
