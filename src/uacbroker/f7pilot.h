@@ -1,5 +1,7 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
+| 2026-11-14 | Separate name-only Find authorization from panel content access. | Keep search rights limited to the requested read capability. | #731 | GPT-6 |
 | 2026-11-14 | Reuse live panel read grants for viewer snapshots. | Avoid a second elevation for a verified file within the panel scope. | #731 | GPT-6 |
 | 2026-11-14 | Expose an experimental thin transport check. | Detect a disconnected job without consuming protocol data. | #731 | gpt-6.1-terra |
 | 2026-11-14 | Carry deferred overwrite evidence to the broker. | Recheck the native Scan Ahead decision after UAC consent. | #731 | gpt-6.1-terra |
@@ -171,7 +173,7 @@ private:
 void RestoreConsentForeground(HWND owner, HWND foreground, DWORD lastInput);
 bool CanOfferElevation();
 
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26, MoveAcrossVolume = 27, FinishCrossVolumeMove = 28, MoveCompressed = 29, CopyCompressedSecurity = 30, RenameDirectory = 31, DeleteDirectory = 32, Inventory = 33, CompareList = 34, CompareContent = 35, MoveDirectory = 36, CopyDirectoryEntry = 37, MergeCopyTree = 38, ListCopyTreeSource = 39, PlanCopyTree = 40, MoveOverwrite = 41, MoveAcrossVolumeOverwrite = 42, FileAllocation = 43, CopyOverwriteIgnoreAds = 44, ProbeOverwrite = 45, ProbeOverwriteIgnoreAds = 46, AbortOverwriteProbe = 47, ThinOpenSource = 49, ThinTargetCreate = 50, ThinTargetRetry = 51, ThinTargetProbe = 52, ThinDiscardTarget = 53, ThinTargetRelease = 54, ThinTargetOverwrite = 55, ThinTargetOverwriteScan = 56 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26, MoveAcrossVolume = 27, FinishCrossVolumeMove = 28, MoveCompressed = 29, CopyCompressedSecurity = 30, RenameDirectory = 31, DeleteDirectory = 32, Inventory = 33, CompareList = 34, CompareContent = 35, MoveDirectory = 36, CopyDirectoryEntry = 37, MergeCopyTree = 38, ListCopyTreeSource = 39, PlanCopyTree = 40, MoveOverwrite = 41, MoveAcrossVolumeOverwrite = 42, FileAllocation = 43, CopyOverwriteIgnoreAds = 44, ProbeOverwrite = 45, ProbeOverwriteIgnoreAds = 46, AbortOverwriteProbe = 47, ThinOpenSource = 49, ThinTargetCreate = 50, ThinTargetRetry = 51, ThinTargetProbe = 52, ThinDiscardTarget = 53, ThinTargetRelease = 54, ThinTargetOverwrite = 55, ThinTargetOverwriteScan = 56, FindList = 57 };
 
 inline constexpr bool IsComparisonScope(Operation operation)
 {
@@ -180,7 +182,7 @@ inline constexpr bool IsComparisonScope(Operation operation)
 
 inline constexpr bool IsDirectoryReadScope(Operation operation)
 {
-    return operation == Operation::List || operation == Operation::FindContent || operation == Operation::Inventory ||
+    return operation == Operation::List || operation == Operation::FindList || operation == Operation::FindContent || operation == Operation::Inventory ||
            IsComparisonScope(operation);
 }
 
@@ -1124,6 +1126,7 @@ public:
     ListingSession& operator=(const ListingSession&) = delete;
 
     bool Prepare(const std::wstring& path, bool findContent = false);
+    bool PrepareFind(const std::wstring& path, bool readContent);
     bool PrepareFile(const std::wstring& path);
     bool PrepareExactFindViewer(const std::wstring& path, DWORD attributes, PreparedLeaf& viewer) const;
     bool PrepareAllocationFile(const std::wstring& path, const PreparedLeaf& file);

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
 // | 2026-11-12 | Exercise bounded paged Find traversal. | Preserve Stop, errors and DFS while removing the wide-directory cap. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Exercise independently bounded protected Find listings. | Preserve wide tree coverage and depth, session and cancellation limits. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Test actual protected scan and consent-result handling. | Preserve explicit Stop and report omitted branches. | #731 | GPT-6.1 Terra |
@@ -81,6 +82,7 @@ struct TrackRows {
 };
 namespace UacF7 {
 struct MoveFileIdentity { ULONGLONG serial = 0; BYTE id[16]{}; };
+struct FindRootIdentity { ULONGLONG serial = 0; FILE_ID_128 id{}; };
 struct PagedListingEntry { WIN32_FIND_DATAW data{}; BYTE id[16]{}; };
 }
 struct FakeSession {
@@ -95,6 +97,10 @@ struct FakeSession {
     struct Cursor { std::wstring path; size_t next = 0; };
     std::map<ULONGLONG, Cursor> cursors; ULONGLONG nextCursor = 1;
     bool IsOpen() const { return open; }
+    std::wstring GetRoot() const { return L"C:\\root"; }
+    DWORD CaptureFindRoot(const std::wstring&, UacF7::FindRootIdentity& result, HANDLE) {
+        result.serial = 1; result.id.Identifier[0] = 1; return open ? ERROR_SUCCESS : ERROR_BROKEN_PIPE;
+    }
     bool GetPreparedFindRootIdentity(UacF7::MoveFileIdentity& identity) const { identity.serial = 1; identity.id[0] = 1; return open; }
     DWORD OpenDirectoryCursor(const std::wstring& path, const UacF7::MoveFileIdentity& expected,
                               UacF7::MoveFileIdentity& actual, ULONGLONG& lease, HANDLE) {
@@ -130,7 +136,8 @@ struct UacRevision { ULONGLONG serial=0; BYTE fileId[16]{}; };
 DWORD FakeSession::OpenContent(const std::wstring&, ULONGLONG& size, FILETIME& modified, UacRevision&) {
     size = contentSize; modified = {}; if (stopOnOpen) data->StopSearch = true; return contentError;
 }
-namespace UacF7 { using ListingSession = FakeSession; using ArchiveRevision = UacRevision; }
+namespace UacF7 { using ListingSession = FakeSession; using ArchiveRevision = UacRevision;
+struct PreparedLeaf { bool MatchesReadSource(const UacRevision&) const { return true; } }; }
 @@IDENTITY_MATCH@@
 struct CQuadWord { ULONGLONG Value = 0; };
 static std::string SalWideToMultiBytePath(const wchar_t* path, unsigned) { std::string result; while (*path) result += static_cast<char>(*path++); return result; }
@@ -151,12 +158,14 @@ struct Predicates {
     }
 };
 struct FindProtectedRequest {
-    CGrepData* data; FakeSession session; std::shared_ptr<CFindIgnore> ignoreSnapshot;
+    CGrepData* data; FakeSession session; UacF7::PreparedLeaf capturedFile; std::shared_ptr<CFindIgnore> ignoreSnapshot;
     int rootLength = 0; bool includeSubDirs = true, singleFile = false, startOk = true; int starts = 0;
     HANDLE launchThread = nullptr; std::optional<Consent> consent; Predicates predicates;
     std::wstring path = L"C:\\root"; std::vector<std::pair<std::wstring, DWORD>> logs;
     std::vector<std::wstring> published; bool stopOnCandidate = false, closeOnCandidate = false, discardCandidates = false; size_t candidateCount = 0;
     explicit FindProtectedRequest(CGrepData& search) : data(&search) { session.data = data; }
+    FakeSession& ActiveSession() { return session; }
+    UacF7::ListingSession* Process(CDuplicateCandidates* candidates) { (void)FindDuplicateContent(*data); Scan(path, 0, candidates); return nullptr; }
     bool Start() { ++starts; if (startOk) launchThread = reinterpret_cast<HANDLE>(1); return startOk; }
     void Log(const std::wstring& name, DWORD error, bool = false) { logs.emplace_back(name, error); }
     void AddCandidate(const std::wstring& name, const WIN32_FIND_DATAW& entry, CDuplicateCandidates*, const UacF7::MoveFileIdentity* = nullptr) {

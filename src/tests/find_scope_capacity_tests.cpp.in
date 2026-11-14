@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
 // | 2026-11-14 | Check refusal across queued Find scopes. | Avoid repeated UAC prompts after a declined search. | #731 | GPT-6 |
 // | 2026-11-11 | Preserve typed incomplete Find reasons across searches. | Keep different omissions distinct without changing current reports. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Exercise the real protected Find queue and limit report. | Preserve Stop and deduplication at capacity. | #731 | GPT-6.1 Terra |
@@ -144,20 +145,21 @@ struct FakeDialog {
         return true;
     }
 };
-namespace UacF7 { struct ListingSession {}; }
+namespace UacF7 { struct ListingSession { bool IsOpen() const { return true; } }; }
 using FindProtectedSessions = std::array<UacF7::ListingSession*, maxFindProtectedScopes>;
 struct FixtureSize { DWORD LoDWord = 0, HiDWord = 0; };
 struct CFoundFilesData { DWORD Attr = 0; FixtureSize Size; FILETIME LastWrite{}; };
 static bool failPrepare, stopAfterPrepare, failStart;
 static DWORD finishError;
-static int starts, preparations, finishes, omitted;
+static int starts, preparations, finishes, omitted, reused;
 struct FindProtectedRequest {
     std::wstring path;
     CMaskGroup* masks = nullptr;
     bool singleFile = false;
     DWORD attributes = 0;
+    UacF7::ListingSession session;
     bool Prepare(CGrepData* data, std::wstring name, CMaskGroup* mask, BOOL, int,
-                 const std::shared_ptr<CFindIgnore>&, unsigned, const WIN32_FIND_DATAW* file) {
+                 const std::shared_ptr<CFindIgnore>&, unsigned, const WIN32_FIND_DATAW* file, const std::wstring&) {
         ++preparations; path = std::move(name); masks = mask; singleFile = file != nullptr;
         attributes = file ? file->dwFileAttributes : 0;
         if (stopAfterPrepare) data->StopSearch = true;
@@ -169,6 +171,8 @@ struct FindProtectedRequest {
     bool MergeRefinedRow(const WIN32_FIND_DATAW& file) const { return attributes == file.dwFileAttributes; }
     bool Start() { ++starts; return !failStart; }
     UacF7::ListingSession* Finish(CDuplicateCandidates*) { ++finishes; return nullptr; }
+    UacF7::ListingSession& ActiveSession() { return session; }
+    UacF7::ListingSession* FinishWithSession(UacF7::ListingSession&, CDuplicateCandidates*) { ++finishes; ++reused; return nullptr; }
     DWORD BatchFailure() const { return finishError; }
     void OmitAfterFailure(DWORD) { ++omitted; }
 };
@@ -234,6 +238,17 @@ int main() {
           "Stop takes precedence over a full queue");
     ReportFindScopeLimit(&data, "C:\\scope\\33");
     Check(data.logs.size() == 1, "a stopped search emits no later limit log");
+    {
+        CGrepData search; FindProtectedQueue approved;
+        const int previousStarts = starts;
+        Check(approved.Add(&search, L"C:\\root\\first", &mask, TRUE, 0, {}) == FindQueueResult::Added &&
+              approved.Add(&search, L"C:\\root\\second", &mask, TRUE, 0, {}) == FindQueueResult::Added,
+              "two denied siblings are queued");
+        finishError = ERROR_SUCCESS; finishes = reused = 0;
+        approved.Finish(nullptr);
+        Check(starts == previousStarts + 1 && finishes == 2 && reused == 1,
+              "successful Find consent reuses one session for the next sibling");
+    }
     {
         CGrepData search; FindProtectedQueue denied;
         const int previousStarts = starts;

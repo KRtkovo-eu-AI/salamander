@@ -1,5 +1,7 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
+| 2026-11-14 | Check metadata-only Find permissions. | Prevent name-only consent from authorizing content reads. | #731 | GPT-6 |
 | 2026-11-14 | Check scoped panel content requests. | Restrict reusable viewer access to named descendants. | #731 | GPT-6 |
 | 2026-11-12 | Exercise exact-case rename of links in a sensitive directory. | Verify identity, collision and raw reparse data without following targets. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Exercise case-only rename to a free name in a case-sensitive directory. | Verify the exact-object behavior on actual NTFS. | #731 | GPT-6 (Codex) |
@@ -3028,6 +3030,10 @@ static bool CheckFindTagStream()
               !ValidRequestScope(Operation::FindFile, 0, true, false) &&
               !ValidRequestScope(Operation::FindFile, 0, true, true),
           "an exact-file Find grant refuses directory listing and inventory");
+    Check(ValidRequestScope(Operation::FindList, 1, false, false) &&
+              !ValidRequestScope(Operation::FindList, 1, false, true) &&
+              !ValidRequestScope(Operation::FindList, 1, true, false),
+          "name-only Find allows listing but never content or inventory");
     Check(ValidRequestScope(Operation::FindContent, 1, false, true) &&
               !ValidRequestScope(Operation::FindContent, 0, false, true) &&
               ValidRequestScope(Operation::List, 1, false, true) && !ValidRequestScope(Operation::List, 0, false, true),

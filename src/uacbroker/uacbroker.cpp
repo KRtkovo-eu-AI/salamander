@@ -1,5 +1,7 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
+| 2026-11-14 | Enforce metadata-only Find authorization. | Distinguish name searches from panel and content reads. | #731 | GPT-6 |
 | 2026-11-14 | Read viewer snapshots through the approved panel session. | Reuse its scoped read grant without relaunching the broker. | #731 | GPT-6 |
 | 2026-11-14 | Discover protected UAC pairs from their actual executable directory. | Support trusted locations on fixed local volumes without weakening image checks. | #731 | GPT-6 |
 | 2026-11-14 | Clear readonly on an identified partial target before cleanup. | Preserve the native CopyAttrs cancellation behavior. | #731 | GPT-6 |
@@ -3340,7 +3342,8 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
         header.leafLength > UacDirectoryLeaf::maxComponent || header.sourceLength > UacDirectoryLeaf::maxComponent ||
         (!rename && !mkdir && !setMetadata && !deleteFile && !list && !transfer && !view && !allocationFile &&
          !readArchive && !writeZipSelection && !zipUpdate && !listTreeSource) || rename != (header.sourceLength != 0) ||
-        (list && !header.relativeLength && !IsComparisonScope(listingScope)) ||
+        (list && !header.relativeLength && !IsComparisonScope(listingScope) &&
+         listingScope != Operation::FindList && listingScope != Operation::FindContent) ||
         transfer != (header.targetLeafLength != 0) ||
         header.targetRelativeLength > UacDirectoryLeaf::maxNativeName || header.targetLeafLength > UacDirectoryLeaf::maxComponent ||
         header.copySize > (zipUpdate ? UacF7::maxZipUpdateBytes :
@@ -4139,9 +4142,9 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operat
                     UacListing::directoryIdentityRequest | UacListing::verifiedListingRequest | UacListing::linkIdentityRequest |
                     UacListing::fileAllocationRequest | UacListing::pagedListingRequest);
         const bool canReadIdentity = scope == Operation::List ||
-                                     ((scope == Operation::CompareContent || scope == Operation::FindContent) &&
-                                      !parentOnly && !directoryLeaf);
-        if ((pagedListing && ((scope != Operation::CompareList && scope != Operation::List && scope != Operation::FindContent) || inventoryRequest || sizeDetails || contentRequest ||
+                                     ((scope == Operation::FindContent || scope == Operation::FindList) && !parentOnly) ||
+                                     (scope == Operation::CompareContent && !parentOnly && !directoryLeaf);
+        if ((pagedListing && ((scope != Operation::CompareList && scope != Operation::List && scope != Operation::FindList && scope != Operation::FindContent) || inventoryRequest || sizeDetails || contentRequest ||
                               leafIdentity || parentOnly || directoryLeaf || verifyListing || linkLeaf || fileAllocation)) ||
             (fileAllocation && (!UacListing::ValidAllocationScope(scope, length) || inventoryRequest || sizeDetails ||
                                 contentRequest || leafIdentity || parentOnly || directoryLeaf || verifyListing || linkLeaf)) ||
@@ -4317,7 +4320,7 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operat
                 if (error)
                     return error;
             }
-            if (verifyListing && (scope == Operation::List || scope == Operation::FindContent))
+            if (verifyListing && (scope == Operation::List || scope == Operation::FindList || scope == Operation::FindContent))
             {
                 // Match each component using its parent's case-sensitivity and
                 // retain the no-follow pins through the entire enumeration.
@@ -5260,7 +5263,7 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, 
     // Create-only transfers prepare their destination through the same path as F7.
     // A visible directory can deny even an attribute open. Capture only its ID
     // from the verified grandparent and let the broker reopen the exact parent.
-    const bool useParentListing = (requested == Operation::List || requested == Operation::Inventory ||
+    const bool useParentListing = (requested == Operation::List || requested == Operation::FindList || requested == Operation::Inventory ||
                                    requested == Operation::FindContent || requested == Operation::CompareList ||
                                    requested == Operation::Mkdir) &&
                                   openError == ERROR_ACCESS_DENIED && !parentPath.empty();
@@ -7276,6 +7279,11 @@ bool ListingSession::Prepare(const std::wstring& path, bool findContent)
     return PrepareDirectory(path, findContent ? Operation::FindContent : Operation::List);
 }
 
+bool ListingSession::PrepareFind(const std::wstring& path, bool readContent)
+{
+    return PrepareDirectory(path, readContent ? Operation::FindContent : Operation::FindList);
+}
+
 bool ListingSession::PrepareInventory(const std::wstring& path)
 {
     return PrepareDirectory(path, Operation::Inventory);
@@ -7300,7 +7308,8 @@ bool ListingSession::PrepareDirectory(const std::wstring& path, Operation operat
 {
     ListingForegroundLock lock(mutex, foregroundWaiters);
     if (starting || pipe || !root.empty()) return false;
-    const bool volumeRoot = IsComparisonScope(operation) && path.size() == 3 && path.back() == L'\\';
+    const bool volumeRoot = (IsComparisonScope(operation) || operation == Operation::FindList ||
+                             operation == Operation::FindContent) && path.size() == 3 && path.back() == L'\\';
     if ((!volumeRoot && (path.size() <= 3 || path.back() == L'\\')) ||
         !prepared.PrepareTarget(path + (volumeRoot ? L"" : L"\\") + UacListing::marker, operation, {}, nullptr))
         return false;
@@ -7314,7 +7323,8 @@ DWORD ListingSession::CaptureFindRoot(const std::wstring& path, FindRootIdentity
     const DWORD lockError = LockListingForCall(stop, lock, foregroundWaiters, stop != nullptr);
     if (lockError) return lockError;
     if (stop && stopEvent && stop != stopEvent) return ERROR_INVALID_PARAMETER;
-    if (prepared.operation != Operation::List || !Contains(path))
+    if ((prepared.operation != Operation::List && prepared.operation != Operation::FindList &&
+         prepared.operation != Operation::FindContent) || !Contains(path))
         return ERROR_ACCESS_DENIED;
 
     FindRootIdentity verified;
@@ -7348,7 +7358,7 @@ bool ListingSession::PrepareFindRoot(const FindRootIdentity& identity, bool read
     prepared.leaf = UacListing::marker;
     prepared.serial = identity.serial;
     std::memcpy(prepared.fileId, identity.id.Identifier, sizeof(prepared.fileId));
-    prepared.operation = readContent ? Operation::FindContent : Operation::List;
+    prepared.operation = readContent ? Operation::FindContent : Operation::FindList;
     root = identity.path;
     return true;
 }
@@ -7356,7 +7366,7 @@ bool ListingSession::PrepareFindRoot(const FindRootIdentity& identity, bool read
 bool ListingSession::GetPreparedFindRootIdentity(MoveFileIdentity& identity) const
 {
     ListingForegroundLock lock(mutex, foregroundWaiters);
-    if (!pipe || (prepared.operation != Operation::List && prepared.operation != Operation::FindContent) || root.empty())
+    if (!pipe || (prepared.operation != Operation::List && prepared.operation != Operation::FindList && prepared.operation != Operation::FindContent) || root.empty())
         return false;
     identity.serial = prepared.serial;
     std::memcpy(identity.id, prepared.fileId, sizeof(identity.id));
@@ -7548,8 +7558,9 @@ DWORD ListingSession::PrepareLeaf(const std::wstring& path, Operation operation,
 {
     ListingForegroundLock lock(mutex, foregroundWaiters);
     const bool canReadIdentity = prepared.operation == Operation::List ||
-                                 ((prepared.operation == Operation::CompareContent || prepared.operation == Operation::FindContent) &&
-                                  operation == Operation::View);
+                                 ((prepared.operation == Operation::FindContent || prepared.operation == Operation::FindList) &&
+                                  (operation == Operation::View || operation == Operation::FindContent)) ||
+                                 (prepared.operation == Operation::CompareContent && operation == Operation::View);
     if (!canReadIdentity || !Contains(path) || path.size() <= root.size() || request.parent || request.identityFromListing)
         return ERROR_ACCESS_DENIED;
     const auto split = path.find_last_of(L'\\');
@@ -7852,7 +7863,7 @@ DWORD ListingSession::OpenDirectoryCursor(const std::wstring& path, const MoveFi
     const DWORD lockError = LockListingForCall(stop, lock, foregroundWaiters, true);
     if (lockError) return lockError;
     if (stop && stopEvent && stop != stopEvent) return ERROR_INVALID_PARAMETER;
-    if (!pipe || (prepared.operation != Operation::CompareList && prepared.operation != Operation::List && prepared.operation != Operation::FindContent))
+    if (!pipe || (prepared.operation != Operation::CompareList && prepared.operation != Operation::List && prepared.operation != Operation::FindList && prepared.operation != Operation::FindContent))
         return ERROR_INVALID_STATE;
     auto slot = std::find(directoryCursorLeases.begin(), directoryCursorLeases.end(), 0);
     if (slot == directoryCursorLeases.end()) return ERROR_TOO_MANY_OPEN_FILES;
@@ -7886,7 +7897,7 @@ DWORD ListingSession::NextDirectoryPage(ULONGLONG lease, std::vector<PagedListin
     const DWORD lockError = LockListingForCall(stop, lock, foregroundWaiters, true);
     if (lockError) return lockError;
     if (stop && stopEvent && stop != stopEvent) return ERROR_INVALID_PARAMETER;
-    if (!pipe || (prepared.operation != Operation::CompareList && prepared.operation != Operation::List && prepared.operation != Operation::FindContent))
+    if (!pipe || (prepared.operation != Operation::CompareList && prepared.operation != Operation::List && prepared.operation != Operation::FindList && prepared.operation != Operation::FindContent))
         return ERROR_INVALID_STATE;
     auto slot = std::find(directoryCursorLeases.begin(), directoryCursorLeases.end(), lease);
     if (!lease || slot == directoryCursorLeases.end()) return ERROR_INVALID_HANDLE;
@@ -7941,7 +7952,7 @@ DWORD ListingSession::CloseDirectoryCursor(ULONGLONG lease, HANDLE stop)
     const DWORD lockError = LockListingForCall(stop, lock, foregroundWaiters, true);
     if (lockError) return lockError;
     if (stop && stopEvent && stop != stopEvent) return ERROR_INVALID_PARAMETER;
-    if (!pipe || (prepared.operation != Operation::CompareList && prepared.operation != Operation::List && prepared.operation != Operation::FindContent))
+    if (!pipe || (prepared.operation != Operation::CompareList && prepared.operation != Operation::List && prepared.operation != Operation::FindList && prepared.operation != Operation::FindContent))
         return ERROR_INVALID_STATE;
     auto slot = std::find(directoryCursorLeases.begin(), directoryCursorLeases.end(), lease);
     if (!lease || slot == directoryCursorLeases.end()) return ERROR_INVALID_HANDLE;

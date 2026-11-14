@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Record scoped Find session reuse and remaining batch gaps. | Distinguish implemented search coverage, automated checks and outstanding user verification. | #731 | GPT-6 |
 | 2026-11-14 | Record operation-wide read consent requirements and user reports. | Track repeated size and Find prompts and F3 panel-session reuse. | #731 | GPT-6 |
 | 2026-11-14 | Record upstream localization and CI integration. | Preserve UAC resources while aligning with upstream and repairing CI and CodeQL findings. | #731 | GPT-6 |
 | 2026-11-14 | Support UAC from other protected local directories. | Remove the fixed installation path without trusting writable executable locations. | #731 | GPT-6 |
@@ -621,6 +622,13 @@
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
+
+## Sdílení souhlasu pro čtení — rozpracováno 14. listopadu 2026
+
+- **Implementováno:** Find v jednom zadaném kořeni připravuje relaci pro celý kořen a odložené chráněné potomky obsluhuje stejným živým spojením. Odmítnutí nebo ztráta spojení nespouští další souhlas. Samostatný rozsah `FindList` umožňuje pouze výpis a metadata; čtení obsahu vyžaduje `FindContent`. Ověření identity chráněného jednotlivého souboru zůstává zachováno. F3 přes chráněný panel je řešeno předchozím commitem `70233f273`.
+- **Automaticky ověřeno:** Release x64 host a broker, existující testy chráněného průchodu Findem a fronty v Debug i Release, test smlouvy plánování, rozsahu adresářových operací a Release testy brokerového transportu a stránkování. Tyto testy neprokazují průchod skutečným systémovým dialogem UAC.
+- **Zbývá implementovat:** výpočet velikostí více samostatně vybraných sourozenců stále používá oddělené relace; nelze ho označit za opravený. Find přes více nezávisle zadaných kořenů nebo nad výsledky refine zatím nemusí být jednou relací celý pokryt: nepokrytá část se označí jako neúplná, další elevace se automaticky nespustí. Také větev dodatečného čtení pro porovnání duplicit vyžaduje další prověření. Pro výběr několika samostatných položek je nutný přesný brokerem vynucovaný rozsah výběru; samotné povolení společného rodiče by nepřípustně zahrnulo i nevybrané sourozence.
+- **Uživatelské ověření:** čeká pro všechny nové změny. Uživatelem hlášené opakované výzvy u velikostí a Findu zůstávají otevřené do potvrzení opravy; změna zatím nepokrývá všechny požadované varianty. UAC ani grafické piloty se podle zadání nespouštěly.
 
 Stav k 11. listopadu 2026. Základní podpora UAC pro běžné interní operace a vestavěný ZIP je ověřená v konkrétních scénářích na místním NTFS. Statický audit níže zachycuje další mezery v podmínkách způsobilosti, přípravě identity, návazných krocích a rozsahu souhlasu. Dokončení se posuzuje po jednotlivých operacích a jejich kombinacích.
 

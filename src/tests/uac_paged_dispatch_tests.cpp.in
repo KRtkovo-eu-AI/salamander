@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
 // | 2026-11-12 | Interleave Find content with identity pages. | Verify the allowed scope and pipe termination on an interrupted read. | #731 | GPT-6.1 Terra |
 // | 2026-11-12 | Exercise scoped identity pages through the real dispatcher. | Check paging, identity and scope without a UAC or UI claim. | #731 | GPT-6 (Codex) |
 @@JOB_FIXTURE@@
@@ -26,7 +27,7 @@ int wmain()
         FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
     FILE_ID_INFO smallId{};
     if (!smallHandle || !GetFileInformationByHandleEx(smallHandle.get(), FileIdInfo, &smallId, sizeof(smallId))) return 13;
-    for (const auto scope : {Operation::List, Operation::FindContent})
+    for (const auto scope : {Operation::List, Operation::FindList, Operation::FindContent})
     {
         JobPipe verified;
         FILE_ID_INFO wrongSmall = smallId; wrongSmall.FileId.Identifier[0] ^= 1;
@@ -56,7 +57,7 @@ int wmain()
         if (!deleteHandle || !GetFileInformationByHandleEx(deleteHandle.get(), FileIdInfo, &lockedId, sizeof(lockedId))) return 16;
         UacF7::MoveFileIdentity lockedExpected{lockedId.VolumeSerialNumber};
         std::memcpy(lockedExpected.id, lockedId.FileId.Identifier, sizeof(lockedExpected.id));
-        for (const auto scope : {Operation::List, Operation::FindContent})
+        for (const auto scope : {Operation::List, Operation::FindList, Operation::FindContent})
         {
             JobPipe denied;
             Check(denied.Open(nullptr, root.handle.get(), scope) && denied.PlainList(L"delete-locked", L"readable.txt") &&
@@ -66,7 +67,7 @@ int wmain()
                   "preexisting DELETE handle permits old List but verified paging fails closed");
         }
         deleteHandle.reset();
-        for (const auto scope : {Operation::List, Operation::FindContent})
+        for (const auto scope : {Operation::List, Operation::FindList, Operation::FindContent})
         {
             JobPipe retry;
             Check(retry.Open(nullptr, root.handle.get(), scope) &&
@@ -94,7 +95,7 @@ int wmain()
         if (!deleteHandle) return 19;
         UacF7::MoveFileIdentity childExpected{childId.VolumeSerialNumber};
         std::memcpy(childExpected.id, childId.FileId.Identifier, sizeof(childExpected.id));
-        for (const auto scope : {Operation::List, Operation::FindContent})
+        for (const auto scope : {Operation::List, Operation::FindList, Operation::FindContent})
         {
             JobPipe denied;
             Check(denied.Open(nullptr, root.handle.get(), scope) &&
@@ -105,7 +106,7 @@ int wmain()
                   "preexisting DELETE handle on ancestor preserves old List but verified paging fails closed");
         }
         deleteHandle.reset();
-        for (const auto scope : {Operation::List, Operation::FindContent})
+        for (const auto scope : {Operation::List, Operation::FindList, Operation::FindContent})
         {
             JobPipe retry;
             Check(retry.Open(nullptr, root.handle.get(), scope) &&
@@ -338,7 +339,7 @@ int wmain()
         std::vector<Handle> pins;
         HANDLE anchored = nullptr;
         const DWORD pinStatus = PinPagedDirectory(root.handle.get(), L"traverse-only\\child", nullptr, pins, anchored);
-        for (const auto scope : {Operation::List, Operation::FindContent})
+        for (const auto scope : {Operation::List, Operation::FindList, Operation::FindContent})
         {
             JobPipe verified;
             Check(verified.Open(nullptr, root.handle.get(), scope) &&

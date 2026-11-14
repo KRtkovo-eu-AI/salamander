@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
 # | 2026-11-12 | Check paged and legacy Find session loss. | Preserve cancellation and avoid crossing protected scopes. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Check captured Find viewer identity routing. | Prevent pathname-only fallback while preserving ordinary Branch View. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Keep incomplete summaries reachable after the worker joins. | Preserve the log-only refresh contract without racing the worker. | #731 | GPT-6.1 Terra |
@@ -62,7 +63,7 @@ def main() -> int:
             "WM_USER_VIEWFILE")
     require("MAX_PATH" not in view, "F3 must not truncate the selected Find path")
     publish = function_body(find_cpp, "void PublishCandidate(")
-    ordered(publish, "maxViewerSnapshotBytes", "session.PrepareViewer(filePath",
+    ordered(publish, "maxViewerSnapshotBytes", "ActiveSession().PrepareViewer(filePath",
             "AddFoundItem(", "std::move(foundView)")
     host = (ROOT / "src" / "fileswn5.cpp").read_text(encoding="utf-8-sig")
     internal = function_body(host, "BOOL ViewFileInt(")
@@ -226,12 +227,13 @@ def main() -> int:
     require("count == 0 && !request->Start()" in queue_add and "count == requests.size()" in queue_add,
             "only the first consent may begin during traversal and the queue must be bounded")
     request_finish = function_body(find_cpp, "UacF7::ListingSession* Finish(CDuplicateCandidates* candidates)")
+    request_process = function_body(find_cpp, "UacF7::ListingSession* Process(CDuplicateCandidates* candidates)")
     require("data->StopSearch || !Start()" in request_finish and
-            request_finish.index("WaitForSingleObject(launchThread, INFINITE);") < request_finish.index("Scan(path, 0,"),
+            request_finish.index("WaitForSingleObject(launchThread, INFINITE);") < request_finish.index("Process(candidates)"),
             "a stopped search must suppress queued prompts and traversal must wait for the approved session")
     match_file = function_body(find_cpp, "bool MatchFile(")
-    require(match_file.index("session.OpenContent(") < match_file.index("predicates.Match(") <
-            match_file.index("session.CloseContent()") and "return match && !error && !closeError" in match_file,
+    require(match_file.index("ActiveSession().OpenContent(") < match_file.index("predicates.Match(") <
+            match_file.index("ActiveSession().CloseContent()") and "return match && !error && !closeError" in match_file,
             "protected text and tags must use the same open and require a confirmed close")
     predicate = function_body(find_cpp, "bool Match(CGrepData* data, UacF7::ListingSession& session")
     require(predicate.index("MatchTags(") < predicate.index("MatchContent("),
@@ -250,7 +252,7 @@ def main() -> int:
     require("CanContinue(directory)" in scan and
             "CanContinue(directory)" in function_body(find_cpp, "void ScanPaged(") and
             "CanContinue(directory)" in function_body(find_cpp, "void ScanLegacy(") and
-            "return session.IsOpen() && !data->Refine" in request_finish,
+            "return ActiveSession().IsOpen() && !data->Refine" in request_process,
             "a lost session must end its traversal without discarding other scopes")
     digest = function_body(find_cpp, "BOOL CDuplicateCandidates::GetMD5Digest(")
     candidate = function_body(find_cpp, "bool MatchesCandidate(")
@@ -285,7 +287,7 @@ def main() -> int:
             "empty candidates must be verified without dereferencing a nonexistent digest")
     traversal = function_body(find_cpp, "void SearchDirectory(")
     require("if (openDenied)" in traversal and "protectedQueue.Add(data, fullPath" in traversal and
-            "ignoreList, &file)" in traversal,
+            "ignoreList, &file, searchRoot)" in traversal,
             "a denied ordinary text or tag read must queue the exact wide file")
     require("FindFirstFileW(pattern.c_str(), &file)" in traversal and
             "FindNextFileW(find.get(), &file)" in traversal and

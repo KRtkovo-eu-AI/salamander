@@ -1,5 +1,7 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
+| 2026-11-14 | Limit metadata-only Find sessions to listings. | Prevent panel content rights from leaking into name-only searches. | #731 | GPT-6 |
 | 2026-11-14 | Permit read-only content in an approved panel scope. | Reuse the live panel grant for its internal viewer. | #731 | GPT-6 |
 | 2026-11-12 | Stream exact thin-copy child identity checks. | Check large directories without losing duplicate detection or cancellation. | #731 | GPT-6 |
 | 2026-11-12 | Give paged directory requests cursor tokens. | Keep nested Find traversal scoped to its exact open handles. | #731 | GPT-6.1 Terra |
@@ -90,6 +92,8 @@ inline bool ValidRequestScope(UacF7::Operation scope, DWORD pathLength, bool inv
         return inventory && !content;
     if (scope == UacF7::Operation::FileAllocation)
         return false; // Exact allocation permits only its separately typed request.
+    if (scope == UacF7::Operation::FindList)
+        return !inventory && !content;
     if (scope == UacF7::Operation::FindFile)
         return content && !inventory && pathLength == 0;
     if (UacF7::IsComparisonScope(scope))
@@ -102,7 +106,7 @@ inline bool ValidRequestScope(UacF7::Operation scope, DWORD pathLength, bool inv
 inline bool ValidVerifiedListingScope(UacF7::Operation scope, DWORD pathLength)
 {
     return (UacF7::IsComparisonScope(scope) && (pathLength != 0 || scope == UacF7::Operation::CompareList)) ||
-           (pathLength != 0 && (scope == UacF7::Operation::List || scope == UacF7::Operation::FindContent));
+           (pathLength != 0 && (scope == UacF7::Operation::List || scope == UacF7::Operation::FindList || scope == UacF7::Operation::FindContent));
 }
 
 inline bool MatchesListingIdentity(const UacDirectoryLeaf::ParentIdentity& actual, const UacF7::MoveFileIdentity& expected)

@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
+// | 2026-11-14 | Check content denial for metadata-only Find. | Keep panel read authority out of a name-only search. | #731 | GPT-6 |
 // | 2026-11-14 | Exercise scoped panel content through the dispatcher. | Verify repeated viewer reads remain within the approved root. | #731 | GPT-6 |
 // | 2026-11-14 | Add actual-client CopyAttrs access cases. | Cover target creation and overwrite without expanding source rights. | #731 | GPT-6 |
 // | 2026-11-14 | Reuse a real planned client job for two files. | Verify batch custody and scope across consecutive native handle opens. | #731 | gpt-6.1-terra |
@@ -1066,16 +1068,34 @@ void CheckPanelPreparationFlags(const Directory& source)
         Check(job.Open(nullptr, source.handle.get(), Operation::List) && job.RejectFindRequest(header),
               "the panel closes malformed or incompatible preparation flags without replying or reading a payload");
     }
-    for (const auto scope : {Operation::FindContent, Operation::FindFile})
+    for (const auto scope : {Operation::FindContent, Operation::FindList, Operation::FindFile})
     {
         for (const auto flags : {leaf, leaf | parent, leaf | directory})
         {
-            if (scope == Operation::FindContent && flags == leaf)
-                continue; // exact file identity is permitted and tested separately
+            if ((scope == Operation::FindContent || scope == Operation::FindList) && (flags == leaf || flags == (leaf | directory)))
+                continue; // Find may identify a file or a directory within its approved root
             JobPipe job;
             Check(job.Open(nullptr, source.handle.get(), scope) && job.RejectFindRequest(flags | 1),
                   "Find grants cannot use a typed panel preparation request");
         }
+    }
+    Check(CreateDirectoryW(source.File(L"find-scope-child").c_str(), nullptr) != FALSE,
+          "create scoped Find identity fixture");
+    for (const auto scope : {Operation::FindContent, Operation::FindList})
+    {
+        JobPipe job;
+        UacListing::LeafIdentity child{};
+        Check(job.Open(nullptr, source.handle.get(), scope) &&
+                  job.QueryLeafIdentity(L"find-scope-child", ERROR_SUCCESS, child, false, true),
+              "Find scope identifies a child directory inside its approved root");
+    }
+    Check(RemoveDirectoryW(source.File(L"find-scope-child").c_str()) != FALSE,
+          "remove scoped Find identity fixture");
+    {
+        JobPipe metadata;
+        Check(metadata.Open(nullptr, source.handle.get(), Operation::FindList) &&
+                  metadata.RejectFindRequest(UacListing::contentRequest | 1),
+              "name-only Find scope rejects content requests");
     }
     constexpr wchar_t viewerFile[] = L"panel-view-\u6771.txt";
     Check(WriteByte(source.File(viewerFile), 71), "create a scoped panel viewer fixture");

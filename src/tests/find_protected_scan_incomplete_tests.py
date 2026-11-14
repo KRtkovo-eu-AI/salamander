@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
 # | 2026-11-12 | Measure protected Find page buffers. | Verify traversal behavior with bounded per-level pages. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Measure bounded concurrent protected listings. | Distinguish traversal workspace from accumulated results. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Exercise protected Find scan incompleteness. | Keep existing limits and errors distinct from completed results. | #731 | GPT-6.1 Terra |
@@ -21,7 +22,7 @@ def main():
     fixture = read('src/tests/find_protected_scan_incomplete_tests.cpp.in')
     scan = block(source, 'void Scan(const std::wstring& directory, unsigned depth')
     paged = block(source, 'void ScanPaged(const std::wstring& directory, unsigned depth')
-    line = 'error = session.NextDirectoryPage(lease, page, done, data->StopEvent);'
+    line = 'error = ActiveSession().NextDirectoryPage(lease, page, done, data->StopEvent);'
     if paged.count(line) != 1:
         raise AssertionError('expected one protected page call')
     paged = paged.replace(line, line + '\n            TrackRows liveRows(page.size());')
