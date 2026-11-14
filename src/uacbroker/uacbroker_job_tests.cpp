@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Exercise dispatcher shutdown after host process death. | Verify scoped resources are released when the real peer disappears. | #731 | GPT-6 |
 // | 2026-11-14 | Exercise thin dispatcher across a real process crash. | Verify the lifetime of already transferred handles without claiming UAC acceptance. | #731 | GPT-6 |
 // | 2026-11-13 | Inject target-anchor failure in the isolated dispatcher test. | Check the already-created file is preserved. | #731 | GPT-6 |
 // | 2026-11-13 | Test client target reopen on a real dispatcher pipe. | Verify target identity and native handle semantics in sync and async modes. | #731 | GPT-6 |
@@ -254,6 +255,8 @@ public:
                WaitForSingleObject(child.get(), 10000) == WAIT_OBJECT_0 &&
                GetExitCodeProcess(child.get(), &code) && code == 99;
     }
+
+    DWORD ExternalPid() const { return child ? GetProcessId(child.get()) : 0; }
 #endif
 
 #if defined(SAM_UAC_CLIENT_PIPE_HARNESS) && defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_PLANNED_PROTOTYPE)
@@ -4773,6 +4776,101 @@ void CheckThinExternalCrash(const Directory& source, const Directory& target)
     Check(DeleteFileW(sourcePath.c_str()) != FALSE && DeleteFileW(targetPath.c_str()) != FALSE,
           "remove only dedicated process-crash fixtures");
 }
+
+int ThinHostCrashChild(const Directory& source, const Directory& target, const wchar_t* eventName,
+                       const wchar_t* mappingName)
+{
+    const auto ready = Adopt(OpenEventW(EVENT_MODIFY_STATE, FALSE, eventName));
+    const auto mapping = Adopt(OpenFileMappingW(FILE_MAP_WRITE, FALSE, mappingName));
+    if (!ready || !mapping) return 11;
+    auto sourceFile = Adopt(CreateFileW(source.File(L"thin-host-death-source.txt").c_str(), GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr));
+    FILE_ID_INFO identity{};
+    if (!sourceFile || !GetFileInformationByHandleEx(sourceFile.get(), FileIdInfo, &identity, sizeof(identity))) return 12;
+    JobPipe job;
+    if (!job.OpenExternal()) return 13;
+    DWORD result = ERROR_GEN_FAILURE;
+    ThinWireReply reply{};
+    if (!job.Thin(source, L"thin-host-death-source.txt", identity, target, L"thin-host-death-target.txt",
+                  Operation::ThinTargetCreate, nullptr, false, result, reply, sourceFile.get()) || result || !reply.value)
+        return 14;
+    auto output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+    BYTE value = 0x72; DWORD count = 0;
+    if (!output || !WriteFile(output.get(), &value, 1, &count, nullptr) || count != 1) return 15;
+    auto* address = static_cast<DWORD*>(MapViewOfFile(mapping.get(), FILE_MAP_WRITE, 0, 0, sizeof(DWORD)));
+    if (!address) return 16;
+    *address = job.ExternalPid();
+    UnmapViewOfFile(address);
+    if (!SetEvent(ready.get())) return 17;
+    Sleep(INFINITE); // Only the parent terminates this dedicated test host.
+    return 18;
+}
+
+void CheckThinHostCrash(const Directory& source, const Directory& target)
+{
+    const auto sourcePath = source.File(L"thin-host-death-source.txt");
+    const auto targetPath = target.File(L"thin-host-death-target.txt");
+    if (!WriteByte(sourcePath, 0x51)) { Check(false, "create host-crash source"); return; }
+    GUID id{};
+    if (FAILED(CoCreateGuid(&id))) { Check(false, "create host-crash names"); return; }
+    wchar_t guid[40]{};
+    if (!StringFromGUID2(id, guid, ARRAYSIZE(guid))) { Check(false, "format host-crash names"); return; }
+    const std::wstring eventName = L"Local\\SamThinCrashEvent-" + std::wstring(guid);
+    const std::wstring mappingName = L"Local\\SamThinCrashMapping-" + std::wstring(guid);
+    const auto ready = Adopt(CreateEventW(nullptr, TRUE, FALSE, eventName.c_str()));
+    const auto mapping = Adopt(CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, sizeof(DWORD), mappingName.c_str()));
+    const auto cleanupJob = Adopt(CreateJobObjectW(nullptr, nullptr));
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits{};
+    limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+    if (!ready || !mapping || !cleanupJob ||
+        !SetInformationJobObject(cleanupJob.get(), JobObjectExtendedLimitInformation, &limits, sizeof(limits)))
+    { Check(false, "prepare host-crash isolation"); return; }
+    wchar_t image[MAX_PATH]{};
+    const DWORD length = GetModuleFileNameW(nullptr, image, ARRAYSIZE(image));
+    if (!length || length >= ARRAYSIZE(image)) { Check(false, "identify host-crash fixture"); return; }
+    std::wstring command = L"\"" + std::wstring(image) + L"\" --thin-host-crash-child \"" + eventName +
+        L"\" \"" + mappingName + L"\"";
+    STARTUPINFOW startup{}; startup.cb = sizeof(startup);
+    PROCESS_INFORMATION process{};
+    if (!CreateProcessW(image, command.data(), nullptr, nullptr, FALSE, CREATE_SUSPENDED | CREATE_NO_WINDOW,
+                        nullptr, nullptr, &startup, &process))
+    { Check(false, "start isolated test host"); return; }
+    const auto host = Adopt(process.hProcess);
+    const auto thread = Adopt(process.hThread);
+    if (!AssignProcessToJobObject(cleanupJob.get(), host.get()))
+    {
+        TerminateProcess(host.get(), 96);
+        WaitForSingleObject(host.get(), 10000);
+        Check(false, "contain isolated test host"); return;
+    }
+    if (ResumeThread(thread.get()) == static_cast<DWORD>(-1) || WaitForSingleObject(ready.get(), 10000) != WAIT_OBJECT_0)
+    {
+        DWORD childCode = STILL_ACTIVE;
+        GetExitCodeProcess(host.get(), &childCode);
+        std::printf("Host fixture status before ready: %lu\n", childCode);
+        Check(false, "host receives scoped target before crash"); return;
+    }
+    const auto* address = static_cast<const DWORD*>(MapViewOfFile(mapping.get(), FILE_MAP_READ, 0, 0, sizeof(DWORD)));
+    if (!address) { Check(false, "read isolated dispatcher identity"); return; }
+    const DWORD brokerPid = *address;
+    UnmapViewOfFile(address);
+    const auto broker = Adopt(OpenProcess(SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION, FALSE, brokerPid));
+    BOOL member = FALSE;
+    if (!broker || !IsProcessInJob(broker.get(), cleanupJob.get(), &member) || !member ||
+        WaitForSingleObject(broker.get(), 0) != WAIT_TIMEOUT)
+    { Check(false, "identify live dispatcher inside isolated job"); return; }
+    DWORD exitCode = STILL_ACTIVE;
+    if (!TerminateProcess(host.get(), 97) || WaitForSingleObject(host.get(), 10000) != WAIT_OBJECT_0 ||
+        !GetExitCodeProcess(host.get(), &exitCode) || exitCode != 97)
+    { Check(false, "terminate exact isolated test host"); return; }
+    Check(true, "terminate exact isolated test host");
+    Check(WaitForSingleObject(broker.get(), 10000) == WAIT_OBJECT_0,
+          "external dispatcher exits after host process death");
+    Check(HasByte(sourcePath, 0x51) && HasByte(targetPath, 0x72),
+          "source and partial target remain available after both processes exit");
+    Check(DeleteFileW(sourcePath.c_str()) != FALSE && DeleteFileW(targetPath.c_str()) != FALSE,
+          "remove only dedicated host-crash fixtures");
+}
 #endif
 #include "uacbroker_thin_cleanup_contract_tests.inc"
 }
@@ -4795,9 +4893,22 @@ int wmain(int argc, wchar_t** argv)
     }
 #endif
     Directory source, target, outside;
-    if (!source.Open(L"source") || !target.Open(L"target") || !outside.Open(L"outside"))
+#ifdef SAM_UAC_THIN_COPY_TEST
+    const bool existingFixture = argc == 4 && !wcscmp(argv[1], L"--thin-host-crash-child");
+#else
+    constexpr bool existingFixture = false;
+#endif
+    if (!source.Open(L"source", !existingFixture) || !target.Open(L"target", !existingFixture) ||
+        !outside.Open(L"outside", !existingFixture))
         return 2;
 #ifdef SAM_UAC_THIN_COPY_TEST
+    if (argc == 4 && !wcscmp(argv[1], L"--thin-host-crash-child"))
+        return ThinHostCrashChild(source, target, argv[2], argv[3]);
+    if (argc == 2 && !wcscmp(argv[1], L"--thin-host-crash-only"))
+    {
+        CheckThinHostCrash(source, target);
+        return failures ? 1 : 0;
+    }
     if (argc == 2 && !wcscmp(argv[1], L"--thin-process-crash-only"))
     {
         CheckThinExternalCrash(source, target);

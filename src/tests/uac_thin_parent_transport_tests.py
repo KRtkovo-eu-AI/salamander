@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Run an isolated host-process crash case. | Check that the real dispatcher exits when its peer dies. | #731 | GPT-6 |
 # | 2026-11-14 | Run the external dispatcher crash case. | Test real cross-process handle lifetime separately from UAC. | #731 | GPT-6 |
 # | 2026-11-12 | Test the experimental thin source-parent fallback. | Run real NTFS and pipe cases without pretending the token is elevated. | #731 | GPT-6 |
 """Build and run the real job dispatcher with experimental thin pinning."""
@@ -16,7 +17,9 @@ from safe_file_paths_tests import ROOT, compiler_environment, run
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--configuration', choices=('Debug', 'Release'), default='Debug')
-    parser.add_argument('--process-crash-only', action='store_true')
+    crash_mode = parser.add_mutually_exclusive_group()
+    crash_mode.add_argument('--process-crash-only', action='store_true')
+    crash_mode.add_argument('--host-crash-only', action='store_true')
     args = parser.parse_args()
     env = compiler_environment()
     compiler = shutil.which('cl', path=env.get('PATH'))
@@ -34,6 +37,8 @@ def main():
             command = [str(exe)]
             if args.process_crash_only:
                 command.append('--thin-process-crash-only')
+            if args.host_crash_only:
+                command.append('--thin-host-crash-only')
             return run(command, cwd=temp, env=env, timeout=25).returncode
         finally:
             root = Path(temp).resolve(strict=True)
