@@ -2841,15 +2841,18 @@ void CheckPlannedTreeThinJob(const Directory& source, const Directory& target, c
 
 #if defined(SAM_UAC_CLIENT_PIPE_HARNESS) && defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_PLANNED_PROTOTYPE)
 #ifdef SAM_UAC_LOOP_LINK_HARNESS
-extern "C" BOOL RunLinkedNativeSyncLoop(HANDLE, HANDLE*, const wchar_t*, const wchar_t*, ULONGLONG,
-                                        void*, DWORD (*)(void*), HANDLE (*)(void*));
+extern "C" BOOL RunLinkedNativeSyncLoop(HANDLE*, HANDLE*, const wchar_t*, const wchar_t*, ULONGLONG,
+                                        void*, DWORD (*)(void*), HANDLE (*)(void*), bool (*)(void*), BOOL);
 struct LinkedThinContext
 {
     UacF7::ThinCopySession* thin;
     UacF7::PreparedTransfer* request;
     UacF7::MoveFileIdentity target;
     HANDLE source;
+    const wchar_t* targetPath;
+    bool corruptBeforeRetry = false;
     unsigned reopenCount = 0;
+    unsigned discardCount = 0;
 };
 static DWORD LinkedThinCheck(void* context)
 {
@@ -2858,6 +2861,13 @@ static DWORD LinkedThinCheck(void* context)
 static HANDLE LinkedThinRetry(void* context)
 {
     auto& state = *static_cast<LinkedThinContext*>(context);
+    if (state.corruptBeforeRetry)
+    {
+        auto file = Adopt(CreateFileW(state.targetPath, GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr));
+        BYTE changed = 0; DWORD bytes = 0;
+        if (!file || !WriteFile(file.get(), &changed, 1, &bytes, nullptr) || bytes != 1)
+        { SetLastError(ERROR_WRITE_FAULT); return INVALID_HANDLE_VALUE; }
+    }
     const auto reopened = state.thin->Open(nullptr, *state.request, UacF7::ThinOpenKind::TargetRetry, false, false,
         &state.target, UacF7::ThinOpenedSource{state.source});
     if (reopened.error || reopened.unknown || reopened.file == INVALID_HANDLE_VALUE)
@@ -2868,9 +2878,20 @@ static HANDLE LinkedThinRetry(void* context)
     ++state.reopenCount;
     return reopened.file;
 }
-#endif
-void CheckThinClientPlannedTree(const Directory& source, const Directory& target)
+static bool LinkedThinDiscard(void* context)
 {
+    auto& state = *static_cast<LinkedThinContext*>(context);
+    const DWORD error = state.thin->DiscardTarget(*state.request, state.target);
+    if (error) { SetLastError(error); return false; }
+    ++state.discardCount;
+    return true;
+}
+#endif
+void CheckThinClientPlannedTree(const Directory& source, const Directory& target, bool mismatch = false)
+{
+#ifndef SAM_UAC_LOOP_LINK_HARNESS
+    (void)mismatch;
+#endif
     constexpr wchar_t root[] = L"client-planned-\u6771";
     constexpr wchar_t leaf[] = L"payload-\u65e5.txt";
     constexpr wchar_t secondLeaf[] = L"second-\u6771.txt";
@@ -3010,14 +3031,30 @@ void CheckThinClientPlannedTree(const Directory& source, const Directory& target
     count = 0;
 #ifdef SAM_UAC_LOOP_LINK_HARNESS
     LARGE_INTEGER zero{};
-    LinkedThinContext loopContext{&thin, &request, created.targetIdentity, input.get()};
+    LinkedThinContext loopContext{&thin, &request, created.targetIdentity, input.get(), targetFile.c_str(), mismatch};
+    HANDLE rawInput = input.release();
     HANDLE rawOutput = output.release();
     const bool targetCreated = !created.error && !created.unknown && rawOutput && rawOutput != INVALID_HANDLE_VALUE &&
-        SetFilePointerEx(input.get(), zero, nullptr, FILE_BEGIN) &&
-        RunLinkedNativeSyncLoop(input.get(), &rawOutput, sourceFile.c_str(), targetFile.c_str(), sourceSize,
-                                &loopContext, LinkedThinCheck, LinkedThinRetry) && loopContext.reopenCount == 1;
+        SetFilePointerEx(rawInput, zero, nullptr, FILE_BEGIN) &&
+        RunLinkedNativeSyncLoop(&rawInput, &rawOutput, sourceFile.c_str(), targetFile.c_str(), sourceSize,
+                                &loopContext, LinkedThinCheck, LinkedThinRetry, LinkedThinDiscard, mismatch) &&
+        loopContext.reopenCount == 1 && loopContext.discardCount == (mismatch ? 1u : 0u);
+    input.reset(rawInput);
     output.reset(rawOutput);
     Check(targetCreated, "native synchronous loop retries through actual client and dispatcher");
+    if (mismatch)
+    {
+        auto original = Adopt(CreateFileW(sourceFile.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr));
+        std::vector<BYTE> actual(expected.size()); DWORD bytesRead = 0;
+        LARGE_INTEGER actualSize{};
+        Check(targetCreated && !input && !output && IsAbsent(targetFile) && thin.IsOpen() && original &&
+              GetFileSizeEx(original.get(), &actualSize) && actualSize.QuadPart == static_cast<LONGLONG>(expected.size()) &&
+              ReadFile(original.get(), actual.data(), static_cast<DWORD>(actual.size()), &bytesRead, nullptr) &&
+              bytesRead == expected.size() && actual == expected,
+              "changed copied prefix restarts and client deletes only the owned target");
+        thin.Close(); pipe.Finish();
+        return;
+    }
 #else
     const bool targetCreated = !created.error && !created.unknown && output &&
         WriteFile(output.get(), &value, 1, &count, nullptr) && count == 1;
@@ -5081,6 +5118,13 @@ int wmain(int argc, wchar_t** argv)
         return failures ? 1 : 0;
     }
 #ifdef SAM_UAC_CLIENT_PIPE_HARNESS
+#ifdef SAM_UAC_LOOP_LINK_HARNESS
+    if (argc == 2 && !wcscmp(argv[1], L"--thin-client-planned-mismatch-only"))
+    {
+        CheckThinClientPlannedTree(source, target, true);
+        return failures ? 1 : 0;
+    }
+#endif
     if (argc == 2 && !wcscmp(argv[1], L"--thin-client-planned-only"))
     {
         CheckThinClientPlannedTree(source, target);

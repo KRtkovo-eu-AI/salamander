@@ -59,6 +59,7 @@ struct CThinCopyWorker {
     void* sessionContext = nullptr;
     DWORD (*sessionCheck)(void*) = nullptr;
     HANDLE (*sessionRetryTarget)(void*) = nullptr;
+    bool (*sessionDiscardTarget)(void*) = nullptr;
     DWORD CheckTransferConnection() const {
         return sessionCheck ? sessionCheck(sessionContext) : failConnectionAfterWrite && writes ? ERROR_BROKEN_PIPE : ERROR_SUCCESS;
     }
@@ -94,12 +95,14 @@ static BOOL TestWrite(HANDLE h, LPCVOID b, DWORD n, LPDWORD w, LPOVERLAPPED o) {
 #define THIN_OPEN_TARGET_RETRY(ctx, local, overlapped) \
     ((ctx) && (ctx)->sessionRetryTarget ? (ctx)->sessionRetryTarget((ctx)->sessionContext) : (local))
 #define THIN_OPEN_SOURCE_RETRY(ctx, local, overlapped) (local)
-#define THIN_DELETE_TARGET(ctx, local) (local)
+#define THIN_DELETE_TARGET(ctx, local) \
+    ((ctx) && (ctx)->sessionDiscardTarget ? (ctx)->sessionDiscardTarget((ctx)->sessionContext) : (local))
 @@LOOP@@
 
 #ifdef SAM_UAC_LOOP_LINK_HARNESS
-extern "C" BOOL RunLinkedNativeSyncLoop(HANDLE input, HANDLE* output, const wchar_t* source, const wchar_t* target,
-                                        ULONGLONG fileBytes, void* context, DWORD (*check)(void*), HANDLE (*retry)(void*))
+extern "C" BOOL RunLinkedNativeSyncLoop(HANDLE* input, HANDLE* output, const wchar_t* source, const wchar_t* target,
+                                        ULONGLONG fileBytes, void* context, DWORD (*check)(void*), HANDLE (*retry)(void*),
+                                        bool (*discard)(void*), BOOL expectRestart)
 {
     BOOL cancel = FALSE, error = FALSE, skipped = FALSE, again = FALSE;
     HANDLE resumed = CreateEventW(nullptr, TRUE, TRUE, nullptr);
@@ -110,11 +113,13 @@ extern "C" BOOL RunLinkedNativeSyncLoop(HANDLE input, HANDLE* output, const wcha
     CQuadWord done, total, size(fileBytes);
     int limit = 1024, alloc = 0; BYTE buffer[1024]{};
     CThinCopyWorker thin; thin.sessionContext = context; thin.sessionCheck = check; thin.sessionRetryTarget = retry;
+    thin.sessionDiscardTarget = discard;
     writes = dialogCount = 0; injectFault = true; didFault = failConnectionAfterWrite = false; dialogChoice = IDRETRY;
-    DoCopyFileLoopOrig(input, *output, buffer, limit, &script, dialog, FALSE, &op, total, error, skipped,
+    DoCopyFileLoopOrig(*input, *output, buffer, limit, &script, dialog, FALSE, &op, total, error, skipped,
                        nullptr, done, size, sizeof(buffer), alloc, again, &thin);
     CloseHandle(resumed);
-    return !error && !skipped && !again && !thin.reports && done.Value == fileBytes && didFault && dialogCount == 1;
+    return !error && !skipped && (again != FALSE) == (expectRestart != FALSE) && !thin.reports &&
+           (expectRestart || done.Value == fileBytes) && didFault && dialogCount == 1;
 }
 #else
 static int failures = 0;

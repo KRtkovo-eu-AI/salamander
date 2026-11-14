@@ -38,16 +38,17 @@ def main():
     crash_mode.add_argument('--client-connection-only', action='store_true')
     crash_mode.add_argument('--client-planned-only', action='store_true')
     crash_mode.add_argument('--client-planned-loop-only', action='store_true')
+    crash_mode.add_argument('--client-planned-mismatch-only', action='store_true')
     args = parser.parse_args()
     env = compiler_environment()
     compiler = shutil.which('cl', path=env.get('PATH'))
     flags = ('/MTd', '/Od', '/D_DEBUG') if args.configuration == 'Debug' else ('/MT', '/O2', '/DNDEBUG')
-    client_mode = args.client_reopen_only or args.client_lost_budget_only or args.client_external_lost_budget_only or args.client_connection_only or args.client_planned_only or args.client_planned_loop_only
+    client_mode = args.client_reopen_only or args.client_lost_budget_only or args.client_external_lost_budget_only or args.client_connection_only or args.client_planned_only or args.client_planned_loop_only or args.client_planned_mismatch_only
     if args.owned_cleanup_only or client_mode or args.overwrite_only or args.lost_reply_only or args.external_lost_reply_only:
         flags += ('/DSAM_UAC_THIN_REOPEN_PROTOTYPE',)
     if client_mode:
         flags += ('/DSAM_UAC_CLIENT_PIPE_HARNESS', '/DSAM_UAC_THIN_PLANNED_PROTOTYPE')
-    if args.client_planned_loop_only:
+    if args.client_planned_loop_only or args.client_planned_mismatch_only:
         flags += ('/DSAM_UAC_LOOP_LINK_HARNESS', '/wd4201')
     if args.client_lost_budget_only or args.client_external_lost_budget_only:
         flags += ('/DSAM_UAC_THIN_HANDOFF_TEST_CAP=3',)
@@ -61,7 +62,7 @@ def main():
                               f'#include "{(ROOT / "src/uacbroker/uacbroker.cpp").as_posix()}"\n',
                               encoding='utf-8')
             sources.append(str(client))
-            if args.client_planned_loop_only:
+            if args.client_planned_loop_only or args.client_planned_mismatch_only:
                 worker = (ROOT / 'src/worker.cpp').read_text(encoding='utf-8-sig')
                 header = (ROOT / 'src/worker.h').read_text(encoding='utf-8-sig')
                 loop = Path(temp) / 'native_sync_loop.cpp'
@@ -109,6 +110,8 @@ def main():
                 command.append('--thin-client-connection-only')
             if args.client_planned_only or args.client_planned_loop_only:
                 command.append('--thin-client-planned-only')
+            if args.client_planned_mismatch_only:
+                command.append('--thin-client-planned-mismatch-only')
             return run(command, cwd=temp, env=env, timeout=25).returncode
         finally:
             root = Path(temp).resolve(strict=True)
