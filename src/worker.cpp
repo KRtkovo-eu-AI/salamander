@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Distinguish session loss from uncertain privileged cleanup. | Keep ordinary target cleanup and error reporting native. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Observe thin-session loss while waiting for async I/O. | Cancel and drain issued operations before returning to the worker. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Check remaining async pause paths for thin-session loss. | Preserve issued I/O until its native cancel drain completes. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Observe thin session loss at native synchronous pause points. | Stop an approved copy without changing ordinary pause behavior. | #731 | gpt-6.1-terra |
@@ -2536,6 +2537,7 @@ struct CThinCopyWorker
     bool NativeTarget() const { return !targetCreatedByBroker && (nativeTargetCreated || NativeOverwrite()); }
     bool ScopedTarget() const { return Scoped() && !NativeTarget(); }
     bool ReportTargetFailure(DWORD error, int caption = IDS_ERRORDELETINGFILE);
+    bool ReportTransferLoss(DWORD error, int caption);
     bool CloseScopedTarget(HANDLE& file);
     bool RefuseUnsafeTargetCleanup();
     bool DiscardTarget();
@@ -5320,7 +5322,7 @@ static BOOL ThinCopyTestWriteFile(HANDLE file, const void* buffer, DWORD size, D
     const DWORD pauseError = (ctx) ? (ctx)->WaitTransferResume() : \
         (WaitForSingleObject((data).WorkerNotSuspended, INFINITE), ERROR_SUCCESS); \
     if (pauseError != ERROR_SUCCESS) { \
-        if (pauseError != ERROR_CANCELLED) (ctx)->ReportTargetFailure(pauseError, IDS_ERRORREADINGFILE); \
+        if (pauseError != ERROR_CANCELLED) (ctx)->ReportTransferLoss(pauseError, IDS_ERRORREADINGFILE); \
         (failure) = TRUE; return; \
     } \
 } while (0)
@@ -5352,7 +5354,7 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
             const DWORD error = thin->CheckTransferConnection();
             if (error != ERROR_SUCCESS)
             {
-                thin->ReportTargetFailure(error, IDS_ERRORREADINGFILE);
+                thin->ReportTransferLoss(error, IDS_ERRORREADINGFILE);
                 copyError = TRUE;
                 return;
             }
@@ -5367,7 +5369,7 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
                 const DWORD error = thin->CheckTransferConnection();
                 if (error != ERROR_SUCCESS)
                 {
-                    thin->ReportTargetFailure(error, IDS_ERRORREADINGFILE);
+                    thin->ReportTransferLoss(error, IDS_ERRORREADINGFILE);
                     copyError = TRUE;
                     return;
                 }
@@ -5389,7 +5391,7 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
                 const DWORD error = thin->CheckTransferConnection();
                 if (error != ERROR_SUCCESS)
                 {
-                    thin->ReportTargetFailure(error, IDS_ERRORREADINGFILE);
+                    thin->ReportTransferLoss(error, IDS_ERRORREADINGFILE);
                     copyError = TRUE;
                     return;
                 }
@@ -6171,7 +6173,7 @@ BOOL CCopy_Context::FinishPauseFailure(BOOL* copyError, int caption)
     const DWORD pauseError = PauseFailure;
     PauseFailure = ERROR_SUCCESS;
     CancelOpPhase2(-1);
-    if (pauseError != ERROR_CANCELLED) Thin->ReportTargetFailure(pauseError, caption);
+    if (pauseError != ERROR_CANCELLED) Thin->ReportTransferLoss(pauseError, caption);
     *copyError = TRUE;
     return TRUE;
 }
@@ -6273,7 +6275,7 @@ BOOL CCopy_Context::HandleReadingErr(int blkIndex, DWORD err, BOOL* copyError, B
             if (pauseError != ERROR_SUCCESS)
             {
                 CancelOpPhase2(blkIndex);
-                if (pauseError != ERROR_CANCELLED) Thin->ReportTargetFailure(pauseError, IDS_ERRORREADINGFILE);
+                if (pauseError != ERROR_CANCELLED) Thin->ReportTransferLoss(pauseError, IDS_ERRORREADINGFILE);
                 *copyError = TRUE;
                 return FALSE;
             }
@@ -6460,7 +6462,7 @@ BOOL CCopy_Context::HandleWritingErr(int blkIndex, DWORD err, BOOL* copyError, B
             if (pauseError != ERROR_SUCCESS)
             {
                 CancelOpPhase2(blkIndex);
-                if (pauseError != ERROR_CANCELLED) Thin->ReportTargetFailure(pauseError, IDS_ERRORWRITINGFILE);
+                if (pauseError != ERROR_CANCELLED) Thin->ReportTransferLoss(pauseError, IDS_ERRORWRITINGFILE);
                 *copyError = TRUE;
                 return FALSE;
             }
@@ -6551,7 +6553,7 @@ BOOL CCopy_Context::HandleSuspModeAndCancel(BOOL* copyError, BOOL forceWait)
             {
                 CancelOpPhase1();
                 CancelOpPhase2(-1);
-                if (pauseError != ERROR_CANCELLED) Thin->ReportTargetFailure(pauseError, IDS_ERRORREADINGFILE);
+                if (pauseError != ERROR_CANCELLED) Thin->ReportTransferLoss(pauseError, IDS_ERRORREADINGFILE);
                 *copyError = TRUE;
                 return TRUE;
             }
@@ -6575,7 +6577,7 @@ BOOL CCopy_Context::HandleSuspModeAndCancel(BOOL* copyError, BOOL forceWait)
         {
             CancelOpPhase1();
             CancelOpPhase2(-1);
-            Thin->ReportTargetFailure(connectionError, IDS_ERRORREADINGFILE);
+            Thin->ReportTransferLoss(connectionError, IDS_ERRORREADINGFILE);
             *copyError = TRUE;
             return TRUE;
         }
@@ -6614,7 +6616,7 @@ BOOL CCopy_Context::WaitForPendingTransfer(HANDLE file, OVERLAPPED* overlapped, 
         {
             CancelOpPhase1();
             CancelOpPhase2(-1);
-            Thin->ReportTargetFailure(error, IDS_ERRORREADINGFILE);
+            Thin->ReportTransferLoss(error, IDS_ERRORREADINGFILE);
             *copyError = TRUE;
             return TRUE;
         }
@@ -6669,7 +6671,7 @@ void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, vo
             {
                 ctx.CancelOpPhase1();
                 ctx.CancelOpPhase2(-1);
-                thin->ReportTargetFailure(connectionError, IDS_ERRORREADINGFILE);
+                thin->ReportTransferLoss(connectionError, IDS_ERRORREADINGFILE);
                 copyError = TRUE;
                 return;
             }
@@ -6927,7 +6929,7 @@ void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, vo
         {
             ctx.CancelOpPhase1();
             ctx.CancelOpPhase2(-1);
-            thin->ReportTargetFailure(connectionError, IDS_ERRORREADINGFILE);
+            thin->ReportTransferLoss(connectionError, IDS_ERRORREADINGFILE);
             copyError = TRUE;
             return;
         }
@@ -7765,6 +7767,25 @@ bool CThinCopyWorker::ReportTargetFailure(DWORD error, int caption)
         const CThinTerminalFileError details{error == ERROR_SUCCESS || error == ERROR_CANCELLED
                                                 ? ERROR_GEN_FAILURE : error,
                                             caption, operation.TargetName, true};
+        SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_THIN_TERMINAL,
+                    reinterpret_cast<LPARAM>(&details));
+    }
+    return false;
+}
+
+bool CThinCopyWorker::ReportTransferLoss(DWORD error, int caption)
+{
+    if (!NativeTarget()) return ReportTargetFailure(error, caption);
+    if (terminal) return false;
+    terminal = true;
+    if (session) session->Close();
+    const bool cancelled = *dialog.CancelWorker ||
+        (dialog.CancelWorkerEvent && WaitForSingleObject(dialog.CancelWorkerEvent, 0) == WAIT_OBJECT_0);
+    if (!cancelled)
+    {
+        const CThinTerminalFileError details{error == ERROR_SUCCESS || error == ERROR_CANCELLED
+                                                ? ERROR_GEN_FAILURE : error,
+                                            caption, operation.TargetName, false};
         SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_THIN_TERMINAL,
                     reinterpret_cast<LPARAM>(&details));
     }

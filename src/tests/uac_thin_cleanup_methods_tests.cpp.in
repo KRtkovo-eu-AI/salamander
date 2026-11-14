@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Distinguish native-target loss from uncertain privileged cleanup. | Preserve native deletion without a false uncertainty warning. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Model locally created native targets. | Keep extracted cleanup tests aligned with worker routing. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Test cancellation of a write-only reopened target. | Keep the owned-target cleanup path identical to Retry. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Cover cancellation of an overwrite handle. | Verify that owned partial targets follow the existing cleanup path. | #731 | gpt-6.1-terra |
@@ -99,6 +100,7 @@ struct CThinCopyWorker {
     HANDLE SimulateOpenResult(FakeResult result);
     HANDLE CancelReceivedHandle(UacF7::ThinOpenKind kind, HANDLE received, DWORD reason = ERROR_CANCELLED);
     bool ReportTargetFailure(DWORD error, int caption = IDS_ERRORDELETINGFILE);
+    bool ReportTransferLoss(DWORD error, int caption);
     bool CloseScopedTarget(HANDLE& file);
     bool RefuseUnsafeTargetCleanup();
     bool DiscardTarget();
@@ -164,6 +166,32 @@ int main()
         Check(!THIN_DELETE_TARGET(&item, LocalDelete()) && !broker.calls && !localDeletes && item.terminal,
               "missing target identity never requests deletion", failures);
     }
+    for (bool overwrite : {false, true})
+    {
+        broker.closed = 0; messages = 0; localDeletes = 0; cancelled = FALSE; terminalUncertain = true;
+        CThinCopyWorker item(&cancelled); item.session = &broker;
+        item.nativeTargetCreated = !overwrite; item.nativeTargetOverwrite = overwrite;
+        Check(!item.ReportTransferLoss(ERROR_BROKEN_PIPE, IDS_ERRORCOPY) && item.terminal &&
+              !item.cleanupUncertain && broker.closed == 1 && messages == 1 && !terminalUncertain &&
+              terminalError == ERROR_BROKEN_PIPE && THIN_DELETE_TARGET(&item, LocalDelete()) && localDeletes == 1,
+              "native target reports loss without claiming uncertain cleanup and uses local delete", failures);
+    }
+    {
+        broker.closed = 0; messages = 0; cancelled = FALSE; terminalUncertain = false;
+        CThinCopyWorker item(&cancelled); item.session = &broker; item.targetCreatedByBroker = true;
+        Check(!item.ReportTransferLoss(ERROR_BROKEN_PIPE, IDS_ERRORCOPY) && item.terminal &&
+              item.cleanupUncertain && broker.closed == 1 && messages == 1 && terminalUncertain,
+              "broker target reports unconfirmed privileged cleanup on lost session", failures);
+    }
+    {
+        broker.closed = 0; messages = 0; cancelled = TRUE;
+        CThinCopyWorker item(&cancelled); item.session = &broker; item.nativeTargetCreated = true;
+        Check(!item.ReportTransferLoss(ERROR_BROKEN_PIPE, IDS_ERRORCOPY) && item.terminal &&
+              !item.cleanupUncertain && broker.closed == 1 && !messages,
+              "native target does not raise a second error after cancellation", failures);
+        cancelled = FALSE;
+    }
+    localDeletes = 0;
     for (BOOL cancel : {FALSE, TRUE})
     {
         broker.calls = 0; broker.result = ERROR_PARTIAL_COPY; messages = 0;

@@ -122,6 +122,7 @@ struct CThinCopyWorker
         drainedBeforeReport = pending && HasOverlappedIoCompleted(pending);
         return false;
     }
+    bool ReportTransferLoss(DWORD error, int caption) { return ReportTargetFailure(error, caption); }
 };
 @@WAIT_RESUME@@
 #define IDS_ERRORREADINGFILE 1
