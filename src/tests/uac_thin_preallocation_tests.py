@@ -23,6 +23,8 @@ def main():
     worker = read('src/worker.cpp')
     helper_start = worker.index('static bool ThinCopyResetFailedPreallocation(HANDLE file)')
     helper_end = worker.index('\n}\n', helper_start) + 2
+    accepted_start = worker.index('static void ThinCopyAcceptedTarget(')
+    accepted_end = worker.index('\n}\n', accepted_start) + 2
     cancel_start = worker.index('bool CThinCopyWorker::CancelBeforeElevation()')
     cancel_end = worker.index('\n}\n', cancel_start) + 2
     report_start = worker.index('bool CThinCopyWorker::ReportTargetFailure(')
@@ -44,14 +46,22 @@ def main():
     first_loop = worker.index('DoCopyFileLoopAsync(', first_mark)
     retry_label = worker.index('COPY_AGAIN:', sticky_declaration, region)
     if not operation_start < sticky_declaration < retry_label < fatal_start < fatal_end < first_mark < first_loop:
-        raise RuntimeError('Transfer-start guard is not sticky before actual copy loops')
+        raise RuntimeError('Transfer-start guard is not in scope before actual copy loops')
+    open_start = worker.index('HANDLE CThinCopyWorker::Open(')
+    open_end = worker.index('HANDLE CThinCopyWorker::CancelReceivedHandle(', open_start)
+    opened = worker[open_start:open_end]
+    if opened.count('ThinCopyAcceptedTarget(dataTransferStarted, kind);') != 1 or not (
+            opened.rindex('return CancelReceivedHandle(') < opened.index('ThinCopyAcceptedTarget(dataTransferStarted, kind);') <
+            opened.rindex('return result.file;')):
+        raise RuntimeError('New target must be accepted only after successful handoff and cancellation check')
     guarded = ' '.join(fatal.split())
     if ('if (!thin.dataTransferStarted && !cancelled) { reset = ThinCopyResetFailedPreallocation(out);' not in guarded
             or 'cancelled = thin.CancelBeforeElevation(); } if (reset && !cancelled)' not in guarded
             or 'bool cancelled = thin.CancelBeforeElevation();' not in guarded):
         raise RuntimeError('Scoped reset lacks transfer and cancellation guards')
     template = (ROOT / 'src/tests/uac_thin_preallocation_tests.cpp.in').read_text(encoding='utf-8')
-    code = (template.replace('@@HELPER@@', worker[helper_start:helper_end])
+    code = (template.replace('@@ACCEPTED@@', worker[accepted_start:accepted_end])
+            .replace('@@HELPER@@', worker[helper_start:helper_end])
             .replace('@@CANCEL@@', worker[cancel_start:cancel_end])
             .replace('@@REPORT@@', worker[report_start:report_end])
             .replace('@@DISPATCH@@', dialogs[dispatch_start:dispatch_end])

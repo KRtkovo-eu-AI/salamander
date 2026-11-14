@@ -2412,6 +2412,15 @@ struct CProgressDlgData
 #ifdef SAM_UAC_THIN_COPY_TEST
 enum class ThinOpenPhase { Initial, Retry, Probe };
 
+// A successful FILE_CREATE starts a new target lifetime even if this worker
+// previously transferred data before COPY_AGAIN. Retry and overwrite do not
+// establish the same fresh-object guarantee.
+static void ThinCopyAcceptedTarget(bool& transferStarted, UacF7::ThinOpenKind kind)
+{
+    if (kind == UacF7::ThinOpenKind::TargetCreate)
+        transferStarted = false;
+}
+
 // One operation keeps its reviewed identities; sessions live with the batch.
 // The ordinary worker remains responsible for every byte of file I/O.
 struct CThinCopyWorker
@@ -7713,6 +7722,7 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
                              cancelError ? cancelError : ERROR_INVALID_HANDLE;
         return CancelReceivedHandle(kind, result.file, reason);
     }
+    ThinCopyAcceptedTarget(dataTransferStarted, kind);
     return result.file;
 }
 
@@ -8722,9 +8732,9 @@ COPY_AGAIN:
 #ifdef SAM_UAC_THIN_COPY_TEST
                             if (thin.ScopedTarget())
                             {
-                                // Only the first transfer attempt can reuse a
-                                // freshly created target this way. Keep its exact
-                                // handle; require verified reset and no cancellation.
+                                // Reuse only before data reaches this freshly
+                                // created target. Keep its exact handle; require
+                                // verified reset and no cancellation.
                                 bool cancelled = thin.CancelBeforeElevation();
                                 bool reset = false;
                                 DWORD resetError = ERROR_FILE_INVALID;
@@ -8782,8 +8792,8 @@ COPY_AGAIN:
                     BOOL skipCopy = FALSE;
                     BOOL copyAgain = FALSE;
 #ifdef SAM_UAC_THIN_COPY_TEST
-                    // Sticky across COPY_AGAIN / the Lantastic retry: reset
-                    // reuse is permitted only before the first transfer.
+                    // Reuse is permitted only before the first transfer to
+                    // this particular broker-created target.
                     thin.dataTransferStarted = true;
 #endif
                     if (useAsyncAlg)

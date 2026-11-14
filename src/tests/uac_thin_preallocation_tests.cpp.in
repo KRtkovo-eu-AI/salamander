@@ -23,6 +23,9 @@ struct CThinTerminalFileError { DWORD error; int caption; const char* target; bo
 #define HANDLES(x) (x)
 #define TRACE_E(x) do { std::ostringstream trace; trace << x; } while (0)
 
+namespace UacF7 { enum class ThinOpenKind { Source, TargetCreate, TargetRetry, TargetOverwrite, TargetReopenWrite }; }
+@@ACCEPTED@@
+
 enum class Fault { None, SeekStart, Truncate, SizeQuery, SilentSizeQuery, CancelledSizeQuery, NonzeroSize, SeekCurrent, NonzeroPosition, Close, AlreadyStarted };
 struct State {
     bool scoped = true, broker = true, failClose = false, cleanupSucceeds = false;
@@ -259,6 +262,26 @@ int wmain(int argc, wchar_t** argv)
             if (in) ::CloseHandle(in);
             if (event) ::CloseHandle(event);
         }
+    }
+    for (auto kind : {UacF7::ThinOpenKind::TargetCreate, UacF7::ThinOpenKind::TargetRetry, UacF7::ThinOpenKind::TargetOverwrite}) {
+        const std::wstring path = root + L"\\target-" + std::to_wstring(sequence++) + L".bin";
+        HANDLE out = CreateTarget(path, false); BOOL cancel = FALSE;
+        HANDLE event = ::CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        HANDLE in = ::CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        state = {}; state.scoped = true; state.broker = true; state.expectedTarget = out;
+        FakeDialog dialog{&cancel, event}; CThinCopyWorker thin{dialog}; thin.targetCreatedByBroker = true;
+        thin.dataTransferStarted = true;
+        ThinCopyAcceptedTarget(thin.dataTransferStarted, kind);
+        BOOL skip = FALSE;
+        const auto result = out != INVALID_HANDLE_VALUE && event && in ? RunBranch(out, in, path, skip, thin) : BranchResult::Error;
+        const bool fresh = kind == UacF7::ThinOpenKind::TargetCreate;
+        Check(fresh ? (result == BranchResult::Continue && skip && state.resetCalls > 0 && !state.discards) :
+                      (result == BranchResult::Error && !skip && !state.resetCalls && state.discards == 1),
+              fresh ? "new broker target permits verified preallocation reset after prior transfer" :
+                      "reopen or overwrite does not reset transfer history", failures);
+        if (out && out != INVALID_HANDLE_VALUE) ::CloseHandle(out);
+        if (fresh && in) ::CloseHandle(in);
+        if (event) ::CloseHandle(event);
     }
     for (Fault fault : {Fault::SeekStart, Fault::Truncate, Fault::SizeQuery, Fault::NonzeroSize, Fault::SeekCurrent, Fault::NonzeroPosition, Fault::Close, Fault::AlreadyStarted}) {
         for (bool broker : {false, true}) {
