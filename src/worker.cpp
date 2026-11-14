@@ -8737,30 +8737,24 @@ COPY_AGAIN:
                                 // verified reset and no cancellation.
                                 bool cancelled = thin.CancelBeforeElevation();
                                 bool reset = false;
-                                DWORD resetError = ERROR_FILE_INVALID;
                                 if (!thin.dataTransferStarted && !cancelled)
                                 {
                                     reset = ThinCopyResetFailedPreallocation(out);
-                                    if (!reset) resetError = GetLastError();
                                     cancelled = thin.CancelBeforeElevation();
                                 }
                                 if (reset && !cancelled)
                                     skipAllocWholeFileOnStart = TRUE;
                                 else
                                 {
-                                    // Never reopen a pathname after an uncertain reset or
-                                    // cancellation, even if the discard succeeds.
+                                    // A successful discard removes only the verified
+                                    // owned object. Retry through the ordinary target
+                                    // open, which must handle a new conflict again.
                                     const bool closed = thin.CloseScopedTarget(out);
                                     const bool discarded = closed && THIN_DELETE_TARGET(&thin, FALSE);
                                     if (discarded && !cancelled && !thin.CancelBeforeElevation())
                                     {
-                                        // Retry requires a new identity-bound target. Until that
-                                        // path is proven safe, report the error without Retry.
-                                        const CThinTerminalFileError details{resetError == ERROR_SUCCESS || resetError == ERROR_CANCELLED
-                                                                                 ? ERROR_GEN_FAILURE : resetError,
-                                                                             IDS_ERRORWRITINGFILE, op->TargetName, false};
-                                        SendMessage(hProgressDlg, WM_USER_DIALOG, WORKER_DIALOG_UAC_THIN_TERMINAL,
-                                                    reinterpret_cast<LPARAM>(&details));
+                                        skipAllocWholeFileOnStart = TRUE;
+                                        goto OPEN_TGT_FILE;
                                     }
                                     HANDLES(CloseHandle(in));
                                     return FALSE;

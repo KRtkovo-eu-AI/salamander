@@ -133,7 +133,6 @@ struct BranchResult { static constexpr int Continue = 1, Reopen = 2, Error = 0; 
 static int RunBranch(HANDLE& out, HANDLE in, const std::wstring& path, BOOL& skippedAllocation,
                               CThinCopyWorker& thin)
 {
-    HWND hProgressDlg = nullptr;
     Operation operation; operation.TargetNameW = path; Operation* op = &operation;
     BOOL fatal = TRUE, ignoreErr = TRUE;
     int allocWholeFileOnStart = 0;
@@ -327,7 +326,8 @@ int wmain(int argc, wchar_t** argv)
             if (event) ::CloseHandle(event);
         }
     }
-    // A successful broker discard is simulated; the current broker fails closed.
+    // A successful broker discard is simulated; the next real worker step
+    // must retry the ordinary create/conflict path without preallocation.
     for (Fault fault : {Fault::SizeQuery, Fault::SilentSizeQuery, Fault::CancelledSizeQuery, Fault::NonzeroSize, Fault::NonzeroPosition}) {
         const std::wstring path = root + L"\\target-" + std::to_wstring(sequence++) + L".bin";
         HANDLE out = CreateTarget(path, false); BOOL cancel = FALSE;
@@ -338,13 +338,11 @@ int wmain(int argc, wchar_t** argv)
         FakeDialog dialog{&cancel, event}; CThinCopyWorker thin{dialog}; thin.targetCreatedByBroker = true;
         BOOL skip = FALSE;
         const auto result = out != INVALID_HANDLE_VALUE && event && in ? RunBranch(out, in, path, skip, thin) : BranchResult::Continue;
-        Check(result == BranchResult::Error && !state.continuations && !state.pathDeletes && state.scopedCloses == 1 &&
-              state.discards == 1 && !state.refused && state.reports == 1 &&
-              state.reportedCaption == IDS_ERRORWRITINGFILE && state.reportedTarget == "fixture" &&
-              state.reportedError == static_cast<DWORD>(fault == Fault::SizeQuery ? ERROR_ACCESS_DENIED :
-                                      fault == Fault::NonzeroSize || fault == Fault::NonzeroPosition ? ERROR_INVALID_DATA : ERROR_GEN_FAILURE) &&
+        Check(result == BranchResult::Reopen && skip && !state.continuations && !state.pathDeletes && state.scopedCloses == 1 &&
+              state.discards == 1 && !state.refused && !state.reports &&
               ::GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES,
-              "failed reset cannot reopen after simulated successful broker discard", failures);
+              "failed reset retries ordinary target open after confirmed discard", failures);
+        if (in) ::CloseHandle(in);
         if (event) ::CloseHandle(event);
     }
     {
