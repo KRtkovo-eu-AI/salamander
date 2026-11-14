@@ -1,4 +1,5 @@
 ﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Mark modules containing embedded English UI resources. | Distinguish modern binaries from old plug-ins that need lang\\english.slg. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-09 | Keep the Change Drive configuration page at its original height. | Fit the new order selector into the existing page without adding excess vertical space. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
 // | 2026-11-09 | Add a selector for Change Drive block ordering. | Let users choose whether plug-in items or Hot Paths appear first. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
 // | 2026-11-09 | Move Save button left in Custom Viewers and Custom Editors. | The Save button at x=232 width=64 ended at x=296, overlapping the right border of the dialog panel. | | nvidia/nemotron-3.5-super-vl:free |
@@ -48,6 +49,11 @@
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_NEU)
 LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
+
+"OPEN_SAMANDARIN_EMBEDDED_ENGLISH" RCDATA
+BEGIN
+    0x4F, 0x53, 0x45, 0x31
+END
 
 #ifdef APSTUDIO_INVOKED
 /////////////////////////////////////////////////////////////////////////////

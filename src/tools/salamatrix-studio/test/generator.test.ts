@@ -57,7 +57,7 @@ describe('dialog generators', () => {
   it('generates a native C++ header and implementation', () => {
     const nativeDialog = createDialogDocument('settings', 'Settings');
     nativeDialog.controls[0]!.options = {
-      styleFlags: 20, pathSeparator: '/', toolTip: 'Tip', actionOpen: 'https://www.altap.cz',
+      styleFlags: 20, pathSeparator: '/', toolTip: 'Tip', actionOpen: 'https://samandarin.net',
       actionCommand: 32513, actionHint: 'Hint', progress: 120, indeterminateDuration: -1,
       indeterminateInterval: 100, textColor: 1, backgroundColor: 2,
       alignControlId: 'list', buttonMask: 49,

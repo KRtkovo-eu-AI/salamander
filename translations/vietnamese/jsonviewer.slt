@@ -1,0 +1,21 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\vietnamese\jsonviewer\jsonviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1066
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"vietnamese (automatic AI translation)"
+
+[STRINGTABLE 0]
+46,1,"Trình xem JSON .NET"
+47,1,"Về Plugin"
+
+[STRINGTABLE 1]
+48,1,"Trình xem nội bộ hiển thị tài liệu JSON bằng giao diện WinForms được quản lý."
+49,1,"open.samandarin.net"
+50,1,"Không thể chuẩn bị sự kiện đồng bộ hóa yêu cầu bởi trình xem."
+51,1,"Tệp JSON được chọn quá lớn để mở. Các tệp lớn hơn 8 MB không được hỗ trợ."
+

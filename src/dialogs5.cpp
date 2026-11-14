@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Mark edited association controls as user overrides during validation. | Keep Configuration OK and page navigation from saving visible targets without projecting them into file actions. |  | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-10 | Unify association status, badge color, and conflict filtering. | Apply the same User-first status calculation to the badge, counts, and Conflicts checkbox. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-10 | Prioritize effective user provenance in matrix badges. | Show User after an override replaces a default/plugin association while retaining Conflict for any unresolved action on the same pattern. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-10 | Keep selected pattern keys independent from Apply editor values. | Do not let the Pattern edit field overwrite the matrix selection while reading Action, Target, and Target ID. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
@@ -4722,6 +4723,9 @@ BOOL CCfgPageFileAssociations::ReadControls(
     const std::string* fallbackPattern, BOOL readPatternControl)
 {
     const std::string originalPattern = item.Pattern;
+    const Salamander::FileAssociations::Category originalCategory = item.AssociationCategory;
+    const Salamander::FileAssociations::PanelOperation originalOperation = item.Operation;
+    const Salamander::FileAssociations::Target originalTarget = item.AssociationTarget;
     const auto isBlankPattern = [](const std::string& value) -> bool
     {
         return value.find_first_not_of(" \t\r\n") == std::string::npos;
@@ -4907,6 +4911,20 @@ BOOL CCfgPageFileAssociations::ReadControls(
         if (error != NULL)
             *error = LoadStr(IDS_FILEASSOCIATION_PATTERN_EMPTY);
         return FALSE;
+    }
+
+    const bool associationChanged = item.Pattern != originalPattern ||
+        item.AssociationCategory != originalCategory || item.Operation != originalOperation ||
+        item.AssociationTarget.Kind != originalTarget.Kind ||
+        item.AssociationTarget.StableId != originalTarget.StableId ||
+        item.AssociationTarget.DisplayLabel != originalTarget.DisplayLabel;
+    if (associationChanged)
+    {
+        if (item.AssociationTarget.Kind != Salamander::FileAssociations::TargetKind::Unassigned)
+        {
+            item.AssociationProvenance = Salamander::FileAssociations::Provenance::User;
+            item.SourceProvenance = Salamander::FileAssociations::Provenance::User;
+        }
     }
     return TRUE;
 }

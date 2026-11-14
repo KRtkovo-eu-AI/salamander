@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Check deferred scope and all Branch translations. | Account for pending session lookup and later resource IDs. | #731 | GPT-6 |
 # | 2026-11-11 | Distinguish explicit Stop from internal cancellation. | Preserve first-scan partial results without restarting cancelled work. | #731 | GPT-6.1 Terra |
 # | 2026-11-10 | Keep active approved Branch scans on the short poll interval. | Accept the shared preparation timer without blocking activation. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Find Branch View translations by resource ID. | Section ordinals can shift when new string blocks are added. | #731 | Codex |
+# | 2026-11-12 | Validate branch translations without a fixed language count. | Translation expansion made the fixed count stale. | | openai/gpt-6-luna-pro |
 # | 2026-11-06 | Verify Branch copy-dialog controls in every language archive. | Missing checkbox rows prevented native Translator import despite complete string tables. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 """Branch View activation must not create work or wait for background providers.
 
@@ -112,7 +114,8 @@ class BranchActivationContracts(unittest.TestCase):
         self.assertIn("BranchView->Dirty && !preparation->Queue.HasPending()", poll)
         self.assertLess(poll.index("RefreshDirectory();"), poll.index("BranchView->Refresh.Finished("))
         self.assertLess(poll.index("BranchView->CompletionPending = false"), poll.index("BranchView->Refresh.Finished("))
-        self.assertLess(poll.index("BranchView->Refresh.Finished("), poll.index("BranchView->Refresh.Due("))
+        self.assertIn("if (BranchView->PanelScopePending && BranchView->Refresh.Due(GetTickCount64()))", poll)
+        self.assertLess(poll.index("BranchView->Refresh.Finished("), poll.rindex("BranchView->Refresh.Due("))
         self.assertIn("if (!preparation->Alive) return", poll)
         self.assertIn("preparation->Queue.HasPending() ||", poll)
         self.assertIn("(BranchView->UseProtectedListing && BranchView->Status.Running) ? 15 : 200", poll)
@@ -129,10 +132,10 @@ class BranchActivationContracts(unittest.TestCase):
             r"#define\s+(IDS_(?:MENU_)?BRANCH_\w+)\s+(\d+)", source("texts.rh2"))}
         english = {ids[name]: value for name, value in re.findall(
             r'\b(IDS_(?:MENU_)?BRANCH_\w+),\s*"([^"\r\n]*)"', source("lang/texts.rc2"))}
-        self.assertEqual(set(english), set(range(14500, 14516)))
+        self.assertTrue(set(range(14500, 14516)).issubset(english))
         self.assertEqual(english[14515].count("%I64u"), 2)
         paths = sorted((ROOT.parent / "translations").glob("*/salamand.slt"))
-        self.assertEqual(len(paths), 11)
+        self.assertTrue(paths, "no translation files found")
         for path in paths:
             with self.subTest(language=path.parent.name):
                 raw = path.read_bytes()
@@ -140,22 +143,27 @@ class BranchActivationContracts(unittest.TestCase):
                 self.assertEqual(raw.count(b"\n"), raw.count(b"\r\n"))
                 parsed = parser.parse(path)
                 for sid, original in english.items():
-                    entries = [value for key, value in parsed.items()
-                               if re.fullmatch(rf"STRINGTABLE \d+:{sid},", key)]
-                    self.assertEqual(len(entries), 1, f"expected one string resource {sid}")
-                    line, translated = entries[0]
+                    localized = [
+                        value for key, value in parsed.items()
+                        if re.fullmatch(r"STRINGTABLE \d+:" + str(sid) + r",", key)
+                    ]
+                    self.assertEqual(len(localized), 1, (path, sid))
+                    line, translated = localized[0]
                     self.assertEqual(re.findall(r"%(?:I64)?[a-zA-Z]", original),
                                      re.findall(r"%(?:I64)?[a-zA-Z]", translated))
                     self.assertEqual(original.count("&"), translated.count("&"))
                     self.assertEqual(original.count(r"\t"), translated.count(r"\t"))
                     self.assertFalse(parser.validate_text(path, line, translated))
+                for sid in (14991, 14992):
+                    localized = [
+                        key for key in parsed
+                        if re.fullmatch(r"STRINGTABLE \d+:" + str(sid) + r",", key)
+                    ]
+                    self.assertEqual(len(localized), 1, (path, sid))
                 headers = [int(value) for value in re.findall(r"^\[STRINGTABLE (\d+)\]$",
                     raw.decode("utf-8-sig").replace("\r\n", "\n"), re.MULTILINE)]
-                self.assertEqual(headers, list(range(len(headers))))
-                # New resource blocks can shift the ordinal of the final two tables.
-                for table, sid in zip(headers[-2:], (14991, 14992)):
-                    key = f"STRINGTABLE {table}:{sid},"
-                    self.assertTrue(key in parsed, f"missing {key} in {path.name}")
+                self.assertTrue(headers)
+                self.assertEqual(headers, list(range(headers[-1] + 1)))
 
     def test_copy_dialog_branch_placeholders_match_native_resources(self):
         resources = source("lang/lang.rc")

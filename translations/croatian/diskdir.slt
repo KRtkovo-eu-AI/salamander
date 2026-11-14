@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\croatian\diskdir\diskdir.atp"
+TEXTVERSION,"1.1 (x64)"
+VERSION,"1,1,0,197"
+
+[TRANSLATION]
+LANGID,1050
+AUTHOR,"Open Samandarin"
+WEB,"samandarin.net"
+COMMENT,"croatian (automatic AI translation)"
+
+[DIALOG 200]
+278,94,1,"Stvaranje kataloga DiskDir"
+1004,8,9,29,8,1,"Katalog:"
+1001,42,9,228,8,1,""
+1005,8,23,262,1,1,""
+1002,16,32,100,12,1,"Uključiti i nazive putanja"
+1003,16,48,126,12,1,"Uključiti poddirektorije rekurzivno"
+1006,8,66,262,1,1,""
+1,84,74,50,14,1,"U redu"
+2,144,74,50,14,1,"Odustani"
+
+[STRINGTABLE 0]
+100,1,"DiskDir"
+101,1,"Stvara i pregledava kataloge datoteka kompatibilne s Total Commander DiskDirom."
+102,1,"DiskDir"
+103,1,"O DiskDiru"
+104,1,"Izvorna podrška za kataloge kompatibilne s DiskDirom.\n\nDatoteke kataloga sadrže nazive, veličine i vremenske oznake, a ne sadržaj datoteka."
+105,1,"DiskDir katalog"
+106,1,"Putanja kataloga nije valjana ili je preduga."
+107,1,"Naziv kataloga već koristi direktorij."
+108,1,"Katalog već postoji:\n\n"
+109,1,"\n\nŽelite li ga prebrisati?"
+110,1,"DiskDir katalozi ne pohranjuju sadržaj datoteka pa se izvorne datoteke ne mogu premjestiti."
+111,1,"Dodavanje stavki u postojeći DiskDir katalog nije podržano."
+
+[STRINGTABLE 1]
+112,1,"Nije moguće stvoriti DiskDir katalog."
+113,1,"Izvorna datoteka zabilježena u katalogu nije dostupna."
+114,1,"Jedna ili više izvornih datoteka zabilježenih u katalogu nisu dostupne."
+115,1,"Nije moguće otvoriti katalog."
+116,1,"Katalog je prevelik."
+117,1,"Nije moguće pročitati katalog."
+118,1,"UTF-8 katalog sadrži nevaljan tekst."
+119,1,"Datoteka ne sadrži valjan DiskDir katalog."
+120,1,"Nije moguće zapisati DiskDir katalog."
+

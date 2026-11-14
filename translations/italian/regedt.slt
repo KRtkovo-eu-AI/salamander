@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\regedt\regedt.atp"
-TEXTVERSION,"1.17 (x64)"
-VERSION,"1,17,0,196"
+TEXTVERSION,"1.18 (x64)"
+VERSION,"1,18,0,197"
 
 [TRANSLATION]
 LANGID,1040
 AUTHOR,"Open Samandarin"
-WEB,"www.altap.cz"
-COMMENT,"English version"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 100]
 227,75,1,"Crea chiave"
@@ -188,9 +188,9 @@ COMMENT,"English version"
 1062,1,"Errore durante la copia del valore della chiave di registro"
 1063,1,"Errore durante lo spostamento del valore della chiave del Registro"
 1064,1,"Impossibile rimuovere il valore dalla chiave sorgente. "
-1065,0,"Name:\t%ls\n\nError:\tCan't copy a key to itself."
+1065,1,"Nome:\t%ls\n\nErrore:\tImpossibile copiare una chiave su se stessa."
 1066,1,"Impossibile spostare chiave o valore su se stesso."
-1067,0,"Name:\t%ls\n\nError:\tCan't move a key to itself."
+1067,1,"Nome:\t%ls\n\nErrore:\tImpossibile spostare una chiave su se stessa."
 1068,1,"Impossibile copiare il nome della classe della chiave nella chiave di destinazione.\nContinuare?"
 1069,1,"Avviso"
 1070,1,"Impossibile rinominare la chiave. Il nome della chiave specificato è già in uso."

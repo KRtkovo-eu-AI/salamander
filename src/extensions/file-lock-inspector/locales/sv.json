@@ -1,0 +1,40 @@
+{
+  "name": "Filspärrinspektion",
+  "commands": {
+    "FileLockInspector.inspect": "Filspärrinspektion..."
+  },
+  "strings": {
+    "title": "Filspärrinspektion",
+    "files": "Filer",
+    "noLocks": "Inga processer som låser filer hittades.",
+    "lockingProcesses": "Processer som låser filer",
+    "process": "Process",
+    "pid": "PID",
+    "type": "Typ",
+    "status": "Status",
+    "executable": "Körbar fil",
+    "inspecting": "Söker efter processer som låser filer...",
+    "lockCount": "Låsta processer hittades: {0}",
+    "inspectFailed": "Kontrollen av fillås misslyckades.",
+    "openLocation": "Öppna plats",
+    "closeProcess": "Stäng process",
+    "endProcess": "Avsluta process...",
+    "copyReport": "Kopiera rapport",
+    "refresh": "Uppdatera",
+    "close": "Stäng",
+    "locationUnavailable": "Den körbara filens plats är inte tillgänglig för den här processen.",
+    "closeUnavailable": "Processen har inget huvudfönster som kan stängas säkert.",
+    "confirmEnd": "Vill du avsluta processen {0} (PID {1})?{2}{2}Osparade data i programmet kan gå förlorade.",
+    "selectFile": "Välj eller fokusera minst en fil först.",
+    "responding": "Svarar",
+    "notResponding": "Svarar inte",
+    "processEnded": "(processen har avslutats)",
+    "appMainWindow": "Program",
+    "appOtherWindow": "Bakgrundsfönster",
+    "appService": "Tjänst",
+    "appExplorer": "Utforskaren",
+    "appConsole": "Konsol",
+    "appCritical": "Kritisk process",
+    "appUnknown": "Okänd"
+  }
+}

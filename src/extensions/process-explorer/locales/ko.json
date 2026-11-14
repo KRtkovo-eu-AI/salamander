@@ -1,0 +1,52 @@
+{
+  "name": "프로세스 탐색기",
+  "description": "Salamander 파일 시스템 패널에 실행 중인 Windows 프로세스를 표시합니다.",
+  "commands": {
+    "ProcessExplorer.open": "프로세스 탐색기 열기"
+  },
+  "fileSystems": {
+    "processes": {
+      "name": "실행 중인 프로세스",
+      "columns": {
+        "pid": {
+          "name": "PID",
+          "description": "프로세스 식별자"
+        },
+        "status": {
+          "name": "상태",
+          "description": "프로세스 상태"
+        },
+        "userName": {
+          "name": "사용자 이름",
+          "description": "프로세스를 소유한 계정"
+        },
+        "cpu": {
+          "name": "CPU",
+          "description": "현재 프로세서 사용량"
+        },
+        "memory": {
+          "name": "메모리",
+          "description": "활성 전용 작업 집합"
+        }
+      },
+      "actions": {
+        "endTask": "작업 끝내기",
+        "endProcessTree": "프로세스 트리 끝내기",
+        "openFileLocation": "파일 위치 열기",
+        "properties": "속성"
+      }
+    }
+  },
+  "strings": {
+    "running": "실행 중",
+    "suspended": "일시 중단됨",
+    "ended": "종료됨",
+    "errorTitle": "프로세스 탐색기",
+    "processUnavailable": "프로세스를 더 이상 사용할 수 없습니다.",
+    "endFailed": "프로세스를 끝내지 못했습니다. Windows 오류: {0}.",
+    "pathUnavailable": "실행 파일 위치를 사용할 수 없습니다.",
+    "openLocationFailed": "파일 위치를 열지 못했습니다. Windows 오류: {0}.",
+    "propertiesFailed": "파일 속성을 열지 못했습니다. Windows 오류: {0}.",
+    "openPanelFailed": "프로세스 탐색기 패널을 열지 못했습니다."
+  }
+}

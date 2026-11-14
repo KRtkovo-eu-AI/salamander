@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Record upstream localization and CI integration. | Preserve UAC resources while aligning with upstream and repairing CI and CodeQL findings. | #731 | GPT-6 |
 | 2026-11-14 | Support UAC from other protected local directories. | Remove the fixed installation path without trusting writable executable locations. | #731 | GPT-6 |
 | 2026-11-14 | Record reported Recycle Bin elevation failures and launch-path evidence. | Distinguish user observations from the verified installation-location condition. | #731 | GPT-6 |
 | 2026-11-14 | Record noninteractive UAC verification and CopyAttrs implementation. | Keep automatic and user evidence distinct. | #731 | GPT-6 |
@@ -1554,6 +1555,13 @@ Host pro nejistý výsledek znovu používá nativní lokalizované varování, 
 - **Automaticky ověřeno:** Existující cílený test extrahované metody `InstallLocation::Open` prošel pro Debug i Release a běžnou i testovací variantu; používá náhrady ověření disku a adresářů. Pokrývá Unicode, jiný disk, normalizaci prefixu, kořen disku, odmítnutí každého neověřeného předka a neplatnou nebo síťovou cestu. Není to skutečný test ACL ani UAC.
 - **Sestavení:** Experimentální Release x64 host a broker byly úspěšně sestaveny z pracovního stavu nad `c2f99fea` s příznaky tenkého F5 pilotu. Sestavený pár je v `C:\Samandarin\builds\uac-protected-location-20261114\planned\salamander\Release_x64`; SHA-256 hosta je `B3F484191BE955F88FD1BD0CF414CA82781FF9F57AD370E770EE9F80B5B12C85`, brokeru `2275F7BFC02D913E6388CC0D07534A6F43474B22705DEB881D14D921947FB793`. Sestavení nebylo nasazeno ani spuštěno.
 - **Uživatelské ověření čeká:** Otevření chráněného adresáře a výpočet velikosti z nového buildu v jiném chráněném umístění. Velmi dlouhá instalační cesta a síťové či výměnné disky nejsou tímto ověřeny; síťové a výměnné disky nejsou podporovány.
+
+## Sloučení upstreamu a kontroly CI — 14. listopadu 2026
+
+- PR #67 na `048d162a` sestavilo Win32, x64 a ARM64; nativní testy selhaly kvůli zastaralým předpokladům testů přepisu, odloženého ověření Branch View a rozšířených ID jazyků. Analýza CodeQL doběhla, ale kontrola nahlásila nebezpečné formátování a chybnou kontrolu alokace.
+- Sloučen upstream `a7fdee8e9` s novým systémem jazykových balíčků. V 15 nově přidaných jazycích byly doplněny chybějící UAC texty jako nepřeložený anglický základ; jejich předchozí texty byly zachovány. Název jazykového balíčku ani ověření překladu nenahrazuje uživatelskou zkoušku.
+- Upraveny existující testy podle skutečných větví workeru a asynchronního ověření schválené relace. Formátování chyb nahrazeno řízeným vložením dvou řetězců, Find zachytává výjimku nedostatku paměti. Místně prošly testy přepisu (134 kontrol v každé konfiguraci), 22 testů Branch View, 10 aktivačních a 30 přechodových testů, Release test instalační cesty a Release x64 sestavení hosta. Formátování prošlo samostatnou neinteraktivní kontrolou dlouhé cesty a řetězců obsahujících formátovací znaky. Z lokální sady lokalizace prošlo 46 testů; další modul se nenačetl, protože v místním Pythonu chybí `pytest`.
+- **Stav:** CI a CodeQL pro výsledný merge je nutné posoudit podle jeho vlastního SHA; předchozí úspěšná analýza neznamená odstranění nálezů. Interaktivní UAC a jazykové balíčky uživatelem zatím ověřeny nejsou.
 
 ## Další postup
 

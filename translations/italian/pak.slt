@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\pak\pak.atp"
-TEXTVERSION,"1.73 (x64)"
-VERSION,"1,73,0,196"
+TEXTVERSION,"1.74 (x64)"
+VERSION,"1,74,0,197"
 
 [TRANSLATION]
 LANGID,1040
 AUTHOR,"Open Samandarin"
-WEB,"www.altap.cz"
-COMMENT,"English version"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 100]
 194,73,1,"Ottimizza archivio PAK"

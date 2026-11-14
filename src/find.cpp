@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Handle Find dialog allocation failure. | Catch the standard allocation exception before restoring the cursor. | #731 | GPT-6 |
 // | 2026-11-12 | Stream protected Find directory pages. | Search wide directories under one identity-bound consent. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Remove the aggregate protected Find tree entry cap. | Search independently bounded directories under one approved session. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Mark protected Find scans incomplete when branches are skipped. | Preserve existing limits and distinguish failed access from complete results. | #731 | GPT-6.1 Terra |
@@ -3116,8 +3117,18 @@ BOOL OpenFindDialog(HWND hCenterAgainst, const char* initPath,
 
     HCURSOR hOldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));
 
-    CFindDialog* findDlg = new CFindDialog(hCenterAgainst, initPath, std::move(protectedRoot));
-    if (findDlg != NULL && findDlg->IsGood())
+    CFindDialog* findDlg = nullptr;
+    try
+    {
+        findDlg = new CFindDialog(hCenterAgainst, initPath, std::move(protectedRoot));
+    }
+    catch (const std::bad_alloc&)
+    {
+        TRACE_E(LOW_MEMORY);
+        SetCursor(hOldCur);
+        return FALSE;
+    }
+    if (findDlg->IsGood())
     {
         std::shared_ptr<CFindWatchdog> watchdog;
         try
@@ -3158,8 +3169,7 @@ BOOL OpenFindDialog(HWND hCenterAgainst, const char* initPath,
 
     ERROR_TFD_CREATE:
 
-        if (findDlg != NULL)
-            delete findDlg;
+        delete findDlg;
 
         SetCursor(hOldCur);
         return FALSE;

@@ -1,0 +1,21 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\hebrew\jsonviewer\jsonviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1037
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"hebrew (automatic AI translation)"
+
+[STRINGTABLE 0]
+46,1,"מציג JSON .NET"
+47,1,"על אודות התוסף"
+
+[STRINGTABLE 1]
+48,1,"מציג פנימי של מסמכי JSON באמצעות ממשק WinForms מנוהל."
+49,1,"open.samandarin.net"
+50,1,"לא ניתן להכין את אירוע הסנכרון הדרוש למציג."
+51,1,"קובץ ה־JSON שנבחר גדול מדי לפתיחה. אין תמיכה בקבצים הגדולים מ־8 MB."
+

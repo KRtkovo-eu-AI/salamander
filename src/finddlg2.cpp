@@ -6,6 +6,7 @@
 // | 2026-11-11 | Preserve protected provenance when hiding Find duplicates. | Do not merge distinct identities based only on pathname. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Display each incomplete Find reason without losing its origin. | Keep bounded logs and carried results truthful. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Validate all Find shell paths before invoking legacy handlers. | Preserve the selection when a shell entry cannot accept the path. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Apply the configured panel context-menu font to Find result menus. | Keep Find result menus consistent with panel context menus. | https://github.com/KRtkovo-eu-AI/salamander/issues/752 | GPT-6 (Codex) |
 // | 2026-11-07 | Share opening of a specific Find result. | Let accessibility invoke the verified row without relying on later focus. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Hide repeated Find entries after background path sorting. | Only compare adjacent rows once their path order has been published. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Open Find messages from a stable log snapshot. | Allow the worker to keep recording errors while the dialog is in use. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
@@ -1561,6 +1562,7 @@ void CFindDialog::OnContextMenu(int x, int y)
         RemoveUselessSeparatorsFromMenu(hMenu);
 
         CMenuPopup popup;
+        popup.SetUsePanelContextMenuFont(TRUE);
         popup.SetTemplateMenu(hMenu);
         DWORD cmd = popup.Track(MENU_TRACK_RETURNCMD | MENU_TRACK_RIGHTBUTTON,
                                 x, y, HWindow, NULL);

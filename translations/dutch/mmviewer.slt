@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\dutch\mmviewer\mmviewer.atp"
-TEXTVERSION,"1.18 (x64)"
-VERSION,"1,18,0,196"
+TEXTVERSION,"1.19 (x64)"
+VERSION,"1,19,0,197"
 
 [TRANSLATION]
 LANGID,1043
@@ -297,3 +297,4 @@ COMMENT,"Nederlandse versie"
 12640,1,"Bits per sample"
 12641,1,"Media-informatie"
 12642,1,"Onbekend"
+

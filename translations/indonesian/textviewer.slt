@@ -1,0 +1,83 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\indonesian\textviewer\textviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1057
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"indonesian (automatic AI translation)"
+
+[DIALOG 8500]
+310,129,1,"Konfigurasi Penampil Teks Prism"
+8701,7,7,296,86,1,"Performa"
+8700,17,21,276,18,1,"&Biarkan Prism siap agar lebih cepat dibuka kembali"
+8702,17,44,276,40,1,"Menjaga penampil tetap siap hingga 60 detik setelah file ditutup. Memerlukan memori tambahan (sekitar 100 MB atau lebih). File pertama tetap terbuka seperti biasa."
+1,197,108,50,14,1,"OK"
+2,253,108,50,14,1,"Batal"
+
+[STRINGTABLE 0]
+46,1,"Penampil Teks Prism"
+47,1,"Tentang Plugin"
+
+[STRINGTABLE 1]
+48,1,"Penampil bawaan yang merender file teks dengan penyorotan sintaks Prism.js."
+49,1,"open.samandarin.net"
+50,1,"Tidak dapat menyiapkan peristiwa sinkronisasi yang diperlukan oleh penampil."
+52,1,"&File"
+53,1,"&Tampilan"
+54,1,"&Tutup\tEsc"
+55,1,"&Segarkan\tF5"
+56,1,"&Perbesar\tCtrl++"
+57,1,"Per&kecil\tCtrl+-"
+58,1,"&Atur Ulang\tCtrl+0"
+59,1,"Memuat..."
+60,1,"Siap"
+61,1,"Tidak dapat menginisialisasi perender WebView2."
+62,1,"Tidak dapat membuka file yang dipilih."
+63,1,"Tampilkan &Nomor Baris"
+
+[STRINGTABLE 2]
+64,1,"&Lipat Baris\tF2"
+65,1,"Tampilkan &Whitespace"
+66,1,"Penyorot &Sintaks"
+67,1,"&Otomatis"
+68,1,"&Warna"
+69,1,"&Visual Studio"
+70,1,"&Prism Default"
+71,1,"&Kustom"
+72,1,"Edit &Kustom"
+73,1,"Edit Kustom"
+74,1,"&Simpan"
+75,1,"Batal"
+76,1,"Terang"
+77,1,"Gelap"
+78,1,"Komentar"
+79,1,"Tanda baca"
+
+[STRINGTABLE 3]
+80,1,"Kata kunci"
+81,1,"Kata kunci kontrol"
+82,1,"Nama kelas"
+83,1,"Fungsi"
+84,1,"String"
+85,1,"Angka"
+86,1,"Boolean"
+87,1,"Variabel"
+88,1,"Namespace"
+89,1,"Ekspresi reguler"
+90,1,"Tidak dapat menyimpan palet warna kustom."
+91,1,"Salamatrix.UI tidak tersedia."
+92,1,"Tidak dapat membuka jendela konfigurasi plugin."
+93,1,"&Edit"
+94,1,"&Salin\tCtrl+C"
+95,1,"Pilih S&emua\tCtrl+A"
+
+[STRINGTABLE 4]
+96,1,"&Temukan...\tCtrl+F"
+97,1,"Temukan &Berikutnya\tF3"
+98,1,"Temukan &Sebelumnya\tShift+F3"
+99,1,"&Ke Baris...\tCtrl+G"
+100,1,"Ce&tak...\tCtrl+P"
+

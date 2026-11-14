@@ -1,0 +1,17 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\korean\folders\folders.atp"
+TEXTVERSION,"0.4 (x64)"
+VERSION,"0,4,0,197"
+
+[TRANSLATION]
+LANGID,1042
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"korean (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"폴더"
+1001,1,"플러그인 정보"
+1003,1,"바탕 화면, 제어판, 휴지통 등의 폴더를 탐색합니다."
+1004,1,"'\t바탕 화면"
+

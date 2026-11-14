@@ -1,0 +1,40 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\polish\unmime\unmime.atp"
+TEXTVERSION,"1.17 (x64)"
+VERSION,"1,17,0,197"
+
+[TRANSLATION]
+LANGID,1045
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"polish (automatic AI translation)"
+
+[DIALOG 101]
+251,111,1,"Konfiguracja UnMIME"
+2000,7,7,40,8,1,"Opcje listy"
+2001,49,11,196,1,1,""
+1000,18,20,92,10,1,"Lista &nagłówków poczty"
+1001,18,35,90,10,1,"Lista &treści wiadomości"
+1003,31,50,266,10,1,"Dołącz informacje o &zestawie znaków do nazwy pliku, jeśli inny niż US-ASCII"
+1002,18,65,71,10,1,"Lista &załączników"
+2002,6,82,239,1,1,""
+1,137,90,50,14,1,"OK"
+2,194,90,50,14,1,"Anuluj"
+
+[STRINGTABLE 0]
+1,1,"UnMIME"
+2,1,"Nie można otworzyć pliku."
+3,1,"Niewystarczająca ilość pamięci."
+4,1,"Nie można dodać wpisu archiwum do listy plików."
+5,1,"Ten plik zawiera co najmniej jeden blok z nieznanym kodowaniem.\nTe bloki nie zostaną zdekodowane."
+6,1,"Błąd zapisu"
+7,1,"Rozpakowywanie pliku poczty - %s"
+8,1,"rozpakowywanie: "
+9,1,"Analizowanie pliku..."
+10,1,"Co najmniej jeden blok %s jest uszkodzony lub ma\nnieznany format i nie zostanie zdekodowany."
+11,1,"Nieprawidłowe CRC w co najmniej jednym bloku %s.\nTe bloki nie zostaną zdekodowane."
+12,1,"Przeglądaj i wypakowuj pliki MIME/Base64, UU/XXEncode, yEncode i BinHex."
+13,1,"O wtyczce"
+14,1,"Ostrzeżenie: ten plik zawiera fork zasobów Maca.\nTen fork nie zostanie rozpakowany."
+15,1,"&Nie pokazuj tego ponownie"
+

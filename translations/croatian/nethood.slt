@@ -1,0 +1,40 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\croatian\nethood\nethood.atp"
+TEXTVERSION,"1.11 (x64)"
+VERSION,"1,11,0,197"
+
+[TRANSLATION]
+LANGID,1050
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"croatian (automatic AI translation)"
+
+[DIALOG 102]
+220,127,1,"Konfiguracija mreže"
+1201,7,7,120,10,1,"Prikaži &administrativna dijeljenja"
+1203,13,22,187,10,1,"Prikaži administrativna dijeljenja kao &skrivene stavke"
+1202,7,37,204,10,1,"Prikaži stavke iz &Mrežnih mjesta u korijenskom direktoriju"
+1204,7,52,176,10,1,"Prikaži mrežna &računala u korijenskom direktoriju"
+1206,7,67,202,10,1,"Prikaži &diskove povezane putem udaljene radne površine"
+1205,7,82,158,10,1,"&Skeniraj mrežu pri pokretanju Salamandera"
+3000,7,99,206,1,1,""
+1,30,106,50,14,1,"U redu"
+2,85,106,50,14,1,"Odustani"
+9,140,106,50,14,1,"Pomoć"
+
+[STRINGTABLE 0]
+128,1,"Mreža"
+129,1,"Omogućuje pristup računalima na mreži."
+
+[STRINGTABLE 1]
+1024,1,"Komentar"
+1025,1,"Odabrano {!}<%d> objekata{|1|s}"
+1026,1,"Mreža"
+1027,1,"Skeniranje mreže…"
+1028,1,"Mreža nije dostupna."
+1029,1,"O dodatku"
+1030,1,"%1 na %2"
+1031,1,"Lokalno računalo"
+1032,1,"Glavno računalo"
+1033,1,"Diskovi s računala %s"
+

@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\dutch\diskdir\diskdir.atp"
 TEXTVERSION,"1.1 (x64)"
-VERSION,"1,1,0,196"
+VERSION,"1,1,0,197"
 
 [TRANSLATION]
 LANGID,1043
 AUTHOR,"KRtkovo.eu"
 WEB,"samandarin.net"
-COMMENT,"English version"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 200]
 278,94,1,"DiskDir-catalogus maken"
@@ -29,7 +29,7 @@ COMMENT,"English version"
 105,1,"DiskDir-catalogus"
 106,1,"Het cataloguspad is ongeldig of te lang."
 107,1,"De catalogusnaam wordt al gebruikt door een map."
-108,0,"The catalog already exists:\n\n"
+108,1,"De catalogus bestaat al:\n\n"
 109,1,"\n\nWil je het overschrijven?"
 110,1,"DiskDir-catalogi slaan geen bestandsinhoud op, dus bronbestanden kunnen niet worden verplaatst."
 111,1,"Items toevoegen aan een bestaande DiskDir-catalogus wordt niet ondersteund."

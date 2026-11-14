@@ -1,0 +1,18 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\swedish\ieviewer\ieviewer.atp"
+TEXTVERSION,"1.14 (x64)"
+VERSION,"1,14,0,197"
+
+[TRANSLATION]
+LANGID,1053
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"swedish (automatic AI translation)"
+
+[STRINGTABLE 0]
+10100,1,"Internet Explorer-visare"
+10101,1,"Det går inte att öppna Internet Explorer-visaren.\nRapportera problemet till support@altap.cz."
+10102,1,"Fel"
+10103,1,"En resurssnål HTML- och XML-visare baserad på Internet Explorer."
+10105,1,"Om insticksmodulen"
+

@@ -87,7 +87,7 @@ static BOOL ShowDemoPlugSalamatrixControls(
     control=AddSalamatrixDemoControl(dialog,ControlKindColorArrowButton,"color-text","ABC",215,204,33,14); complete=control!=NULL&&control->SetColor(RGB(0,0,0),RGB(255,255,0))&&complete;
     ADD_CONTROL(ControlKindGroupBox,"hyperlink-group","CGUIHyperLinkAbstract",269,4,185,48);
     ADD_CONTROL(ControlKindLabel,NULL,"SetActionOpen",277,17,75,8);
-    control=AddSalamatrixDemoControl(dialog,ControlKindHyperLink,"open-link","www.altap.cz",365,17,47,8); complete=control!=NULL&&control->SetStyleFlags(StaticTextUnderline|StaticTextHyperLinkColor)&&control->SetActionOpen("https://www.altap.cz")&&complete;
+    control=AddSalamatrixDemoControl(dialog,ControlKindHyperLink,"open-link","samandarin.net",365,17,47,8); complete=control!=NULL&&control->SetStyleFlags(StaticTextUnderline|StaticTextHyperLinkColor)&&control->SetActionOpen("https://samandarin.net")&&complete;
     ADD_CONTROL(ControlKindLabel,NULL,"SetActionPostCommand",277,27,81,8);
     control=AddSalamatrixDemoControl(dialog,ControlKindHyperLink,"command-link","Say something!",365,27,55,8); complete=control!=NULL&&control->SetStyleFlags(StaticTextUnderline|StaticTextHyperLinkColor)&&control->SetActionPostCommand(0x7f01)&&complete;
     ADD_CONTROL(ControlKindLabel,NULL,"SetActionShowHint",277,37,81,8);

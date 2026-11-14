@@ -1,0 +1,41 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\croatian\webview2renderviewer\webview2renderviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1050
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"croatian (automatic AI translation)"
+
+[STRINGTABLE 0]
+46,1,"Preglednik WebView2"
+47,1,"O dodatku"
+
+[STRINGTABLE 1]
+48,1,"Preglednik koji prikazuje renderirane HTML, Markdown i web-dokumente pomoću WebView2."
+49,1,"open.samandarin.net"
+50,1,"Nije moguće pripremiti događaj sinkronizacije potreban pregledniku."
+51,1,"Odabrana je datoteka prevelika za otvaranje. Datoteke veće od 32 MB nisu podržane."
+52,1,"&Datoteka"
+53,1,"&Prikaz"
+54,1,"&Zatvori\tEsc"
+55,1,"&Osvježi\tF5"
+56,1,"&Povećaj\tCtrl++"
+57,1,"&Smanji\tCtrl+-"
+58,1,"&Resetiraj\tCtrl+0"
+59,1,"Učitavanje..."
+60,1,"Spremno"
+61,1,"Nije moguće pokrenuti prikazivač WebView2."
+62,1,"Nije moguće otvoriti odabranu datoteku."
+63,1,"Prikaži &brojeve redaka"
+
+[STRINGTABLE 2]
+64,1,"&Umotaj reci\tF2"
+65,1,"Prikaži &bjeline"
+66,1,"&Uredi"
+67,1,"&Kopiraj\tCtrl+C"
+68,1,"&Odaberi sve\tCtrl+A"
+69,1,"&Ispiši...\tCtrl+P"
+

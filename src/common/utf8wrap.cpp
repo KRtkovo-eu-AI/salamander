@@ -1,6 +1,10 @@
-#include "precomp.h"
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Use typed ListView adapters for UTF-8 item text. | Avoid interpreting unrelated LPARAM payloads as LVITEMA. | | openai/gpt-6-luna-pro |
+// | 2026-11-12 | Resolve the wrapper header when compiling without PCH. | The standalone wrapper TU must locate the parent application header. | | openai/gpt-6-luna-pro |
+// | 2026-11-12 | Dispatch UTF-8 common-control text as Unicode. | Avoid code-page-dependent localized list and status text. | | openai/gpt-6-luna-pro |
 
 #define UTF8WRAPPERS_IMPLEMENTATION
+#include "..\precomp.h"
 #include "utf8wrap.h"
 
 #include <cstring>
@@ -170,7 +174,91 @@ bool Utf8ToWide(const char* str, int count, std::wstring& wide)
     return true;
 }
 
+bool IsWindowClassW(HWND hwnd, LPCWSTR expectedClass)
+{
+    WCHAR className[64] = {};
+    return hwnd != NULL && GetClassNameW(hwnd, className, _countof(className)) > 0 &&
+           lstrcmpiW(className, expectedClass) == 0;
+}
+
+LRESULT SendListViewItemA(HWND hwnd, UINT message, WPARAM wParam, const LVITEMA* item)
+{
+    if (!IsWindowClassW(hwnd, WC_LISTVIEWW) || item == NULL || (item->mask & LVIF_TEXT) == 0 || item->pszText == NULL ||
+        item->pszText == LPSTR_TEXTCALLBACKA)
+        return ::SendMessageA(hwnd, message, wParam, reinterpret_cast<LPARAM>(item));
+
+    std::wstring wideText;
+    if (!Utf8ToWide(item->pszText, -1, wideText))
+        return ::SendMessageA(hwnd, message, wParam, reinterpret_cast<LPARAM>(item));
+
+    static_assert(sizeof(LVITEMA) == sizeof(LVITEMW), "ANSI and Unicode list-view items must share a layout");
+    LVITEMW wideItem;
+    memcpy(&wideItem, item, sizeof(wideItem));
+    wideItem.pszText = const_cast<LPWSTR>(wideText.c_str());
+
+    UINT wideMessage = message;
+    if (message == LVM_INSERTITEMA)
+        wideMessage = LVM_INSERTITEMW;
+    else if (message == LVM_SETITEMA)
+        wideMessage = LVM_SETITEMW;
+    else if (message == LVM_SETITEMTEXTA)
+        wideMessage = LVM_SETITEMTEXTW;
+
+    return ::SendMessageW(hwnd, wideMessage, wParam, reinterpret_cast<LPARAM>(&wideItem));
+}
+
 } // namespace
+
+int WINAPI SalListViewInsertColumnA(HWND hwnd, int column, const LVCOLUMNA* data)
+{
+    if (!IsWindowClassW(hwnd, WC_LISTVIEWW) || data == NULL || (data->mask & LVCF_TEXT) == 0 || data->pszText == NULL ||
+        data->pszText == LPSTR_TEXTCALLBACKA)
+        return static_cast<int>(::SendMessageA(hwnd, LVM_INSERTCOLUMNA, column, reinterpret_cast<LPARAM>(data)));
+
+    std::wstring wideText;
+    if (!Utf8ToWide(data->pszText, -1, wideText))
+        return static_cast<int>(::SendMessageA(hwnd, LVM_INSERTCOLUMNA, column, reinterpret_cast<LPARAM>(data)));
+
+    static_assert(sizeof(LVCOLUMNA) == sizeof(LVCOLUMNW), "ANSI and Unicode list-view columns must share a layout");
+    LVCOLUMNW wideColumn;
+    memcpy(&wideColumn, data, sizeof(wideColumn));
+    wideColumn.pszText = const_cast<LPWSTR>(wideText.c_str());
+    return static_cast<int>(::SendMessageW(hwnd, LVM_INSERTCOLUMNW, column, reinterpret_cast<LPARAM>(&wideColumn)));
+}
+
+int WINAPI SalListViewInsertItemA(HWND hwnd, const LVITEMA* item)
+{
+    return static_cast<int>(SendListViewItemA(hwnd, LVM_INSERTITEMA, 0, item));
+}
+
+BOOL WINAPI SalListViewSetItemA(HWND hwnd, const LVITEMA* item)
+{
+    return static_cast<BOOL>(SendListViewItemA(hwnd, LVM_SETITEMA, 0, item));
+}
+
+void WINAPI SalListViewSetItemTextA(HWND hwnd, int item, int subItem, LPCSTR text)
+{
+    LVITEMA listViewItem = {};
+    listViewItem.mask = LVIF_TEXT;
+    listViewItem.iSubItem = subItem;
+    listViewItem.pszText = const_cast<LPSTR>(text);
+    SendListViewItemA(hwnd, LVM_SETITEMTEXTA, item, &listViewItem);
+}
+
+LRESULT WINAPI SalSendMessageA(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    if (message == SB_SETTEXTA && IsWindowClassW(hwnd, STATUSCLASSNAMEW) && (wParam & SBT_OWNERDRAW) == 0)
+    {
+        if (lParam == 0)
+            return ::SendMessageW(hwnd, SB_SETTEXTW, wParam, 0);
+
+        std::wstring wideText;
+        if (Utf8ToWide(reinterpret_cast<LPCSTR>(lParam), -1, wideText))
+            return ::SendMessageW(hwnd, SB_SETTEXTW, wParam, reinterpret_cast<LPARAM>(wideText.c_str()));
+    }
+
+    return ::SendMessageA(hwnd, message, wParam, lParam);
+}
 
 BOOL WINAPI SalExtTextOutA(HDC hdc, int x, int y, UINT options, const RECT* rect, LPCSTR str, UINT count, const INT* dx)
 {

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Match native-transfer guards in overwrite tests. | Keep thin-copy paths out of legacy broker fallback assertions. | #731 | GPT-6 |
 # | 2026-11-11 | Compile actual overwrite confirmation and retry flow with isolated UI seams. | Keep exact revisions, Hidden/System decisions and move retirement ordering intact. | #731 | GPT-6.1 Sol |
 """Run production overwrite decisions without file mutations, elevation or a visible UI."""
 import argparse
@@ -22,14 +23,15 @@ def main():
     ordinary_copy = block(worker, "BOOL DoCopyFile(")
     assert "chAttr = SetFileAttributesW(" in ordinary_copy
     assert "if (chAttr)\n                                            canElevateOverwrite = false;" in ordinary_copy
-    target_denied = block(ordinary_copy, "if (!transferError && !copyAsEncrypted && (err == ERROR_ACCESS_DENIED || protectedExistingMove)")
+    target_marker = "if (originalTransfer && !transferError && !copyAsEncrypted && (err == ERROR_ACCESS_DENIED || protectedExistingMove)"
+    target_denied = block(ordinary_copy, target_marker)
     assert target_denied.index("CloseHandle(in)") < target_denied.index("TryOverwriteDeniedSource(")
     assert "if (outcome == SourceOverwriteResult::Finished && isMove && skip)" in target_denied and "*skip = TRUE;" in target_denied
     policy_start = ordinary_copy.index("const DWORD existingAttributes = isMove && targetExists")
-    policy_end = ordinary_copy.index("if (!transferError && !copyAsEncrypted && (err == ERROR_ACCESS_DENIED || protectedExistingMove)", policy_start)
+    policy_end = ordinary_copy.index(target_marker, policy_start)
     policy = ordinary_copy[policy_start:policy_end]
     assert ordinary_copy.index("protectedExistingMove") < ordinary_copy.index("WorkerClearReadOnlyW(WorkerOperationPathW(op->TargetName", policy_start)
-    late = block(ordinary_copy, "if (err == ERROR_ACCESS_DENIED && !copyAsEncrypted && !dlgData.SkipAllFileOpenOut)")
+    late = block(ordinary_copy, "if (originalTransfer && err == ERROR_ACCESS_DENIED && !copyAsEncrypted && !dlgData.SkipAllFileOpenOut)")
     assert late.index("CloseHandle(in)") < late.index("TryOverwriteDeniedSource(")
     assert "if (isMove && in != INVALID_HANDLE_VALUE)" in late
     assert "if (outcome == SourceOverwriteResult::Finished && isMove && skip)" in late and "*skip = TRUE;" in late

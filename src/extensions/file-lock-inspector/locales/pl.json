@@ -1,0 +1,40 @@
+{
+  "name": "Inspektor blokad plików",
+  "commands": {
+    "FileLockInspector.inspect": "Inspektor blokad plików..."
+  },
+  "strings": {
+    "title": "Inspektor blokad plików",
+    "files": "Pliki",
+    "noLocks": "Nie znaleziono procesów blokujących pliki.",
+    "lockingProcesses": "Procesy blokujące pliki",
+    "process": "Proces",
+    "pid": "PID",
+    "type": "Typ",
+    "status": "Stan",
+    "executable": "Plik wykonywalny",
+    "inspecting": "Wyszukiwanie procesów blokujących pliki...",
+    "lockCount": "Liczba znalezionych procesów blokujących: {0}",
+    "inspectFailed": "Sprawdzanie blokad nie powiodło się.",
+    "openLocation": "Otwórz lokalizację",
+    "closeProcess": "Zamknij proces",
+    "endProcess": "Zakończ proces...",
+    "copyReport": "Kopiuj raport",
+    "refresh": "Odśwież",
+    "close": "Zamknij",
+    "locationUnavailable": "Lokalizacja pliku wykonywalnego tego procesu jest niedostępna.",
+    "closeUnavailable": "Proces nie ma okna głównego, które można bezpiecznie zamknąć.",
+    "confirmEnd": "Zakończyć proces {0} (PID {1})?{2}{2}Niezapisane dane w tej aplikacji mogą zostać utracone.",
+    "selectFile": "Najpierw wybierz lub uaktywnij co najmniej jeden plik.",
+    "responding": "Odpowiada",
+    "notResponding": "Nie odpowiada",
+    "processEnded": "(proces zakończony)",
+    "appMainWindow": "Aplikacja",
+    "appOtherWindow": "Okno w tle",
+    "appService": "Usługa",
+    "appExplorer": "Eksplorator Windows",
+    "appConsole": "Konsola",
+    "appCritical": "Proces krytyczny",
+    "appUnknown": "Nieznany"
+  }
+}

@@ -1,0 +1,59 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\korean\portables\portables.atp"
+TEXTVERSION,"0.7 (x64)"
+VERSION,"0,7,0,197"
+
+[TRANSLATION]
+LANGID,1042
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"korean (automatic AI translation)"
+
+[STRINGTABLE 0]
+128,1,"{!} %d 선택한 장치 {2:s|0||1|s}"
+129,1,"장치 없음"
+130,1,"휴대용 장치"
+131,1,"취소"
+132,1,"준비중"
+133,1,"파일:"
+134,1,"합계:"
+135,1,"최소화"
+136,1,"일시 중지"
+137,1,"휴대용 장치가 응답을 멈췄습니다. 연결을 해제하고 다시 연결하세요. 노트북 패널이 장치 목록으로 돌아갑니다."
+138,1,"%s 의 %s 복사됨"
+139,1,"복사"
+140,1,"이동"
+141,1,"삭제"
+142,1,"복사 중"
+143,1,"이동 중"
+
+[STRINGTABLE 1]
+144,1,"삭제 중"
+145,1,"대상"
+146,1,"%s 중 %s 이동됨"
+147,1,"%s 중 %s 처리됨"
+148,1,"선택한 항목 삭제"
+149,1,"%s '%s' 비 리우시토 (0x %08X)."
+150,1,"리노미나"
+151,1,"Crea cartella"
+152,1,"비주얼리자"
+153,1,"Il nome è ancora sul dispositivo. L 'elemento non è stato creato di nuovo."
+154,1,"파일로 폴더를 대체할 수 없습니다."
+155,1,"폴더로 파일을 대체할 수 없습니다."
+156,1,"같은 이름의 항목이 이미 있습니다."
+157,1,"薛技?"
+
+[STRINGTABLE 2]
+8192,1,"휴대용 장치"
+8193,1,"휴대용 장치를 관리합니다."
+
+[STRINGTABLE 3]
+9216,1,"플러그인 정보"
+
+[STRINGTABLE 4]
+10240,1,"디렉터리 변경 중 오류 발생"
+10241,1,"경로: "%s" \r \n 오류: %s"
+
+[STRINGTABLE 5]
+19457,1,"지정된 경로에 파일에 대한 경로가 포함되어 있습니다."
+

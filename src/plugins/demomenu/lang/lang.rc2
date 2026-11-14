@@ -27,6 +27,6 @@ STRINGTABLE
  IDS_PLUGINNAME,             "DemoMenu"
  IDS_ABOUT,                  "About Plugin"
  IDS_PLUGIN_DESCRIPTION,     "This plugin should help you to make your own menu extension plugin."
- IDS_PLUGIN_HOME,            "www.altap.cz"
+ IDS_PLUGIN_HOME,            "samandarin.net"
  IDS_TESTCMD,                "&Test Command"
 }

@@ -1,0 +1,30 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\portuguese\unfat\unfat.atp"
+TEXTVERSION,"1.4 (x64)"
+VERSION,"1,4,0,197"
+
+[TRANSLATION]
+LANGID,1046
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"portuguese (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"Un FAT"
+1001,1,"Sobre o plug-in"
+1003,1,"Navegar e extrair imagens de disco FAT 12, 16 e 32."
+
+[STRINGTABLE 1]
+1100,1,"Erro ao abrir o arquivo "%s"."
+1101,1,"Erro ao ler o arquivo "%s"."
+1102,1,"Erro ao analisar o arquivo "%s".\n\n%s"
+1103,1,"O setor de inicialização está corrompido ou este arquivo não é uma imagem FAT 12, 16 ou 32."
+
+[STRINGTABLE 2]
+1104,1,"Erro ao ler o diretório do arquivo "%s".\n%s\n Setor: %d, Deslocamento: 0x%s\n\n O arquivo não é uma imagem FAT 12, 16 ou 32 válida."
+1106,1,"Erro ao ler o arquivo a partir de "%s".\n%s\n Cluster: %d\n\n O arquivo não é uma imagem FAT 12, 16 ou 32 válida."
+1107,1,"Erro ao gravar o arquivo"
+1108,1,"O arquivo "%s" parece ser uma imagem de disco rígido inteiro.\n Essas imagens não são suportadas pelo plug-in Un FAT."
+1109,1,"Extraindo imagem FAT - %s"
+1110,1,"extraindo: %s"
+

@@ -1,0 +1,21 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\swedish\jsonviewer\jsonviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1053
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"swedish (automatic AI translation)"
+
+[STRINGTABLE 0]
+46,1,"JSON-visare .NET"
+47,1,"Om insticksmodulen"
+
+[STRINGTABLE 1]
+48,1,"Intern visare som visar JSON-dokument med ett hanterat WinForms-gränssnitt."
+49,1,"open.samandarin.net"
+50,1,"Det går inte att förbereda synkroniseringshändelsen som visaren behöver."
+51,1,"Den valda JSON-filen är för stor för att öppnas. Filer större än 8 MB stöds inte."
+

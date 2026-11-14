@@ -1,0 +1,88 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\indonesian\unarj\unarj.atp"
+TEXTVERSION,"1.24 (x64)"
+VERSION,"1,24,0,197"
+
+[TRANSLATION]
+LANGID,1057
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"indonesian (automatic AI translation)"
+
+[DIALOG 100]
+194,110,1,"Volume Arsip Berikutnya"
+300,12,9,170,32,1,"Masukkan disk dengan volume arsip berikutnya atau cari file yang sesuai pada disk.\n\nTekan OK jika siap."
+301,12,48,72,8,1,"Volume sebelumnya:"
+103,73,48,109,12,1,""
+302,12,62,68,8,1,"Volume &berikutnya:"
+101,12,72,155,12,1,""
+102,170,72,13,12,1,"..."
+1,39,91,50,14,1,"OK"
+2,102,91,50,14,1,"Batal"
+
+[DIALOG 103]
+352,85,1,"Kesalahan"
+300,6,10,26,8,1,"Nama:"
+104,36,10,309,8,1,""
+301,-7,23,39,8,1,"Kesalahan:"
+302,36,23,309,16,1,"File tidak dapat diekstrak karena merupakan kelanjutan dari volume sebelumnya. Untuk mengekstraknya, mulai dari volume tempat file tersebut dimulai."
+105,36,44,183,12,1,"&Jangan tampilkan pesan ini lagi."
+1,121,63,50,14,1,"OK"
+2,181,63,50,14,1,"Batal"
+
+[DIALOG 106]
+220,85,1,"Konfigurasi UnARJ"
+300,23,22,154,8,1,"saat mengekstrak."
+107,12,10,211,12,1,"&Lewati otomatis file yang berlanjut dari volume sebelumnya"
+301,23,44,111,8,1,"tidak dapat ditampilkan."
+116,12,32,207,12,1,"Jangan tampilkan peringatan jika seluruh isi arsip tersedia"
+302,6,60,208,1,1,""
+1,57,66,50,14,1,"OK"
+2,112,66,50,14,1,"Batal"
+
+[DIALOG 115]
+213,107,1,"UnARJ - Perhatian"
+300,11,10,194,24,1,"Tidak semua file dalam arsip multipart dapat ditampilkan (dan dilihat di panel) karena beberapa volume arsip tidak ditemukan."
+301,11,41,192,16,1,"Untuk melihat seluruh isi arsip, salin semua volume arsip ke direktori yang sama."
+105,11,66,157,12,1,"&Jangan tampilkan pesan ini lagi"
+302,5,83,203,1,1,""
+1,153,89,50,14,1,"OK"
+
+[STRINGTABLE 0]
+1000,1,"UnARJ"
+1001,1,"Memori tidak cukup."
+1002,1,"Akhir file arsip ditemukan secara tak terduga."
+1005,1,"Arsip rusak."
+1006,1,"Format file tidak dikenal atau bukan arsip ARJ yang valid."
+1007,1,"Tidak dapat membuka file arsip."
+
+[STRINGTABLE 1]
+1008,1,"Terjadi kesalahan yang tidak diketahui."
+1010,1,"Tidak dapat mengakses file arsip."
+1011,1,"File Arsip ARJ (*.A*)"
+1012,1,"Pilih File Arsip"
+1013,1,"Kesalahan pada data terkompresi. CRC tidak cocok."
+1014,1,"Tidak dapat menambahkan entri arsip ke daftar file."
+1015,1,"Mengekstrak Arsip ARJ - %s"
+1016,1,"Menyiapkan data dan membuat direktori..."
+1017,1,"Mengekstrak..."
+1018,1,"Mengekstrak: "
+1019,1,"Tidak dapat memperoleh posisi file: "
+1020,1,"Tidak dapat menulis ke file:"
+1021,1,"Tidak dapat mengatur posisi file: "
+1022,1,"Operasi tidak dapat diselesaikan karena jalur file terlalu panjang."
+1023,1,"Operasi tidak dapat diselesaikan karena mask terlalu panjang."
+
+[STRINGTABLE 2]
+1024,1,"Versi file terkompresi tidak dikenal."
+1025,1,"Jenis file terkompresi tidak dikenal."
+1026,1,"File dikompresi dengan metode yang tidak didukung plugin UnARJ."
+1027,1,"Maaf, file terenkripsi tidak didukung."
+1028,1,"Volume tidak valid atau struktur arsip tidak dikenal."
+1029,1,"Masa berlaku plugin telah habis. Periksa situs web kami untuk versi lebih baru."
+1030,1,"File tidak ditemukan."
+1031,1,"Kesalahan"
+1032,1,"Semua File (*.*)"
+1033,1,"Jelajahi dan ekstrak arsip ARJ."
+1034,1,"Tentang Plugin"
+

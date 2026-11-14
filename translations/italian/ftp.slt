@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\ftp\ftp.atp"
-TEXTVERSION,"1.38 (x64)"
-VERSION,"1,38,0,196"
+TEXTVERSION,"1.39 (x64)"
+VERSION,"1,39,0,197"
 
 [TRANSLATION]
 LANGID,1040
 AUTHOR,"Open Samandarin"
-WEB,"www.altap.cz"
-COMMENT,"English version"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 500]
 339,218,1,"Generale"

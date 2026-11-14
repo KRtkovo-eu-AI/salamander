@@ -1,0 +1,58 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\indonesian\demoview\demoview.atp"
+TEXTVERSION,"1.0.4 (x64)"
+VERSION,"1,0,4,197"
+
+[TRANSLATION]
+LANGID,1057
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
+
+[DIALOG 490]
+205,61,1,"Penampil"
+3000,4,6,199,41,1,"Posisi jendela"
+491,11,17,80,12,1,"&Simpan saat ditutup"
+492,11,29,156,12,1,"&Atur ke posisi jendela Salamander"
+
+[STRINGTABLE 0]
+46,1,"DemoView"
+47,1,"Tentang Plugin"
+
+[STRINGTABLE 1]
+48,1,"Plugin ini membantu Anda membuat plugin penampil sendiri."
+49,1,"www.altap.cz"
+50,1,"Pengecualian di DemoView telah terjadi, beri tahu penulisnya!\nJika Anda bekerja dengan file .DMV saat terjadi pengecualian,\ncoba reproduksi bug dengan file .DMV ini dan jika pengecualian\nterjadi lagi, kirim file .DMV itu ke kami (kami akan memperbaikinya).\nTerima kasih!"
+51,1,"petr.solin@altap.cz"
+52,1,"Konfigurasi sudah dibuka."
+53,1,"Beberapa jendela penampil DemoView terbuka. Ingin menutupnya?"
+54,1,"Konfigurasi DemoView"
+55,1,"Nomor tidak valid!"
+56,1,"File DemoView (*.dmv)|*.dmv|Semua File (*.*)|*.*|"
+
+[STRINGTABLE 2]
+2000,1,"&Berkas"
+2001,1,"&Buka\tCtrl+O"
+2002,1,"&Keluar"
+2010,1,"&Ubah"
+2011,1,"&Potong\tCtrl+X"
+2012,1,"&Salin\tCtrl+C"
+2013,1,"&Tempel\tCtrl+V"
+
+[STRINGTABLE 3]
+2020,1,"&Lihat"
+2021,1,"&Filter"
+2022,1,"Filter"
+2025,1,"&Opsi"
+2026,1,"&Konfigurasi..."
+
+[STRINGTABLE 4]
+2032,1,"&Bantuan"
+2033,1,"&Tentang"
+
+[STRINGTABLE 5]
+2500,1,"Potong\tCtrl+X"
+2501,1,"Salin\tCtrl+C"
+2502,1,"Tempel\tCtrl+V"
+2503,1,"Filter\tCtrl+U"
+

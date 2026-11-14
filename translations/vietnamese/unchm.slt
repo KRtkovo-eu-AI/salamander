@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\vietnamese\unchm\unchm.atp"
+TEXTVERSION,"1.7 (x64)"
+VERSION,"1,7,0,197"
+
+[TRANSLATION]
+LANGID,1066
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"vietnamese (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"UnCHM"
+1001,1,"Không thể mở tệp."
+1002,1,"Lỗi không xác định."
+1003,1,"Đang giải nén Lưu trữ CHM"
+1004,1,"Lỗi khi giải nén tệp."
+1005,1,"Không thể xử lý tệp này."
+1006,1,"Bộ nhớ không đủ."
+1007,1,"Về Plugin"
+
+[STRINGTABLE 1]
+1009,1,"Duyệt và trích xuất các tệp CHM."
+1010,1,"Không thể tạo thư mục tạm thời."
+1011,1,"Không thể xóa tệp tạm thời."
+1012,1,"Định dạng tệp không xác định hoặc không phải hình ảnh CHM hợp lệ.\n\nNếu bạn chắc chắn đây là hình ảnh CHM hợp lệ, vui lòng liên hệ support@altap.cz và giúp chúng tôi hỗ trợ định dạng này."
+1013,1,"Không thể mở tệp này."
+1014,1,"Tạo tệp tạm thời đã thất bại."
+1015,1,"Không thể thiết lập thuộc tính tệp."
+1016,1,"Không thể tạo thư mục '%s'."
+1020,1,"Có"
+1021,1,"Không"
+1022,1,"Lỗi"
+1023,1,"Cảnh báo"
+
+[STRINGTABLE 2]
+1032,1,"Lỗi nội bộ plugin."
+
+[STRINGTABLE 3]
+1100,1,"Lỗi đọc"
+1101,1,"Lỗi ghi"
+
+[STRINGTABLE 4]
+1105,1,"Số không hợp lệ."
+1106,1,"đang hủy thao tác, vui lòng chờ..."
+1107,1,"Thư viện CHMLIB, bản quyền © 2001-2010 Jed Wing"
+

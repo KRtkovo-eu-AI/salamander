@@ -1,0 +1,40 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\croatian\unmime\unmime.atp"
+TEXTVERSION,"1.17 (x64)"
+VERSION,"1,17,0,197"
+
+[TRANSLATION]
+LANGID,1050
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"croatian (automatic AI translation)"
+
+[DIALOG 101]
+251,111,1,"Konfiguracija UnMIME-a"
+2000,7,7,64,8,1,"Mogućnosti popisa"
+2001,49,11,196,1,1,""
+1000,18,20,91,10,1,"Izlistaj zaglavlja &poruke"
+1001,18,35,80,10,1,"Izlistaj &tijela poruka"
+1003,31,50,236,10,1,"Dodaj podatke o &skupu znakova nazivu datoteke ako nije US-ASCII"
+1002,18,65,69,10,1,"Izlistaj &privitke"
+2002,6,82,239,1,1,""
+1,137,90,50,14,1,"U redu"
+2,194,90,50,14,1,"Odustani"
+
+[STRINGTABLE 0]
+1,1,"UnMIME"
+2,1,"Nije moguće otvoriti datoteku."
+3,1,"Nema dovoljno memorije."
+4,1,"Nije moguće dodati stavku arhive na popis datoteka."
+5,1,"Ova datoteka sadrži jedan ili više blokova s nepoznatim kodiranjem.\nTi se blokovi neće dekodirati."
+6,1,"Pogreška pri zapisivanju"
+7,1,"Raspakiravanje poštanske datoteke - %s"
+8,1,"raspakiravanje: "
+9,1,"Analiziranje datoteke..."
+10,1,"Jedan ili više blokova %s oštećeni su ili imaju\nnepoznat oblik pa se neće dekodirati."
+11,1,"Neispravan CRC u jednom ili više blokova %s.\nTi se blokovi neće dekodirati."
+12,1,"Pregledavanje i izdvajanje MIME/Base64, UU/XXEncode, yEncode i BinHex datoteka."
+13,1,"O dodatku"
+14,1,"Upozorenje: ova datoteka sadrži Mac resursnu granu.\nTa se grana neće raspakirati."
+15,1,"&Nemoj ponovno prikazati"
+

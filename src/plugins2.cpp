@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Stop classifying Encrypt as unsupported on x64 by path. | Allow a working x64 Encrypt plug-in to reach normal DLL loading while retaining the WinSCP exception. | | GPT-6 (Codex) |
 // | 2026-11-08 | Resolve plugins by stable registry identity. | Allow canonical file associations to locate the current session plugin without using an ordinal heuristic. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-06 | Retain deferred modules when a plug-in refuses shutdown. | A failed Release may leave a consumer executing provider code until a successful retry. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // | 2026-11-05 | Flatten extension toolbar SVG icons with BGRA channel order. | Premul composite was mixing the red background into the blue channel. | | Composer |
@@ -1770,7 +1771,7 @@ void CPlugins::Load(HWND parent, HKEY regKey)
                        TRUE, FALSE, TRUE, TRUE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, "1.0",
                        "Copyright © 2026 Open Salamander Authors, Open Samandarin Authors",
                        "Creates and browses Total Commander DiskDir-compatible file catalogs.",
-                       "DISKDIR", "lst", NULL, FALSE, NULL, "www.altap.cz") ||
+                       "DISKDIR", "lst", NULL, FALSE, NULL, "samandarin.net") ||
             !AddPlugin("PAK", "pak\\pak.spl",
                        TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, "1.68",
                        "Copyright © 1999-2026 Open Salamander Authors, Open Samandarin Authors",
@@ -3818,8 +3819,6 @@ BOOL IsPluginUnsupportedOnX64(const char* dllName, const char** pluginNameEN)
     const char* nameEN = "";
     if (_stricmp(dllName, "winscp\\winscp.spl") == 0)
         nameEN = "WinSCP (SFTP/SCP Client)";
-    else if (_stricmp(dllName, "encrypt\\encrypt.spl") == 0)
-        nameEN = "Encrypt";
     if (pluginNameEN != NULL)
         *pluginNameEN = nameEN;
     return nameEN[0] != 0;

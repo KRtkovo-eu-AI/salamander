@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Show update settings once for each configuration. | Let users review automatic update checks after install or upgrade. | | GPT-6 (Codex) |
 
 //****************************************************************************
 //
@@ -169,6 +172,8 @@ void ShowInitializationError(HWND parent)
 }
 
 BOOL SynchronizeLoadOnStartFlagFromSettings();
+BOOL HasShownConfigurationDialog();
+BOOL ShowConfigurationDialogOnce(HWND parent);
 
 BOOL WINAPI CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* salamander,
                                                         HWND parent, int id, DWORD eventMask)
@@ -300,7 +305,7 @@ BOOL WINAPI CPluginInterface::Release(HWND parent, BOOL /*force*/)
 
 void WINAPI CPluginInterface::Configuration(HWND parent)
 {
-    if (!ManagedBridge_ShowConfiguration(parent))
+    if (!ShowConfigurationDialogOnce(parent))
     {
         ShowInitializationError(parent);
     }
@@ -360,6 +365,13 @@ void WINAPI CPluginInterface::Event(int event, DWORD /*param*/)
     {
         ManagedBridge_NotifyColorsChanged();
     }
+    else if (event == PLUGINEVENT_STARTUPCOMPLETE)
+    {
+        if (!HasShownConfigurationDialog())
+        {
+            ShowConfigurationDialogOnce(SalamanderGeneral != NULL ? SalamanderGeneral->GetMainWindowHWND() : NULL);
+        }
+    }
 }
 
 CPluginInterfaceForMenuExtAbstract* WINAPI CPluginInterface::GetInterfaceForMenuExt()
@@ -394,6 +406,7 @@ namespace
     const char* const kConfigLastPromptedVersion = "LastPromptedVersion";
     const char* const kConfigLastKnownRemoteVersion = "LastKnownRemoteVersion";
     const char* const kConfigPluginCatalogSources = "PluginCatalogSources";
+    const char* const kConfigConfigurationDialogShown = "ConfigurationDialogShown";
 
     void InitializeDefaults(NativeUpdateSettings* settings)
     {
@@ -525,7 +538,54 @@ namespace
             }
         }
     }
+
+    void WINAPI LoadOrSaveConfigurationDialogShownCallback(BOOL load, HKEY regKey,
+                                                             CSalamanderRegistryAbstract* registry, void* param)
+    {
+        auto* shown = reinterpret_cast<BOOL*>(param);
+        if (shown == nullptr || regKey == NULL || registry == nullptr)
+        {
+            return;
+        }
+
+        if (load)
+        {
+            DWORD value = 0;
+            *shown = registry->GetValue(regKey, kConfigConfigurationDialogShown, REG_DWORD,
+                                        &value, sizeof(value)) && value != 0;
+        }
+        else
+        {
+            DWORD value = *shown ? 1U : 0U;
+            registry->SetValue(regKey, kConfigConfigurationDialogShown, REG_DWORD, &value, sizeof(value));
+        }
+    }
 } // namespace
+
+BOOL HasShownConfigurationDialog()
+{
+    if (SalamanderGeneral == NULL)
+    {
+        return FALSE;
+    }
+
+    BOOL shown = FALSE;
+    SalamanderGeneral->CallLoadOrSaveConfiguration(TRUE, LoadOrSaveConfigurationDialogShownCallback, &shown);
+    return shown;
+}
+
+BOOL ShowConfigurationDialogOnce(HWND parent)
+{
+    if (!ManagedBridge_ShowConfiguration(parent))
+    {
+        return FALSE;
+    }
+
+    BOOL shown = TRUE;
+    SalamanderGeneral->CallLoadOrSaveConfiguration(FALSE, LoadOrSaveConfigurationDialogShownCallback, &shown);
+    SynchronizeLoadOnStartFlagFromSettings();
+    return TRUE;
+}
 
 BOOL SynchronizeLoadOnStartFlagFromSettings()
 {
@@ -537,7 +597,8 @@ BOOL SynchronizeLoadOnStartFlagFromSettings()
     NativeUpdateSettings settings;
     InitializeDefaults(&settings);
     SalamanderGeneral->CallLoadOrSaveConfiguration(TRUE, LoadOrSaveSettingsCallback, &settings);
-    SalamanderGeneral->SetFlagLoadOnSalamanderStart(settings.CheckOnStartup != 0);
+    SalamanderGeneral->SetFlagLoadOnSalamanderStart(
+        !HasShownConfigurationDialog() || settings.CheckOnStartup != 0);
     return TRUE;
 }
 

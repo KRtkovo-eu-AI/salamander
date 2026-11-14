@@ -1,9 +1,11 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-11 | Render the private disk size marker in the size column. | Preserve the released shared file data. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Show partial directory sizes as lower bounds. | Distinguish incomplete totals from complete sizes in the panel. | #731 | GPT-6.1 Sol |
 // | 2026-11-08 | Read file keywords through a stream-capable Windows property handler. | Keep the same tag semantics for the protected and ordinary paths. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-12 | Keep panels visible during history launches. | Parent the transparent shell helper beside the owner-drawn list instead of over it. | | openai/gpt-6-luna-pro |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -3503,7 +3505,7 @@ BOOL CFileHistoryItem::Execute()
             *ptr = 0; // split the path into the path part and the file name
             HCURSOR hOldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));
             MainWindow->SetDefaultDirectories(); // so the starting process inherits the correct current directories
-            ExecuteAssociation(panel->GetListBoxHWND(), buff, ptr + 1);
+            ExecuteAssociation(MainWindow->HWindow, buff, ptr + 1);
             SetCursor(hOldCur);
         }
         break;

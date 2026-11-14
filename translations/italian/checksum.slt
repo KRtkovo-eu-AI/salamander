@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\checksum\checksum.atp"
-TEXTVERSION,"2.4 (x64)"
-VERSION,"2,4,0,196"
+TEXTVERSION,"2.5 (x64)"
+VERSION,"2,5,0,197"
 
 [TRANSLATION]
 LANGID,1040
 AUTHOR,"Open Samandarin"
-WEB,"www.altap.cz"
-COMMENT,"English version"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 1000]
 344,84,1,"Calcola checksum"

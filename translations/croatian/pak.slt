@@ -1,0 +1,75 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\croatian\pak\pak.atp"
+TEXTVERSION,"1.74 (x64)"
+VERSION,"1,74,0,197"
+
+[TRANSLATION]
+LANGID,1050
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"croatian (automatic AI translation)"
+
+[DIALOG 100]
+194,73,1,"Optimiziraj PAK arhivu"
+300,8,9,92,8,1,"Veličina valjanih podataka:"
+101,64,9,118,8,1,""
+301,8,20,89,8,1,"Ukupna veličina datoteke:"
+102,64,20,118,8,1,""
+302,8,31,56,8,1,"Zauzeto uzalud:"
+103,64,31,118,8,1,""
+303,8,44,178,1,1,""
+1,41,53,50,14,1,"Optimiziraj"
+2,101,53,50,14,1,"Odustani"
+
+[STRINGTABLE 0]
+500,1,"Nije moguće otvoriti datoteku: %s"
+501,1,"Nije moguće pokrenuti sučelje paklib. Jedna je datoteka već otvorena."
+502,1,"Nije moguće otvoriti datoteku. Jedna je datoteka već otvorena."
+503,1,"Nije moguće dohvatiti veličinu datoteke: %s"
+504,1,"Nevaljan format podataka."
+505,1,"Nedovoljno memorije."
+506,1,"Trenutačni središnji direktorij PAK arhive"
+507,1,"Nije moguće postaviti položaj datoteke: %s"
+508,1,"Nije moguće čitati iz datoteke: %s"
+509,1,"Nije moguće dohvatiti položaj datoteke: %s"
+510,1,"Nije moguće pisati u datoteku: %s"
+511,1,"Datoteku nije moguće dodati jer joj je naziv predug."
+
+[STRINGTABLE 1]
+1000,1,"PAK"
+1001,1,"Nedovoljno memorije."
+1002,1,"Nije moguće dodati datoteku na popis."
+1003,1,"Nije moguće učitati paklib.dll ili dohvatiti adresu procedure: "
+1004,1,"Raspakiravanje PAK arhive - %s"
+1005,1,"Priprema podataka..."
+1006,1,"Raspakiravanje..."
+1007,1,"Raspakiravanje: "
+
+[STRINGTABLE 2]
+1008,1,"Operaciju nije moguće dovršiti jer je putanja datoteke preduga."
+1009,1,"Nije moguće postaviti položaj datoteke: "
+1010,1,"Nije moguće dohvatiti položaj datoteke: "
+1011,1,"Nije moguće pisati u datoteku:"
+1013,1,"Nije moguće otvoriti datoteku: "
+1014,1,"Operaciju nije moguće dovršiti jer je maska preduga."
+1015,1,"Brisanje iz PAK arhive - %s"
+1016,1,"Brisanje..."
+1017,1,"Brisanje: "
+1018,1,"Otkazivanje operacije, pričekajte..."
+1019,1,"Pakiranje u PAK arhivu - %s"
+1020,1,"Nije moguće dodati datoteku: prevelika je."
+1021,1,"Pakiranje..."
+1022,1,"Datoteku nije moguće dodati jer joj je naziv predug."
+1023,1,"Pakiranje: "
+
+[STRINGTABLE 3]
+1024,1,"Nije moguće čitati iz datoteke: "
+1025,1,"Nije moguće povezati dodatak s Open Samandarinom."
+1026,1,"Optimiziranje, pričekajte..."
+1027,1,"Optimiziranje PAK arhive - %s"
+1028,1,"Brisanje datoteka nije uspješno dovršeno. Možda ćete morati pokrenuti optimizaciju PAK arhive iz izbornika dodatka kako biste oslobodili izgubljeni prostor na disku."
+1029,1,"&Optimiziraj PAK"
+1030,1,"Dodatku je istekla valjanost. Provjerite našu web-stranicu za noviju inačicu."
+1031,1,"Pregledavanje i raspakiravanje Quake PAK arhiva."
+1032,1,"O dodatku"
+

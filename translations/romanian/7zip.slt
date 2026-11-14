@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\romanian\7zip\7zip.atp"
-TEXTVERSION,"1.36 (x64)"
-VERSION,"1,36,0,196"
+TEXTVERSION,"1.37 (x64)"
+VERSION,"1,37,0,197"
 
 [TRANSLATION]
 LANGID,1048
@@ -168,4 +168,5 @@ COMMENT,"Versiunea romana"
 1096,1,"Nu pot adauga 1 sau mai multe fisiere la lista. Calea finala e prea lunga.\nCateva directoare sau fisiere pot lipsi in listarea arhivei."
 1097,1,"Nu pot adauga 1 sau mai multe fisiere la lista. Calea finala e prea lunga.\nCateva directoare sau fisiere pot lipsi in listarea arhivei."
 1098,1,"Nume "%s" cu calea intreaga e prea lunga.\n\nCale: %s"
+1099,1,"Nu toate obiectele arhivei au fost dezarhivate. Sursa a fost păstrată."
 

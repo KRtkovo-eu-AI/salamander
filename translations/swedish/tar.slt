@@ -1,0 +1,64 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\swedish\tar\tar.atp"
+TEXTVERSION,"3.36 (x64)"
+VERSION,"3,36,0,197"
+
+[TRANSLATION]
+LANGID,1053
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"swedish (automatic AI translation)"
+
+[STRINGTABLE 0]
+11200,1,"Fel i TAR-insticksprogrammet"
+11201,1,"Arkivformatet känns inte igen eller stöds inte."
+11202,1,"Ogiltiga data i TAR-huvudet – arkivet är skadat."
+11203,1,"Felaktig kontrollsumma för fil eller huvud – arkivet är skadat."
+11204,1,"Internt fel: filens datastruktur är skadad."
+11205,1,"Okänd blocksignatur – hoppar över."
+11206,1,"Nödvändig fil hittades inte i arkivet."
+11207,1,"Minnesallokeringsfel."
+
+[STRINGTABLE 1]
+11240,1,"LZH-arkiv stöds inte ännu."
+
+[STRINGTABLE 2]
+11250,1,"Packa upp"
+11251,1,"Packar upp "
+11252,1,"Hoppar över "
+11260,1,"GZip-fel"
+11261,1,"Okänd komprimeringsmetod används, går inte att packa upp."
+11262,1,"Filen är krypterad. Kryptering stöds inte i GZip-arkiv."
+11263,1,"Filen ingår i ett arkiv med flera delar. GZip-arkiv med flera delar stöds inte."
+
+[STRINGTABLE 3]
+11264,1,"Okända flaggor hittades i GZip-huvudet, går inte att packa upp."
+11265,1,"Det gick inte att öppna arkivfilen: "
+11266,1,"Filen tog slut oväntat."
+11267,1,"Det gick inte att läsa arkivfilen: "
+11268,1,"Det gick inte att skriva till utdatafilen: "
+11269,1,"Funktionen WriteFile vägrade skriva alla begärda data."
+11270,1,"Ogiltigt block hittades i GZip-strömmen, går inte att packa upp."
+11271,1,"Internt fel i TAR-insticksprogrammet. Meddela oss via support@altap.cz."
+11272,1,"Minnesallokeringsfel."
+11273,1,"CRC-fel."
+11274,1,"Oväntade data i den komprimerade strömmen, arkivet är skadat."
+11275,1,"Sökningsfel i arkivfilen: "
+
+[STRINGTABLE 4]
+11280,1,"RPM-visare"
+11281,1,"RPM-fel"
+11282,1,"Det gick inte att skapa ett tillfälligt filnamn."
+11283,1,"Det gick inte att skapa en tillfällig fil."
+11284,1,"Filen känns inte igen som ett RPM-arkiv."
+11285,1,"Den RPM-version som arkivet kräver stöds inte."
+11286,1,"Okänd RPM-arkivsignatur påträffades."
+11291,1,"Filposten har en felaktig signatur."
+11292,1,"Filens huvudpost är skadad."
+11293,1,"Okänt cpio-huvudformat."
+
+[STRINGTABLE 5]
+11299,1,"TAR"
+11300,1,"Bläddra bland och packa upp Unix-arkiv."
+11301,1,"Om insticksprogrammet"
+

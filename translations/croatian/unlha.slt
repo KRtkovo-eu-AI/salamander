@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\croatian\unlha\unlha.atp"
+TEXTVERSION,"1.16 (x64)"
+VERSION,"1,16,0,197"
+
+[TRANSLATION]
+LANGID,1050
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"croatian (automatic AI translation)"
+
+[STRINGTABLE 0]
+1,1,"Neispravna LZH datoteka ili nepoznat format datoteke."
+2,1,"Pogreška kontrolnog zbroja zaglavlja.\nArhiva je oštećena — nije moguće izlistati sve datoteke."
+3,1,"Nema dovoljno memorije."
+4,1,"Pogreška pri zapisivanju"
+5,1,"UnLHA"
+6,1,"Pogreška pri otvaranju arhive."
+7,1,"Nije moguće dodati stavku arhive na popis datoteka."
+8,1,"Arhiva sadrži jednu ili više UNIX simboličkih poveznica koje se neće prikazati."
+10,1,"Nije moguće raspakirati datoteku."
+11,1,"Pogreška u komprimiranim podacima. CRC se ne podudara."
+12,1,"Pogreška pri čitanju arhive."
+13,1,"Raspakiravanje LHA arhive - %s"
+14,1,"Pripremanje podataka i stvaranje direktorija..."
+15,1,"raspakiravanje: "
+
+[STRINGTABLE 1]
+16,1,"raspakiravanje..."
+17,1,"Nije moguće dovršiti operaciju jer je naziv putanje predug."
+18,1,"Nije moguće dovršiti operaciju jer je maska preduga."
+19,1,"Nepoznata metoda kompresije. Datoteku nije moguće raspakirati."
+20,1,"nepoznata metoda je preskočena..."
+21,1,"Pregledavanje i izdvajanje LHA arhiva."
+22,1,"O dodatku"
+

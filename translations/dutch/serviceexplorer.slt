@@ -1,12 +1,12 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\dutch\serviceexplorer\serviceexplorer.atp"
-TEXTVERSION,"0.15 (x64)"
-VERSION,"0,15,0,196"
+TEXTVERSION,"0.16 (x64)"
+VERSION,"0,16,0,197"
 
 [TRANSLATION]
 LANGID,1043
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [DIALOG 490]

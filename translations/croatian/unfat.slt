@@ -1,0 +1,30 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\croatian\unfat\unfat.atp"
+TEXTVERSION,"1.4 (x64)"
+VERSION,"1,4,0,197"
+
+[TRANSLATION]
+LANGID,1050
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"croatian (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"UnFAT"
+1001,1,"O dodatku"
+1003,1,"Pregledavanje i izdvajanje slika diskova FAT 12, 16 i 32."
+
+[STRINGTABLE 1]
+1100,1,"Nije moguće otvoriti datoteku "%s"."
+1101,1,"Pogreška pri čitanju datoteke "%s"."
+1102,1,"Pogreška pri raščlanjivanju datoteke "%s".\n\n%s"
+1103,1,"Boot sektor je oštećen ili datoteka nije slika FAT 12, 16 ili 32."
+
+[STRINGTABLE 2]
+1104,1,"Pogreška pri čitanju direktorija iz datoteke "%s".\n%s\nSektor: %d, pomak: 0x%s\n\nDatoteka nije valjana slika FAT 12, 16 ili 32."
+1106,1,"Pogreška pri čitanju datoteke iz datoteke "%s".\n%s\nKlaster: %d\n\nDatoteka nije valjana slika FAT 12, 16 ili 32."
+1107,1,"Pogreška pri zapisivanju datoteke"
+1108,1,"Datoteka "%s" izgleda kao slika cijelog tvrdog diska.\nDodatak UnFAT ne podržava takve slike."
+1109,1,"Izdvajanje FAT slike - %s"
+1110,1,"izdvajanje: %s"
+

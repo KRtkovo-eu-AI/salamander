@@ -1,0 +1,111 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\vietnamese\uniso\uniso.atp"
+TEXTVERSION,"1.40 (x64)"
+VERSION,"1,40,0,197"
+
+[TRANSLATION]
+LANGID,1066
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"vietnamese (automatic AI translation)"
+
+[DIALOG 1200]
+220,83,1,"Cấu hình UnISO"
+1201,8,11,188,10,1,"&Xóa thuộc tính chỉ đọc khi sao chép từ lưu trữ"
+1202,8,23,242,10,1,"&Hiện phiên dưới dạng thư mục (cho phép truy cập tất cả các phiên)"
+1203,8,35,158,10,1,"Hiện &đĩa hình ảnh khởi động dưới dạng tệp"
+3000,2,58,216,1,1,""
+1,108,64,50,14,1,"Đồng ý"
+2,163,64,50,14,1,"Hủy"
+
+[STRINGTABLE 0]
+1000,1,"UnISO"
+1001,1,"Không thể mở tệp."
+1002,1,"Lỗi không xác định."
+1003,1,"Đang giải nén Lưu trữ ISO"
+1004,1,"Lỗi khi giải nén lưu trữ."
+1005,1,"Không thể xử lý tệp này."
+1006,1,"Bộ nhớ không đủ."
+1007,1,"Về Plugin"
+
+[STRINGTABLE 1]
+1009,1,"Duyệt và trích xuất các tệp hình ảnh ISO CD/DVD."
+1010,1,"Không thể tạo thư mục tạm thời."
+1011,1,"Không thể xóa tệp tạm thời."
+1012,1,"Định dạng tệp không xác định hoặc không phải hình ảnh ISO hợp lệ.\n\nNếu bạn chắc chắn đây là hình ảnh ISO hợp lệ, vui lòng liên hệ support@altap.cz và giúp chúng tôi hỗ trợ định dạng này."
+1013,1,"Không thể mở tệp '%s'."
+1014,1,"Tạo tệp tạm thời đã thất bại."
+1015,1,"Không thể thiết lập thuộc tính tệp."
+1016,1,"Không thể tạo thư mục '%s'."
+1020,1,"Có"
+1021,1,"Không"
+1022,1,"Lỗi"
+1023,1,"Cảnh báo"
+
+[STRINGTABLE 2]
+1024,1,"Có một số lỗi xảy ra khi đọc hình ảnh nhiều phiên.\n\nHiện chỉ những phiên đã đọc chính xác."
+1025,1,"Loại pista không xác định."
+1026,1,"Chiến lược cấp phát không xác định (%d).\n\nVui lòng liên hệ support@altap.cz và giúp chúng tôi sửa lỗi này."
+1027,1,"Định dạng tệp .CCD không tốt.\n\nHình ảnh hiển thị có thể không đầy đủ."
+1028,1,"Thiếu tệp .CCD.\n\nHình ảnh hiển thị có thể không đầy đủ."
+1029,1,"Không thể đọc vùng #%08X."
+1030,1,"Mã thẻ UDF không hợp lệ."
+1031,1,"Lỗi khi đọc cấu trúc thư mục tại vùng #%08X.\n\nNội dung của hình ảnh ISO không đầy đủ."
+1032,1,"Lỗi nội bộ plugin."
+1033,1,"Lỗi khi đọc bảng cấp phát ảo tại vùng #%08X."
+1034,1,"Thiếu bảng cấp phát ảo."
+1035,1,"ICB gốc không tốt.\n\nKhông thể đọc cấu trúc thư mục."
+1036,1,"Tệp "%s" không thể được trích xuất.\n\nKhông khớp giữa kích thước tệp và các khối ICB."
+1037,1,"Không thể mở pistas #%d."
+1038,1,"Tệp này dường như là hình ảnh ổ floppy, ổ cứng hoặc phân vùng ổ cứng.\nHãy thử đổi tên tệp thành .ima để kích hoạt plugin UnFAT."
+1039,1,"Hình ảnh ổ đĩa này chứa hệ thống tệp APFS.\nHệ thống tệp này chưa được hỗ trợ."
+
+[STRINGTABLE 3]
+1050,1,"Không thể đọc tiêu đề phân vùng. Tệp quá nhỏ."
+1051,1,"Cấu trúc Trình quản lý Phân vùng bị hỏng."
+1052,1,"Hình ảnh ổ đĩa này không chứa phân vùng HFS Plus."
+1053,1,"Hình ảnh ổ đĩa này chứa HFS chứ không phải hệ thống tệp HFS Plus.\nHFS không được hỗ trợ."
+1054,1,"Không thể tìm kiếm đến khối #%08X.\nTệp %s sẽ không được trích xuất."
+1055,1,"Không thể tìm kiếm đến khối #%08X."
+
+[STRINGTABLE 4]
+1056,1,"Loại nút gốc BTree không được hỗ trợ trong tệp Katalog."
+1057,1,"Tệp Katalog bị phân mảnh thành hơn 8 mảnh không được hỗ trợ."
+1058,1,"Tệp '%s' bị phân mảnh thành hơn 8 mảnh không được hỗ trợ.\nTệp sẽ không được trích xuất."
+1059,1,"Hình ảnh ổ đĩa này chứa một đường dẫn quá dài mà Open Samandarin không thể xử lý."
+1060,1,"Không thể hoàn thành thao tác vì tên quá dài."
+1070,1,"Không thể đọc tiêu đề gói. Tệp quá nhỏ."
+1071,1,"Gói này được mã hóa.\nCác gói đã mã hóa không được hỗ trợ."
+
+[STRINGTABLE 5]
+1072,1,"Tệp này dường như không phải là gói DMG hoặc không đầy đủ.\nNó không chứa chân trang DMG hợp lệ."
+1073,1,"Tệp này dường như không phải là gói DMG hợp lệ hoặc không đầy đủ.\nNó không chứa Danh sách Thuộc tính hợp lệ."
+1074,1,"Gói này không chứa một khối dữ liệu của phân vùng HFS Plus bắt đầu tại %I64u.\nKhối này cần thiết để xử lý gói đúng cách."
+1075,1,"Không thể đọc dữ liệu từ hình ảnh ổ đĩa tại vị trí %I64u."
+1076,1,"Không thể tìm kiếm trong hình ảnh ổ đĩa đến vị trí %I64u."
+1077,1,"Lỗi nội bộ: Phương pháp tìm kiếm không được hỗ trợ."
+1078,1,"Hình ảnh ổ đĩa này chứa một khối được nén bằng một phương pháp không xác định.\nCác hình ảnh ổ đĩa như vậy không được hỗ trợ."
+1079,1,"Giải nén một khối nén ZLIB thất bại. Hình ảnh ổ đĩa dường như bị hỏng."
+1080,1,"Giải nén một khối nén BZIP2 thất bại. Hình ảnh ổ đĩa dường như bị hỏng."
+1085,1,"Tệp này dường như không phải là hình ảnh ISZ nén hoặc không đầy đủ.\nNó không chứa tiêu đề ISZ hợp lệ."
+1086,1,"Không thể đọc tiêu đề hình ảnh nén. Tệp quá nhỏ."
+1087,1,"Hình ảnh này được phân đoạn.\nCác hình ảnh được phân đoạn không được hỗ trợ."
+
+[STRINGTABLE 6]
+1088,1,"Hình ảnh này được mã hóa.\nCác hình ảnh đã mã hóa không được hỗ trợ."
+1100,1,"Lỗi đọc"
+1101,1,"Lỗi ghi"
+1102,1,"Các đoạn âm thanh không thể được trích xuất."
+1103,1,"Đang hủy thao tác, vui lòng chờ..."
+
+[STRINGTABLE 7]
+1150,1,"Thông tin về hình ảnh\n\n"
+1151,1,"Thông tin về hình ảnh "%s"\n\n"
+
+[STRINGTABLE 8]
+1152,1,"Số phiên: %d"
+1153,1,"\nPhiên %d\n"
+1154,1,"  Số đoạn: %d\n"
+1155,1,"  Đoạn: %d, %s, Kích thước: %d KBytes\n"
+1156,1,"  Đoạn: %d, %s, Kích thước: %d KBytes - "%s"\n"
+

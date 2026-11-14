@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\ieviewer\ieviewer.atp"
-TEXTVERSION,"1.13 (x64)"
-VERSION,"1,13,0,196"
+TEXTVERSION,"1.14 (x64)"
+VERSION,"1,14,0,197"
 
 [TRANSLATION]
 LANGID,1040
 AUTHOR,"Open Samandarin"
-WEB,"www.altap.cz"
-COMMENT,"English version"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
 
 [STRINGTABLE 0]
 10100,1,"Visualizzatore di Internet Explorer"

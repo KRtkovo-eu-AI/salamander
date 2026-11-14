@@ -1,0 +1,58 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\portuguese\demoview\demoview.atp"
+TEXTVERSION,"1.0.4 (x64)"
+VERSION,"1,0,4,197"
+
+[TRANSLATION]
+LANGID,1046
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
+
+[DIALOG 490]
+205,61,1,"Visor"
+3000,4,6,199,41,1,"Posição janela"
+491,11,17,63,12,1,"&Salvar ao sair"
+492,11,29,156,12,1,"&Usar posição da janela do Salamander"
+
+[STRINGTABLE 0]
+46,1,"DemoView"
+47,1,"Sobre plugin"
+
+[STRINGTABLE 1]
+48,1,"Este plug-in ajuda a criar o seu plug-in de visualização."
+49,1,"www.altap.cz"
+50,1,"Ocorreu uma exceção no DemoView, avise os autores!\nSe você trabalhava com um arquivo .DMV quando a exceção ocorreu,\ntente reproduzir o erro com esse arquivo .DMV e, se voltar a ocorrer,\nenvie-nos esse arquivo .DMV (nós o reproduziremos e corrigiremos o erro).\nObrigado!"
+51,1,"petr.solin@altap.cz"
+52,1,"A configuração já está aberta."
+53,1,"Há janelas do visualizador DemoView abertas. Deseja fechá-las?"
+54,1,"Configuração DemoView"
+55,1,"Número inválido!"
+56,1,"Arquivos DemoView (*.dmv)|*.dmv|Todos (*.*)|*.*|"
+
+[STRINGTABLE 2]
+2000,1,"&Arquivos"
+2001,1,"&Abrir\tCtrl+O"
+2002,1,"S&air"
+2010,1,"&Editar"
+2011,1,"&Recortar\tCtrl+X"
+2012,1,"&Copiar\tCtrl+C"
+2013,1,"&Colar\tCtrl+V"
+
+[STRINGTABLE 3]
+2020,1,"&Ver"
+2021,1,"&Filtro"
+2022,1,"Filtro"
+2025,1,"&Opções"
+2026,1,"&Configuração..."
+
+[STRINGTABLE 4]
+2032,1,"&Ajuda"
+2033,1,"&Sobre"
+
+[STRINGTABLE 5]
+2500,1,"Recortar\tCtrl+X"
+2501,1,"Copiar\tCtrl+C"
+2502,1,"Colar\tCtrl+V"
+2503,1,"Filtro\tCtrl+U"
+

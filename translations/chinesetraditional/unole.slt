@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\chinesetraditional\unole\unole.atp"
+TEXTVERSION,"1.4 (x64)"
+VERSION,"1,4,0,197"
+
+[TRANSLATION]
+LANGID,1028
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"chinesetraditional (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"UnOLE2"
+1001,1,"記憶體不足。"
+1002,1,"無法開啟複合檔案 %s。\n"
+1003,1,"無法取得記憶體配置器。\n"
+1004,1,"無法寫入檔案。\n"
+1005,1,"無法建立檔案 %s。\n"
+1006,1,"無法開啟資料流 %s。\n"
+1007,1,"無法寫入檔案。\n"
+
+[STRINGTABLE 1]
+1008,1,"發生未知錯誤。"
+1014,1,"無法將壓縮檔項目加入檔案清單。"
+1015,1,"正在解壓縮複合檔案"
+1017,1,"正在解壓縮..."
+1018,1,"正在解壓縮: "
+
+[STRINGTABLE 2]
+1025,1,"很抱歉，此外掛程式已逾期。請至我們的網站查看較新版本。"
+
+[STRINGTABLE 3]
+1041,1,"錯誤"
+1042,1,"瀏覽並解壓縮 OLE 複合檔案。"
+1043,1,"關於外掛程式"
+

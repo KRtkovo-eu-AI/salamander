@@ -1,0 +1,75 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\turkish\automation\automation.atp"
+TEXTVERSION,"2.9 (x64)"
+VERSION,"2,9,0,197"
+
+[TRANSLATION]
+LANGID,1055
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"turkish (automatic AI translation)"
+
+[DIALOG 100]
+205,64,1,"Girdi Kutusu"
+1150,8,8,189,8,1,"İstem:"
+101,8,18,189,12,1,""
+1,48,42,50,14,1,"Tamam"
+2,107,42,50,14,1,"İptal"
+
+[DIALOG 101]
+332,143,1,"Otomasyon Yapılandırması"
+375,8,9,67,8,1,"&Betik Dizinleri:"
+371,8,19,316,73,1,""
+1001,8,102,124,10,1,"Betik hata &ayıklamasını etkinleştir"
+1,75,121,50,14,1,"Tamam"
+2,141,121,50,14,1,"İptal"
+9,207,121,50,14,1,"&Yardım"
+
+[MENU 106]
+0,1,"[POPUP]"
+40013,1,"Gözat…"
+40014,1,"Salamander Dizini"
+40015,1,"Ortam Değişkeni"
+
+[STRINGTABLE 0]
+1,1,"Otomasyon"
+2,1,"Betikleri kullanarak yaygın görevleri otomatikleştirir."
+3,1,"Eklenti Hakkında"
+
+[STRINGTABLE 1]
+128,1,"Otomasyon Betiği Hatası"
+129,1,"Satır:\t%u\r\n"
+130,1,"Sütun:\t%u\r\n"
+131,1,"Hata:\t%s"
+132,1,"Seçilen Betiği Çalıştır"
+134,1,"İşlem İlerlemesi"
+135,1,"Kaynak:\t%s\r\n"
+136,1,"Betik Menüsünü Aç"
+137,1,"(betik yok)"
+138,1,"'%s' betiği çalıştırılamadı.\r\n%s"
+139,1,"Bilinmeyen hata."
+140,1,"1\t&İptal"
+141,1,"1\t&Hata Ayıkla\t2\t&İptal"
+142,1,"Betik Dizini"
+143,1,"Betik deposu dizinini seçin."
+
+[STRINGTABLE 2]
+144,1,"Betiği İptal Et"
+145,1,"Çalışan Betiği İptal Et\tCtrl+Break"
+146,1,"Open Samandarin penceresi Otomasyon eklentisi tarafından kilitlendi. Lütfen betiğin bitmesini bekleyin."
+147,1,"Betik altyapısı başlatılamadı."
+
+[STRINGTABLE 3]
+256,1,"Geçersiz arşiv."
+257,1,"Geçerli yol kapatılamıyor."
+258,1,"Yol kesildi."
+259,1,"Pencere gösterilirken %s özelliği değiştirilemiyor veya yöntemi çağrılamıyor."
+260,1,"Pencere gizliyken %s özelliği değiştirilemiyor veya yöntemi çağrılamıyor."
+261,1,"Eklenti yüklenemedi."
+262,1,"Eklenti hatası."
+263,1,"Dosya disk önbelleğine taşınamadı."
+264,1,"Dosya maskesi sözdizimi hatası."
+265,1,"Kapsayıcıya yalnızca bileşenler eklenebilir."
+266,1,"Kapsayıcıya form eklenemez."
+267,1,"Betik kullanıcı tarafından durduruldu."
+

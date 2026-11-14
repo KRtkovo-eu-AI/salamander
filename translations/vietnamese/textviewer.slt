@@ -1,0 +1,83 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\vietnamese\textviewer\textviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1066
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"vietnamese (automatic AI translation)"
+
+[DIALOG 8500]
+310,129,1,"Cấu hình Trình xem Văn bản Prism"
+8701,7,7,296,86,1,"Hiệu suất"
+8700,17,21,276,18,1,"&Giữ Prism sẵn sàng để mở lại nhanh hơn"
+8702,17,44,276,40,1,"Giữ một trình xem sẵn sàng lên đến 60 giây sau khi đóng một tệp. Yêu cầu bộ nhớ bổ sung (khoảng 100 MB hoặc hơn). Tệp đầu tiên vẫn được mở bình thường."
+1,197,108,50,14,1,"Đồng ý"
+2,253,108,50,14,1,"Hủy"
+
+[STRINGTABLE 0]
+46,1,"Trình xem Văn bản Prism"
+47,1,"Về Plugin"
+
+[STRINGTABLE 1]
+48,1,"Trình xem gốc hiển thị tệp văn bản với việc làm nổi Hayes cú pháp Prism.js."
+49,1,"open.samandarin.net"
+50,1,"Không thể chuẩn bị sự kiện đồng bộ hóa yêu cầu bởi trình xem."
+52,1,"&Tệp"
+53,1,"&Xem"
+54,1,"&Đóng\tEsc"
+55,1,"&Làm mới\tF5"
+56,1,"&Phóng to\tCtrl++"
+57,1,"&Thu nhỏ\tCtrl+-"
+58,1,"&Đặt lại\tCtrl+0"
+59,1,"Đang tải..."
+60,1,"Sẵn sàng"
+61,1,"Không thể khởi tạo trình hiển thị WebView2."
+62,1,"Không thể mở tệp đã chọn."
+63,1,"Hiện &Số dòng"
+
+[STRINGTABLE 2]
+64,1,"Ngắt &Dòng\tF2"
+65,1,"Hiện &Khoảng trắng"
+66,1,"Làm nổi Hayes &Cú pháp"
+67,1,"&Tự động"
+68,1,"&Màu sắc"
+69,1,"&Visual Studio"
+70,1,"Mặc định &Prism"
+71,1,"&Tùy chỉnh"
+72,1,"Chỉnh sửa &Tùy chỉnh"
+73,1,"Chỉnh sửa Tùy chỉnh"
+74,1,"&Lưu"
+75,1,"Hủy"
+76,1,"Sáng"
+77,1,"Tối"
+78,1,"Bình luận"
+79,1,"Dấu câu"
+
+[STRINGTABLE 3]
+80,1,"Từ khóa"
+81,1,"Từ khóa Điều khiển"
+82,1,"Tên Lớp"
+83,1,"Hàm"
+84,1,"Chuỗi"
+85,1,"Số"
+86,1,"Boolean"
+87,1,"Biến"
+88,1,"Không gian tên"
+89,1,"Biểu thức chính quy"
+90,1,"Không thể lưu bảng màu tùy chỉnh."
+91,1,"Salamatrix.UI không có sẵn."
+92,1,"Không thể mở cửa sổ cấu hình plugin."
+93,1,"&Chỉnh sửa"
+94,1,"&Sao chép\tCtrl+C"
+95,1,"Chọn t&ất cả\tCtrl+A"
+
+[STRINGTABLE 4]
+96,1,"&Tìm...\tCtrl+F"
+97,1,"Tìm &tiếp theo\tF3"
+98,1,"Tìm &trước đó\tShift+F3"
+99,1,"&Đến Dòng...\tCtrl+G"
+100,1,"&In...\tCtrl+P"
+

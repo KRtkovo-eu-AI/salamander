@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Format comparison errors without interpreting input. | Preserve localized messages while avoiding format-string injection. | #731 | GPT-6 |
 // | 2026-11-10 | Hand off comparison activation before closing progress. | Keep a foreground comparison with its owner after UAC. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Retry denied nested comparisons in one rooted session. | Keep the grant across both passes and compare accessible siblings. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Offer protected content comparison from ordinary panels. | Reuse each verified side and reject changed sources. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Use each panel's protected scope for directory comparison. | Compare protected subtrees without misreporting unreadable data. | #731 | GPT-6.1 Sol |
 
 #include "precomp.h"
+#include "format_two_strings.h"
 
 #include "plugins.h"
 #include "fileswnd.h"
@@ -506,10 +508,9 @@ static void CompareError(HWND owner, CCmpDirProgressDialog* progress, int messag
                          DWORD error, BOOL* canceled)
 {
     const char* details = GetErrorText(error);
-    CPathBuffer message(static_cast<int>(strlen(path) + strlen(details) + 256));
-    _snprintf_s(message.Data(), message.Capacity(), _TRUNCATE, LoadStr(messageId), path, details);
+    const std::string message = FormatTwoStrings(LoadStr(messageId), path, details);
     progress->FlushDataToControls();
-    *canceled = SalMessageBox(owner, message.Data(), LoadStr(IDS_ERRORTITLE),
+    *canceled = SalMessageBox(owner, message.c_str(), LoadStr(IDS_ERRORTITLE),
                               MB_OKCANCEL | MB_ICONEXCLAMATION) == IDCANCEL;
 }
 

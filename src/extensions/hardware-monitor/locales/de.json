@@ -6,12 +6,33 @@
   },
   "fileSystems": {
     "hardware-info": {
-      "rootItems": {"cpu":"Prozessor","memory":"Arbeitsspeicher","motherboard":"Hauptplatine","gpu":"Grafikprozessor","storage":"Speicher","network":"Netzwerk","sensors":"Sensoren","device-manager":"Geräte-Manager"},
-      "actions":{"updateDriver":"Treiber aktualisieren","disableDevice":"Gerät deaktivieren","uninstallDevice":"Gerät deinstallieren","scanDevices":"Nach geänderter Hardware suchen","deviceProperties":"Eigenschaften"},
+      "rootItems": {
+        "cpu": "Prozessor",
+        "memory": "Arbeitsspeicher",
+        "motherboard": "Hauptplatine",
+        "gpu": "Grafikprozessor",
+        "storage": "Speicher",
+        "network": "Netzwerk",
+        "sensors": "Sensoren",
+        "device-manager": "Geräte-Manager"
+      },
+      "actions": {
+        "updateDriver": "Treiber aktualisieren",
+        "disableDevice": "Gerät deaktivieren",
+        "uninstallDevice": "Gerät deinstallieren",
+        "scanDevices": "Nach geänderter Hardware suchen",
+        "deviceProperties": "Eigenschaften"
+      },
       "name": "Hardware-Monitor",
       "columns": {
-        "property": {"name": "Feld", "description": "Eigenschafts- oder Sensorname"},
-        "value": {"name": "Wert", "description": "Eigenschaftswert oder Sensorwert"}
+        "property": {
+          "name": "Feld",
+          "description": "Eigenschafts- oder Sensorname"
+        },
+        "value": {
+          "name": "Wert",
+          "description": "Eigenschaftswert oder Sensorwert"
+        }
       }
     }
   },
@@ -26,7 +47,10 @@
     "deviceManager": "Geräte-Manager"
   },
   "strings": {
-    "disableDevice":"Gerät deaktivieren","uninstallDevice":"Gerät deinstallieren","confirmDeviceAction":"{0} '{1}'?","loading": "Wird geladen...",
+    "disableDevice": "Gerät deaktivieren",
+    "uninstallDevice": "Gerät deinstallieren",
+    "confirmDeviceAction": "{0} '{1}'?",
+    "loading": "Wird geladen...",
     "notAvailable": "N/A",
     "errorTitle": "Hardware-Monitor",
     "sensorInitFailed": "Die Hardware-Sensorbibliothek (LibreHardwareMonitorLib.dll) konnte nicht geladen werden. Sensorwerte sind nicht verfügbar.\nLegen Sie die DLL im Erweiterungsverzeichnis oder im System-PATH ab.",

@@ -1,0 +1,228 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\vietnamese\dbviewer\dbviewer.atp"
+TEXTVERSION,"1.28 (x64)"
+VERSION,"1,28,0,197"
+
+[TRANSLATION]
+LANGID,1066
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"vietnamese (automatic AI translation)"
+
+[DIALOG 12200]
+235,181,1,"Thuộc tính"
+1,179,162,50,14,1,"Đồng ý"
+13000,4,155,227,1,1,""
+12201,5,5,224,143,1,""
+
+[DIALOG 12220]
+282,105,1,"Cấu hình Trình xem Cơ sở Dữ liệu"
+13000,6,10,270,35,1,"Phông chữ"
+12221,13,23,50,14,1,"&Phông chữ"
+12222,69,23,200,14,1,""
+13001,6,48,270,27,1,"Vị trí Cửa sổ"
+12223,14,58,63,12,1,"&Lưu khi đóng"
+12224,107,58,163,12,1,"Sét về vị trí của cửa sổ chính Salamander"
+12225,13,85,60,14,1,"Tùy chọn CSV..."
+1,113,85,50,14,1,"Đồng ý"
+2,168,85,50,14,1,"Hủy"
+9,223,85,50,14,1,"Trợ giúp"
+
+[DIALOG 12240]
+282,178,1,"Trường"
+12241,6,6,270,142,1,""
+13000,4,153,274,1,1,""
+12242,6,159,69,14,1,"&Khôi phục Mặc định"
+1,115,159,50,14,1,"Đồng ý"
+2,170,159,50,14,1,"Hủy"
+9,225,159,50,14,1,"Trợ giúp"
+
+[DIALOG 12250]
+303,137,1,"Tùy chọn CSV"
+13000,6,6,90,101,1,"&Phân tách"
+12264,15,18,60,12,1,"Tự động chọn"
+12261,15,32,60,12,1,"Tab"
+12260,15,46,76,12,1,"Dấu chấm phẩy (;)"
+12259,15,60,60,12,1,"Dấu phẩy (,)"
+12258,15,74,69,12,1,"Khoảng trắng ( )"
+12257,15,88,32,12,1,"Khác"
+12256,49,88,16,12,1,""
+13001,106,6,90,101,1,"Văn bản &Định danh"
+12262,115,18,60,12,1,"Tự động chọn"
+12255,115,32,74,12,1,"Gấu đôi (")"
+12254,115,46,60,12,1,"Gấu đơn (')"
+12253,115,60,60,12,1,"Không"
+13002,206,6,90,101,1,"&Hàng đầu"
+12263,215,18,60,12,1,"Tự động chọn"
+12265,215,32,74,12,1,"Làm Tên Cột"
+12266,215,46,60,12,1,"Làm Dữ liệu"
+1,136,118,50,14,1,"Đồng ý"
+2,191,118,50,14,1,"Hủy"
+9,246,118,50,14,1,"Trợ giúp"
+12252,6,118,63,14,1,"Đặt làm &Mặc định"
+
+[DIALOG 12300]
+210,131,1,"Tìm kiếm"
+13000,28,11,174,1,1,""
+13001,9,7,17,8,1,"&Tìm"
+12301,16,17,182,64,1,""
+13002,38,47,164,1,1,""
+13003,9,43,34,8,1,"Tùy chọn"
+12302,16,53,104,12,1,"Tìm kiếm theo &hướng trước"
+12303,16,65,98,12,1,"Tìm kiếm theo &hướng sau"
+12304,113,53,57,12,1,"&Toàn bộ từ"
+12305,113,65,86,12,1,"&Phân biệt hoa thường"
+12306,113,77,80,12,1,"&Biểu thức chính quy"
+13004,8,102,194,1,1,""
+1,20,110,50,14,1,"Đồng ý"
+2,80,110,50,14,1,"Hủy"
+9,140,110,50,14,1,"Trợ giúp"
+
+[DIALOG 12400]
+123,54,1,"Đến Bản ghi"
+13000,8,9,31,8,1,"&Bản ghi:"
+100,40,7,74,12,1,""
+1,8,32,50,14,1,"Đồng ý"
+2,65,32,50,14,1,"Hủy"
+
+[STRINGTABLE 0]
+11089,1,"Trình xem Cơ sở Dữ liệu"
+11090,1,"Hiển thị các tệp cơ sở dữ liệu dBase, FoxPro và CSV."
+11092,1,"Về Plugin"
+11101,1,"Một số cửa sổ Trình xem Cơ sở Dữ liệu đã được mở. Bạn có muốn đóng chúng không?"
+
+[STRINGTABLE 1]
+11110,1,"Hết bộ nhớ."
+11111,1,"Tệp có định dạng cơ sở dữ liệu không được nhận dạng."
+11112,1,"Không tìm thấy tệp."
+11113,1,"Lỗi khi đọc tệp cơ sở dữ liệu. Nó có thể đã bị cắt ngắn."
+11114,1,"Lỗi khi ghi tệp cơ sở dữ liệu."
+11115,1,"Lỗi khi tìm kiếm tệp cơ sở dữ liệu."
+11116,1,"Tệp ghi chú không có sẵn."
+11117,1,"Tệp ghi chú bị hỏng."
+
+[STRINGTABLE 2]
+11120,1,"Tệp Cơ sở Dữ liệu (*.csv;*.dbf;*.jsonl;*.txt)|*.csv;*.dbf;*.jsonl;*.txt|Tất cả các Tệp (*.*)|*.*|"
+11121,1,"Cỡ %d pt. %s (%s)"
+11122,1,"Cấu hình đã được mở."
+11123,1,"Tên"
+11124,1,"Loại"
+11125,1,"Rộng"
+11126,1,"Thập phân"
+11130,1,"dBase II"
+11131,1,"dBase III"
+11132,1,"dBase IV"
+11133,1,"dBase V"
+11134,1,"Visual dBase 7"
+11135,1,"FoxPro"
+
+[STRINGTABLE 3]
+11136,1,"Không xác định"
+11140,1,"Ký tự"
+11141,1,"Số"
+11142,1,"Logic"
+11143,1,"Ngày"
+11144,1,"Ghi chú"
+11145,1,"Điểm động"
+11146,1,"Nhị phân"
+11147,1,"Chung"
+11148,1,"Hình ảnh"
+11149,1,"Tiền tệ"
+11150,1,"Ngày/Giờ"
+11151,1,"Số nguyên"
+
+[STRINGTABLE 4]
+11152,1,"Không xác định"
+11153,1,"Gấp đôi"
+11154,1,"Dấu thời gian"
+11155,1,"Tự động tăng"
+11160,1,"Ít nhất một trường phải hiển thị."
+11162,1,"Không có trường hợp lệ nào trong cơ sở dữ liệu này."
+11163,1,"Đúng"
+11164,1,"Sai"
+11165,1,"Đã sửa"
+11166,1,"Kích thước"
+11167,1,"Phiên bản"
+
+[STRINGTABLE 5]
+11168,1,"Số lượng bản ghi"
+11169,1,"Số lượng trường"
+11170,1,"Số lượng trường ghi chú"
+11171,1,"Kích thước đầu"
+11172,1,"Kích thước bản ghi"
+11173,1,"Trang mã"
+
+[STRINGTABLE 6]
+11194,1,"Lỗi Biểu thức Chính quy"
+11195,1,"Tìm kiếm"
+11196,1,"Không thể tìm thấy chuỗi '%s'."
+11197,1,"Không thể tìm thấy kết quả khớp cho biểu thức chính quy '%s'."
+
+[STRINGTABLE 7]
+11200,1,"&Tệp"
+11201,1,"&Mở...\tCtr+O"
+11202,1,"&Làm mới\tCtr+R"
+11203,1,"&Thuộc tính...\tCtrl+F1"
+11204,1,"&Tệp khác"
+11205,1,"&Trước\tBackspace"
+11206,1,"&Kế\tSpace"
+11207,1,"&Trước đã chọn\tCtrl+Backspace"
+11208,1,"&Kế đã chọn\tCtrl+Space"
+11209,1,"&Đầu\tShift+Backspace"
+11210,1,"&Cuối\tShift+Space"
+11211,1,"Tho&át\tAlt+F4"
+
+[STRINGTABLE 8]
+11217,1,"&Sửa"
+11218,1,"&Sao chép\tCtrl+C"
+11219,1,"&Chọn tất cả\tCtrl+A"
+11220,1,"&Tìm...\tCtrl+F"
+11221,1,"Tìm &Kế\tCtrl+N"
+11222,1,"Tìm &Trước\tCtrl+P"
+11223,1,"&Bật tắt Dấu trang\tCtrl+F2"
+11224,1,"&Kế Dấu trang\tF2"
+11225,1,"&Trước Dấu trang\tShift+F2"
+11226,1,"Xóa &Tất cả Dấu trang\tCtrl+Shift+F2"
+11230,1,"&Xem"
+11231,1,"&Đến Bản ghi...\tG"
+
+[STRINGTABLE 9]
+11232,1,"&Trường...\tI"
+11233,1,"&Toàn màn hình\tF11"
+
+[STRINGTABLE 10]
+11250,1,"&Chuyển đổi"
+11251,1,"&Tự động chọn"
+11252,1,"&Không Chuyển đổi"
+11253,1,"Đặt làm Mặc định"
+11254,1,"Kế\tF8"
+11255,1,"Trước\tShift+F8"
+
+[STRINGTABLE 11]
+11270,1,"&Tùy chọn"
+11271,1,"C&SV Tùy chọn..."
+11272,1,"&Cấu hình..."
+
+[STRINGTABLE 12]
+11280,1,"&Trợ giúp"
+11281,1,"&Về..."
+11282,1,"&Nội dung\tF1"
+11283,1,"&Chỉ mục..."
+11284,1,"&Tìm kiếm..."
+
+[STRINGTABLE 13]
+11500,1,"Sao chép\tCtrl+C"
+11501,1,"Mở\tCtrl+O"
+11502,1,"Tìm\tCtrl+F"
+11503,1,"Thuộc tính\tCtrl+F1"
+
+[STRINGTABLE 14]
+11504,1,"Toàn màn hình\tF11"
+11505,1,"Bản ghi hiện tại/Số lượng bản ghi\tG"
+
+[STRINGTABLE 15]
+11520,1,"Sử dụng &phông chữ mặc định"
+11521,1,"Sử dụng &phông chữ tùy chỉnh..."
+11522,1,"phông chữ mặc định"
+11523,1,"phông chữ tùy chỉnh"
+

@@ -6,6 +6,7 @@
 // | 2026-11-11 | Route Escape through the explicit Branch Stop action. | Preserve first-scan results while keeping Quick Search priority. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Carry the disk directory size marker across refresh. | Restrict private row metadata to disk listings. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Retain the partial size marker on a refresh. | Preserve a visibly partial directory total. | #731 | GPT-6.1 Sol |
+// | 2026-11-12 | Preserve the panel frame while refreshing a directory listing. | Prevent activation refresh from briefly painting its temporary empty listing. | | openai/gpt-6-luna-pro |
 // | 2026-11-05 | Survive faulty shell extension SEH in panel menu messages. | New submenu and ContextMenu HandleMenuMsg must not terminate Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
@@ -2533,6 +2534,25 @@ void CFilesWindow::RefreshDirectory(BOOL probablyUselessRefresh, BOOL forceReloa
 
     // if it's an FS, we need to prepare objects for the new listing separately (they'll be attached later)
     OnlyDetachFSListing = Is(ptPluginFS);
+
+    class CFilesBoxPaintSuppression
+    {
+    private:
+        CFilesBox* FilesBox;
+
+    public:
+        CFilesBoxPaintSuppression(CFilesBox* filesBox, BOOL enabled) : FilesBox(enabled ? filesBox : NULL)
+        {
+            if (FilesBox != NULL)
+                FilesBox->BeginPaintSuppression();
+        }
+
+        ~CFilesBoxPaintSuppression()
+        {
+            if (FilesBox != NULL)
+                FilesBox->EndPaintSuppression();
+        }
+    } paintSuppression(ListBox, !OnlyDetachFSListing);
 
     // we'll backup the icon-cache for later transfer of loaded icons to the new icon-cache
     BOOL oldIconCacheValid = IconCacheValid;

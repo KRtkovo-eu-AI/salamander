@@ -1,0 +1,75 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\indonesian\automation\automation.atp"
+TEXTVERSION,"2.9 (x64)"
+VERSION,"2,9,0,197"
+
+[TRANSLATION]
+LANGID,1057
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"indonesian (automatic AI translation)"
+
+[DIALOG 100]
+205,64,1,"Kotak Input"
+1150,8,8,189,8,1,"Prompt:"
+101,8,18,189,12,1,""
+1,48,42,50,14,1,"OK"
+2,107,42,50,14,1,"Batal"
+
+[DIALOG 101]
+332,143,1,"Konfigurasi Otomatisasi"
+375,8,9,67,8,1,"Direktori &Skrip:"
+371,8,19,316,73,1,""
+1001,8,102,105,10,1,"Aktifkan &debugging skrip"
+1,75,121,50,14,1,"OK"
+2,141,121,50,14,1,"Batal"
+9,207,121,50,14,1,"&Bantuan"
+
+[MENU 106]
+0,1,"[POPUP]"
+40013,1,"Jelajahi…"
+40014,1,"Direktori Salamander"
+40015,1,"Variabel Lingkungan"
+
+[STRINGTABLE 0]
+1,1,"Otomatisasi"
+2,1,"Mengotomatiskan tugas umum menggunakan skrip."
+3,1,"Tentang Plugin"
+
+[STRINGTABLE 1]
+128,1,"Kesalahan Skrip Otomatisasi"
+129,1,"Baris:\t%u\r\n"
+130,1,"Kolom:\t%u\r\n"
+131,1,"Kesalahan:\t%s"
+132,1,"Jalankan Skrip Terpilih"
+134,1,"Kemajuan Operasi"
+135,1,"Sumber:\t%s\r\n"
+136,1,"Buka Menu Skrip"
+137,1,"(tidak ada skrip)"
+138,1,"Gagal menjalankan skrip '%s'.\r\n%s"
+139,1,"Kesalahan tidak dikenal."
+140,1,"1\t&Batalkan"
+141,1,"1\t&Debug\t2\t&Batalkan"
+142,1,"Direktori Skrip"
+143,1,"Pilih direktori repositori skrip."
+
+[STRINGTABLE 2]
+144,1,"Batalkan Skrip"
+145,1,"Batalkan Skrip yang Berjalan\tCtrl+Break"
+146,1,"Jendela Open Samandarin dikunci oleh plugin Otomatisasi. Harap tunggu sampai skrip selesai dijalankan."
+147,1,"Gagal menginisialisasi mesin skrip."
+
+[STRINGTABLE 3]
+256,1,"Arsip tidak valid."
+257,1,"Jalur saat ini tidak dapat ditutup."
+258,1,"Jalur terpotong."
+259,1,"Properti tidak dapat diubah atau metode %s tidak dapat dipanggil saat jendela ditampilkan."
+260,1,"Properti tidak dapat diubah atau metode %s tidak dapat dipanggil saat jendela disembunyikan."
+261,1,"Gagal memuat plugin."
+262,1,"Plugin gagal."
+263,1,"File tidak dapat dipindahkan ke cache disk."
+264,1,"Kesalahan sintaks mask file."
+265,1,"Hanya komponen yang dapat ditambahkan ke kontainer."
+266,1,"Formulir tidak dapat ditambahkan ke kontainer."
+267,1,"Eksekusi skrip dibatalkan oleh pengguna."
+

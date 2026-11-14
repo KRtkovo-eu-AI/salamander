@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Convert native menu labels to the active menu text encoding. | Preserve localized shell menu labels when the system code page is not UTF-8. | https://github.com/KRtkovo-eu-AI/salamander/issues/752 | GPT-6 (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -1225,23 +1228,26 @@ BOOL CMenuPopup::GetStatesFromHWindowsMenu(HMENU hMenu)
 #define MIIM_FTYPE 0x00000100
 #endif
 
-static BOOL WideMenuTextToUtf8(const WCHAR* text, int len, char* buffer, int bufferSize, const char** utf8Text, int* utf8Len)
+static BOOL WideMenuTextToMenuEncoding(const WCHAR* text, int len, char* buffer, int bufferSize, const char** menuText, int* menuTextLen)
 {
     if (text == NULL)
     {
-        *utf8Text = "";
-        *utf8Len = 0;
+        *menuText = "";
+        *menuTextLen = 0;
         return TRUE;
     }
     if (len < 0)
         len = (int)wcslen(text);
 
-    int converted = WideCharToMultiByte(CP_UTF8, 0, text, len, buffer, bufferSize - 1, NULL, NULL);
+    // CMenuItem ANSI drawing uses the active Windows code page. Always storing
+    // native shell labels as UTF-8 makes localized text render too wide on
+    // systems whose ACP is not UTF-8, clipping the end of menu labels.
+    int converted = WideCharToMultiByte(GetACP(), 0, text, len, buffer, bufferSize - 1, NULL, NULL);
     if (converted == 0 && len > 0)
         return FALSE;
     buffer[converted] = 0;
-    *utf8Text = buffer;
-    *utf8Len = converted;
+    *menuText = buffer;
+    *menuTextLen = converted;
     return TRUE;
 }
 
@@ -1324,7 +1330,7 @@ BOOL CMenuPopup::LoadFromHandle()
         {
             const char* p;
             int len;
-            if (!WideMenuTextToUtf8(mii.dwTypeData, mii.dwTypeData != NULL ? (int)wcslen(mii.dwTypeData) : 0,
+            if (!WideMenuTextToMenuEncoding(mii.dwTypeData, mii.dwTypeData != NULL ? (int)wcslen(mii.dwTypeData) : 0,
                                     utf8Buff, _countof(utf8Buff), &p, &len))
             {
                 TRACE_E(LOW_MEMORY);

@@ -1,0 +1,17 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\japanese\folders\folders.atp"
+TEXTVERSION,"0.4 (x64)"
+VERSION,"0,4,0,197"
+
+[TRANSLATION]
+LANGID,1041
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"Japanese (ja-JP) UI translation"
+
+[STRINGTABLE 0]
+1000,1,"フォルダー"
+1001,1,"プラグインについて"
+1003,1,"デスクトップ、コントロール パネル、ごみ箱などのフォルダーを参照します。"
+1004,1,"'\tデスクトップ"
+

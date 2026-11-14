@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Keep the previous panel frame visible during directory replacement. | Avoid exposing the temporary empty listing while activation refresh re-enumerates the directory. | | openai/gpt-6-luna-pro |
 // | 2026-11-05 | Forward panel ContextMenu messages to SafeHandleContextMenuMsg2. | Owner-draw HandleMenuMsg SEH must stay out of WindowProc (C2712). | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
@@ -187,6 +188,7 @@ CFilesBox::CFilesBox(CFilesWindow* parent)
     BottomBar.RelayWindow = this;
     Parent = parent;
     HPrivateDC = NULL;
+    PaintSuppressionCount = 0;
     HVScrollBar = NULL;
     HHScrollBar = NULL;
     ZeroMemory(&ClientRect, sizeof(ClientRect));
@@ -325,8 +327,32 @@ int CFilesBox::GetColumnsCount()
     return 1;
 }
 
+void CFilesBox::BeginPaintSuppression()
+{
+    ++PaintSuppressionCount;
+}
+
+void CFilesBox::EndPaintSuppression()
+{
+    if (PaintSuppressionCount <= 0)
+    {
+        TRACE_E("CFilesBox::EndPaintSuppression called without matching begin");
+        return;
+    }
+
+    if (--PaintSuppressionCount == 0 && HWindow != NULL)
+    {
+        InvalidateRect(HWindow, NULL, FALSE);
+        if (HeaderLine.HWindow != NULL)
+            InvalidateRect(HeaderLine.HWindow, NULL, FALSE);
+    }
+}
+
 void CFilesBox::PaintAllItems(HRGN hUpdateRgn, DWORD drawFlags)
 {
+    if (PaintSuppressionCount > 0)
+        return;
+
     int index = TopIndex;
 
     if (hUpdateRgn != NULL)
@@ -610,6 +636,9 @@ void CFilesBox::PaintAllItems(HRGN hUpdateRgn, DWORD drawFlags)
 
 void CFilesBox::PaintItem(int index, DWORD drawFlags)
 {
+    if (PaintSuppressionCount > 0)
+        return;
+
     RECT r;
     if (GetItemRect(index, &r))
     {
@@ -1438,6 +1467,9 @@ CFilesBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_ERASEBKGND:
     {
+        if (PaintSuppressionCount > 0)
+            return TRUE;
+
         if (DarkModeIsWindowsDarkSchemeSelected())
         {
             RECT r;
@@ -1455,6 +1487,12 @@ CFilesBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         PAINTSTRUCT ps;
         HDC paintDC = HANDLES(BeginPaint(HWindow, &ps));
+        if (PaintSuppressionCount > 0)
+        {
+            HANDLES(EndPaint(HWindow, &ps));
+            return 0;
+        }
+
         RECT clientRect;
         GetClientRect(HWindow, &clientRect);
         int width = clientRect.right - clientRect.left;
@@ -2887,7 +2925,7 @@ void CFilesBox::LayoutChilds(BOOL updateAndCheck)
 
 void CFilesBox::PaintHeaderLine()
 {
-    if (HeaderLine.HWindow != NULL)
+    if (PaintSuppressionCount == 0 && HeaderLine.HWindow != NULL)
     {
         HDC hDC = HANDLES(GetDC(HeaderLine.HWindow));
         HeaderLine.PaintAllItems(hDC, NULL);

@@ -1,0 +1,41 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\bulgarian\webview2renderviewer\webview2renderviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1026
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"bulgarian (automatic AI translation)"
+
+[STRINGTABLE 0]
+46,1,"Преглед на WebView2"
+47,1,"За приставката"
+
+[STRINGTABLE 1]
+48,1,"Преглед, който показва визуализирани HTML, Markdown и уеб документи чрез WebView2."
+49,1,"open.samandarin.net"
+50,1,"Не може да се подготви необходимото за прегледа събитие за синхронизация."
+51,1,"Избраният файл е твърде голям за отваряне. Файлове над 32 MB не се поддържат."
+52,1,"&Файл"
+53,1,"&Изглед"
+54,1,"&Изход\tEsc"
+55,1,"&Опресни\tF5"
+56,1,"&Увеличи\tCtrl++"
+57,1,"&Отдалечи\tCtrl+-"
+58,1,"&Нули\tCtrl+0"
+59,1,"Зареждане..."
+60,1,"Готово"
+61,1,"Прегледът WebView2 не може да се инициализира."
+62,1,"Избраният файл не може да бъде отворен."
+63,1,"Показване на &номерата на редовете"
+
+[STRINGTABLE 2]
+64,1,"&Увиване\tF2"
+65,1,"Показване на &интервалите"
+66,1,"&Редактиране"
+67,1,"&Копи\tCtrl+C"
+68,1,"&Всички\tCtrl+A"
+69,1,"&Печат...\tCtrl+P"
+

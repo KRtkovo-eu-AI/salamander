@@ -1,0 +1,12 @@
+{
+  "name": "JSON Viewer (nodeJS)",
+  "description": "JSON Viewer .NET için hafif bir alternatiftir. JSON dosyalarını Firefox/Chrome JSON Viewer (pd4d10/json-viewer) ile WebView2 içinde görüntüler.",
+  "viewers": {
+    "JSON Viewer (nodeJS)": "JSON Viewer (nodeJS)"
+  },
+  "strings": {
+    "invalidFallback": "Dosya geçerli JSON değil ve Prism metin görüntüleyicisi açılamadı.",
+    "viewerOpenFailed": "WebView2 belge görüntüleyicisi açılamadı.\nSalamatrix'i (paylaşılan Viewer Frame) yükleyin ve WebView2 Runtime'ın kullanılabilir olduğundan emin olun.",
+    "noPath": "JSON Viewer (nodeJS) için dosya yolu sağlanmadı."
+  }
+}

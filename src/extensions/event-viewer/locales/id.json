@@ -1,0 +1,61 @@
+{
+  "name": "Event Viewer",
+  "description": "Menjelajahi log peristiwa Windows di panel sistem berkas Salamander.",
+  "commands": {
+    "EventViewer.open": "Buka Event Viewer"
+  },
+  "fileSystems": {
+    "events": {
+      "name": "Event Viewer",
+      "rootItems": {
+        "custom-views": "Tampilan Kustom",
+        "windows-logs": "Log Windows",
+        "applications-services": "Log Aplikasi dan Layanan"
+      },
+      "columns": {
+        "level": {
+          "name": "Tingkat",
+          "description": "Tingkat keparahan peristiwa"
+        },
+        "logged": {
+          "name": "Tanggal dan Waktu",
+          "description": "Waktu peristiwa dicatat"
+        },
+        "source": {
+          "name": "Sumber",
+          "description": "Penyedia peristiwa"
+        },
+        "eventId": {
+          "name": "ID Peristiwa",
+          "description": "Pengidentifikasi peristiwa"
+        },
+        "task": {
+          "name": "Kategori Tugas",
+          "description": "Kategori tugas peristiwa"
+        }
+      },
+      "actions": {
+        "openEvent": "Properti Peristiwa"
+      }
+    }
+  },
+  "administrativeEvents": "Peristiwa Administratif",
+  "eventName": "Peristiwa {0}, {1} [{2}]",
+  "windowTitle": "Properti Peristiwa - Peristiwa {0}, {1}",
+  "general": "Umum",
+  "descriptionLabel": "Deskripsi",
+  "details": "Detail",
+  "close": "Tutup",
+  "messageUnavailable": "Pesan peristiwa tidak tersedia.",
+  "textTruncated": "Teks dipotong.",
+  "openErrorTitle": "Tidak Dapat Membuka Peristiwa",
+  "openError": "Peristiwa tidak dapat dibuka.\r\n\r\n{0}",
+  "metadata": "Nama Log: {0}\r\nSumber: {1}\r\nID Peristiwa: {2}    Tingkat: {3}\r\nDicatat: {4}    Kategori Tugas: {5}\r\nPengguna: {6}    Komputer: {7}\r\nID Rekaman: {8}",
+  "levels": {
+    "critical": "Kritis",
+    "error": "Kesalahan",
+    "warning": "Peringatan",
+    "information": "Informasi",
+    "verbose": "Rinci"
+  }
+}

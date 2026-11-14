@@ -1,12 +1,12 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\french\textviewer\textviewer.atp"
-TEXTVERSION,"1.5 (x64)"
-VERSION,"1,5,0,196"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
 
 [TRANSLATION]
 LANGID,1036
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [DIALOG 8500]
@@ -23,7 +23,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 1]
 48,1,"Visionneuse native qui affiche les fichiers texte avec la coloration syntaxique Prism.js."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Impossible de préparer l’événement de synchronisation requis par la visionneuse."
 52,1,"&Fichier"
 53,1,"&Affichage"

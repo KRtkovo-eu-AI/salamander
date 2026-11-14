@@ -125,7 +125,7 @@ if Salamander.command_handler == "run" then
     add("colorarrowbutton","color-text","ABC",215,204,33,14,{text_color=0,background_color=0xffff})
     add("groupbox","hyperlink-group","CGUIHyperLinkAbstract",269,4,185,48)
     add("label","open-label","SetActionOpen",277,17,75,8)
-    add("hyperlink","open-link","www.altap.cz",365,17,47,8,{style_flags=0x14,action_open="https://www.altap.cz"})
+    add("hyperlink","open-link","samandarin.net",365,17,47,8,{style_flags=0x14,action_open="https://samandarin.net"})
     add("label","command-label","SetActionPostCommand",277,27,81,8)
     add("hyperlink","command-link","Say something!",365,27,55,8,{style_flags=0x14,action_command=0x7f01})
     add("label","hint-label","SetActionShowHint",277,37,81,8)

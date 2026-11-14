@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\turkish\unchm\unchm.atp"
+TEXTVERSION,"1.7 (x64)"
+VERSION,"1,7,0,197"
+
+[TRANSLATION]
+LANGID,1055
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"turkish (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"UnCHM"
+1001,1,"Dosya açılamıyor."
+1002,1,"Belirtilmemiş hata."
+1003,1,"CHM Arşivi Açılıyor"
+1004,1,"Dosya çıkarılırken hata oluştu."
+1005,1,"Bu dosya işlenemiyor."
+1006,1,"Yetersiz bellek."
+1007,1,"Eklenti Hakkında"
+
+[STRINGTABLE 1]
+1009,1,"CHM dosyalarına göz atın ve dosyaları çıkarın."
+1010,1,"Geçici dizin oluşturulamıyor."
+1011,1,"Geçici dosya silinemiyor."
+1012,1,"Bilinmeyen dosya biçimi veya geçersiz CHM görüntüsü.\n\nCHM görüntüsünün geçerli olduğundan eminseniz bu biçimi desteklememize yardımcı olmak için support@altap.cz adresine başvurun."
+1013,1,"Bu dosya açılamıyor."
+1014,1,"Geçici dosya oluşturulamadı."
+1015,1,"Dosya öznitelikleri ayarlanamıyor."
+1016,1,"'%s' dizini oluşturulamıyor."
+1020,1,"Evet"
+1021,1,"Hayır"
+1022,1,"Hata"
+1023,1,"Uyarı"
+
+[STRINGTABLE 2]
+1032,1,"Eklenti iç hatası."
+
+[STRINGTABLE 3]
+1100,1,"Okuma hatası"
+1101,1,"Yazma hatası"
+
+[STRINGTABLE 4]
+1105,1,"Geçersiz sayı."
+1106,1,"İşlem iptal ediliyor, lütfen bekleyin..."
+1107,1,"CHMLIB Kitaplığı Telif Hakkı © 2001-2010 Jed Wing"
+

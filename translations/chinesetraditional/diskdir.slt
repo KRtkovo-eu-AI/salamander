@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\chinesetraditional\diskdir\diskdir.atp"
+TEXTVERSION,"1.1 (x64)"
+VERSION,"1,1,0,197"
+
+[TRANSLATION]
+LANGID,1028
+AUTHOR,"Open Samandarin"
+WEB,"samandarin.net"
+COMMENT,"chinesetraditional (automatic AI translation)"
+
+[DIALOG 200]
+278,94,1,"建立 DiskDir 目錄檔"
+1004,8,9,33,8,1,"目錄檔："
+1001,42,9,228,8,1,""
+1005,8,23,262,1,1,""
+1002,16,32,100,12,1,"也封裝路徑名稱"
+1003,16,48,126,12,1,"遞迴封裝子目錄"
+1006,8,66,262,1,1,""
+1,84,74,50,14,1,"確定"
+2,144,74,50,14,1,"取消"
+
+[STRINGTABLE 0]
+100,1,"DiskDir"
+101,1,"建立並瀏覽與 Total Commander DiskDir 相容的檔案目錄檔。"
+102,1,"DiskDir"
+103,1,"關於 DiskDir"
+104,1,"原生支援相容於 DiskDir 的目錄檔。\n\n目錄檔只包含名稱、大小和時間戳記，不包含檔案內容。"
+105,1,"DiskDir 目錄檔"
+106,1,"目錄檔路徑無效或過長。"
+107,1,"目錄檔名稱已被目錄使用。"
+108,1,"目錄檔已存在：\n\n"
+109,1,"\n\n要覆寫嗎？"
+110,1,"DiskDir 目錄檔不儲存檔案內容，因此無法移動來源檔案。"
+111,1,"不支援將項目新增至現有的 DiskDir 目錄檔。"
+
+[STRINGTABLE 1]
+112,1,"無法建立 DiskDir 目錄檔。"
+113,1,"目錄檔中記錄的原始檔案無法使用。"
+114,1,"目錄檔中記錄的一或多個原始檔案無法使用。"
+115,1,"無法開啟目錄檔。"
+116,1,"目錄檔太大。"
+117,1,"無法讀取目錄檔。"
+118,1,"UTF-8 目錄檔包含無效文字。"
+119,1,"此檔案不是有效的 DiskDir 目錄檔。"
+120,1,"無法寫入 DiskDir 目錄檔。"
+

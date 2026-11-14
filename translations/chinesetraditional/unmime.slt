@@ -1,0 +1,40 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\chinesetraditional\unmime\unmime.atp"
+TEXTVERSION,"1.17 (x64)"
+VERSION,"1,17,0,197"
+
+[TRANSLATION]
+LANGID,1028
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"chinesetraditional (automatic AI translation)"
+
+[DIALOG 101]
+251,111,1,"UnMIME 設定"
+2000,7,7,40,8,1,"清單選項"
+2001,49,11,196,1,1,""
+1000,18,20,70,10,1,"列出郵件&標頭"
+1001,18,35,80,10,1,"列出郵件&本文"
+1003,31,50,210,10,1,"若非 US-ASCII，則將&字元集資訊附加至檔名"
+1002,18,65,69,10,1,"列出&附件"
+2002,6,82,239,1,1,""
+1,137,90,50,14,1,"確定"
+2,194,90,50,14,1,"取消"
+
+[STRINGTABLE 0]
+1,1,"UnMIME"
+2,1,"無法開啟檔案。"
+3,1,"記憶體不足。"
+4,1,"無法將壓縮檔項目加入檔案清單。"
+5,1,"此檔案包含一或多個使用未知編碼的區塊。\n這些區塊不會解碼。"
+6,1,"寫入錯誤"
+7,1,"正在解壓縮郵件檔 - %s"
+8,1,"正在解壓縮: "
+9,1,"正在剖析檔案..."
+10,1,"一或多個 %s 區塊已損毀或格式\n未知，因此不會解碼。"
+11,1,"一或多個 %s 區塊的 CRC 錯誤。\n這些區塊不會解碼。"
+12,1,"瀏覽並解壓縮 MIME/Base64、UU/XXEncode、yEncode 及 BinHex 檔案。"
+13,1,"關於外掛程式"
+14,1,"警告: 此檔案包含 Mac 資源分支。\n此分支不會解壓縮。"
+15,1,"&不要再顯示此訊息"
+

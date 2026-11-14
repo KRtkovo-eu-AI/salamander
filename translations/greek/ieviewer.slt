@@ -1,0 +1,18 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\greek\ieviewer\ieviewer.atp"
+TEXTVERSION,"1.14 (x64)"
+VERSION,"1,14,0,197"
+
+[TRANSLATION]
+LANGID,1032
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"greek (automatic AI translation)"
+
+[STRINGTABLE 0]
+10100,1,"Προβολή Internet Explorer"
+10101,1,"Δεν είναι δυνατό το άνοιγμα της Προβολής Internet Explorer.\nΑναφέρετε το πρόβλημα στη διεύθυνση support@altap.cz."
+10102,1,"Σφάλμα"
+10103,1,"Ελαφριά προβολή εγγράφων HTML και XML με βάση τον Internet Explorer."
+10105,1,"Σχετικά με την προσθήκη"
+

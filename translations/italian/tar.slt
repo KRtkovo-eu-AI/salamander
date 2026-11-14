@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\tar\tar.atp"
-TEXTVERSION,"3.35 (x64)"
-VERSION,"3,35,0,196"
+TEXTVERSION,"3.36 (x64)"
+VERSION,"3,36,0,197"
 
 [TRANSLATION]
 LANGID,1040
 AUTHOR,"Open Samandarin"
-WEB,"www.altap.cz"
-COMMENT,"English version"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
 
 [STRINGTABLE 0]
 11200,1,"Errore del plugin TAR"

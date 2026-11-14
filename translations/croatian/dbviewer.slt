@@ -1,0 +1,228 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\croatian\dbviewer\dbviewer.atp"
+TEXTVERSION,"1.28 (x64)"
+VERSION,"1,28,0,197"
+
+[TRANSLATION]
+LANGID,1050
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"croatian (automatic AI translation)"
+
+[DIALOG 12200]
+235,181,1,"Svojstva"
+1,179,162,50,14,1,"U redu"
+13000,4,155,227,1,1,""
+12201,5,5,224,143,1,""
+
+[DIALOG 12220]
+282,105,1,"Konfiguracija preglednika baza podataka"
+13000,6,10,270,35,1,"Font"
+12221,13,23,50,14,1,"&Font"
+12222,69,23,200,14,1,""
+13001,6,48,270,27,1,"Položaj prozora"
+12223,14,58,85,12,1,"&Spremi pri zatvaranju"
+12224,107,58,174,12,1,"Po&stavi na položaj glavnog prozora Salamandera"
+12225,13,85,60,14,1,"Mogućnosti CSV-a..."
+1,113,85,50,14,1,"U redu"
+2,168,85,50,14,1,"Odustani"
+9,223,85,50,14,1,"Pomoć"
+
+[DIALOG 12240]
+282,178,1,"Polja"
+12241,6,6,270,142,1,""
+13000,4,153,274,1,1,""
+12242,6,159,69,14,1,"&Vrati zadano"
+1,115,159,50,14,1,"U redu"
+2,170,159,50,14,1,"Odustani"
+9,225,159,50,14,1,"Pomoć"
+
+[DIALOG 12250]
+303,137,1,"Mogućnosti CSV-a"
+13000,6,6,90,101,1,"&Razdjelnik"
+12264,15,18,74,12,1,"Automatski odabir"
+12261,15,32,60,12,1,"Tabulator"
+12260,15,46,65,12,1,"Točka-zarez (;)"
+12259,15,60,60,12,1,"Zarez (,)"
+12258,15,74,60,12,1,"Razmak ( )"
+12257,15,88,35,12,1,"Ostalo"
+12256,49,88,16,12,1,""
+13001,106,6,90,101,1,"Tekstovni &kvalifikator"
+12262,115,18,74,12,1,"Automatski odabir"
+12255,115,32,89,12,1,"Dvostruki navodnici (")"
+12254,115,46,60,12,1,"Navodnici (')"
+12253,115,60,60,12,1,"Ništa"
+13002,206,6,90,101,1,"&Prvi redak"
+12263,215,18,74,12,1,"Automatski odabir"
+12265,215,32,74,12,1,"Kao nazivi stupaca"
+12266,215,46,60,12,1,"Kao podaci"
+1,136,118,50,14,1,"U redu"
+2,191,118,50,14,1,"Odustani"
+9,246,118,50,14,1,"Pomoć"
+12252,6,118,63,14,1,"Postavi kao &zadano"
+
+[DIALOG 12300]
+210,131,1,"Traži"
+13000,28,11,174,1,1,""
+13001,9,7,19,8,1,"&Traži"
+12301,16,17,182,64,1,""
+13002,38,47,164,1,1,""
+13003,9,43,40,8,1,"Mogućnosti"
+12302,16,53,66,12,1,"Traži una&prijed"
+12303,16,65,72,12,1,"Traži una&trag"
+12304,113,53,57,12,1,"&Cijele riječi"
+12305,113,65,102,12,1,"&Razlikuj velika i mala slova"
+12306,113,77,75,12,1,"&Regularni izraz"
+13004,8,102,194,1,1,""
+1,20,110,50,14,1,"U redu"
+2,80,110,50,14,1,"Odustani"
+9,140,110,50,14,1,"Pomoć"
+
+[DIALOG 12400]
+123,54,1,"Idi na zapis"
+13000,8,9,29,8,1,"&Zapis:"
+100,40,7,74,12,1,""
+1,8,32,50,14,1,"U redu"
+2,65,32,50,14,1,"Odustani"
+
+[STRINGTABLE 0]
+11089,1,"Preglednik baza podataka"
+11090,1,"Prikazuje datoteke baza podataka dBase, FoxPro i CSV."
+11092,1,"O dodatku"
+11101,1,"Otvoreni su neki prozori preglednika baza podataka. Želite li ih zatvoriti?"
+
+[STRINGTABLE 1]
+11110,1,"Nema dovoljno memorije."
+11111,1,"Datoteka je u neprepoznatom formatu baze podataka."
+11112,1,"Datoteka nije pronađena."
+11113,1,"Pogreška pri čitanju datoteke baze podataka. Možda je skraćena."
+11114,1,"Pogreška pri pisanju datoteke baze podataka."
+11115,1,"Pogreška pri traženju položaja u datoteci baze podataka."
+11116,1,"Datoteka memo nije dostupna."
+11117,1,"Datoteka memo je oštećena."
+
+[STRINGTABLE 2]
+11120,1,"Datoteke baza podataka (*.csv;*.dbf;*.jsonl;*.txt)|*.csv;*.dbf;*.jsonl;*.txt|Sve datoteke (*.*)|*.*|"
+11121,1,"%d pt. %s (%s)"
+11122,1,"Konfiguracija je već otvorena."
+11123,1,"Naziv"
+11124,1,"Vrsta"
+11125,1,"Širina"
+11126,1,"Decimale"
+11130,1,"dBase II"
+11131,1,"dBase III"
+11132,1,"dBase IV"
+11133,1,"dBase V"
+11134,1,"Visual dBase 7"
+11135,1,"FoxPro"
+
+[STRINGTABLE 3]
+11136,1,"Nepoznato"
+11140,1,"Znak"
+11141,1,"Broj"
+11142,1,"Logička vrijednost"
+11143,1,"Datum"
+11144,1,"Bilješka"
+11145,1,"Broj s pomičnim zarezom"
+11146,1,"Binarno"
+11147,1,"Općenito"
+11148,1,"Slika"
+11149,1,"Valuta"
+11150,1,"Datum/vrijeme"
+11151,1,"Cijeli broj"
+
+[STRINGTABLE 4]
+11152,1,"Nepoznato"
+11153,1,"Dvostruka preciznost"
+11154,1,"Vremenska oznaka"
+11155,1,"Automatsko uvećanje"
+11160,1,"Barem jedno polje mora biti vidljivo."
+11162,1,"U ovoj bazi podataka nema valjanih polja."
+11163,1,"Točno"
+11164,1,"Netočno"
+11165,1,"Izmijenjeno"
+11166,1,"Veličina"
+11167,1,"Verzija"
+
+[STRINGTABLE 5]
+11168,1,"Broj zapisa"
+11169,1,"Broj polja"
+11170,1,"Broj polja bilješki"
+11171,1,"Veličina zaglavlja"
+11172,1,"Veličina zapisa"
+11173,1,"Stranica koda"
+
+[STRINGTABLE 6]
+11194,1,"Pogreška regularnog izraza"
+11195,1,"Traži"
+11196,1,"Nije moguće pronaći niz '%s'."
+11197,1,"Nije moguće pronaći podudaranje za regularni izraz '%s'."
+
+[STRINGTABLE 7]
+11200,1,"&Datoteka"
+11201,1,"&Otvori...\tCtr+O"
+11202,1,"&Osvježi\tCtr+R"
+11203,1,"S&vojstva...\tCtrl+F1"
+11204,1,"&Ostale datoteke"
+11205,1,"&Prethodni\tBackspace"
+11206,1,"&Sljedeći\tSpace"
+11207,1,"P&rethodni odabrani\tCtrl+Backspace"
+11208,1,"S&ljedeći odabrani\tCtrl+Space"
+11209,1,"&Prvi\tShift+Backspace"
+11210,1,"&Posljednji\tShift+Space"
+11211,1,"Izla&z\tAlt+F4"
+
+[STRINGTABLE 8]
+11217,1,"&Uredi"
+11218,1,"&Kopiraj\tCtrl+C"
+11219,1,"&Odaberi sve\tCtrl+A"
+11220,1,"&Traži...\tCtrl+F"
+11221,1,"Traži &sljedeće\tCtrl+N"
+11222,1,"Traži &prethodno\tCtrl+P"
+11223,1,"&Uključi/isključi oznaku\tCtrl+F2"
+11224,1,"S&ljedeća oznaka\tF2"
+11225,1,"P&rethodna oznaka\tShift+F2"
+11226,1,"Ukloni &sve oznake\tCtrl+Shift+F2"
+11230,1,"&Prikaz"
+11231,1,"&Idi na zapis...\tG"
+
+[STRINGTABLE 9]
+11232,1,"&Polja...\tI"
+11233,1,"&Cijeli zaslon\tF11"
+
+[STRINGTABLE 10]
+11250,1,"&Pretvori"
+11251,1,"&Automatski odabir"
+11252,1,"&Nemoj pretvarati"
+11253,1,"Postavi kao zadano"
+11254,1,"Sljedeće\tF8"
+11255,1,"Prethodno\tShift+F8"
+
+[STRINGTABLE 11]
+11270,1,"&Mogućnosti"
+11271,1,"Mogućnosti C&SV-a..."
+11272,1,"&Konfiguracija..."
+
+[STRINGTABLE 12]
+11280,1,"&Pomoć"
+11281,1,"&O programu..."
+11282,1,"&Sadržaj\tF1"
+11283,1,"&Kazalo..."
+11284,1,"&Pretraži..."
+
+[STRINGTABLE 13]
+11500,1,"Kopiraj\tCtrl+C"
+11501,1,"Otvori\tCtrl+O"
+11502,1,"Traži\tCtrl+F"
+11503,1,"Svojstva\tCtrl+F1"
+
+[STRINGTABLE 14]
+11504,1,"Cijeli zaslon\tF11"
+11505,1,"Trenutačni zapis/broj zapisa\tG"
+
+[STRINGTABLE 15]
+11520,1,"Koristi &zadani font"
+11521,1,"Koristi &prilagođeni font..."
+11522,1,"zadani font"
+11523,1,"prilagođeni font"
+

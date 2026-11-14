@@ -1,0 +1,75 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\portuguese\pak\pak.atp"
+TEXTVERSION,"1.74 (x64)"
+VERSION,"1,74,0,197"
+
+[TRANSLATION]
+LANGID,1046
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"portuguese (automatic AI translation)"
+
+[DIALOG 100]
+194,73,1,"Otimizar arquivo PAK"
+300,8,9,98,8,1,"Tamanho dos dados válidos:"
+101,64,9,118,8,1,""
+301,8,20,92,8,1,"Tamanho total do arquivo:"
+102,64,20,118,8,1,""
+302,8,31,76,8,1,"Espaço desperdiçado:"
+103,64,31,118,8,1,""
+303,8,44,178,1,1,""
+1,41,53,50,14,1,"Otimizar"
+2,101,53,50,14,1,"Cancelar"
+
+[STRINGTABLE 0]
+500,1,"Não foi possível abrir o arquivo: %s"
+501,1,"Não foi possível inicializar a interface paklib. Já há um arquivo aberto."
+502,1,"Não foi possível abrir o arquivo. Já há um arquivo aberto."
+503,1,"Não foi possível obter o tamanho do arquivo: %s"
+504,1,"Formato de dados inválido."
+505,1,"Memória insuficiente."
+506,1,"diretório central PAK atual"
+507,1,"Não foi possível definir o ponteiro do arquivo: %s"
+508,1,"Não foi possível ler o arquivo: %s"
+509,1,"Não foi possível obter o ponteiro do arquivo: %s"
+510,1,"Não foi possível gravar no arquivo: %s"
+511,1,"Não foi possível adicionar o arquivo porque o nome é longo demais."
+
+[STRINGTABLE 1]
+1000,1,"PAK"
+1001,1,"Memória insuficiente."
+1002,1,"Não foi possível adicionar o arquivo à lista."
+1003,1,"Não foi possível carregar paklib.dll ou obter o endereço do procedimento: "
+1004,1,"Descompactando arquivo PAK - %s"
+1005,1,"preparando dados..."
+1006,1,"descompactando..."
+1007,1,"descompactando: "
+
+[STRINGTABLE 2]
+1008,1,"Não é possível concluir a operação porque o caminho é longo demais."
+1009,1,"Não foi possível definir o ponteiro do arquivo: "
+1010,1,"Não foi possível obter o ponteiro do arquivo: "
+1011,1,"Não foi possível gravar no arquivo:"
+1013,1,"Não foi possível abrir o arquivo: "
+1014,1,"Não é possível concluir a operação porque a máscara é longa demais."
+1015,1,"Excluindo do arquivo PAK - %s"
+1016,1,"excluindo..."
+1017,1,"excluindo: "
+1018,1,"cancelando a operação, aguarde..."
+1019,1,"Compactando no arquivo PAK - %s"
+1020,1,"Não foi possível adicionar o arquivo: o arquivo é grande demais."
+1021,1,"compactando..."
+1022,1,"Não foi possível adicionar o arquivo porque o nome é longo demais."
+1023,1,"compactando: "
+
+[STRINGTABLE 3]
+1024,1,"Não foi possível ler o arquivo: "
+1025,1,"Não foi possível conectar o plug-in ao Open Samandarin."
+1026,1,"otimizando, aguarde..."
+1027,1,"Otimizando arquivo PAK - %s"
+1028,1,"A exclusão dos arquivos não foi concluída com êxito. Talvez seja necessário executar a otimização PAK no menu do plug-in PAK para evitar desperdício de espaço em disco."
+1029,1,"&Otimizar PAK"
+1030,1,"Desculpe, o plug-in expirou. Verifique nosso site para obter uma versão mais recente."
+1031,1,"Navegar e extrair arquivos PAK do Quake."
+1032,1,"Sobre o plug-in"
+

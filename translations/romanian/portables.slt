@@ -1,12 +1,12 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\romanian\portables\portables.atp"
-TEXTVERSION,"0.6 (x64)"
-VERSION,"0,6,0,196"
+TEXTVERSION,"0.7 (x64)"
+VERSION,"0,7,0,197"
 
 [TRANSLATION]
 LANGID,1048
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]

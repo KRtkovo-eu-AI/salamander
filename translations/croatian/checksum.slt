@@ -1,0 +1,116 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\croatian\checksum\checksum.atp"
+TEXTVERSION,"2.5 (x64)"
+VERSION,"2,5,0,197"
+
+[TRANSLATION]
+LANGID,1050
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"croatian (automatic AI translation)"
+
+[DIALOG 1000]
+344,84,1,"Izračun kontrolnih zbrojeva"
+1001,5,5,334,54,1,"Popis 1"
+1007,5,68,52,8,1,"Izračunavanje:"
+1006,50,68,105,8,1,"Napredak 1"
+1002,162,65,55,14,1,"&Konfiguracija..."
+1003,223,65,55,14,1,"&Spremi..."
+1004,284,65,55,14,1,"&Zaustavi"
+1005,5,68,83,8,1,"savjet za međuspremnik"
+
+[DIALOG 1001]
+189,109,1,"Postavke Checksum"
+300,8,5,174,76,1," Izračun kontrolnih zbrojeva "
+100,15,16,105,10,1,"&CRC/SFV"
+101,15,28,105,10,1,"&MD5"
+102,15,40,105,10,1,"SHA-&1"
+103,15,52,105,10,1,"SHA-&256"
+104,15,64,105,10,1,"SHA-&512"
+1,14,88,50,14,1,"U redu"
+2,69,88,50,14,1,"Odustani"
+9,124,88,50,14,1,"Pomoć"
+
+[DIALOG 2000]
+260,84,1,""
+1001,5,5,250,54,1,"Popis 1"
+1007,5,68,34,8,1,"Provjera:"
+1006,42,68,101,8,1,"Napredak 1"
+2002,5,68,140,8,1,""
+2001,149,65,50,14,1,"&Fokus"
+1004,205,65,50,14,1,"&Zaustavi"
+
+[STRINGTABLE 0]
+1,1,"Checksum"
+2,1,"O dodatku"
+3,1,"Alat za provjeru i izračun kontrolnih zbrojeva SFV, MD5, SHA-1, SHA-256 i SHA-512."
+4,1,"Nema dovoljno memorije"
+5,1,"Pogreška pri otvaranju datoteke"
+6,1,"Pogreška pri čitanju"
+7,1,"Pogreška pri pisanju"
+
+[STRINGTABLE 1]
+40,1,"Preskočeno"
+41,1,"Izračunavanje..."
+42,1,"Otkazano"
+43,1,"Desnom tipkom miša kliknite stavku da biste kopirali kontrolni zbroj u međuspremnik."
+44,1,"Copy &CRC Value to Clipboard\tCtrl+C"
+45,1,"Kopiraj &MD5 u međuspremnik\tCtrl+M"
+46,1,"Kopiraj SHA-&1 u međuspremnik\tCtrl+1"
+47,1,"Kopiraj SHA-&256 u međuspremnik\tCtrl+2"
+
+[STRINGTABLE 2]
+48,1,"Copy SHA-&512 Checksum to Clipboard\tCtrl+5"
+52,1,"Kopiraj &sve vrijednosti u međuspremnik"
+53,1,"&Ukloni\tIzbriši"
+54,1,"Datoteka '%s' već postoji.\nŽelite li je prebrisati?"
+55,1,"Pogreška pri stvaranju datoteke."
+56,1,"Datoteke preskočene ili otkazane tijekom izračuna nisu spremljene."
+57,1,"Pogreška pri otvaranju datoteke '%s'."
+58,1,"Nedostaje"
+59,1,"Odabrana datoteka nema nastavak SFV, MD5, SHA1, SHA256 ni SHA512. Želite li ipak nastaviti?"
+60,1,"Odabrana datoteka nije valjana SFV, MD5, SHA-1, SHA-256 ni SHA-512 datoteka."
+61,1,"Provjera..."
+62,1,"U redu"
+63,1,"Oštećeno"
+
+[STRINGTABLE 3]
+65,1,"&Provjeri kontrolne zbrojeve..."
+66,1,"&Izračunaj kontrolne zbrojeve..."
+67,1,"Konfiguracija je već otvorena."
+68,1,"Promjene će stupiti na snagu pri sljedećem otvaranju prozora za izračun kontrolnih zbrojeva."
+70,1,"Sve su datoteke u redu"
+71,1,"%d oštećenih, %d nedostajućih, %d preskočenih"
+72,1,"Open Samandarin je zauzet. Nije moguće izvršiti naredbu, pokušajte ponovno poslije."
+74,1,"&Zatvori"
+75,1,"Čitanje stabla mapa, pričekajte..."
+76,1,"Pogreška pri čitanju mape"
+77,1,"Nema datoteka"
+78,1,"Provjera kontrolnih zbrojeva"
+79,1,"Datoteka"
+
+[STRINGTABLE 4]
+80,1,"Veličina"
+81,1,"Status"
+82,1,"CRC"
+83,1,"MD5"
+84,1,"SHA-1"
+85,1,"SHA-256"
+86,1,"SHA-512"
+90,1,"Spremi datoteku kontrolnih zbrojeva"
+91,1,"SFV datoteke (*.sfv)|*.sfv|"
+92,1,"MD5 datoteke (*.md5)|*.md5|"
+93,1,"SHA-1 datoteke (*.sha1)|*.sha1|"
+94,1,"SHA-256 datoteke (*.sha256)|*.sha256|"
+95,1,"SHA-512 datoteke (*.sha512)|*.sha512|"
+
+[STRINGTABLE 5]
+100,1,"Provjeri CRC"
+101,1,"Provjeri MD5"
+102,1,"Provjeri SHA-1"
+103,1,"Provjeri SHA-256"
+104,1,"Provjeri SHA-512"
+
+[STRINGTABLE 6]
+120,1,"Operaciju nije moguće dovršiti jer je naziv predug."
+

@@ -1,0 +1,58 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\chinesetraditional\demoview\demoview.atp"
+TEXTVERSION,"1.0.4 (x64)"
+VERSION,"1,0,4,197"
+
+[TRANSLATION]
+LANGID,1028
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
+
+[DIALOG 490]
+205,61,1,"檢視器"
+3000,4,6,199,41,1,"視窗位置"
+491,11,17,63,12,1,"&關閉時儲存"
+492,11,29,156,12,1,"&設為 Salamander 視窗的位置"
+
+[STRINGTABLE 0]
+46,1,"DemoView"
+47,1,"關於外掛程式"
+
+[STRINGTABLE 1]
+48,1,"這個外掛程式應可協助您製作自己的檢視器外掛程式。"
+49,1,"www.altap.cz"
+50,1,"DemoView 發生例外，請通知作者！\n若發生例外時，您正使用某個 .DMV 檔案，\n請嘗試以該 .DMV 檔案重現錯誤，若例外\n再次發生，請將該 .DMV 檔案寄給我們（我們會重現並修正錯誤）。\n謝謝！"
+51,1,"petr.solin@altap.cz"
+52,1,"設定已開啟。"
+53,1,"已開啟一些 DemoView 檢視器視窗。您要關閉它們嗎？"
+54,1,"DemoView 設定"
+55,1,"無效的數字！"
+56,1,"DemoView 檔案 (*.dmv)|*.dmv|所有檔案 (*.*)|*.*|"
+
+[STRINGTABLE 2]
+2000,1,"&檔案"
+2001,1,"&開啟\tCtrl+O"
+2002,1,"離&開"
+2010,1,"&編輯"
+2011,1,"&剪下\tCtrl+X"
+2012,1,"&複製\tCtrl+C"
+2013,1,"&貼上\tCtrl+V"
+
+[STRINGTABLE 3]
+2020,1,"&檢視"
+2021,1,"&篩選"
+2022,1,"篩選"
+2025,1,"&選項"
+2026,1,"&設定..."
+
+[STRINGTABLE 4]
+2032,1,"&說明"
+2033,1,"&關於"
+
+[STRINGTABLE 5]
+2500,1,"剪下\tCtrl+X"
+2501,1,"複製\tCtrl+C"
+2502,1,"貼上\tCtrl+V"
+2503,1,"篩選\tCtrl+U"
+

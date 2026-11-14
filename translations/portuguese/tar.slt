@@ -1,0 +1,64 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\portuguese\tar\tar.atp"
+TEXTVERSION,"3.36 (x64)"
+VERSION,"3,36,0,197"
+
+[TRANSLATION]
+LANGID,1046
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"portuguese (automatic AI translation)"
+
+[STRINGTABLE 0]
+11200,1,"Erro do plug-in TAR"
+11201,1,"Formato de arquivo não reconhecido ou não suportado."
+11202,1,"Dados inválidos no cabeçalho TAR - arquivo corrompido."
+11203,1,"Checksum inválido do arquivo ou cabeçalho - arquivo corrompido."
+11204,1,"Erro interno: estrutura de dados do arquivo corrompida."
+11205,1,"Assinatura de bloco desconhecida - ignorando."
+11206,1,"Arquivo necessário não encontrado no arquivo compactado."
+11207,1,"Erro de alocação de memória."
+
+[STRINGTABLE 1]
+11240,1,"Arquivos LZH ainda não são suportados."
+
+[STRINGTABLE 2]
+11250,1,"Descompactar"
+11251,1,"Extraindo "
+11252,1,"Ignorando "
+11260,1,"Erro do GZip"
+11261,1,"Método de compactação desconhecido, não é possível extrair."
+11262,1,"Este arquivo está criptografado. A criptografia não é suportada em arquivos GZip."
+11263,1,"Este arquivo faz parte de um arquivo multipartes. Arquivos GZip multipartes não são suportados."
+
+[STRINGTABLE 3]
+11264,1,"Sinalizadores desconhecidos no cabeçalho GZip, não é possível extrair."
+11265,1,"Erro ao abrir o arquivo compactado: "
+11266,1,"Fim prematuro do arquivo."
+11267,1,"Erro ao ler o arquivo compactado: "
+11268,1,"Erro ao gravar no arquivo de saída: "
+11269,1,"A função Write File recusou gravar todos os dados solicitados."
+11270,1,"Bloco inválido no fluxo GZip, não é possível extrair."
+11271,1,"Erro interno no plug-in TAR; avise-nos por e-mail em support@altap.cz."
+11272,1,"Erro de alocação de memória."
+11273,1,"Erro de CRC."
+11274,1,"Dados inesperados no fluxo compactado, arquivo corrompido."
+11275,1,"Erro ao posicionar no arquivo compactado: "
+
+[STRINGTABLE 4]
+11280,1,"Visualizador RPM"
+11281,1,"Erro do RPM"
+11282,1,"Erro ao criar o nome do arquivo temporário."
+11283,1,"Erro ao criar o arquivo temporário."
+11284,1,"O arquivo não foi reconhecido como um arquivo RPM."
+11285,1,"A versão do RPM solicitada por este arquivo não é suportada."
+11286,1,"Assinatura de arquivo RPM desconhecida."
+11291,1,"O registro do arquivo tem uma assinatura inválida."
+11292,1,"Registro de cabeçalho do arquivo corrompido."
+11293,1,"Formato desconhecido do cabeçalho cpio."
+
+[STRINGTABLE 5]
+11299,1,"TAR"
+11300,1,"Navegar e extrair arquivos Unix."
+11301,1,"Sobre o plug-in"
+

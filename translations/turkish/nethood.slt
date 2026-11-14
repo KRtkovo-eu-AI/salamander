@@ -1,0 +1,40 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\turkish\nethood\nethood.atp"
+TEXTVERSION,"1.11 (x64)"
+VERSION,"1,11,0,197"
+
+[TRANSLATION]
+LANGID,1055
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"turkish (automatic AI translation)"
+
+[DIALOG 102]
+220,127,1,"Ağ Yapılandırması"
+1201,7,7,111,10,1,"&Yönetim paylaşımlarını göster"
+1203,13,22,171,10,1,"Yönetim paylaşımlarını &gizli öğeler olarak göster"
+1202,7,37,204,10,1,"&Ağ Bağlantılarım öğelerini en üst düzey dizinde göster"
+1204,7,52,168,10,1,"Ağ &bilgisayarlarını en üst düzey dizinde göster"
+1206,7,67,180,10,1,"Uzak Masaüstü üzerinden bağlanan &diskleri göster"
+1205,7,82,137,10,1,"Salamander başlatılırken ağı &tara"
+3000,7,99,206,1,1,""
+1,30,106,50,14,1,"Tamam"
+2,85,106,50,14,1,"İptal"
+9,140,106,50,14,1,"Yardım"
+
+[STRINGTABLE 0]
+128,1,"Ağ"
+129,1,"Ağdaki bilgisayarlara erişim sağlar."
+
+[STRINGTABLE 1]
+1024,1,"Açıklama"
+1025,1,"{!}<%d> nesne{|1|s} seçildi"
+1026,1,"Ağ"
+1027,1,"Ağ taranıyor…"
+1028,1,"Ağ kullanılamıyor."
+1029,1,"Eklenti Hakkında"
+1030,1,"%2 üzerindeki %1"
+1031,1,"Yerel Bilgisayar"
+1032,1,"Ana Bilgisayar"
+1033,1,"%s konumundaki diskler"
+

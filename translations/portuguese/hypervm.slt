@@ -1,0 +1,54 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\portuguese\hypervm\hypervm.atp"
+TEXTVERSION,"1.11 (x64)"
+VERSION,"1,11,0,197"
+
+[TRANSLATION]
+LANGID,1046
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"portuguese (automatic AI translation)"
+
+[STRINGTABLE 0]
+46,1,"Máquinas Hyper-V"
+47,1,"Sobre o plug-in"
+
+[STRINGTABLE 1]
+48,1,"Mostrar as máquinas virtuais Hyper-V locais no painel."
+49,1,"open.samandarin.net"
+50,1,"Mostrar janela de &máquinas Hyper-V"
+51,1,"Criar &VHD"
+52,1,"&Anexar VHD"
+60,1,"Criar e anexar disco rígido virtual"
+61,1,"Anexar disco rígido virtual"
+62,1,"Desanexar disco rígido virtual"
+63,1,"Local:"
+
+[STRINGTABLE 2]
+64,1,"Procurar..."
+65,1,"Tamanho do disco rígido virtual:"
+66,1,"Formato do disco rígido virtual"
+67,1,"Tipo do disco rígido virtual"
+68,1,"Suporta discos virtuais de até 2040 GB."
+69,1,"Suporta discos virtuais maiores que 2040 GB (máximo suportado de 64 TB) e é resistente a falhas de energia."
+70,1,"Tamanho fixo (recomendado)"
+71,1,"Expansão dinâmica"
+72,1,"O arquivo do disco rígido virtual é alocado com seu tamanho máximo quando o disco é criado."
+73,1,"O arquivo do disco rígido virtual cresce até o tamanho máximo conforme os dados são gravados."
+74,1,"Somente leitura."
+75,1,"Especifique o local do disco rígido virtual na máquina."
+76,1,"Especifique o local do disco rígido virtual no computador."
+77,1,"Desanexar o disco rígido virtual {0}?"
+78,1,"Disco rígido virtual anexado: {0}"
+79,1,"Nenhuma máquina virtual Hyper-V encontrada."
+
+[STRINGTABLE 3]
+80,1,"Configuração"
+81,1,"Ainda não há configuração."
+82,1,"OK"
+83,1,"Cancelar"
+84,1,"Discos rígidos virtuais (*.vhd;*.vhdx)|*.vhd;*.vhdx"
+85,1,"Máquinas Hyper-V"
+86,1,"Criar e anexar disco rígido virtual"
+87,1,"Anexar disco rígido virtual"
+

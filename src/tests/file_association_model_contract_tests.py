@@ -1,6 +1,10 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Regress authoritative runtime handler selection. | Ensure explicit user targets beat wildcard fallback rows for viewer/editor actions and exact archive extension mappings. |  | openrouter/openai/gpt-6-luna-pro |
+# | 2026-11-14 | Regress independent runtime projection domains. | Ensure an unchanged packer table cannot reject Viewer, Alternate View, or Editor overrides. |  | openrouter/openai/gpt-6-luna-pro |
+# | 2026-11-13 | Regress runtime projection with unavailable conflict candidates. | Ensure diagnostic plugin conflicts cannot roll back a valid User override during Apply or startup. |  | openrouter/openai/gpt-6-luna-pro |
+# | 2026-11-13 | Regress association edits saved through Configuration OK. | Ensure validated action-control changes become User overrides and project into runtime handlers. |  | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-10 | Regress User badge and Conflicts filter consistency. | Ensure one user-first row status drives its text, color, conflict count, and checkbox filtering. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 # | 2026-11-10 | Regress conflict state after persisted user override reload. | Ensure conflict recomputation preserves User status for an overridden exact action key. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 # | 2026-11-10 | Guard association row badge provenance precedence. | Keep resolved user overrides visible in Status and Source without hiding remaining conflicts. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
@@ -39,6 +43,7 @@ FILTERS = ROOT / "src" / "vcxproj" / "salamand.vcxproj.filters"
 ARRAY = ROOT / "src" / "common" / "array.h"
 PACK_HEADER = ROOT / "src" / "pack.h"
 PACK_IMPLEMENTATION = ROOT / "src" / "pack3.cpp"
+FILE_ACTIONS = ROOT / "src" / "fileswn5.cpp"
 LIFECYCLE_HEADER = ROOT / "src" / "fileassoclifecycle.h"
 LIFECYCLE_IMPLEMENTATION = ROOT / "src" / "fileassoclifecycle.cpp"
 CFG_HEADER = ROOT / "src" / "cfgdlg.h"
@@ -75,6 +80,7 @@ def main() -> None:
     array = ARRAY.read_text(encoding="utf-8")
     pack_header = PACK_HEADER.read_text(encoding="utf-8")
     pack_implementation = PACK_IMPLEMENTATION.read_text(encoding="utf-8")
+    file_actions = FILE_ACTIONS.read_text(encoding="utf-8")
     project = PROJECT.read_text(encoding="utf-8")
     filters = FILTERS.read_text(encoding="utf-8")
     lifecycle_header = LIFECYCLE_HEADER.read_text(encoding="utf-8")
@@ -240,6 +246,66 @@ def main() -> None:
             "RuntimeViewerType = -pluginIndex - 1" in runtime_adapter and
             "RuntimeArchiveIndex = -pluginIndex - 1" in runtime_adapter,
              "plugin runtime adapter must resolve stable targets and capabilities")
+    resolve_runtime_start = runtime_adapter.index("bool ResolvePluginRuntimeAssociation(")
+    resolve_runtime_end = runtime_adapter.index("void AttachPluginRuntimeResolver(", resolve_runtime_start)
+    resolve_runtime = runtime_adapter[resolve_runtime_start:resolve_runtime_end]
+    apply_runtime_start = runtime_adapter.index("bool ApplyRuntimeProjection(")
+    apply_runtime_end = runtime_adapter.index("void RollbackRuntimeProjection(", apply_runtime_start)
+    apply_runtime = runtime_adapter[apply_runtime_start:apply_runtime_end]
+    require("association.AssociationProvenance == Provenance::Conflict" in resolve_runtime and
+            "association.AssociationProvenance == Provenance::Conflict" in apply_runtime and
+            "association.AssociationProvenance == Provenance::Legacy ||" in resolve_runtime and
+            "association.AssociationProvenance == Provenance::Legacy ||" in apply_runtime,
+            "conflict candidates are diagnostic snapshots and cannot roll back active user projections")
+    add_viewer_start = runtime_adapter.index("bool AddViewerRow(")
+    add_viewer_end = runtime_adapter.index("void RemoveExactEditorRows(", add_viewer_start)
+    add_viewer = runtime_adapter[add_viewer_start:add_viewer_end]
+    add_editor_start = runtime_adapter.index("bool AddEditorRow(")
+    add_editor_end = runtime_adapter.index("bool StageViewerAssociation(", add_editor_start)
+    add_editor = runtime_adapter[add_editor_start:add_editor_end]
+    require("destination->Insert(0, item);" in add_viewer and
+            "item->UserAssociationOverride" in add_viewer and
+            "item->UserAssociationOverride" in add_editor and
+            "FindUserViewerAssociation(masks, namePart, tmpExt)" in file_actions and
+            "FindUserEditorAssociation(masks, namePart, tmpExt)" in file_actions and
+            file_actions.index("FindUserViewerAssociation(masks, namePart, tmpExt)") <
+            file_actions.index("for (i = 0; i < masks->Count; i++)", file_actions.index("FindUserViewerAssociation(masks, namePart, tmpExt)")) and
+            "FileAssociationPatternSpecificity" in file_actions and
+            "viewer = NULL;\n                                continue; // try to find another viewer" in file_actions and
+            "if (handlerID != 0xFFFFFFFF)" in file_actions and
+            "masks->At(i)->Masks->AgreeMasks(namePart, tmpExt)" in file_actions,
+            "explicit user targets must beat wildcard mask order and rejected fallback handlers")
+    archive_stage_start = runtime_adapter.index("bool StageArchiveAssociation(")
+    archive_stage_end = runtime_adapter.index("bool BeginRuntimeProjection(", archive_stage_start)
+    archive_stage = runtime_adapter[archive_stage_start:archive_stage_end]
+    begin_runtime_start = runtime_adapter.index("bool BeginRuntimeProjection(")
+    begin_runtime_end = runtime_adapter.index("bool ApplyRuntimeProjection(", begin_runtime_start)
+    begin_runtime = runtime_adapter[begin_runtime_start:begin_runtime_end]
+    commit_runtime_start = runtime_adapter.index("bool CommitRuntimeProjection(")
+    commit_runtime_end = runtime_adapter.index("} // namespace", commit_runtime_start)
+    commit_runtime = runtime_adapter[commit_runtime_start:commit_runtime_end]
+    require("bool PackerLoaded;" in runtime_adapter and
+            "bool PackerChanged;" in runtime_adapter and
+            "if (!context->PackerLoaded)" in archive_stage and
+            "context->StagedPacker.Load(PackerFormatConfig)" in archive_stage and
+            "SetAssociationTarget(" in archive_stage and
+            "context->StagedArchiveTargets.push_back(target);" in archive_stage and
+            "context->PackerChanged = true;" in archive_stage and
+            "StagedPacker.Load(PackerFormatConfig)" not in begin_runtime and
+            "if (context->PackerChanged && !context->StagedPacker.BuildArray())" in commit_runtime and
+            "if (context->PackerChanged)\n        PackerFormatConfig.Swap(context->StagedPacker);" in commit_runtime,
+             "only Pack/Unpack edits may rebuild and replace the staged packer table")
+    require("SetAssociationTarget" in pack_header and
+            "SetAssociationTarget" in pack_implementation and
+            "IsExtensionInList(data->Ext, extension, extensionLength)" in pack_implementation and
+            "for (int i = Formats.Count - 1; i >= 0; --i)" in pack_implementation and
+            "MarkFormatAsUserOverride(index)" in pack_implementation,
+            "Pack/Unpack overrides must own one exact extension instead of colliding with grouped rows")
+    require("struct StagedArchiveTarget" in runtime_adapter and
+            "StagedPacker.PackIsArchive(probeName.c_str()) - 1" in runtime_adapter and
+            "context->StagedPacker.GetUnpackerIndex(format) != target.ArchiveIndex" in runtime_adapter and
+            "context->StagedPacker.GetPackerIndex(format) != target.ArchiveIndex" in runtime_adapter,
+            "unrelated archive-table conflicts must not invalidate a verified user-owned extension")
     require("StagedViewers" in runtime_adapter and
             "StagedAlternateViewers" in runtime_adapter and
             "StagedEditors" in runtime_adapter and
@@ -248,12 +314,12 @@ def main() -> None:
             "ApplyRuntimeProjection" in runtime_adapter and
             "RollbackRuntimeProjection" in runtime_adapter and
             "CommitRuntimeProjection" in runtime_adapter and
-            "StagedPacker.BuildArray()" in runtime_adapter and
+            "context->PackerChanged && !context->StagedPacker.BuildArray()" in runtime_adapter and
             "ViewerMasks->Swap" in runtime_adapter and
             "AltViewerMasks->Swap" in runtime_adapter and
             "EditorMasks->Swap" in runtime_adapter and
             "PackerFormatConfig.Swap" in runtime_adapter,
-            "runtime adapter must stage and atomically commit legacy containers")
+            "runtime adapter must stage the legacy containers without coupling unchanged packer state")
     require("void Swap(TDirectArray<DATA_TYPE>& source)" in array and
             "void Swap(CArray& source)" in array and
             "CDeleteType deleteType = DeleteType" in array,
@@ -327,6 +393,16 @@ def main() -> None:
             "CopyCanonicalAssociationsForConfiguration" in apply_handler and
             "Rows = savedModel.Associations();" in apply_handler,
             "Apply must persist a user override and reload the table from canonical state")
+    read_controls_start = dialogs5.index("BOOL CCfgPageFileAssociations::ReadControls(")
+    read_controls_end = dialogs5.index("BOOL CCfgPageFileAssociations::BuildCandidate(", read_controls_start)
+    read_controls = dialogs5[read_controls_start:read_controls_end]
+    require("const Salamander::FileAssociations::Target originalTarget = item.AssociationTarget;" in read_controls and
+            "const bool associationChanged =" in read_controls and
+            "item.AssociationProvenance =" in read_controls and
+            "item.AssociationTarget.Kind != Salamander::FileAssociations::TargetKind::Unassigned" in read_controls and
+            "Salamander::FileAssociations::Provenance::User" in read_controls and
+            "item.SourceProvenance = Salamander::FileAssociations::Provenance::User;" in read_controls,
+            "validated edits saved with Configuration OK must become effective user overrides")
     apply_stages = (
         "candidate.ReplaceAssociations(Rows, &error)",
         "ReplaceCanonicalAssociationsForConfiguration(\n                    candidate",

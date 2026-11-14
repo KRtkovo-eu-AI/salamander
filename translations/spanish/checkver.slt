@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\spanish\checkver\checkver.atp"
-TEXTVERSION,"1.2.7 (x64)"
-VERSION,"1,2,7,196"
+TEXTVERSION,"1.2.8 (x64)"
+VERSION,"1,2,8,197"
 
 [TRANSLATION]
 LANGID,3082
@@ -78,7 +78,7 @@ COMMENT,"Versión en español"
 218,1,"El plugin está trabajando con Internet.\n¿Desea interrumpir esta sesión de Internet?"
 220,1,"Inicializando conexión con Internet..."
 221,1,"Inicialización fallida: %s"
-222,1,"Conectando con \tuwww.altap.cz\tlhttps://www.altap.cz\tn..."
+222,1,"Conectando a \tuwww.altap.cz\tlhttps://www.altap.cz\tn..."
 223,1,"Conexión fallida: %s"
 
 [STRINGTABLE 2]

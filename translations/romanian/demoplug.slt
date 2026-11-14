@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\romanian\demoplug\demoplug.atp"
-TEXTVERSION,"2.0 (x64)"
-VERSION,"2,0,0,196"
+TEXTVERSION,"2.1 (x64)"
+VERSION,"2,1,0,197"
 
 [TRANSLATION]
 LANGID,1048
 AUTHOR,"Open Samandarin"
-WEB,"www.altap.cz"
-COMMENT,"English version"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 490]
 205,61,1,"Vizualizator"
@@ -92,7 +92,7 @@ COMMENT,"English version"
 563,215,204,33,14,1,"Text"
 3014,269,4,185,48,1,"CGUIHyperLinkAbstract"
 3015,277,17,75,8,1,"SetActionOpen"
-557,365,17,47,8,1,"www.altap.cz"
+557,365,17,74,8,1,"open.samandarin.net"
 3016,277,27,81,8,1,"SetActionPostCommand"
 558,365,27,55,8,1,"Spune ceva!"
 3017,277,37,81,8,1,"SetActionPostCommand"
@@ -109,9 +109,9 @@ COMMENT,"English version"
 
 [STRINGTABLE 1]
 48,1,"Acest plugin ar trebui să vă ajute să creați propriile pluginuri."
-49,1,"www.altap.cz"
+49,1,"open.samandarin.net"
 50,1,"A apărut o excepție în DemoPlug, vă rugăm să informați autorii!\nDacă ați lucrat cu un fișier .dop când a apărut excepția,\nîncercați să reproduceți eroarea cu fișierul .dop respectiv și dacă excepția\nmai apare, trimiteți-ne acest fișier .dop (o să reproducem și să fixăm eroarea).\nMulțumim!"
-51,1,"petr.solin@altap.cz"
+51,1,"open.samandarin.net"
 52,1,"Configurația este deja deschisă."
 53,1,"Sunt deschise unele ferestre viewer DemoPlug. Doriți să le închideți?"
 54,1,"Configurația DemoPlug"

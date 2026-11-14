@@ -1,0 +1,20 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\portuguese\demomenu\demomenu.atp"
+TEXTVERSION,"1.0.3 (x64)"
+VERSION,"1,0,3,197"
+
+[TRANSLATION]
+LANGID,1046
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
+
+[STRINGTABLE 0]
+46,1,"MenuDemo"
+47,1,"Sobre plugin"
+
+[STRINGTABLE 1]
+48,1,"Este plug-in ajuda a criar seu próprio plug-in de extensão de menu."
+49,1,"www.altap.cz"
+50,1,"&Cmd. teste"
+

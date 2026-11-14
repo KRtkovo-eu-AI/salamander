@@ -6,12 +6,33 @@
   },
   "fileSystems": {
     "hardware-info": {
-      "rootItems": {"cpu":"Processzor","memory":"Memória","motherboard":"Alaplap","gpu":"Grafikus processzor","storage":"Tárhely","network":"Hálózat","sensors":"Szenzorok","device-manager":"Eszközkezelő"},
-      "actions":{"updateDriver":"Illesztőprogram frissítése","disableDevice":"Eszköz letiltása","uninstallDevice":"Eszköz eltávolítása","scanDevices":"Hardverváltozások keresése","deviceProperties":"Tulajdonságok"},
+      "rootItems": {
+        "cpu": "Processzor",
+        "memory": "Memória",
+        "motherboard": "Alaplap",
+        "gpu": "Grafikus processzor",
+        "storage": "Tárhely",
+        "network": "Hálózat",
+        "sensors": "Szenzorok",
+        "device-manager": "Eszközkezelő"
+      },
+      "actions": {
+        "updateDriver": "Illesztőprogram frissítése",
+        "disableDevice": "Eszköz letiltása",
+        "uninstallDevice": "Eszköz eltávolítása",
+        "scanDevices": "Hardverváltozások keresése",
+        "deviceProperties": "Tulajdonságok"
+      },
       "name": "Hardverfigyelő",
       "columns": {
-        "property": {"name": "Mező", "description": "Tulajdonság vagy szenzor neve"},
-        "value": {"name": "Érték", "description": "Tulajdonságérték vagy szenzorérték"}
+        "property": {
+          "name": "Mező",
+          "description": "Tulajdonság vagy szenzor neve"
+        },
+        "value": {
+          "name": "Érték",
+          "description": "Tulajdonságérték vagy szenzorérték"
+        }
       }
     }
   },
@@ -26,7 +47,10 @@
     "deviceManager": "Eszközkezelő"
   },
   "strings": {
-    "disableDevice":"Eszköz letiltása","uninstallDevice":"Eszköz eltávolítása","confirmDeviceAction":"{0}: '{1}'?","loading": "Betöltés...",
+    "disableDevice": "Eszköz letiltása",
+    "uninstallDevice": "Eszköz eltávolítása",
+    "confirmDeviceAction": "{0}: '{1}'?",
+    "loading": "Betöltés...",
     "notAvailable": "N/A",
     "errorTitle": "Hardverfigyelő",
     "sensorInitFailed": "A szenzorkönyvtár (LibreHardwareMonitorLib.dll) nem tölthető be. A szenzorértékek nem lesznek elérhetők.\nHelyezze a DLL-t a kiterjesztés könyvtárába vagy a rendszer PATH-jába.",

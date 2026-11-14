@@ -8,6 +8,6 @@
 
 "&Uitpakken"
 
-"Self-Extractor © 2000-2023 Open Salamander Authors"
+"Self-Extractor Â© 2000-2023 Open Salamander Authors"
 
-"https://www.altap.cz"
+"https://samandarin.net"

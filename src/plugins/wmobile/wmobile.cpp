@@ -158,7 +158,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
                                    LoadStr(IDS_PLUGIN_DESCRIPTION),
                                    "WMOBILE" /* do not translate! */, NULL, "CE");
 
-    salamander->SetPluginHomePageURL("www.altap.cz");
+    salamander->SetPluginHomePageURL("samandarin.net");
 
     // obtain our FS name (it may not be "cefs"; Salamander can adjust it)
     SalamanderGeneral->GetPluginFSName(AssignedFSName, 0);

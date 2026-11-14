@@ -1,0 +1,38 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\vietnamese\peviewer\peviewer.atp"
+TEXTVERSION,"3.2 (x64)"
+VERSION,"3,2,0,197"
+
+[TRANSLATION]
+LANGID,1066
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"vietnamese (automatic AI translation)"
+
+[DIALOG 8501]
+346,154,1,"Cấu hình Trình xem Tệp Thực thi"
+1300,7,7,80,8,1,"Các ph&ân đoạn có sẵn:"
+8700,7,17,105,130,1,""
+8702,119,17,50,14,1,"&Thêm ->"
+8703,119,35,50,14,1,"<- &Xóa"
+1301,176,7,84,8,1,"&Các phần đoạn hiển thị:"
+8701,176,17,105,130,1,""
+8704,289,17,50,14,1,"Di chuyển &Lên"
+8705,289,35,50,14,1,"Di chuyển &Xuống"
+1,289,97,50,14,1,"Đồng ý"
+2,289,115,50,14,1,"Hủy"
+8706,289,133,50,14,1,"Đặt l&ại"
+
+[STRINGTABLE 0]
+1016,1,"Về Plugin"
+
+[STRINGTABLE 1]
+10100,1,"Trình xem Thực hiện có Cổng"
+10101,1,"Không thể mở tệp %s."
+10102,1,"Tạo tệp tạm thời đã thất bại."
+10103,1,"Ngoại lệ đã xảy ra.\n\nTệp được xem: %s\n\nNếu bạn cho rằng tệp được xem không bị hỏng, vui lòng gửi tệp này đến support@altap.cz.\nChúng tôi sẽ tái lập và sửa lỗi trình xem. Cảm ơn sự hợp tác của bạn!"
+10104,1,"Hiển thị thông tin về các tệp Thực hiện có Cổng như EXE, DLL, v.v."
+
+[STRINGTABLE 2]
+10118,1,"Không tìm thấy phần đoạn Thực hiện có Cổng nào được chọn trong cấu hình plugin.\nSử dụng menu Tùy chọn > Cấu hình Plugin > Trình xem Thực hiện có Cổng\ntrong cửa sổ chính Open Samandarin để thiết lập các phần đoạn hiển thị."
+

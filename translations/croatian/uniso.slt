@@ -1,0 +1,111 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\croatian\uniso\uniso.atp"
+TEXTVERSION,"1.40 (x64)"
+VERSION,"1,40,0,197"
+
+[TRANSLATION]
+LANGID,1050
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"croatian (automatic AI translation)"
+
+[DIALOG 1200]
+220,83,1,"Postavke UnISO-a"
+1201,8,11,188,10,1,"&Ukloni atribut samo za čitanje pri kopiranju iz arhive"
+1202,8,23,200,10,1,"&Prikaži sesiju kao mapu (omogući pristup svim sesijama)"
+1203,8,35,186,10,1,"Prikaži disk sa slikom za pokretanje kao datoteku(&H)"
+3000,2,58,216,1,1,""
+1,108,64,50,14,1,"U redu"
+2,163,64,50,14,1,"Odustani"
+
+[STRINGTABLE 0]
+1000,1,"UnISO"
+1001,1,"Nije moguće otvoriti datoteku."
+1002,1,"Neodređena pogreška."
+1003,1,"Raspakiravanje ISO arhive"
+1004,1,"Pogreška pri raspakiravanju arhive."
+1005,1,"Nije moguće obraditi ovu datoteku."
+1006,1,"Nema dovoljno memorije."
+1007,1,"O dodatku"
+
+[STRINGTABLE 1]
+1009,1,"Pregledavanje i raspakiravanje ISO slika CD/DVD-a."
+1010,1,"Nije moguće stvoriti privremenu mapu."
+1011,1,"Nije moguće izbrisati privremenu datoteku."
+1012,1,"Nepoznat format datoteke ili nevaljana ISO slika.\n\nAko ste sigurni da je ISO slika valjana, obratite se na support@altap.cz i pomozite nam podržati ovaj format."
+1013,1,"Nije moguće otvoriti datoteku '%s'."
+1014,1,"Stvaranje privremene datoteke nije uspjelo."
+1015,1,"Nije moguće postaviti atribute datoteke."
+1016,1,"Nije moguće stvoriti mapu '%s'."
+1020,1,"Da"
+1021,1,"Ne"
+1022,1,"Pogreška"
+1023,1,"Upozorenje"
+
+[STRINGTABLE 2]
+1024,1,"Došlo je do pogreške pri čitanju slike s više sesija.\n\nPrikazuju se samo ispravno pročitane sesije."
+1025,1,"Nepoznata vrsta zapisa."
+1026,1,"Nepoznata strategija dodjele (%d).\n\nObratite se na support@altap.cz i pomozite nam riješiti ovaj problem."
+1027,1,"Neispravan format datoteke .CCD.\n\nPrikazana slika možda nije potpuna."
+1028,1,"Nedostaje datoteka .CCD.\n\nPrikazana slika možda nije potpuna."
+1029,1,"Nije moguće pročitati sektor #%08X."
+1030,1,"Nevaljan ID oznake UDF."
+1031,1,"Pogreška pri čitanju strukture mape u sektoru #%08X.\n\nSadržaj ISO slike nije potpun."
+1032,1,"Unutarnja pogreška dodatka."
+1033,1,"Pogreška pri čitanju virtualne tablice dodjele u sektoru #%08X."
+1034,1,"Nedostaje virtualna tablica dodjele."
+1035,1,"Neispravan korijenski ICB.\n\nNije moguće pročitati strukturu mape."
+1036,1,"Datoteku "%s" nije moguće raspakirati.\n\nVeličina datoteke ne podudara se s ICB blokovima."
+1037,1,"Nije moguće otvoriti zapis #%d."
+1038,1,"Ova slika diska izgleda kao slika diskete, tvrdog diska ili particije.\nPreimenujte datoteku u .ima da biste aktivirali dodatak UnFAT."
+1039,1,"Ova slika diska sadrži datotečni sustav APFS.\nTaj datotečni sustav još nije podržan."
+
+[STRINGTABLE 3]
+1050,1,"Nije moguće pročitati zaglavlje particije. Datoteka je premala."
+1051,1,"Strukture Partition Manager su oštećene."
+1052,1,"Ova slika diska ne sadrži particiju HFS Plus."
+1053,1,"Ova slika diska sadrži HFS, a ne HFS Plus.\nHFS nije podržan."
+1054,1,"Nije moguće prijeći na blok #%08X.\nDatoteka %s neće biti raspakirana."
+1055,1,"Nije moguće prijeći na blok #%08X."
+
+[STRINGTABLE 4]
+1056,1,"Nepodržana vrsta korijenskog BTree čvora u datoteci Catalog."
+1057,1,"Datoteka Catalog fragmentirana je u više od 8 dijelova, što nije podržano."
+1058,1,"Datoteka '%s' fragmentirana je u više od 8 dijelova, što nije podržano.\nDatoteka neće biti raspakirana."
+1059,1,"Ova slika diska sadrži predugu putanju koju Open Samandarin ne može obraditi."
+1060,1,"Operaciju nije moguće dovršiti jer je naziv predug."
+1070,1,"Nije moguće pročitati zaglavlje paketa. Datoteka je premala."
+1071,1,"Ovaj je paket šifriran.\nŠifrirani paketi nisu podržani."
+
+[STRINGTABLE 5]
+1072,1,"Datoteka nije DMG paket ili je nepotpuna.\nNe sadrži valjano DMG podnožje."
+1073,1,"Datoteka nije valjan DMG paket ili je nepotpuna.\nNe sadrži valjan Property List."
+1074,1,"Paket ne sadrži podatkovni blok particije HFS Plus na položaju %I64u.\nBlok je potreban za ispravnu obradu paketa."
+1075,1,"Nije moguće pročitati podatke iz slike diska na položaju %I64u."
+1076,1,"Nije moguće tražiti u slici diska do položaja %I64u."
+1077,1,"Interna pogreška: nepodržan način traženja."
+1078,1,"Slika diska sadrži blok komprimiran nepoznatom metodom.\nTakve slike diskova nisu podržane."
+1079,1,"Raspakiravanje bloka ZLIB nije uspjelo. Slika diska je vjerojatno oštećena."
+1080,1,"Raspakiravanje bloka BZIP2 nije uspjelo. Slika diska je vjerojatno oštećena."
+1085,1,"Datoteka nije komprimirana ISZ slika ili je nepotpuna.\nNe sadrži valjano ISZ zaglavlje."
+1086,1,"Nije moguće pročitati zaglavlje komprimirane slike. Datoteka je premala."
+1087,1,"Ova je slika segmentirana.\nSegmentirane slike nisu podržane."
+
+[STRINGTABLE 6]
+1088,1,"Ova je slika šifrirana.\nŠifrirane slike nisu podržane."
+1100,1,"Pogreška pri čitanju"
+1101,1,"Pogreška pri pisanju"
+1102,1,"Nije moguće izdvojiti audio zapise."
+1103,1,"Otkazivanje operacije, pričekajte..."
+
+[STRINGTABLE 7]
+1150,1,"Informacije o slici\n\n"
+1151,1,"Informacije o slici "%s"\n\n"
+
+[STRINGTABLE 8]
+1152,1,"Broj sesija: %d"
+1153,1,"\nSesija %d\n"
+1154,1,"  Broj zapisa: %d\n"
+1155,1,"  Zapis: %d, %s, veličina: %d KB\n"
+1156,1,"  Zapis: %d, %s, veličina: %d KB - "%s"\n"
+

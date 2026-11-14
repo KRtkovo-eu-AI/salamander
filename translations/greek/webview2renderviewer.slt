@@ -1,0 +1,41 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\greek\webview2renderviewer\webview2renderviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1032
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"greek (automatic AI translation)"
+
+[STRINGTABLE 0]
+46,1,"Προβολή WebView2"
+47,1,"Σχετικά με το πρόσθετο"
+
+[STRINGTABLE 1]
+48,1,"Προβολή αποδιδόμενων εγγράφων HTML, Markdown και ιστού μέσω WebView2."
+49,1,"open.samandarin.net"
+50,1,"Δεν είναι δυνατή η προετοιμασία του συμβάντος συγχρονισμού που απαιτείται από την προβολή."
+51,1,"Το επιλεγμένο αρχείο είναι πολύ μεγάλο για άνοιγμα. Δεν υποστηρίζονται αρχεία μεγαλύτερα από 32 MB."
+52,1,"&Αρχείο"
+53,1,"&Προβολή"
+54,1,"&Τέλος\tEsc"
+55,1,"&Ανανέω\tF5"
+56,1,"&Μεγέθ.\tCtrl++"
+57,1,"&Μείωση\tCtrl+-"
+58,1,"&Επαν.\tCtrl+0"
+59,1,"Φόρτωση..."
+60,1,"Έτοιμο"
+61,1,"Δεν είναι δυνατή η αρχικοποίηση της απόδοσης WebView2."
+62,1,"Δεν είναι δυνατό το άνοιγμα του επιλεγμένου αρχείου."
+63,1,"Εμφάνιση &αριθμών γραμμών"
+
+[STRINGTABLE 2]
+64,1,"&Αναδίπλωση\tF2"
+65,1,"Εμφάνιση &κενών"
+66,1,"&Επεξεργασία"
+67,1,"&Copy\tCtrl+C"
+68,1,"Επιλ. &όλων\tCtrl+A"
+69,1,"&Εκτύπωση\tCtrl+P"
+

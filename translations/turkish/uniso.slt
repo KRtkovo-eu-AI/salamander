@@ -1,0 +1,111 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\turkish\uniso\uniso.atp"
+TEXTVERSION,"1.40 (x64)"
+VERSION,"1,40,0,197"
+
+[TRANSLATION]
+LANGID,1055
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"turkish (automatic AI translation)"
+
+[DIALOG 1200]
+220,83,1,"UnISO Yapılandırması"
+1201,8,11,188,10,1,"Arşivden kopyalarken salt okunur özniteliğini &Temizle"
+1202,8,23,219,10,1,"Oturumu dizin olarak &Göster (tüm oturumlara erişime izin ver)"
+1203,8,35,158,10,1,"Önyükleme imajı diskini dosya olarak &Göster"
+3000,2,58,216,1,1,""
+1,108,64,50,14,1,"Tamam"
+2,163,64,50,14,1,"İptal"
+
+[STRINGTABLE 0]
+1000,1,"UnISO"
+1001,1,"Dosya açılamıyor."
+1002,1,"Belirtilmemiş hata."
+1003,1,"ISO Arşivi Çıkarılıyor"
+1004,1,"Arşiv çıkarılırken hata oluştu."
+1005,1,"Bu dosya işlenemiyor."
+1006,1,"Yetersiz bellek."
+1007,1,"Eklenti Hakkında"
+
+[STRINGTABLE 1]
+1009,1,"CD/DVD ISO imaj dosyalarına göz atın ve çıkarın."
+1010,1,"Geçici dizin oluşturulamıyor."
+1011,1,"Geçici dosya silinemiyor."
+1012,1,"Bilinmeyen dosya biçimi veya geçerli bir ISO imajı değil.\n\nGeçerli bir ISO imajı olduğundan eminseniz support@altap.cz adresine yazıp bu biçimi desteklememize yardımcı olun."
+1013,1,"'%s' dosyası açılamıyor."
+1014,1,"Geçici dosya oluşturulamadı."
+1015,1,"Dosya öznitelikleri ayarlanamıyor."
+1016,1,"'%s' dizini oluşturulamıyor."
+1020,1,"Evet"
+1021,1,"Hayır"
+1022,1,"Hata"
+1023,1,"Uyarı"
+
+[STRINGTABLE 2]
+1024,1,"Çok oturumlu imaj okunurken hata oluştu.\n\nYalnızca doğru okunan oturumlar gösteriliyor."
+1025,1,"Bilinmeyen iz türü."
+1026,1,"Bilinmeyen ayırma stratejisi (%d).\n\nBu sorunu çözmemize yardımcı olmak için support@altap.cz adresine yazın."
+1027,1,".CCD dosyasının biçimi hatalı.\n\nGörüntülenen imaj eksik olabilir."
+1028,1,".CCD dosyası eksik.\n\nGörüntülenen imaj eksik olabilir."
+1029,1,"#%08X sektörü okunamıyor."
+1030,1,"UDF Etiket Kimliği geçersiz."
+1031,1,"#%08X sektöründe dizin yapısı okunurken hata oluştu.\n\nISO imajının içeriği eksik."
+1032,1,"Eklenti iç hatası."
+1033,1,"#%08X sektöründe sanal ayırma tablosu okunurken hata oluştu."
+1034,1,"Sanal ayırma tablosu eksik."
+1035,1,"Kök ICB hatalı.\n\nDizin yapısı okunamıyor."
+1036,1,""%s" dosyası çıkarılamıyor.\n\nDosya boyutu ICB bloklarıyla eşleşmiyor."
+1037,1,"#%d izi açılamıyor."
+1038,1,"Bu disk imajı disket, sabit disk veya sabit disk bölümü imajı gibi görünüyor.\nUnFAT eklentisini etkinleştirmek için dosyanın adını .ima olarak değiştirin."
+1039,1,"Bu disk imajı APFS dosya sistemi içeriyor.\nBu dosya sistemi henüz desteklenmiyor."
+
+[STRINGTABLE 3]
+1050,1,"Bölüm başlığı okunamadı. Dosya çok küçük."
+1051,1,"Partition Manager yapıları bozuk."
+1052,1,"Bu disk imajında HFS Plus bölümü yok."
+1053,1,"Bu disk imajı HFS Plus değil HFS dosya sistemi içeriyor.\nHFS desteklenmiyor."
+1054,1,"#%08X bloğuna gidilemiyor.\n%s dosyası çıkarılamayacak."
+1055,1,"#%08X bloğuna gidilemiyor."
+
+[STRINGTABLE 4]
+1056,1,"Catalog dosyasındaki BTree kök düğüm türü desteklenmiyor."
+1057,1,"Catalog dosyası desteklenmeyen şekilde 8’den fazla parçaya bölünmüş."
+1058,1,"'%s' dosyası desteklenmeyen şekilde 8’den fazla parçaya bölünmüş.\nDosya çıkarılmayacak."
+1059,1,"Bu disk imajında Open Samandarin’ın işleyemeyeceği kadar uzun bir yol var."
+1060,1,"Ad çok uzun olduğundan işlem tamamlanamıyor."
+1070,1,"Paket başlığı okunamadı. Dosya çok küçük."
+1071,1,"Bu paket şifreli.\nŞifreli paketler desteklenmiyor."
+
+[STRINGTABLE 5]
+1072,1,"Bu dosya DMG paketi değil veya eksik görünüyor.\nGeçerli bir DMG son eki içermiyor."
+1073,1,"Bu dosya geçerli bir DMG paketi değil veya eksik görünüyor.\nGeçerli bir Property List içermiyor."
+1074,1,"Bu pakette %I64u konumunda başlayan HFS Plus bölümü için veri bloğu yok.\nPaketin doğru işlenmesi için bu blok gereklidir."
+1075,1,"Disk imajındaki %I64u konumundan veri okunamıyor."
+1076,1,"Disk imajında %I64u konumuna gidilemiyor."
+1077,1,"İç hata: Desteklenmeyen konumlandırma yöntemi."
+1078,1,"Bu disk imajında bilinmeyen bir yöntemle sıkıştırılmış blok var.\nBu tür disk imajları desteklenmiyor."
+1079,1,"ZLIB sıkıştırmalı blok açılamadı. Disk imajı bozuk görünüyor."
+1080,1,"BZIP2 sıkıştırmalı blok açılamadı. Disk imajı bozuk görünüyor."
+1085,1,"Bu dosya sıkıştırılmış ISZ imajı değil veya eksik görünüyor.\nGeçerli bir ISZ başlığı içermiyor."
+1086,1,"Sıkıştırılmış imaj başlığı okunamadı. Dosya çok küçük."
+1087,1,"Bu imaj bölümlere ayrılmış.\nBölümlenmiş imajlar desteklenmiyor."
+
+[STRINGTABLE 6]
+1088,1,"Bu imaj şifreli.\nŞifreli imajlar desteklenmiyor."
+1100,1,"Okuma hatası"
+1101,1,"Yazma hatası"
+1102,1,"Ses parçaları çıkarılamıyor."
+1103,1,"İşlem iptal ediliyor, lütfen bekleyin..."
+
+[STRINGTABLE 7]
+1150,1,"İmaj bilgileri\n\n"
+1151,1,""%s" imajı hakkında bilgi\n\n"
+
+[STRINGTABLE 8]
+1152,1,"Oturum sayısı: %d"
+1153,1,"\nOturum %d\n"
+1154,1,"  İz sayısı: %d\n"
+1155,1,"  İz: %d, %s, Boyut: %d KB\n"
+1156,1,"  İz: %d, %s, Boyut: %d KB - "%s"\n"
+

@@ -1,0 +1,38 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\swedish\peviewer\peviewer.atp"
+TEXTVERSION,"3.2 (x64)"
+VERSION,"3,2,0,197"
+
+[TRANSLATION]
+LANGID,1053
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"swedish (automatic AI translation)"
+
+[DIALOG 8501]
+346,154,1,"Konfiguration av Portable Executable-visaren"
+1300,7,7,67,8,1,"Tillgängliga avsnitt:"
+8700,7,17,105,130,1,""
+8702,119,17,50,14,1,"&Lägg till ->"
+8703,119,35,50,14,1,"<- &Ta bort"
+1301,176,7,58,8,1,"Synliga avsnitt:"
+8701,176,17,105,130,1,""
+8704,289,17,50,14,1,"Flytta &upp"
+8705,289,35,50,14,1,"Flytta &ned"
+1,289,97,50,14,1,"OK"
+2,289,115,50,14,1,"Avbryt"
+8706,289,133,50,14,1,"Åter&ställ"
+
+[STRINGTABLE 0]
+1016,1,"Om insticksprogrammet"
+
+[STRINGTABLE 1]
+10100,1,"Portable Executable-visare"
+10101,1,"Det går inte att öppna filen %s."
+10102,1,"Det gick inte att skapa den tillfälliga filen."
+10103,1,"Ett undantag inträffade.\n\nVisad fil: %s\n\nSkicka filen till support@altap.cz om du tror att den inte är skadad.\nVi återskapar problemet och rättar felet i visaren. Tack för samarbetet!"
+10104,1,"Visar information om Portable Executable-filer som EXE, DLL med flera."
+
+[STRINGTABLE 2]
+10118,1,"Inget Portable Executable-avsnitt har valts i insticksprogrammets konfiguration.\nAnvänd Alternativ > Insticksprogramskonfiguration > Portable Executable-visare\ni Open Samandarin huvudfönster för att välja synliga avsnitt."
+

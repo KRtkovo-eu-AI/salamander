@@ -1,0 +1,21 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\ukrainian\jsonviewer\jsonviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1058
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"ukrainian (automatic AI translation)"
+
+[STRINGTABLE 0]
+46,1,"Перегляд JSON .NET"
+47,1,"Про плагін"
+
+[STRINGTABLE 1]
+48,1,"Внутрішній переглядач документів JSON із керованим інтерфейсом WinForms."
+49,1,"open.samandarin.net"
+50,1,"Не вдалося підготувати подію синхронізації, потрібну переглядачу."
+51,1,"Вибраний файл JSON завеликий для відкриття. Файли розміром понад 8 МБ не підтримуються."
+

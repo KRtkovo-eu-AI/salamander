@@ -1,0 +1,40 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\indonesian\unmime\unmime.atp"
+TEXTVERSION,"1.17 (x64)"
+VERSION,"1,17,0,197"
+
+[TRANSLATION]
+LANGID,1057
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"indonesian (automatic AI translation)"
+
+[DIALOG 101]
+251,111,1,"Konfigurasi UnMIME"
+2000,7,7,40,8,1,"Opsi daftar"
+2001,49,11,196,1,1,""
+1000,18,20,79,10,1,"Daftar &header email"
+1001,18,35,80,10,1,"Daftar &isi pesan"
+1003,31,50,210,10,1,"Tambahkan info &charset ke nama file jika bukan US-ASCII"
+1002,18,65,69,10,1,"Daftar &lampiran"
+2002,6,82,239,1,1,""
+1,137,90,50,14,1,"OK"
+2,194,90,50,14,1,"Batal"
+
+[STRINGTABLE 0]
+1,1,"UnMIME"
+2,1,"File tidak dapat dibuka."
+3,1,"Memori tidak cukup."
+4,1,"Entri arsip tidak dapat ditambahkan ke daftar file."
+5,1,"File ini berisi satu atau beberapa blok dengan pengodean yang tidak dikenal.\nBlok tersebut tidak akan didekode."
+6,1,"Kesalahan penulisan"
+7,1,"Mengekstrak File Email - %s"
+8,1,"mengekstrak: "
+9,1,"Mengurai file..."
+10,1,"Satu atau beberapa blok %s rusak atau berformat\ntidak dikenal dan tidak akan didekode."
+11,1,"CRC salah pada satu atau beberapa blok %s.\nBlok tersebut tidak akan didekode."
+12,1,"Telusuri dan ekstrak file MIME/Base64, UU/XXEncode, yEncode, dan BinHex."
+13,1,"Tentang Plugin"
+14,1,"Peringatan: file ini berisi resource fork Mac.\nFork ini tidak akan diekstrak."
+15,1,"&Jangan tampilkan lagi"
+

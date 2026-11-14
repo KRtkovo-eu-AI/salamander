@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\automation\automation.atp"
-TEXTVERSION,"2.8 (x64)"
-VERSION,"2,8,0,196"
+TEXTVERSION,"2.9 (x64)"
+VERSION,"2,9,0,197"
 
 [TRANSLATION]
 LANGID,1040
 AUTHOR,"Open Samandarin"
-WEB,"www.altap.cz"
-COMMENT,"English version"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 100]
 205,64,1,"Casella di immissione"
@@ -38,9 +38,9 @@ COMMENT,"English version"
 
 [STRINGTABLE 1]
 128,1,"Errore dello script di automazione"
-129,0,"Line:\t%u\r\n"
-130,0,"Column:\t%u\r\n"
-131,0,"Error:\t%s"
+129,1,"Riga:\t%u\r\n"
+130,1,"Colonna:\t%u\r\n"
+131,1,"Errore:\t%s"
 132,1,"Esegui script focusato"
 134,1,"Avanzamento operazione"
 135,1,"Origine:\t%s\r\n"

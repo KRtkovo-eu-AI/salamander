@@ -1,0 +1,83 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\korean\textviewer\textviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1042
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"korean (automatic AI translation)"
+
+[DIALOG 8500]
+310,129,1,"Configurazione del visualizzatore di testo 프리즘"
+8701,7,7,296,86,1,"프레스타지오니"
+8700,17,21,276,18,1,"Mantieni pronto Prism per riaprire più velocemente(&M)"
+8702,17,44,276,40,1,"Mantiene un visualizzatore pronto fino a 60 secondi dopo la chiusura di un file. Richiede memoria aggiuntiva (약 100MB o più). Il primo file continua ad aprirsi normalmente."
+1,197,108,50,14,1,"OK"
+2,253,108,50,14,1,"아눌라"
+
+[STRINGTABLE 0]
+46,1,"프리즘 텍스트 뷰어"
+47,1,"플러그인 정보"
+
+[STRINGTABLE 1]
+48,1,"Prism.js 구문 강조 표시로 텍스트 파일을 렌더링하는 네이티브 뷰어입니다."
+49,1,"open.samandarin.net"
+50,1,"뷰어가 요구하는 동기화 이벤트를 준비할 수 없습니다."
+52,1,"파일(&F)"
+53,1,"보기(&V)"
+54,1,"(&C)\t Esc 닫기"
+55,1,"(&R)\t F5 새로 고침"
+56,1,"확대 (&I)\t Ctrl + +"
+57,1,"축소 (&O)\t Ctrl + -"
+58,1,"초기화 (&R)\t Ctrl +0"
+59,1,"로드 중..."
+60,1,"준비"
+61,1,"WebView2 렌더러를 초기화할 수 없습니다."
+62,1,"선택한 파일을 열 수 없습니다."
+63,1,"줄 번호 표시( L)(&L)"
+
+[STRINGTABLE 2]
+64,1,"랩 라인 (&W)\t F2"
+65,1,"공백 표시(&W)"
+66,1,"구문 형광펜(&H)"
+67,1,"자동(&A)"
+68,1,"색(&C)"
+69,1,"Visual Studio(&V)"
+70,1,"기본 프리즘(&P)"
+71,1,"사용자 지정(&C)"
+72,1,"사용자 지정 편집(&C)"
+73,1,"사용자 지정 편집"
+74,1,"저장(&S)"
+75,1,"취소"
+76,1,"경미"
+77,1,"다크"
+78,1,"설명"
+79,1,"문장 부호"
+
+[STRINGTABLE 3]
+80,1,"키워드"
+81,1,"제어 키워드"
+82,1,"차시명"
+83,1,"기능"
+84,1,"String"
+85,1,"숫자"
+86,1,"불리언(Boolean)"
+87,1,"변수"
+88,1,"네임스페이스"
+89,1,"정규식"
+90,1,"사용자 지정 색상 팔레트를 저장할 수 없습니다."
+91,1,"Salamatrix .UI를 사용할 수 없습니다."
+92,1,"플러그인 구성 창을 열 수 없습니다."
+93,1,"모디피카(&M)"
+94,1,"코피아 (&C)\t Ctrl+C"
+95,1,"Seleziona tutto (&u)\t Ctrl+A"
+
+[STRINGTABLE 4]
+96,1,"Trova... (&T)\t Ctrl+F"
+97,1,"Trova successivo (&s)\t F3"
+98,1,"TROVA PRECENTENTE (&p)\t Shift + F3"
+99,1,"Vai alla riga... (&V)\t Ctrl + G"
+100,1,"스탬파... (&a)\t Ctrl+P"
+

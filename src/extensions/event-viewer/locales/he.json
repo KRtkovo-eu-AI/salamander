@@ -1,0 +1,61 @@
+{
+  "name": "מציג האירועים",
+  "description": "עיון ביומני האירועים של Windows בחלונית מערכת קבצים של Salamander.",
+  "commands": {
+    "EventViewer.open": "פתיחת מציג האירועים"
+  },
+  "fileSystems": {
+    "events": {
+      "name": "מציג האירועים",
+      "rootItems": {
+        "custom-views": "תצוגות מותאמות אישית",
+        "windows-logs": "יומני Windows",
+        "applications-services": "יומני יישומים ושירותים"
+      },
+      "columns": {
+        "level": {
+          "name": "רמה",
+          "description": "חומרת האירוע"
+        },
+        "logged": {
+          "name": "תאריך ושעה",
+          "description": "מועד רישום האירוע"
+        },
+        "source": {
+          "name": "מקור",
+          "description": "ספק האירוע"
+        },
+        "eventId": {
+          "name": "מזהה אירוע",
+          "description": "מזהה האירוע"
+        },
+        "task": {
+          "name": "קטגוריית משימה",
+          "description": "קטגוריית משימת האירוע"
+        }
+      },
+      "actions": {
+        "openEvent": "מאפייני האירוע"
+      }
+    }
+  },
+  "administrativeEvents": "אירועים מנהליים",
+  "eventName": "אירוע {0}, {1} [{2}]",
+  "windowTitle": "מאפייני האירוע - אירוע {0}, {1}",
+  "general": "כללי",
+  "descriptionLabel": "תיאור",
+  "details": "פרטים",
+  "close": "סגור",
+  "messageUnavailable": "הודעת האירוע אינה זמינה.",
+  "textTruncated": "טקסט האירוע נחתך.",
+  "openErrorTitle": "לא ניתן לפתוח את האירוע",
+  "openError": "לא ניתן לפתוח את האירוע.\r\n\r\n{0}",
+  "metadata": "שם היומן: {0}\r\nמקור: {1}\r\nמזהה אירוע: {2}    רמה: {3}\r\nנרשם: {4}    קטגוריית משימה: {5}\r\nמשתמש: {6}    מחשב: {7}\r\nמזהה רשומה: {8}",
+  "levels": {
+    "critical": "קריטי",
+    "error": "שגיאה",
+    "warning": "אזהרה",
+    "information": "מידע",
+    "verbose": "מפורט"
+  }
+}

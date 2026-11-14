@@ -171,7 +171,7 @@ BEGIN
     PUSHBUTTON      "Text",IDC_CE_PBCOLOR2,215,204,33,14
     GROUPBOX        "CGUIHyperLinkAbstract",IDC_STATIC_15,269,4,185,48
     LTEXT           "SetActionOpen",IDC_STATIC_16,277,17,75,8
-    LTEXT           "www.altap.cz",IDC_CE_HLOPEN,365,17,47,8,WS_TABSTOP
+    LTEXT           "samandarin.net",IDC_CE_HLOPEN,365,17,47,8,WS_TABSTOP
     LTEXT           "SetActionPostCommand",IDC_STATIC_17,277,27,81,8
     LTEXT           "Say something!",IDC_CE_HLCOMMAND,365,27,55,8,WS_TABSTOP
     LTEXT           "SetActionPostCommand",IDC_STATIC_18,277,37,81,8

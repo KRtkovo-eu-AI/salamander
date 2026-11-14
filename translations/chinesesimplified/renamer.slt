@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\chinesesimplified\renamer\renamer.atp"
-TEXTVERSION,"1.16 (x64)"
-VERSION,"1,16,0,196"
+TEXTVERSION,"1.17 (x64)"
+VERSION,"1,17,0,197"
 
 [TRANSLATION]
 LANGID,2052
@@ -256,10 +256,10 @@ COMMENT,"简体中文版"
 1104,1,"期望对齐("l")或宽度(正整数)说明。"
 1105,1,"期望宽度(正整数)说明"
 1106,1,"期望填充说明(一个字母)"
-1107,1,"新名称错误：%s"
-1108,0,"<Invalid value in some input field>"
-1109,1,"正则表达式错误：%s"
-1110,1,"<Boyer-Moore 错误: %s>"
+1107,1,"<新名称错误: %s>"
+1108,1,"<Invalid value in some input field>"
+1109,1,"<正则表达式错误: %s>"
+1110,1,"<Boyer-Moore错误: %s>"
 1111,1,"<错误: %s>"
 1112,1,"没有错误。"
 1113,1,"低内存。"

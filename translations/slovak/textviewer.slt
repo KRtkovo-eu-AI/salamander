@@ -1,12 +1,12 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\slovak\textviewer\textviewer.atp"
-TEXTVERSION,"1.5 (x64)"
-VERSION,"1,5,0,196"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
 
 [TRANSLATION]
 LANGID,1051
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [DIALOG 8500]
@@ -23,7 +23,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 1]
 48,1,"Natívny prehliadač, ktorý zobrazuje textové súbory so zvýrazňovaním syntaxe pomocou Prism.js."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Nepodarilo sa pripraviť synchronizačnú udalosť potrebnú pre prehliadač."
 52,1,"&Súbor"
 53,1,"&Zobraziť"

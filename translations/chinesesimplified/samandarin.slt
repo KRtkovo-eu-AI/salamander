@@ -1,12 +1,12 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\chinesesimplified\samandarin\samandarin.atp"
-TEXTVERSION,"0.10 (x64)"
-VERSION,"0,10,0,196"
+TEXTVERSION,"0.11 (x64)"
+VERSION,"0,11,0,197"
 
 [TRANSLATION]
 LANGID,2052
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 1]
 48,1,"检查 GitHub 版本发布，并提供打开最新的 Samandarin 构建。"
-49,1,"https://samandarin.net/download"
+49,1,"open.samandarin.netdownload"
 50,1,"立即检查更新"
 51,1,"意外的托管异常："
 52,1,"无法初始化 Samandarin 托管辅助程序。\n请验证 Samandarin.Managed.dll 是否位于插件旁边。"
@@ -125,8 +125,8 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 144,1,"可能"
 145,1,"安装时需要"
 146,1,"否"
-147,0,"This package has higher-risk capabilities:\n\n{0}\n\nInstall or update it anyway?"
+147,1,"此软件包具有以下较高风险的功能：\n\n{0}\n\n仍要安装或更新吗？"
 148,1,"随安装程序一起附带"
-149,0,"Updates are available for the following plugins or extensions:\n\n{0}"
+149,1,"以下插件或扩展有可用更新：\n\n{0}"
 150,1,"打开插件更新"
 

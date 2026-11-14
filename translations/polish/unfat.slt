@@ -1,0 +1,30 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\polish\unfat\unfat.atp"
+TEXTVERSION,"1.4 (x64)"
+VERSION,"1,4,0,197"
+
+[TRANSLATION]
+LANGID,1045
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"polish (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"UnFAT"
+1001,1,"O wtyczce"
+1003,1,"Przeglądaj i wypakowuj obrazy dysków FAT 12, 16 i 32."
+
+[STRINGTABLE 1]
+1100,1,"Błąd otwierania pliku "%s"."
+1101,1,"Błąd odczytu pliku "%s"."
+1102,1,"Błąd analizy pliku "%s".\n\n%s"
+1103,1,"Sektor rozruchowy jest uszkodzony lub ten plik nie jest obrazem FAT 12, 16 ani 32."
+
+[STRINGTABLE 2]
+1104,1,"Błąd odczytu katalogu z pliku "%s".\n%s\nSektor: %d, Offset: 0x%s\n\nPlik nie jest prawidłowym obrazem FAT 12, 16 ani 32."
+1106,1,"Błąd odczytu pliku z pliku "%s".\n%s\nKlaster: %d\n\nPlik nie jest prawidłowym obrazem FAT 12, 16 ani 32."
+1107,1,"Błąd zapisu pliku"
+1108,1,"Plik "%s" wygląda na obraz całego dysku twardego.\nTakie obrazy nie są obsługiwane przez wtyczkę UnFAT."
+1109,1,"Wypakowywanie obrazu FAT - %s"
+1110,1,"wypakowywanie: %s"
+

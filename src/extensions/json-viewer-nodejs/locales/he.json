@@ -1,0 +1,12 @@
+{
+  "name": "JSON Viewer (nodeJS)",
+  "description": "חלופה קלת משקל ל‑JSON Viewer .NET. מציגה קובצי JSON ב‑WebView2 באמצעות מציג JSON של Firefox/Chrome (pd4d10/json-viewer).",
+  "viewers": {
+    "JSON Viewer (nodeJS)": "JSON Viewer (nodeJS)"
+  },
+  "strings": {
+    "invalidFallback": "הקובץ אינו JSON תקין ולא ניתן לפתוח את מציג הטקסט Prism.",
+    "viewerOpenFailed": "לא ניתן לפתוח את מציג המסמכים WebView2.\nהתקן את Salamatrix (מסגרת המציג המשותפת) וודא ש‑WebView2 Runtime זמין.",
+    "noPath": "לא סופק נתיב קובץ עבור JSON Viewer (nodeJS)."
+  }
+}

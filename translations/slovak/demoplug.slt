@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\slovak\demoplug\demoplug.atp"
-TEXTVERSION,"2.0 (x64)"
-VERSION,"2,0,0,196"
+TEXTVERSION,"2.1 (x64)"
+VERSION,"2,1,0,197"
 
 [TRANSLATION]
 LANGID,1051
 AUTHOR,"Open Samandarin"
-WEB,"www.altap.cz"
-COMMENT,"English version"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 490]
 205,61,1,"Zobraziť"
@@ -92,7 +92,7 @@ COMMENT,"English version"
 563,215,204,33,14,1,"Text"
 3014,269,4,185,48,1,"CGUIHyperLinkAbstract"
 3015,277,17,75,8,1,"SetActionOpen"
-557,365,17,47,8,1,"www.altap.cz"
+557,365,17,74,8,1,"open.samandarin.net"
 3016,277,27,81,8,1,"SetActionPostCommand"
 558,365,27,55,8,1,"Povedz niečo!"
 3017,277,37,81,8,1,"SetActionPostCommand"
@@ -109,9 +109,9 @@ COMMENT,"English version"
 
 [STRINGTABLE 1]
 48,1,"Tento plugin by vám mal pomôcť pri vytváraní vlastných plugin-ov."
-49,1,"www.altap.cz"
+49,1,"open.samandarin.net"
 50,1,"Vyskytla sa výnimka v DemoPlug, prosím informujte autorov!\nAk ste pracovali s nejakým súborom .dop v čase, keď sa výnimka vyskytla,\nprosím skúste chybu zopakovať s týmto súborom .dop a ak sa výnimka\nzopakuje, pošlite nám tento .dop súbor (my ho skompilujeme a opravíme).\nVďaka!"
-51,1,"petr.solin@altap.cz"
+51,1,"open.samandarin.net"
 52,1,"Konfigurácia je už otvorená."
 53,1,"Niektoré okná prehliadača DemoPlug sú otvorené. Chcete ich zavrieť?"
 54,1,"Konfigurácia DemoPlug"

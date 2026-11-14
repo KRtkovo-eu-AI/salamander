@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\romanian\diskdir\diskdir.atp"
 TEXTVERSION,"1.1 (x64)"
-VERSION,"1,1,0,196"
+VERSION,"1,1,0,197"
 
 [TRANSLATION]
 LANGID,1048
 AUTHOR,"KRtkovo.eu"
 WEB,"samandarin.net"
-COMMENT,"English version"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 200]
 278,94,1,"Creeaza catalog DiskDir"
@@ -29,7 +29,7 @@ COMMENT,"English version"
 105,1,"Catalog DiskDir"
 106,1,"Calea catalogului este invalida sau prea lunga."
 107,1,"Numele catalogului este deja folosit de un director."
-108,0,"The catalog already exists:\n\n"
+108,1,"Catalogul există deja:\n\n"
 109,1,"\n\nDoriți să o suprascrieți?"
 110,1,"Cataloagele DiskDir nu stocheaza continutul fisierelor, deci fisierele sursa nu pot fi mutate."
 111,1,"Adaugarea intrarilor intr-un catalog DiskDir existent nu este acceptata."

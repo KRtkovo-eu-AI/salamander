@@ -1,0 +1,18 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\arabic\ieviewer\ieviewer.atp"
+TEXTVERSION,"1.14 (x64)"
+VERSION,"1,14,0,197"
+
+[TRANSLATION]
+LANGID,1025
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"arabic (automatic AI translation)"
+
+[STRINGTABLE 0]
+10100,1,"عارض Internet Explorer"
+10101,1,"تعذّر فتح عارض Internet Explorer.\nيُرجى الإبلاغ عن هذه المشكلة على support@altap.cz."
+10102,1,"خطأ"
+10103,1,"عارض خفيف لمستندات HTML وXML يعتمد على Internet Explorer."
+10105,1,"حول الملحق"
+

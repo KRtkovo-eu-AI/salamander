@@ -1,0 +1,75 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\swedish\automation\automation.atp"
+TEXTVERSION,"2.9 (x64)"
+VERSION,"2,9,0,197"
+
+[TRANSLATION]
+LANGID,1053
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"swedish (automatic AI translation)"
+
+[DIALOG 100]
+205,64,1,"Inmatningsruta"
+1150,8,8,189,8,1,"Fråga:"
+101,8,18,189,12,1,""
+1,48,42,50,14,1,"OK"
+2,107,42,50,14,1,"Avbryt"
+
+[DIALOG 101]
+332,143,1,"Konfiguration av automatisering"
+375,8,9,67,8,1,"&Skriptkataloger:"
+371,8,19,316,73,1,""
+1001,8,102,105,10,1,"Aktivera &felsökning av skript"
+1,75,121,50,14,1,"OK"
+2,141,121,50,14,1,"Avbryt"
+9,207,121,50,14,1,"&Hjälp"
+
+[MENU 106]
+0,1,"[POPUP]"
+40013,1,"Bläddra…"
+40014,1,"Salamander-katalog"
+40015,1,"Miljövariabel"
+
+[STRINGTABLE 0]
+1,1,"Automatisering"
+2,1,"Automatiserar vanliga uppgifter med skript."
+3,1,"Om insticksprogrammet"
+
+[STRINGTABLE 1]
+128,1,"Automatiseringsskriptfel"
+129,1,"Rad:\t%u\r\n"
+130,1,"Kolumn:\t%u\r\n"
+131,1,"Fel:\t%s"
+132,1,"Kör markerat skript"
+134,1,"Åtgärdsförlopp"
+135,1,"Källa:\t%s\r\n"
+136,1,"Öppna skriptmenyn"
+137,1,"(inget skript)"
+138,1,"Det gick inte att köra skriptet '%s'.\r\n%s"
+139,1,"Okänt fel."
+140,1,"1\t&Avbryt"
+141,1,"1\t&Felsök\t2\t&Avbryt"
+142,1,"Skriptkatalog"
+143,1,"Välj katalog för skriptarkivet."
+
+[STRINGTABLE 2]
+144,1,"Avbryt skript"
+145,1,"Avbryt pågående skript\tCtrl+Break"
+146,1,"Open Samandarin-fönstret är låst av automatiseringsinsticksprogrammet. Vänta tills skriptet har körts klart."
+147,1,"Det gick inte att initiera skriptmotorn."
+
+[STRINGTABLE 3]
+256,1,"Ogiltigt arkiv."
+257,1,"Den aktuella sökvägen kan inte stängas."
+258,1,"Sökvägen trunkerades."
+259,1,"Egenskapen kan inte ändras och metoden %s kan inte anropas när fönstret visas."
+260,1,"Egenskapen kan inte ändras och metoden %s kan inte anropas när fönstret är dolt."
+261,1,"Det gick inte att läsa in insticksprogrammet."
+262,1,"Fel i insticksprogrammet."
+263,1,"Det gick inte att flytta filen till diskcachen."
+264,1,"Syntaxfel i filmasken."
+265,1,"Endast komponenter kan läggas till i behållaren."
+266,1,"Formulär kan inte läggas till i behållaren."
+267,1,"Skriptkörningen avbröts av användaren."
+

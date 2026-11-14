@@ -150,7 +150,7 @@ vendor="Self-Extractor © 2000-2026 Open Salamander Authors"
 
 ;www odkaz v pravém dolním rohu dialogového okénka
 
-link="https://www.altap.cz"
+link="https://samandarin.net"
 
 ;soubor obsahující ikonu, může to být buď ICO soubor nebo PE spusti-
 ;telný modul (jako jsou win32 EXE a DLL soubory) obsahující ikonu

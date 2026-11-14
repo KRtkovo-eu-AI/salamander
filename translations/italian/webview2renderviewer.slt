@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\webview2renderviewer\webview2renderviewer.atp"
-TEXTVERSION,"1.5 (x64)"
-VERSION,"1,5,0,196"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
 
 [TRANSLATION]
 LANGID,1040
 AUTHOR,"Open Samandarin"
-WEB,"www.altap.cz"
-COMMENT,"English version"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
 
 [STRINGTABLE 0]
 46,1,"Visualizzatore Render WebView2"
@@ -15,7 +15,7 @@ COMMENT,"English version"
 
 [STRINGTABLE 1]
 48,1,"Visualizzatore che visualizza HTML, Markdown e documenti web renderizzati tramite WebView2."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Impossibile preparare l'evento di sincronizzazione richiesto dal visualizzatore."
 51,1,"Il file selezionato è troppo grande per essere aperto. I file più grandi di 32 MB non sono supportati."
 52,1,"&File"

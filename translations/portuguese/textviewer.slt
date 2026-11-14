@@ -1,0 +1,83 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\portuguese\textviewer\textviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1046
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"portuguese (automatic AI translation)"
+
+[DIALOG 8500]
+310,129,1,"Configuração do visualizador de texto Prism"
+8701,7,7,296,86,1,"Desempenho"
+8700,17,21,276,18,1,"&Manter o Prism pronto para reabrir mais rápido"
+8702,17,44,276,40,1,"Mantém um visualizador pronto por até 60 segundos após fechar um arquivo. Exige memória adicional (cerca de 100 MB ou mais). O primeiro arquivo continua abrindo normalmente."
+1,197,108,50,14,1,"OK"
+2,253,108,50,14,1,"Cancelar"
+
+[STRINGTABLE 0]
+46,1,"Prism Text Viewer"
+47,1,"Sobre o plug-in"
+
+[STRINGTABLE 1]
+48,1,"Visualizador nativo que renderiza arquivos de texto com destaque de sintaxe Prism.js."
+49,1,"open.samandarin.net"
+50,1,"Não foi possível preparar o evento de sincronização exigido pelo visualizador."
+52,1,"&Arquivo"
+53,1,"&Exibir"
+54,1,"&Fechar\t Esc"
+55,1,"&Atualizar\t F5"
+56,1,"&Aumentar zoom\t Ctrl++"
+57,1,"&Diminuir zoom\t Ctrl+-"
+58,1,"&Redefinir\t Ctrl+0"
+59,1,"Carregando..."
+60,1,"Pronto"
+61,1,"Não foi possível inicializar o renderizador Web View2."
+62,1,"Não foi possível abrir o arquivo selecionado."
+63,1,"Mostrar &números de linha"
+
+[STRINGTABLE 2]
+64,1,"&Quebrar linhas\t F2"
+65,1,"Mostrar &espaços em branco"
+66,1,"&Realce de sintaxe"
+67,1,"&Automático"
+68,1,"&Cores"
+69,1,"&Visual Studio"
+70,1,"Prism &padrão"
+71,1,"&Personalizado"
+72,1,"Editar &personalizado"
+73,1,"Editar personalizado"
+74,1,"&Salvar"
+75,1,"Cancelar"
+76,1,"Claro"
+77,1,"Escuro"
+78,1,"Comentário"
+79,1,"Pontuação"
+
+[STRINGTABLE 3]
+80,1,"Palavra-chave"
+81,1,"Palavra-chave de controle"
+82,1,"Nome de classe"
+83,1,"Função"
+84,1,"String"
+85,1,"Número"
+86,1,"Booleano"
+87,1,"Variável"
+88,1,"Namespace"
+89,1,"Expressão regular"
+90,1,"Não foi possível salvar a paleta de cores personalizada."
+91,1,"Salamatrix.UI não está disponível."
+92,1,"Não foi possível abrir a janela de configuração do plug-in."
+93,1,"&Editar"
+94,1,"&Copiar\t Ctrl+C"
+95,1,"Selecionar t&udo\t Ctrl+A"
+
+[STRINGTABLE 4]
+96,1,"&Localizar...\t Ctrl+F"
+97,1,"Localizar &próximo\t F3"
+98,1,"Localizar &anterior\t Shift+F3"
+99,1,"&Ir para a linha...\t Ctrl+G"
+100,1,"Im&primir...\t Ctrl+P"
+

@@ -11,7 +11,7 @@
 
 STRING(STR_WELCOME_MESSAGE,
        "\n"
-       "Zip2Sfx 2.9  Copyright (c) 2000-2026 Open Salamander Authors, Open Samandarin Authors   Home page: www.altap.cz\n"
+       "Zip2Sfx 2.9  Copyright (c) 2000-2026 Open Salamander Authors, Open Samandarin Authors   Home page: samandarin.net\n"
        "                                             E-mail:    support@altap.cz\n\n")
 STRING(STR_HELP,
        "Usage:\tzip2sfx [options] zipfile [exefile]\n"

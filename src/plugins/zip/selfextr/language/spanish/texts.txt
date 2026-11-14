@@ -1,13 +1,13 @@
-0A
+09
 
-"Archivo ZIP autoextraible"
+"Self-Extracting ZIP Archive"
 
-"Esta operación extraerá un archivo ZIP."
+"This will extract ZIP archive."
 
-"Versión 1.40"
+"Version 1.40"
 
-"&Extraer"
+"&Extract"
 
-"Self-Extractor © 2000-2023 Open Salamander Authors"
+"Self-Extractor Â© 2000-2023 Open Salamander Authors"
 
-"https://www.altap.cz"
+"https://samandarin.net"

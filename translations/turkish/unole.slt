@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\turkish\unole\unole.atp"
+TEXTVERSION,"1.4 (x64)"
+VERSION,"1,4,0,197"
+
+[TRANSLATION]
+LANGID,1055
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"turkish (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"UnOLE2"
+1001,1,"Yetersiz bellek."
+1002,1,"Bileşik Dosya %s açılamıyor.\n"
+1003,1,"Bellek ayırıcısı alınamıyor.\n"
+1004,1,"Dosyaya yazılamıyor.\n"
+1005,1,"%s dosyası oluşturulamıyor.\n"
+1006,1,"%s akışı açılamıyor.\n"
+1007,1,"Dosyaya yazılamıyor.\n"
+
+[STRINGTABLE 1]
+1008,1,"Bilinmeyen bir hata oluştu."
+1014,1,"Arşiv girdisi dosya listesine eklenemiyor."
+1015,1,"Bileşik Dosya Ayıklanıyor"
+1017,1,"ayıklanıyor..."
+1018,1,"ayıklanıyor: "
+
+[STRINGTABLE 2]
+1025,1,"Üzgünüz, eklentinin kullanım süresi doldu. Daha yeni bir sürüm için web sitemizi kontrol edin."
+
+[STRINGTABLE 3]
+1041,1,"Hata"
+1042,1,"OLE bileşik dosyalarına göz atın ve bunları ayıklayın."
+1043,1,"Eklenti Hakkında"
+

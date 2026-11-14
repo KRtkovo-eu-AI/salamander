@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\mmviewer\mmviewer.atp"
-TEXTVERSION,"1.18 (x64)"
-VERSION,"1,18,0,196"
+TEXTVERSION,"1.19 (x64)"
+VERSION,"1,19,0,197"
 
 [TRANSLATION]
 LANGID,1040
 AUTHOR,"Open Samandarin"
-WEB,"www.altap.cz"
-COMMENT,"English version"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 10500]
 364,132,1,"Informazioni sul plug-in"
@@ -297,3 +297,4 @@ COMMENT,"English version"
 12640,1,"Bit per campione"
 12641,1,"Informazioni sul supporto"
 12642,1,"Sconosciuto"
+

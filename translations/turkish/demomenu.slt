@@ -1,0 +1,20 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\turkish\demomenu\demomenu.atp"
+TEXTVERSION,"1.0.3 (x64)"
+VERSION,"1,0,3,197"
+
+[TRANSLATION]
+LANGID,1055
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
+
+[STRINGTABLE 0]
+46,1,"DemoMenü"
+47,1,"Plugin Bilgi"
+
+[STRINGTABLE 1]
+48,1,"Bu eklenti kendi menü uzantı eklentinizi yapmanıza yardımcı olur."
+49,1,"www.altap.cz"
+50,1,"&Test Komutu"
+

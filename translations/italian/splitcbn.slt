@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\splitcbn\splitcbn.atp"
-TEXTVERSION,"1.12 (x64)"
-VERSION,"1,12,0,196"
+TEXTVERSION,"1.13 (x64)"
+VERSION,"1,13,0,197"
 
 [TRANSLATION]
 LANGID,1040
 AUTHOR,"Open Samandarin"
-WEB,"www.altap.cz"
-COMMENT,"English version"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 101]
 210,102,1,"Separa e combina impostazioni"

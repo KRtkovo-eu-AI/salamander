@@ -1,11 +1,16 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-08 | Estimate occupied space only from a complete set of logical file sizes. | Keep estimates correct for empty files and arbitrary cluster sizes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Keep the same full size results dialog for protected totals. | Preserve the layout and leave unavailable values disabled. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Show protected totals in the compact size dialog. | Use the Ctrl+Q layout for measured values and omit allocation controls. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-14 | Preserve File Associations override ownership in runtime masks. | Keep authoritative per-pattern rows identifiable through array copies and swaps. |  | openrouter/openai/gpt-6-luna-pro |
+// | 2026-11-14 | Preserve user-association markers when runtime rows are copied. | Keep explicit per-pattern targets identifiable after staging and commit. |  | openrouter/openai/gpt-6-luna-pro |
+// | 2026-11-13 | Populate Manage Configurations languages from embedded packs. | Keep Welcome's language selector working without generated .slg files. | | openrouter/openai/gpt-6-luna-pro |
+// | 2026-11-13 | List languages embedded in the selected plug-in. | Keep the language selector aligned with per-plugin .spl resources. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-09 | Copy transient first-registration viewer state. | Let startup merge newly registered extension rows without persisting the marker. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-04 | Enumerate embedded English and langpack.dll languages in the selector. | Official languages no longer ship as per-language .slg files. | | Composer |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
@@ -18,6 +23,7 @@
 #include "execute.h"
 #include "fileactionpath.h"
 #include "plugins.h"
+#include "langpack.h"
 #include "fileswnd.h"
 #include "mainwnd.h"
 #include "gui.h"
@@ -43,6 +49,7 @@ CViewerMasksItem::CViewerMasksItem(const char* masks, const char* command, const
     ViewerType = viewerType;
     HandlerID = ViewerHandlerID++;
     RegisteredDuringStartup = FALSE;
+    UserAssociationOverride = FALSE;
     Set(masks, command, arguments, initDir);
     SetViewerLabel("");
 }
@@ -56,6 +63,7 @@ CViewerMasksItem::CViewerMasksItem()
     HandlerID = ViewerHandlerID++;
     OldType = FALSE;
     RegisteredDuringStartup = FALSE;
+    UserAssociationOverride = FALSE;
     Set("", "", "\"$(Name)\"", "$(FullPath)");
     SetViewerLabel("");
 }
@@ -69,6 +77,7 @@ CViewerMasksItem::CViewerMasksItem(CViewerMasksItem& item)
     OldType = item.OldType;
     HandlerID = item.HandlerID;
     RegisteredDuringStartup = item.RegisteredDuringStartup;
+    UserAssociationOverride = item.UserAssociationOverride;
     Set(item.Masks->GetMasksString(), item.Command, item.Arguments, item.InitDir);
     SetViewerLabel(item.ViewerLabel);
 }
@@ -183,6 +192,7 @@ CEditorMasksItem::CEditorMasksItem(char* masks, char* command, char* arguments, 
     Masks = new CMaskGroup;
     Command = Arguments = InitDir = NULL;
     HandlerID = EditorHandlerID++;
+    UserAssociationOverride = FALSE;
     Set(masks, command, arguments, initDir);
 }
 
@@ -192,6 +202,7 @@ CEditorMasksItem::CEditorMasksItem()
     Masks = new CMaskGroup;
     Command = Arguments = InitDir = NULL;
     HandlerID = EditorHandlerID++;
+    UserAssociationOverride = FALSE;
     Set("", "", "\"$(Name)\"", "$(FullPath)");
 }
 
@@ -201,6 +212,7 @@ CEditorMasksItem::CEditorMasksItem(CEditorMasksItem& item)
     Masks = new CMaskGroup;
     Command = Arguments = InitDir = NULL;
     HandlerID = item.HandlerID;
+    UserAssociationOverride = item.UserAssociationOverride;
     Set(item.Masks->GetMasksString(), item.Command, item.Arguments, item.InitDir);
 }
 
@@ -1025,6 +1037,7 @@ CLanguageSelectorDialog::~CLanguageSelectorDialog()
 int CLanguageSelectorDialog::Execute()
 {
     HINSTANCE hTmpLanguage = NULL;
+    BOOL tmpOwned = FALSE;
     if (OpenedFromConfiguration || OpenedForPlugin)
     {
         // use the template from the currently running language version
@@ -1032,19 +1045,31 @@ int CLanguageSelectorDialog::Execute()
     }
     else
     {
-        // load the template from the best available SLG
+        // load the template from the best available language (host / pack / .slg)
         int index = GetPreferredLanguageIndex(SLGName);
-        char path[SAL_MAX_PATH];
-        GetModuleFileName(HInstance, path, SAL_MAX_PATH);
-        sprintf(strrchr(path, '\\') + 1, "lang\\%s", Items[index].FileName);
-        hTmpLanguage = HANDLES(LoadLibrary(path));
-        if (hTmpLanguage != NULL)
-            Modul = hTmpLanguage;
+        if (index >= 0 && index < Items.Count)
+        {
+            if (SalIsEnglishLanguageName(Items[index].FileName))
+            {
+                Modul = HInstance;
+            }
+            else
+            {
+                hTmpLanguage = SalLoadLanguageForModule(HInstance, SAL_LANGPACK_MODULE_SALAMAND,
+                                                       Items[index].FileName, &tmpOwned);
+                if (hTmpLanguage != NULL)
+                {
+                    Modul = hTmpLanguage;
+                    if (tmpOwned)
+                        HANDLES_ADD(__htLibrary, __hoLoadLibrary, hTmpLanguage);
+                }
+            }
+        }
     }
-    if (!LoadString(Modul, IDS_SELLANGEXITBUTTON, ExitButtonLabel, 100))
+    if (Modul == NULL || !LoadString(Modul, IDS_SELLANGEXITBUTTON, ExitButtonLabel, 100))
         strcpy(ExitButtonLabel, "Exit");
     int ret = (int)CCommonDialog::Execute();
-    if (hTmpLanguage != NULL)
+    if (hTmpLanguage != NULL && tmpOwned && !SalLanguageModuleIsHost(HInstance, hTmpLanguage))
     {
         Modul = NULL;
         HANDLES(FreeLibrary(hTmpLanguage));
@@ -1163,8 +1188,94 @@ void CLanguageSelectorDialog::Transfer(CTransferInfo& ti)
     }
 }
 
+namespace
+{
+
+struct CAddPackLangCtx
+{
+    TDirectArray<CLanguage>* Items;
+    HINSTANCE PluginDLL;
+    BOOL Ok;
+};
+
+BOOL AddPackLanguageToSelector(const char* languageBase, void* userData)
+{
+    CAddPackLangCtx* ctx = (CAddPackLangCtx*)userData;
+    char slgName[64];
+    _snprintf_s(slgName, _TRUNCATE, "%s.slg", languageBase);
+
+    for (int i = 0; i < ctx->Items->Count; i++)
+    {
+        if (_stricmp((*ctx->Items)[i].FileName, slgName) == 0)
+            return TRUE; // already present
+    }
+
+    CLanguage lang;
+    if (lang.Init(slgName, ctx->PluginDLL))
+    {
+        ctx->Items->Add(lang);
+        if (!ctx->Items->IsGood())
+        {
+            ctx->Items->ResetState();
+            lang.Free();
+            ctx->Ok = FALSE;
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+} // namespace
+
 BOOL CLanguageSelectorDialog::Initialize(const char* slgSearchPath, HINSTANCE pluginDLL)
 {
+    // Always offer embedded English from the host binary.
+    {
+        CLanguage english;
+        if (english.Init("english.slg", pluginDLL))
+        {
+            Items.Add(english);
+            if (!Items.IsGood())
+            {
+                Items.ResetState();
+                english.Free();
+                return FALSE;
+            }
+        }
+    }
+
+    // Non-English languages embedded in this module, followed by the shared pack.
+    CAddPackLangCtx packCtx;
+    packCtx.Items = &Items;
+    packCtx.PluginDLL = pluginDLL;
+    packCtx.Ok = TRUE;
+    const char* moduleKey = SAL_LANGPACK_MODULE_SALAMAND;
+    char pluginKey[64];
+    if (pluginDLL != NULL && pluginDLL != HInstance)
+    {
+        char dllPath[MAX_PATH];
+        if (GetModuleFileName(pluginDLL, dllPath, MAX_PATH) != 0)
+        {
+            char* file = strrchr(dllPath, '\\');
+            if (file != NULL)
+            {
+                *file = 0;
+                char* dir = strrchr(dllPath, '\\');
+                if (dir != NULL)
+                {
+                    lstrcpyn(pluginKey, dir + 1, _countof(pluginKey));
+                    moduleKey = pluginKey;
+                }
+            }
+        }
+    }
+    SalEnumModuleLanguages(pluginDLL, moduleKey, AddPackLanguageToSelector, &packCtx);
+    if (packCtx.Ok)
+        SalEnumLangPackLanguages(moduleKey, AddPackLanguageToSelector, &packCtx);
+    if (!packCtx.Ok)
+        return FALSE;
+
+    // Legacy / 3rd-party .slg files on disk
     char path[SAL_MAX_PATH];
     if (slgSearchPath == NULL)
     {
@@ -1183,6 +1294,18 @@ BOOL CLanguageSelectorDialog::Initialize(const char* slgSearchPath, HINSTANCE pl
             char* point = strrchr(file.cFileName, '.');
             if (point != NULL && stricmp(point + 1, "slg") == 0) // it was returning *.slg*
             {
+                BOOL already = FALSE;
+                for (int i = 0; i < Items.Count; i++)
+                {
+                    if (_stricmp(Items[i].FileName, file.cFileName) == 0)
+                    {
+                        already = TRUE;
+                        break;
+                    }
+                }
+                if (already)
+                    continue;
+
                 CLanguage lang;
                 if (lang.Init(file.cFileName, pluginDLL))
                 {
@@ -1332,7 +1455,7 @@ CLanguageSelectorDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             Initialize();
             if (GetLanguagesCount() == 0) // should not happen because this dialog is loaded from the .slg module (that .slg cannot be deleted)
             {
-                MessageBox(HWindow, "Unable to find any language file (.SLG) in subdirectory LANG.\n"
+                MessageBox(HWindow, "Unable to find any language (embedded English, language pack, or .SLG).\n"
                                     "Please reinstall Open Samandarin.",
                            SALAMANDER_TEXT_VERSION, MB_OK | MB_ICONERROR);
                 TRACE_E("CLanguageSelectorDialog: unexpected situation (no language file): calling ExitProcess(667).");
@@ -1805,6 +1928,62 @@ void CManageConfigsDialog::UpdateDeleteButtonState()
 
 
 
+namespace
+{
+
+struct CMCDLanguageComboCtx
+{
+    CManageConfigsDialog* Dialog;
+    HWND Combo;
+    BOOL Ok;
+};
+
+BOOL MCDAddSLGToLanguageCombo(const char* slgName, void* userData)
+{
+    CMCDLanguageComboCtx* ctx = (CMCDLanguageComboCtx*)userData;
+    if (ctx == NULL || ctx->Dialog == NULL || ctx->Combo == NULL || slgName == NULL || slgName[0] == 0)
+        return TRUE;
+
+    for (int i = 0; i < ctx->Dialog->LanguageItems.Count; i++)
+    {
+        if (_stricmp(ctx->Dialog->LanguageItems[i].FileName, slgName) == 0)
+            return TRUE;
+    }
+
+    CLanguage lang;
+    if (!lang.Init(slgName, NULL))
+        return TRUE;
+
+    int itemIndex = ctx->Dialog->LanguageItems.Count;
+    ctx->Dialog->LanguageItems.Add(lang);
+    if (!ctx->Dialog->LanguageItems.IsGood())
+    {
+        ctx->Dialog->LanguageItems.ResetState();
+        lang.Free();
+        ctx->Ok = FALSE;
+        return FALSE;
+    }
+
+    char name[200];
+    ctx->Dialog->LanguageItems[itemIndex].GetLanguageName(name, SizeOf(name));
+    int comboIndex = (int)SendMessage(ctx->Combo, CB_ADDSTRING, 0, (LPARAM)name);
+    if (comboIndex != CB_ERR && comboIndex != CB_ERRSPACE)
+        SendMessage(ctx->Combo, CB_SETITEMDATA, comboIndex, itemIndex);
+    return TRUE;
+}
+
+BOOL MCDAddPackedLanguageToCombo(const char* languageBase, void* userData)
+{
+    if (languageBase == NULL || languageBase[0] == 0)
+        return TRUE;
+    char slgName[64];
+    if (_snprintf_s(slgName, _TRUNCATE, "%s.slg", languageBase) <= 0)
+        return TRUE;
+    return MCDAddSLGToLanguageCombo(slgName, userData);
+}
+
+} // namespace
+
 void CManageConfigsDialog::InitLanguageCombo()
 {
     HWND hCombo = GetDlgItem(HWindow, IDC_MCD_SRC_LANG);
@@ -1813,39 +1992,40 @@ void CManageConfigsDialog::InitLanguageCombo()
         LanguageItems[i].Free();
     LanguageItems.DestroyMembers();
 
-    char path[SAL_MAX_PATH];
-    GetModuleFileName(NULL, path, SAL_MAX_PATH);
-    lstrcpy(strrchr(path, '\\') + 1, "lang\\*.slg");
+    CMCDLanguageComboCtx ctx;
+    ctx.Dialog = this;
+    ctx.Combo = hCombo;
+    ctx.Ok = TRUE;
 
-    WIN32_FIND_DATA file;
-    HANDLE hFind = HANDLES_Q(FindFirstFile(path, &file));
-    if (hFind != INVALID_HANDLE_VALUE)
+    // English is embedded in the host executable; no english.slg needs to exist.
+    MCDAddSLGToLanguageCombo("english.slg", &ctx);
+
+    // Official non-English Salamander languages are resources in langpack.dll.
+    if (ctx.Ok)
+        SalEnumLangPackLanguages(SAL_LANGPACK_MODULE_SALAMAND, MCDAddPackedLanguageToCombo, &ctx);
+
+    // Preserve compatibility with legacy installations that still have .slg files.
+    char path[SAL_MAX_PATH];
+    if (ctx.Ok && GetModuleFileName(NULL, path, SAL_MAX_PATH) != 0)
     {
-        do
+        char* fileName = strrchr(path, '\\');
+        if (fileName != NULL)
         {
-            char* point = strrchr(file.cFileName, '.');
-            if (point != NULL && stricmp(point + 1, "slg") == 0)
+            lstrcpyn(fileName + 1, "lang\\*.slg", SAL_MAX_PATH - (int)(fileName + 1 - path));
+
+            WIN32_FIND_DATA file;
+            HANDLE hFind = HANDLES_Q(FindFirstFile(path, &file));
+            if (hFind != INVALID_HANDLE_VALUE)
             {
-                CLanguage lang;
-                if (lang.Init(file.cFileName, NULL))
+                do
                 {
-                    int itemIndex = LanguageItems.Count;
-                    LanguageItems.Add(lang);
-                    if (!LanguageItems.IsGood())
-                    {
-                        LanguageItems.ResetState();
-                        lang.Free();
-                        break;
-                    }
-                    char name[200];
-                    LanguageItems[itemIndex].GetLanguageName(name, SizeOf(name));
-                    int comboIndex = (int)SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)name);
-                    if (comboIndex != CB_ERR && comboIndex != CB_ERRSPACE)
-                        SendMessage(hCombo, CB_SETITEMDATA, comboIndex, itemIndex);
-                }
+                    char* point = strrchr(file.cFileName, '.');
+                    if (point != NULL && stricmp(point + 1, "slg") == 0)
+                        MCDAddSLGToLanguageCombo(file.cFileName, &ctx);
+                } while (ctx.Ok && FindNextFile(hFind, &file));
+                HANDLES(FindClose(hFind));
             }
-        } while (FindNextFile(hFind, &file));
-        HANDLES(FindClose(hFind));
+        }
     }
 }
 

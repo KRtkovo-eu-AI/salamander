@@ -1,13 +1,13 @@
-19
+09
 
-"Самораспаковывающийся архив ZIP"
+"Self-Extracting ZIP Archive"
 
-"Эта программа выполнит распаковку архива ZIP."
+"This will extract ZIP archive."
 
-"Версия 1.40"
+"Version 1.40"
 
-"&Извлечь"
+"&Extract"
 
-"Self-Extractor © 2000-2023 Open Salamander Authors"
+"Self-Extractor В© 2000-2023 Open Salamander Authors"
 
-"https://www.altap.cz"
+"https://samandarin.net"

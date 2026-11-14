@@ -1,0 +1,59 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\portuguese\portables\portables.atp"
+TEXTVERSION,"0.7 (x64)"
+VERSION,"0,7,0,197"
+
+[TRANSLATION]
+LANGID,1046
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"portuguese (automatic AI translation)"
+
+[STRINGTABLE 0]
+128,1,"{!}%d dispositivo{2:s|0||1|s} selecionado{2:s|0||1|s}"
+129,1,"Nenhum dispositivo"
+130,1,"Dispositivos portáteis"
+131,1,"Cancelar"
+132,1,"Preparando..."
+133,1,"Arquivo:"
+134,1,"Total:"
+135,1,"Minimizar"
+136,1,"Pausar"
+137,1,"O dispositivo portátil parou de responder. Desconecte-o e conecte-o novamente. O painel Portables voltará à lista de dispositivos."
+138,1,"%s de %s copiado(s)"
+139,1,"Copiar"
+140,1,"Mover"
+141,1,"Excluir"
+142,1,"Copiando"
+143,1,"Movendo"
+
+[STRINGTABLE 1]
+144,1,"Excluindo"
+145,1,"para"
+146,1,"%s de %s movido(s)"
+147,1,"%s de %s processado(s)"
+148,1,"Excluindo itens selecionados"
+149,1,"%s '%s' falhou (0x%08X)."
+150,1,"Renomear"
+151,1,"Criar pasta"
+152,1,"Exibir"
+153,1,"O nome ainda está no dispositivo. O item não foi criado novamente."
+154,1,"Um arquivo não pode substituir uma pasta."
+155,1,"Uma pasta não pode substituir um arquivo."
+156,1,"Já existe um item com este nome."
+157,1,"?"
+
+[STRINGTABLE 2]
+8192,1,"Dispositivos portáteis"
+8193,1,"Gerenciar dispositivos portáteis."
+
+[STRINGTABLE 3]
+9216,1,"Sobre o plug-in"
+
+[STRINGTABLE 4]
+10240,1,"Erro ao alterar o diretório"
+10241,1,"Caminho: "%s"\r\n Erro: %s"
+
+[STRINGTABLE 5]
+19457,1,"O caminho especificado contém o caminho de um arquivo."
+

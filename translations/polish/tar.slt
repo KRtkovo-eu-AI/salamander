@@ -1,0 +1,64 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\polish\tar\tar.atp"
+TEXTVERSION,"3.36 (x64)"
+VERSION,"3,36,0,197"
+
+[TRANSLATION]
+LANGID,1045
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"polish (automatic AI translation)"
+
+[STRINGTABLE 0]
+11200,1,"Błąd wtyczki TAR"
+11201,1,"Nierozpoznany lub nieobsługiwany format archiwum."
+11202,1,"Nieprawidłowe dane w nagłówku TAR — archiwum uszkodzone."
+11203,1,"Nieprawidłowy plik lub suma kontrolna nagłówka — archiwum uszkodzone."
+11204,1,"Wewnętrzny błąd: uszkodzona struktura danych pliku."
+11205,1,"Nieznana sygnatura bloku — pomijanie."
+11206,1,"Wymagany plik nie został znaleziony w archiwum."
+11207,1,"Błąd alokacji pamięci."
+
+[STRINGTABLE 1]
+11240,1,"Archiwa LZH nie są jeszcze obsługiwane."
+
+[STRINGTABLE 2]
+11250,1,"Rozpakuj"
+11251,1,"Wypakowywanie "
+11252,1,"Pomijanie "
+11260,1,"Błąd GZip"
+11261,1,"Użyto nieznanej metody kompresji, nie można wypakować."
+11262,1,"Ten plik jest zaszyfrowany. Szyfrowanie nie jest obsługiwane w archiwach GZip."
+11263,1,"Ten plik jest częścią archiwum wieloczęściowego. Wieloczęściowe archiwa GZip nie są obsługiwane."
+
+[STRINGTABLE 3]
+11264,1,"Napotkano nieznane flagi w nagłówku GZip, nie można wypakować."
+11265,1,"Błąd otwierania pliku archiwum: "
+11266,1,"Napotkano przedwczesny koniec pliku."
+11267,1,"Błąd odczytu pliku archiwum: "
+11268,1,"Błąd zapisu do pliku wyjściowego: "
+11269,1,"Funkcja WriteFile odmówiła zapisania wszystkich żądanych danych."
+11270,1,"Napotkano nieprawidłowy blok w strumieniu GZip, nie można wypakować."
+11271,1,"Wewnętrzny błąd wtyczki TAR, prosimy o kontakt na adres support@altap.cz."
+11272,1,"Błąd alokacji pamięci."
+11273,1,"Błąd CRC."
+11274,1,"Nieoczekiwane dane w skompresowanym strumieniu, archiwum uszkodzone."
+11275,1,"Błąd pozycjonowania w pliku archiwum: "
+
+[STRINGTABLE 4]
+11280,1,"Przeglądarka RPM"
+11281,1,"Błąd RPM"
+11282,1,"Błąd tworzenia nazwy pliku tymczasowego."
+11283,1,"Błąd tworzenia pliku tymczasowego."
+11284,1,"Plik nie został rozpoznany jako archiwum RPM."
+11285,1,"Wersja RPM wymagana przez to archiwum nie jest obsługiwana."
+11286,1,"Napotkano nieznaną sygnaturę archiwum RPM."
+11291,1,"Rekord pliku ma nieprawidłową sygnaturę."
+11292,1,"Uszkodzony rekord nagłówka pliku."
+11293,1,"Nieznany format nagłówka cpio."
+
+[STRINGTABLE 5]
+11299,1,"TAR"
+11300,1,"Przeglądaj i wypakowuj archiwa Uniksa."
+11301,1,"O wtyczce"
+

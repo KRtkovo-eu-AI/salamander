@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\diskmap\diskmap.atp"
-TEXTVERSION,"1.14 (x64)"
-VERSION,"1,14,0,196"
+TEXTVERSION,"1.15 (x64)"
+VERSION,"1,15,0,197"
 
 [TRANSLATION]
 LANGID,1040
 AUTHOR,"Ondrej Zarevucky"
-WEB,"www.altap.cz"
-COMMENT,"English version"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
 
 [MENU 109]
 0,1,"&File"

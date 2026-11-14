@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Check deferred protected panel scope. | Match the nonblocking approved-session lookup. | #731 | GPT-6 |
 # | 2026-11-11 | Check captured Find viewer identity routing. | Prevent pathname-only fallback while preserving ordinary Branch View. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Check the explicit Stop publication boundary. | Retain refresh cancellation and protected session ownership. | #731 | GPT-6.1 Terra |
 # | 2026-11-10 | Follow the common viewer owner argument. | Keep the Branch View identity assertion after adding Find F3. | #731 | GPT-6.1 Sol |
@@ -80,7 +81,10 @@ class BranchViewContracts(unittest.TestCase):
 
     def test_protected_scan_uses_only_the_approved_panel_session(self):
         toggle = body("branch_view.cpp", "void CFilesWindow::ToggleBranchView()")
-        self.ordered(toggle, "BranchView->UseProtectedListing = ProtectedListing", "ProtectedListing->Contains(", "BranchView->Enabled = true")
+        self.ordered(toggle, "BranchView->UseProtectedListing = false", "BranchView->PanelScopePending = ProtectedListing != nullptr", "BranchView->Enabled = true")
+        prepare = body("branch_view.cpp", "static void StartBranchViewScan(")
+        self.ordered(prepare, "if (state.PanelScopePending)", "panel->ProtectedListing->TryContains(",
+                     "return; // another session operation owns the pipe", "state.UseProtectedListing = contains", "state.PanelScopePending = false")
         start = body("branch_view.cpp", "bool Scan::Start(")
         self.ordered(start, "if (incremental)", "Shared->PendingDirectories.emplace_back", "return true;", "CreateThread(")
         poll = body("branch_view.cpp", "void CFilesWindow::PollBranchView()")

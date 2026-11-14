@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\7zip\7zip.atp"
-TEXTVERSION,"1.36 (x64)"
-VERSION,"1,36,0,196"
+TEXTVERSION,"1.37 (x64)"
+VERSION,"1,37,0,197"
 
 [TRANSLATION]
 LANGID,1040
 AUTHOR,"Open Samandarin"
-WEB,"www.altap.cz"
-COMMENT,"English version"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 1200]
 220,200,1,"Configurazione 7-Zip"
@@ -168,4 +168,5 @@ COMMENT,"English version"
 1096,1,"Impossibile aggiungere uno o piu file all'elenco. Il percorso complessivo e troppo lungo.\nAlcune cartelle o file potrebbero mancare nell'elenco dell'archivio."
 1097,1,"Impossibile aggiungere 1 o più directory all'elenco. Il percorso totale è troppo lungo.\nAlcune directory o file potrebbero mancare nell'elenco dell'archivio."
 1098,1,"Il nome "%s" con percorso completo è troppo lungo.\n\nPercorso: %s"
+1099,1,"Non tutte le voci sono estratte. L'archivio di origine è conservato."
 

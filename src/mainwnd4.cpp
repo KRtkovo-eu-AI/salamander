@@ -2,11 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Bound file-list error formatting. | Treat localized strings and paths as data. | #731 | GPT-6 |
 // | 2026-11-11 | Bind file-list exclusions with the portable identity type. | Keep panel headers independent of Windows FILE_ID_INFO availability. | #731 | GPT-6.1 Sol |
 // | 2026-11-11 | Create a new protected file list through scoped UAC copy. | Keep the generated source and target identity bound across consent. | #731 | GPT-6.1 Sol |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#include "format_two_strings.h"
 
 #include "stswnd.h"
 #include "editwnd.h"
@@ -873,9 +875,8 @@ void CMainWindow::MakeFileList()
                     !CreateProtectedFileList(this, panel, fileName,
                                              diskDirPlugin != NULL && Configuration.FileListRecursive))
                 {
-                    char message[MAX_PATH + 100];
-                    sprintf(message, LoadStr(IDS_FILEERRORFORMAT), fileName, GetErrorText(err));
-                    SalMessageBox(HWindow, message, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                    const std::string message = FormatTwoStrings(LoadStr(IDS_FILEERRORFORMAT), fileName, GetErrorText(err));
+                    SalMessageBox(HWindow, message.c_str(), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
                 }
             }
         }

@@ -111,6 +111,7 @@ class CFilesBox : public CWindow
 protected:
     CFilesWindow* Parent;
     HDC HPrivateDC; // each panel has its own DC
+    int PaintSuppressionCount;
     HWND HVScrollBar;
     HWND HHScrollBar;
     CBottomBar BottomBar;
@@ -178,6 +179,8 @@ public:
 
     void PaintAllItems(HRGN hUpdateRgn, DWORD drawFlags);
     void PaintItem(int index, DWORD drawFlags);
+    void BeginPaintSuppression();
+    void EndPaintSuppression();
 
     void PaintHeaderLine(); // if it is visible it will be repainted
 

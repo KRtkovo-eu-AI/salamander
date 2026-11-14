@@ -241,7 +241,7 @@ public:
     // vrati NULL, pokud jeste nebylo volano SetText a static control byl bez textu
     virtual const char* WINAPI GetText() = 0;
 
-    // priradi akci otevreni URL adresy (file="https://www.altap.cz") nebo
+    // priradi akci otevreni URL adresy (file="https://samandarin.net") nebo
     // spusteni programu (file="C:\\TEST.EXE"); na parametr je volano
     // ShellExecute s 'open' commandem.
     virtual void WINAPI SetActionOpen(const char* file) = 0;

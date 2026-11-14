@@ -1,0 +1,59 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\swedish\portables\portables.atp"
+TEXTVERSION,"0.7 (x64)"
+VERSION,"0,7,0,197"
+
+[TRANSLATION]
+LANGID,1053
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"swedish (automatic AI translation)"
+
+[STRINGTABLE 0]
+128,1,"{!}%d markerade enheter{2:s|0||1|s}"
+129,1,"Inga enheter"
+130,1,"Bärbara enheter"
+131,1,"Avbryt"
+132,1,"Förbereder..."
+133,1,"Fil:"
+134,1,"Totalt:"
+135,1,"Minimera"
+136,1,"Pausa"
+137,1,"Den bärbara enheten svarar inte. Koppla från och anslut den igen. Panelen Bärbara enheter återgår till enhetslistan."
+138,1,"%s av %s kopierade"
+139,1,"Kopiera"
+140,1,"Flytta"
+141,1,"Ta bort"
+142,1,"Kopierar"
+143,1,"Flyttar"
+
+[STRINGTABLE 1]
+144,1,"Tar bort"
+145,1,"till"
+146,1,"%s av %s flyttade"
+147,1,"%s av %s bearbetade"
+148,1,"Ta bort markerade objekt"
+149,1,"Åtgärden %s '%s' misslyckades (0x%08X)."
+150,1,"Byt namn"
+151,1,"Skapa mapp"
+152,1,"Visa"
+153,1,"Namnet finns fortfarande på enheten. Objektet har inte skapats igen."
+154,1,"En fil kan inte ersätta en mapp."
+155,1,"En mapp kan inte ersätta en fil."
+156,1,"Det finns redan ett objekt med det här namnet."
+157,1,"?"
+
+[STRINGTABLE 2]
+8192,1,"Bärbara enheter"
+8193,1,"Hantera bärbara enheter."
+
+[STRINGTABLE 3]
+9216,1,"Om insticksprogrammet"
+
+[STRINGTABLE 4]
+10240,1,"Fel vid ändring av katalog"
+10241,1,"Sökväg: "%s"\r\nFel: %s"
+
+[STRINGTABLE 5]
+19457,1,"Den angivna sökvägen innehåller en filsökväg."
+

@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\swedish\unchm\unchm.atp"
+TEXTVERSION,"1.7 (x64)"
+VERSION,"1,7,0,197"
+
+[TRANSLATION]
+LANGID,1053
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"swedish (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"UnCHM"
+1001,1,"Det går inte att öppna filen."
+1002,1,"Ospecificerat fel."
+1003,1,"Packar upp CHM-arkiv"
+1004,1,"Fel vid uppackning av fil."
+1005,1,"Det går inte att hantera den här filen."
+1006,1,"Otillräckligt minne."
+1007,1,"Om insticksprogrammet"
+
+[STRINGTABLE 1]
+1009,1,"Bläddra bland och packa upp CHM-filer."
+1010,1,"Det går inte att skapa en tillfällig katalog."
+1011,1,"Det går inte att ta bort den tillfälliga filen."
+1012,1,"Okänt filformat eller ogiltig CHM-avbildning.\n\nKontakta support@altap.cz om du vet att CHM-avbildningen är giltig och hjälp oss att stödja formatet."
+1013,1,"Det går inte att öppna den här filen."
+1014,1,"Det gick inte att skapa den tillfälliga filen."
+1015,1,"Det går inte att ange filattribut."
+1016,1,"Det går inte att skapa katalogen '%s'."
+1020,1,"Ja"
+1021,1,"Nej"
+1022,1,"Fel"
+1023,1,"Varning"
+
+[STRINGTABLE 2]
+1032,1,"Internt insticksprogramsfel."
+
+[STRINGTABLE 3]
+1100,1,"Läsfel"
+1101,1,"Skrivfel"
+
+[STRINGTABLE 4]
+1105,1,"Ogiltigt tal."
+1106,1,"Avbryter åtgärden, vänta..."
+1107,1,"CHMLIB-biblioteket, upphovsrätt © 2001-2010 Jed Wing"
+

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\german\filecomp\filecomp.atp"
-TEXTVERSION,"1.22 (x64)"
-VERSION,"1,22,0,196"
+TEXTVERSION,"1.23 (x64)"
+VERSION,"1,23,0,197"
 
 [TRANSLATION]
 LANGID,1031
@@ -106,7 +106,7 @@ COMMENT,"Deutsche Version"
 136,65,134,165,14,1,""
 309,6,156,34,8,1,"Sonstiges"
 310,29,160,219,1,1,""
-144,12,166,171,12,1,"&Plugin beim Start des Open Samandarins laden"
+144,12,166,168,12,1,"&Plugin beim Start des Open Samandarin laden"
 
 [DIALOG 150]
 254,221,1,"Standardvergleichsoptionen"
@@ -253,8 +253,8 @@ COMMENT,"Deutsche Version"
 1060,1,"%s Zeilen %d-%d der rechten Datei (%s)"
 1061,1,"%s : %s - Dateivergleich - Berechne Unterschiede (Drücken Sie ESC um abzubrechen)"
 1062,1,"%s %s: %s %s - Dateivergleich - Berechne Unterschiede"
-1063,0,"%s : %s - File Comparator - Computing Differences (%d%% Done)"
-1064,0,"{!}%s : %s - File Comparator - Computing Differences (%d%% Done, %d Found{})"
+1063,1,"%s : %s - File Comparator - Computing Differences (%d%% Done)"
+1064,1,"{!}%s : %s - File Comparator - Computing Differences (%d%% Done, %d Found{})"
 1065,1,"%s : %s - Dateivergleich - Mehr als 32 768 Unterschiede"
 1066,1,"OK"
 1067,1,"Abbrechen"
@@ -271,7 +271,7 @@ COMMENT,"Deutsche Version"
 1076,1,"Ungültige Parameter. Beispiel:\n\tfilecomp.exe [Optionen] erste zweite\nOptionen sind:\n\t-w\tWarte bis der Dateivergleich beendet ist.\n\t--wait\tWarte bis der Dateivergleich beendet ist."
 1077,1,"Kann keine Nachricht an das Dateivergleich-Plugin senden."
 1078,1,"Kann den Open Samandarin nicht starten."
-1079,1,"Kann keine Nachricht an das Dateivergleich Plugin senden. Überprüfen Sie, ob die Option 'Plugin beim Start des Open Samandarins laden' in der Dateivergleich-Konfiguration eingeschaltet ist."
+1079,1,"Kann keine Nachricht an das Dateivergleich Plugin senden. Überprüfen Sie, ob die Option 'Plugin beim Start des Open Samandarin laden' in der Dateivergleich-Konfiguration eingeschaltet ist."
 1080,1,"Visueller Vergleich von zwei Text- oder Binärdateien."
 1081,1,"Dateivergleich - Konfiguration"
 1082,1,"Über Plugin"

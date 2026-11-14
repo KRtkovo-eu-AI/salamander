@@ -1,0 +1,95 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\swedish\uncab\uncab.atp"
+TEXTVERSION,"1.30 (x64)"
+VERSION,"1,30,0,197"
+
+[TRANSLATION]
+LANGID,1053
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"swedish (automatic AI translation)"
+
+[DIALOG 100]
+221,122,1,"Nästa CAB-volym"
+112,12,9,198,32,1,""
+300,12,48,40,8,1,"Disknamn:"
+110,54,48,156,8,1,""
+301,12,59,40,8,1,"CAB-namn:"
+111,54,59,156,8,1,""
+302,12,70,29,8,1,"&Sökväg:"
+101,12,80,182,12,1,""
+102,197,80,13,12,1,"..."
+1,106,103,50,14,1,"OK"
+2,160,103,50,14,1,"Avbryt"
+303,6,97,209,1,1,""
+
+[DIALOG 103]
+352,85,1,"Fel"
+300,6,10,26,8,1,"Namn:"
+104,36,10,309,8,1,""
+301,6,23,26,8,1,"Fel:"
+302,36,23,309,16,1,"Filen kan inte packas upp eftersom den fortsätter från en föregående volym. Börja med volymen där filen börjar."
+105,36,44,183,12,1,"&Visa inte det här meddelandet igen."
+108,91,63,50,14,1,"&Hoppa över"
+109,151,63,50,14,1,"Hoppa över &alla"
+2,211,63,50,14,1,"Avbryt"
+
+[DIALOG 106]
+220,85,1,"UnCAB-inställningar"
+300,23,22,154,8,1,"vid uppackning."
+107,12,10,234,12,1,"&Hoppa automatiskt över filer som fortsätter från föregående volym"
+301,23,44,111,8,1,"inte kan visas."
+116,12,32,206,12,1,"&Visa inte en varning när hela arkivinnehållet inte kan visas"
+302,6,60,208,1,1,""
+1,57,66,50,14,1,"OK"
+2,112,66,50,14,1,"Avbryt"
+
+[DIALOG 115]
+213,108,1,"UnCAB – varning"
+300,11,9,193,24,1,"Alla filer i arkivet med flera volymer kan inte visas eftersom vissa volymer saknas."
+301,11,40,193,16,1,"Kopiera alla arkivvolymer till samma katalog och öppna den FÖRSTA volymen för att visa hela arkivet."
+105,11,65,157,12,1,"&Visa inte det här meddelandet igen"
+302,5,83,202,1,1,""
+1,154,90,50,14,1,"OK"
+
+[STRINGTABLE 0]
+1000,1,"UnCAB"
+1001,1,"Otillräckligt med minne."
+
+[STRINGTABLE 1]
+1008,1,"Ett okänt fel inträffade."
+1012,1,"Välj mapp"
+1014,1,"Det gick inte att lägga till arkivposten i fillistan."
+1015,1,"Packar upp CAB-arkiv – %s"
+1016,1,"förbereder data och skapar kataloger..."
+1017,1,"packar upp..."
+1018,1,"packar upp: "
+1019,1,"Det gick inte att hämta filpekaren: "
+1020,1,"Det gick inte att skriva till filen:"
+1021,1,"Det gick inte att ange filpekaren: "
+1022,1,"Åtgärden kan inte slutföras eftersom sökvägen är för lång."
+1023,1,"Åtgärden kan inte slutföras eftersom masken är för lång."
+
+[STRINGTABLE 2]
+1025,1,"Pluginens giltighetstid har gått ut. Besök vår webbplats för en nyare version."
+1026,1,"Det gick inte att skapa eller öppna filen."
+1027,1,"Det gick inte att läsa filen."
+1028,1,"Cabinet-arkivet hittades inte."
+1029,1,"Cabinet-filen har fel format."
+1030,1,"Cabinet-filen har ett okänt versionsnummer."
+1031,1,"Cabinet-filen är skadad."
+1032,1,"Okänd komprimeringstyp i en Cabinet-mapp."
+1033,1,"Det gick inte att packa upp data från Cabinet-filen."
+1034,1,"Cabinet-filerna i uppsättningen har olika RESERVE-storlekar."
+1035,1,"Avbröts av användaren."
+1036,1,"Välj en mapp som innehåller '%s'."
+1037,1,"Felaktig Cabinet-fil."
+1038,1,"Filen hittades inte."
+1039,1,"hoppar över fil"
+
+[STRINGTABLE 3]
+1040,1,"Sätt i en disk med CAB-volym nummer %d eller leta upp rätt Cabinet-fil.\n\nTryck på OK när du är klar."
+1041,1,"Fel"
+1042,1,"Bläddra bland och packa upp CAB-arkiv."
+1043,1,"Om plugin"
+

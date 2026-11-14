@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\german\7zip\7zip.atp"
-TEXTVERSION,"1.36 (x64)"
-VERSION,"1,36,0,196"
+TEXTVERSION,"1.37 (x64)"
+VERSION,"1,37,0,197"
 
 [TRANSLATION]
 LANGID,1031
@@ -168,4 +168,5 @@ COMMENT,"Deutsche Version"
 1096,1,"1 oder mehrere Dateien können nicht zu der Liste hinzugefügt werden. Der Gesamtpfad ist zu lang.\nMöglicherweise fehlen einige Verzeichnisse oder Dateien in der Archivliste."
 1097,1,"1 oder mehrere Verzeichnisse können nicht zu der Liste hinzugefügt werden. Der Gesamtpfad ist zu lang.\nMöglicherweise fehlen einige Verzeichnisse oder Dateien in der Archivliste."
 1098,1,"Der Name "%s" des vollständigen Pfades ist zu lang.\n\nPfad: %s"
+1099,1,"Nicht alle Archivelemente wurden entpackt. Das Quellarchiv bleibt."
 

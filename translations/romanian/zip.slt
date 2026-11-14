@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\romanian\zip\zip.atp"
-TEXTVERSION,"1.8 (x64)"
-VERSION,"1,8,0,196"
+TEXTVERSION,"1.9 (x64)"
+VERSION,"1,9,0,197"
 
 [TRANSLATION]
 LANGID,1048
@@ -558,4 +558,5 @@ COMMENT,"Versiunea romana"
 1252,1,"KB"
 1253,1,"MB"
 1254,1,"Fisierele ZIP folosesc data format care nu e suportata pentru modificarea versiunii curente de plugin ZIP"
+1255,1,"Nu toate intrările au fost dezarhivate. Arhiva sursă a fost păstrată."
 

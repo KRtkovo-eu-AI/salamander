@@ -1,12 +1,12 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\slovak\folders\folders.atp"
-TEXTVERSION,"0.3 (x64)"
-VERSION,"0,3,0,196"
+TEXTVERSION,"0.4 (x64)"
+VERSION,"0,4,0,197"
 
 [TRANSLATION]
 LANGID,1051
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]

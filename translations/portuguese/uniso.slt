@@ -1,0 +1,111 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\portuguese\uniso\uniso.atp"
+TEXTVERSION,"1.40 (x64)"
+VERSION,"1,40,0,197"
+
+[TRANSLATION]
+LANGID,1046
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"portuguese (automatic AI translation)"
+
+[DIALOG 1200]
+220,83,1,"Configuração do Un ISO"
+1201,8,11,188,10,1,"&Limpar atributo somente leitura ao copiar do arquivo"
+1202,8,23,238,10,1,"&Mostrar sessão como diretório (permitir acesso a todas as sessões)"
+1203,8,35,196,10,1,"M&ostrar disco de imagem de inicialização como arquivo"
+3000,2,58,216,1,1,""
+1,108,64,50,14,1,"OK"
+2,163,64,50,14,1,"Cancelar"
+
+[STRINGTABLE 0]
+1000,1,"Un ISO"
+1001,1,"Não foi possível abrir o arquivo."
+1002,1,"Erro não especificado."
+1003,1,"Descompactando arquivo ISO"
+1004,1,"Erro ao descompactar o arquivo."
+1005,1,"Não é possível processar este arquivo."
+1006,1,"Memória insuficiente."
+1007,1,"Sobre o plug-in"
+
+[STRINGTABLE 1]
+1009,1,"Navegar e extrair imagens ISO de CD/DVD."
+1010,1,"Não foi possível criar o diretório temporário."
+1011,1,"Não foi possível excluir o arquivo temporário."
+1012,1,"Formato de arquivo desconhecido ou imagem ISO inválida.\n\n Se tiver certeza de que esta é uma imagem ISO válida, entre em contato com support@altap.cz e ajude-nos a oferecer suporte a este formato."
+1013,1,"Não foi possível abrir o arquivo '%s'."
+1014,1,"Falha ao criar o arquivo temporário."
+1015,1,"Não foi possível definir os atributos do arquivo."
+1016,1,"Não foi possível criar o diretório '%s'."
+1020,1,"Sim"
+1021,1,"Não"
+1022,1,"Erro"
+1023,1,"Aviso"
+
+[STRINGTABLE 2]
+1024,1,"Ocorreram alguns erros ao ler a imagem multissessão.\n\n Mostrando apenas as sessões lidas corretamente."
+1025,1,"Tipo de faixa desconhecido."
+1026,1,"Estratégia de alocação desconhecida (%d).\n\n Entre em contato com support@altap.cz e ajude-nos a corrigir este problema."
+1027,1,"Formato inválido do arquivo .CCD.\n\n A imagem exibida pode estar incompleta."
+1028,1,"Arquivo .CCD ausente.\n\n A imagem exibida pode estar incompleta."
+1029,1,"Não foi possível ler o setor #%08X."
+1030,1,"ID de Tag UDF inválido."
+1031,1,"Erro ao ler a estrutura de diretórios no setor #%08X.\n\n Conteúdo incompleto da imagem ISO."
+1032,1,"Erro interno do plug-in."
+1033,1,"Erro ao ler a tabela de alocação virtual no setor #%08X."
+1034,1,"Tabela de alocação virtual ausente."
+1035,1,"ICB raiz inválido.\n\n Não foi possível ler a estrutura de diretórios."
+1036,1,"O arquivo "%s" não pode ser extraído.\n\n Incompatibilidade entre o tamanho do arquivo e os blocos ICB."
+1037,1,"Não foi possível abrir a faixa #%d."
+1038,1,"Este arquivo parece ser uma imagem de disquete, disco rígido ou partição.\n Tente renomear o arquivo para .ima para ativar o plug-in Un FAT."
+1039,1,"Esta imagem de disco contém o sistema de arquivos APFS.\n Este sistema de arquivos ainda não é suportado."
+
+[STRINGTABLE 3]
+1050,1,"Não foi possível ler o cabeçalho da partição. Arquivo pequeno demais."
+1051,1,"Estruturas do Partition Manager corrompidas."
+1052,1,"Esta imagem de disco não contém uma partição HFS Plus."
+1053,1,"Esta imagem de disco contém HFS e não o sistema de arquivos HFS Plus.\n HFS não é suportado."
+1054,1,"Não foi possível posicionar no bloco #%08X.\n O arquivo %s não será extraído."
+1055,1,"Não foi possível posicionar no bloco #%08X."
+
+[STRINGTABLE 4]
+1056,1,"Tipo de nó raiz BTree não suportado no arquivo Catalog."
+1057,1,"O arquivo Catalog está fragmentado em mais de 8 fragmentos, o que não é suportado."
+1058,1,"O arquivo '%s' está fragmentado em mais de 8 fragmentos, o que não é suportado.\n O arquivo não será extraído."
+1059,1,"Esta imagem de disco contém um caminho longo demais que o Open Samandarin não consegue tratar."
+1060,1,"Não é possível concluir a operação porque o nome é longo demais."
+1070,1,"Não foi possível ler o cabeçalho do pacote. Arquivo pequeno demais."
+1071,1,"Este pacote está criptografado.\n Pacotes criptografados não são suportados."
+
+[STRINGTABLE 5]
+1072,1,"Este arquivo não parece ser um pacote DMG ou está incompleto.\n Não contém um rodapé DMG válido."
+1073,1,"Este arquivo não parece ser um pacote DMG válido ou está incompleto.\n Não contém uma Property List válida."
+1074,1,"Este pacote não contém um bloco de dados da partição HFS Plus começando em %I64u.\n O bloco é necessário para o tratamento correto do pacote."
+1075,1,"Não foi possível ler dados da imagem de disco na posição %I64u."
+1076,1,"Não foi possível posicionar na imagem de disco na posição %I64u."
+1077,1,"Erro interno: método de posicionamento não suportado."
+1078,1,"Esta imagem de disco contém um bloco compactado com um método desconhecido.\n Essas imagens não são suportadas."
+1079,1,"Falha ao descompactar um bloco ZLIB. A imagem de disco parece corrompida."
+1080,1,"Falha ao descompactar um bloco BZIP2. A imagem de disco parece corrompida."
+1085,1,"Este arquivo não parece ser uma imagem ISZ compactada ou está incompleto.\n Não contém um cabeçalho ISZ válido."
+1086,1,"Não foi possível ler o cabeçalho da imagem compactada. Arquivo pequeno demais."
+1087,1,"Esta imagem está segmentada.\n Imagens segmentadas não são suportadas."
+
+[STRINGTABLE 6]
+1088,1,"Esta imagem está criptografada.\n Imagens criptografadas não são suportadas."
+1100,1,"Erro de leitura"
+1101,1,"Erro de gravação"
+1102,1,"Faixas de áudio não podem ser extraídas."
+1103,1,"Cancelando a operação, aguarde..."
+
+[STRINGTABLE 7]
+1150,1,"Informações da imagem\n\n"
+1151,1,"Informações da imagem "%s"\n\n"
+
+[STRINGTABLE 8]
+1152,1,"Número de sessões: %d"
+1153,1,"\n Sessão %d\n"
+1154,1," Número de faixas: %d\n"
+1155,1," Faixa: %d, %s, Tamanho: %d KBytes\n"
+1156,1," Faixa: %d, %s, Tamanho: %d KBytes - "%s"\n"
+

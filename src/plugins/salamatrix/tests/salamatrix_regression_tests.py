@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-13 | Accept later plug-in versions in safety guards. | Keep refresh and service-cache version floors valid after subsequent releases. | | openrouter/openai/gpt-6-luna-pro |
+# | 2026-11-12 | Derive extension locale coverage from shipped locale resources. | Translation expansion must not stale fixed locale lists. | | openai/gpt-6-luna-pro |
 # | 2026-11-07 | Check foreground ownership for viewers and extension UI. | Issue #757 regressions must keep dialogs and viewers attached to the active extension window. | https://github.com/KRtkovo-eu-AI/salamander/issues/757 | OpenAI GPT-5.6 Luna Pro |
 # | 2026-11-06 | Check deferred plug-in references through refusal and reload. | The production vector owns one LoadLibrary reference per successful deferred unload. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 # | 2026-11-06 | Expect short Salamatrix extension/command IDs. | Packages dropped the OpenSalamander. prefix; old IDs failed CI. | | Composer |
@@ -1941,12 +1943,14 @@ def main() -> int:
         if occurrences != 10:
             raise AssertionError(
                 f"extension/shutdown status {resource_id} is not localized in all 10 translations")
-    require(
+    version_match = re.search(
+        r'#define VERSINFO_MAJOR\s+(\d+).*?'
+        r'#define VERSINFO_MINORA\s+(\d+).*?'
+        r'#define VERSINFO_MINORB\s+(\d+)',
         salamatrix_version,
-        r'#define VERSINFO_MAJOR\s+0.*?'
-        r'#define VERSINFO_MINORA\s+7.*?'
-        r'#define VERSINFO_MINORB\s+13',
-        "Salamatrix version was not bumped for file-system refresh lifetime safety")
+        re.DOTALL)
+    if version_match is None or tuple(int(part) for part in version_match.groups()) < (0, 7, 13):
+        raise AssertionError("Salamatrix version was not bumped for file-system refresh lifetime safety")
     require(
         automation_salamatrix,
         r'ApplyPositions\(BOOL delayedPaint\).*?'
@@ -1954,12 +1958,14 @@ def main() -> int:
         r'AddText\(static_cast<const char\*>\(textA\), TRUE\).*?'
         r'AddText is cached.*?ApplyPositions\(FALSE\).*?Step\(step, FALSE\)',
         "Automation Salamatrix progress does not coalesce text and position into one repaint")
-    require(
+    automation_version_match = re.search(
+        r'#define VERSINFO_MAJOR\s+(\d+).*?'
+        r'#define VERSINFO_MINORA\s+(\d+).*?'
+        r'#define VERSINFO_MINORB\s+(\d+)',
         automation_version,
-        r'#define VERSINFO_MAJOR\s+2.*?'
-        r'#define VERSINFO_MINORA\s+8.*?'
-        r'#define VERSINFO_MINORB\s+0',
-        "Automation version was not bumped for cached Salamatrix services")
+        re.DOTALL)
+    if automation_version_match is None or tuple(int(part) for part in automation_version_match.groups()) < (2, 8, 0):
+        raise AssertionError("Automation version was not bumped for cached Salamatrix services")
     require(
         automation_bridge,
         r'void CAutomationSalamatrixBridge::Refresh.*?'
@@ -2128,9 +2134,11 @@ def main() -> int:
         r"frame\.Payload\.ok\s+-eq\s+\$false",
         "PowerShell runtime still reads an optional ok field under StrictMode")
     expected_locales = {
-        "en", "cs", "de", "es", "fr", "hu",
-        "nl", "ro", "ru", "sk", "zh-CN",
+        path.stem for path in (
+            ROOT / "src/extensions/json-viewer-nodejs/locales").glob("*.json")
     }
+    if not expected_locales:
+        raise AssertionError("JSON Viewer does not provide a supported locale inventory")
     if set(menu_builder_manifest.get("locales", {})) != expected_locales:
         raise AssertionError(
             "Extension Menu Builder does not declare every supported locale")

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\slovak\mmviewer\mmviewer.atp"
-TEXTVERSION,"1.18 (x64)"
-VERSION,"1,18,0,196"
+TEXTVERSION,"1.19 (x64)"
+VERSION,"1,19,0,197"
 
 [TRANSLATION]
 LANGID,1051
@@ -297,3 +297,4 @@ COMMENT,"Slovenská verzia"
 12640,1,"Bitov na vzorku"
 12641,1,"Informácie o médiu"
 12642,1,"Neznámy"
+

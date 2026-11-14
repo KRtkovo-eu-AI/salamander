@@ -1,0 +1,61 @@
+{
+  "name": "イベント ビューアー",
+  "description": "Salamander のファイルシステム パネルで Windows イベントログを参照します。",
+  "commands": {
+    "EventViewer.open": "イベント ビューアーを開く"
+  },
+  "fileSystems": {
+    "events": {
+      "name": "イベント ビューアー",
+      "rootItems": {
+        "custom-views": "カスタム ビュー",
+        "windows-logs": "Windows ログ",
+        "applications-services": "アプリケーションとサービスのログ"
+      },
+      "columns": {
+        "level": {
+          "name": "レベル",
+          "description": "イベントの重大度"
+        },
+        "logged": {
+          "name": "日時",
+          "description": "イベントが記録された日時"
+        },
+        "source": {
+          "name": "ソース",
+          "description": "イベント プロバイダー"
+        },
+        "eventId": {
+          "name": "イベント ID",
+          "description": "イベント識別子"
+        },
+        "task": {
+          "name": "タスク カテゴリ",
+          "description": "イベント タスクのカテゴリ"
+        }
+      },
+      "actions": {
+        "openEvent": "イベントのプロパティ"
+      }
+    }
+  },
+  "administrativeEvents": "管理イベント",
+  "eventName": "イベント {0}、{1} [{2}]",
+  "windowTitle": "イベントのプロパティ - イベント {0}、{1}",
+  "general": "全般",
+  "descriptionLabel": "説明",
+  "details": "詳細",
+  "close": "閉じる",
+  "messageUnavailable": "イベント メッセージは利用できません。",
+  "textTruncated": "テキストは省略されています。",
+  "openErrorTitle": "イベントを開けません",
+  "openError": "イベントを開けませんでした。\r\n\r\n{0}",
+  "metadata": "ログ名: {0}\r\nソース: {1}\r\nイベント ID: {2}    レベル: {3}\r\n記録日時: {4}    タスク カテゴリ: {5}\r\nユーザー: {6}    コンピューター: {7}\r\nレコード ID: {8}",
+  "levels": {
+    "critical": "重大",
+    "error": "エラー",
+    "warning": "警告",
+    "information": "情報",
+    "verbose": "詳細"
+  }
+}

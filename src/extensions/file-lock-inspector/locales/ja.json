@@ -1,0 +1,40 @@
+{
+  "name": "ファイルロックの確認",
+  "commands": {
+    "FileLockInspector.inspect": "ファイルロックの確認..."
+  },
+  "strings": {
+    "title": "ファイルロックの確認",
+    "files": "ファイル",
+    "noLocks": "ファイルをロックしているプロセスは見つかりませんでした。",
+    "lockingProcesses": "ファイルをロックしているプロセス",
+    "process": "プロセス",
+    "pid": "PID",
+    "type": "種類",
+    "status": "状態",
+    "executable": "実行ファイル",
+    "inspecting": "ファイルをロックしているプロセスを検索しています...",
+    "lockCount": "ロックしているプロセス: {0}",
+    "inspectFailed": "ファイルロックの確認に失敗しました。",
+    "openLocation": "場所を開く",
+    "closeProcess": "プロセスを閉じる",
+    "endProcess": "プロセスを終了...",
+    "copyReport": "レポートをコピー",
+    "refresh": "更新",
+    "close": "閉じる",
+    "locationUnavailable": "このプロセスの実行ファイルの場所を取得できません。",
+    "closeUnavailable": "このプロセスには安全に閉じられるメインウィンドウがありません。",
+    "confirmEnd": "プロセス {0} (PID {1}) を終了しますか？{2}{2}アプリケーション内の未保存データは失われる可能性があります。",
+    "selectFile": "先に1つ以上のファイルを選択するか、フォーカスしてください。",
+    "responding": "応答あり",
+    "notResponding": "応答なし",
+    "processEnded": "(プロセス終了)",
+    "appMainWindow": "アプリケーション",
+    "appOtherWindow": "バックグラウンドウィンドウ",
+    "appService": "サービス",
+    "appExplorer": "Windows エクスプローラー",
+    "appConsole": "コンソール",
+    "appCritical": "重要なプロセス",
+    "appUnknown": "不明"
+  }
+}

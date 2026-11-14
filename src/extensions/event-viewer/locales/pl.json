@@ -1,0 +1,61 @@
+{
+  "name": "Podgląd zdarzeń",
+  "description": "Przegląda dzienniki zdarzeń systemu Windows w panelu systemu plików Salamander.",
+  "commands": {
+    "EventViewer.open": "Otwórz Podgląd zdarzeń"
+  },
+  "fileSystems": {
+    "events": {
+      "name": "Podgląd zdarzeń",
+      "rootItems": {
+        "custom-views": "Widoki niestandardowe",
+        "windows-logs": "Dzienniki systemu Windows",
+        "applications-services": "Dzienniki aplikacji i usług"
+      },
+      "columns": {
+        "level": {
+          "name": "Poziom",
+          "description": "Ważność zdarzenia"
+        },
+        "logged": {
+          "name": "Data i godzina",
+          "description": "Czas zapisania zdarzenia"
+        },
+        "source": {
+          "name": "Źródło",
+          "description": "Dostawca zdarzenia"
+        },
+        "eventId": {
+          "name": "Identyfikator zdarzenia",
+          "description": "Identyfikator zdarzenia"
+        },
+        "task": {
+          "name": "Kategoria zadania",
+          "description": "Kategoria zadania zdarzenia"
+        }
+      },
+      "actions": {
+        "openEvent": "Właściwości zdarzenia"
+      }
+    }
+  },
+  "administrativeEvents": "Zdarzenia administracyjne",
+  "eventName": "Zdarzenie {0}, {1} [{2}]",
+  "windowTitle": "Właściwości zdarzenia - zdarzenie {0}, {1}",
+  "general": "Ogólne",
+  "descriptionLabel": "Opis",
+  "details": "Szczegóły",
+  "close": "Zamknij",
+  "messageUnavailable": "Komunikat zdarzenia jest niedostępny.",
+  "textTruncated": "Tekst został obcięty.",
+  "openErrorTitle": "Nie można otworzyć zdarzenia",
+  "openError": "Nie można otworzyć zdarzenia.\r\n\r\n{0}",
+  "metadata": "Nazwa dziennika: {0}\r\nŹródło: {1}\r\nIdentyfikator zdarzenia: {2}    Poziom: {3}\r\nZapisano: {4}    Kategoria zadania: {5}\r\nUżytkownik: {6}    Komputer: {7}\r\nIdentyfikator rekordu: {8}",
+  "levels": {
+    "critical": "Krytyczny",
+    "error": "Błąd",
+    "warning": "Ostrzeżenie",
+    "information": "Informacje",
+    "verbose": "Szczegółowe"
+  }
+}

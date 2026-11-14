@@ -1,0 +1,18 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\ukrainian\ieviewer\ieviewer.atp"
+TEXTVERSION,"1.14 (x64)"
+VERSION,"1,14,0,197"
+
+[TRANSLATION]
+LANGID,1058
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"ukrainian (automatic AI translation)"
+
+[STRINGTABLE 0]
+10100,1,"Перегляд Internet Explorer"
+10101,1,"Не вдалося відкрити перегляд Internet Explorer.\nПовідомте про цю проблему на support@altap.cz."
+10102,1,"Помилка"
+10103,1,"Полегшений перегляд документів HTML і XML на основі Internet Explorer."
+10105,1,"Про плагін"
+

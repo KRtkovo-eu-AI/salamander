@@ -1,0 +1,54 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\chinesetraditional\hypervm\hypervm.atp"
+TEXTVERSION,"1.11 (x64)"
+VERSION,"1,11,0,197"
+
+[TRANSLATION]
+LANGID,1028
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"chinesetraditional (automatic AI translation)"
+
+[STRINGTABLE 0]
+46,1,"Hyper-V 虛擬機器"
+47,1,"關於外掛程式"
+
+[STRINGTABLE 1]
+48,1,"在檔案面板中顯示本機 Hyper-V 虛擬機器。"
+49,1,"open.samandarin.net"
+50,1,"顯示 &Hyper-V 虛擬機器視窗"
+51,1,"建立 &VHD"
+52,1,"&連結 VHD"
+60,1,"建立並連結虛擬硬碟"
+61,1,"連結虛擬硬碟"
+62,1,"中斷連結虛擬硬碟"
+63,1,"位置："
+
+[STRINGTABLE 2]
+64,1,"瀏覽..."
+65,1,"虛擬硬碟大小："
+66,1,"虛擬硬碟格式"
+67,1,"虛擬硬碟類型"
+68,1,"支援最大 2040 GB 的虛擬磁碟。"
+69,1,"支援大於 2040 GB 的虛擬磁碟（最大支援 64 TB），且可承受電源故障。"
+70,1,"固定大小（建議）"
+71,1,"動態擴充"
+72,1,"建立虛擬硬碟時，檔案會配置至最大容量。"
+73,1,"寫入資料時，虛擬硬碟檔案會逐漸擴充至最大容量。"
+74,1,"唯讀。"
+75,1,"指定此電腦上的虛擬硬碟位置。"
+76,1,"指定電腦上的虛擬硬碟位置。"
+77,1,"要中斷連結虛擬硬碟 {0} 嗎？"
+78,1,"已連結虛擬硬碟：{0}"
+79,1,"找不到 Hyper-V 虛擬機器。"
+
+[STRINGTABLE 3]
+80,1,"設定"
+81,1,"尚未設定。"
+82,1,"確定"
+83,1,"取消"
+84,1,"虛擬硬碟 (*.vhd;*.vhdx)|*.vhd;*.vhdx"
+85,1,"Hyper-V 虛擬機器"
+86,1,"建立並連結虛擬硬碟"
+87,1,"連結虛擬硬碟"
+

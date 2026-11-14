@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\spanish\7zip\7zip.atp"
-TEXTVERSION,"1.36 (x64)"
-VERSION,"1,36,0,196"
+TEXTVERSION,"1.37 (x64)"
+VERSION,"1,37,0,197"
 
 [TRANSLATION]
 LANGID,3082
@@ -168,4 +168,5 @@ COMMENT,"Versión en español"
 1096,1,"No se pueden añadir 1 o más ficheros a la lista. La ruta total es muy larga.\nAlgunos directorios o ficheros pueden faltar en la lista del archivo."
 1097,1,"No se pueden añadir 1 o más directorios a la lista. La ruta total es muy larga.\nAlgunos directorios o ficheros pueden faltar en la lista del archivo."
 1098,1,"El nombre "%s" con ruta completa es muy largo.\n\nRuta: %s"
+1099,1,"No se descomprimieron todas las entradas. Se conservó el archivo fuente."
 

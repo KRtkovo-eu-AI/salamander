@@ -19,6 +19,7 @@
 // | 2026-11-08 | Declare the protected read consent prompt. | Use the same shield and default Cancel for size and Find. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Allow a shield on OK independently of the default action. | Keep destructive UAC confirmations safe by default. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Add lock-process context to file error dialogs. | Display detected holders and expose core operation recovery. | https://github.com/KRtkovo-eu-AI/salamander/issues/836 | GPT-6 (Codex) |
+// | 2026-11-04 | Document language selector sources for langpack.dll. | Official languages come from the pack, not only lang\*.slg. | | Composer |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // | 2026-11-04 | Remember the splash fork-line rectangle. | The community-fork sentence sits under the bold version. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // | 2026-11-04 | Explain when an extension runtime is missing. | Installing a Salamatrix extension whose interpreter is absent failed activation with no dialog. | | Grok 4.7 |
@@ -1516,7 +1517,7 @@ public:
 
     int Execute();
 
-    // scans the 'lang' directory and adds all valid SLG files to the array
+    // Adds embedded English, languages from langpack.dll, and optional legacy .slg files
     BOOL Initialize(const char* slgSearchPath = NULL, HINSTANCE pluginDLL = NULL);
 
     int GetLanguagesCount() { return Items.Count; }

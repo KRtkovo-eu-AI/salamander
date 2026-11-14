@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\spanish\zip\zip.atp"
-TEXTVERSION,"1.8 (x64)"
-VERSION,"1,8,0,196"
+TEXTVERSION,"1.9 (x64)"
+VERSION,"1,9,0,197"
 
 [TRANSLATION]
 LANGID,3082
@@ -50,7 +50,7 @@ COMMENT,"Versión en español"
 115,14,58,162,12,1,"No incluir directorios &vacíos en el archivo ZIP"
 174,14,70,265,12,1,"Disponer la hora del archivo a la del fichero más &nuevo al modificar archivo"
 118,14,82,290,12,1,"Usar nombre de fichero compatibles con WinZip para archivos multivolumen (salvo"
-3004,26,94,262,8,1,"al extraer archivos, que siempre usan las convenciones de Open Samandarin)"
+3004,26,94,264,8,1,"al extraer archivos, que siempre usan las convenciones de Open Samandarin)"
 3005,14,107,206,8,1,"N&ivel de compresión (0 - 9, 9 mejor compresión, tarda más):"
 116,218,105,16,12,1,""
 3006,14,120,109,8,1,"Idioma para el aut&oextractor:"
@@ -558,4 +558,5 @@ COMMENT,"Versión en español"
 1252,1,"KB"
 1253,1,"MB"
 1254,1,"El fichero ZIP usa un formato de datos no soportado para modificación por la versión actual del plugin ZIP"
+1255,1,"No se descomprimieron todas las entradas. Se conservó el archivo fuente."
 

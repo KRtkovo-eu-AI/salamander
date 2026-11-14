@@ -1,0 +1,40 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\vietnamese\nethood\nethood.atp"
+TEXTVERSION,"1.11 (x64)"
+VERSION,"1,11,0,197"
+
+[TRANSLATION]
+LANGID,1066
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"vietnamese (automatic AI translation)"
+
+[DIALOG 102]
+220,127,1,"Cấu hình Mạng"
+1201,7,7,106,10,1,"Hiện &chia sẻ quản trị"
+1203,13,22,159,10,1,"Hiện chia sẻ quản trị làm &mục ẩn"
+1202,7,37,210,10,1,"Hiện mục từ &Các vị trí trong mạng ở cấp cao nhất thư mục"
+1204,7,52,168,10,1,"Hiện &máy tính mạng ở cấp cao nhất thư mục"
+1206,7,67,155,10,1,"Hiện &ổ đĩa kết nối qua Máy tính từ xa"
+1205,7,82,140,10,1,"&Quét mạng khi khởi động Salamander"
+3000,7,99,206,1,1,""
+1,30,106,50,14,1,"Đồng ý"
+2,85,106,50,14,1,"Hủy"
+9,140,106,50,14,1,"Trợ giúp"
+
+[STRINGTABLE 0]
+128,1,"Mạng"
+129,1,"Cung cấp quyền truy cập các máy tính trong mạng."
+
+[STRINGTABLE 1]
+1024,1,"Bình luận"
+1025,1,"{!}<%d> đối tượng được chọn{|1|}"
+1026,1,"Mạng"
+1027,1,"Đang quét mạng…"
+1028,1,"Mạng không có sẵn."
+1029,1,"Về Plugin"
+1030,1,"%1 trên %2"
+1031,1,"Máy cục bộ"
+1032,1,"Máy chủ"
+1033,1,"Ổ đĩa từ %s"
+

@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\checkver\checkver.atp"
-TEXTVERSION,"1.2.7 (x64)"
-VERSION,"1,2,7,196"
+TEXTVERSION,"1.2.8 (x64)"
+VERSION,"1,2,8,197"
 
 [TRANSLATION]
 LANGID,1040
 AUTHOR,"Open Samandarin"
-WEB,"www.altap.cz"
-COMMENT,"English version"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 100]
 338,238,1,"Verifica nuove versioni"
@@ -31,7 +31,7 @@ COMMENT,"English version"
 119,232,44,75,12,1,"Ogni sei mesi"
 113,13,62,360,12,1,"&Quando la finestra Verifica nuove versioni viene aperta, nascondila ed esegui la connessione automatica"
 111,13,74,303,12,1,"C&hiudi la finestra se non viene trovata una nuova versione, altrimenti mostra la finestra"
-402,13,88,335,8,1,"Nota: questa finestra può essere richiamata dal menu Open Samandarin, Plugin / Verifica versione."
+402,13,88,336,8,1,"Nota: questa finestra può essere richiamata dal menu Open Samandarin, Plugin / Verifica versione."
 403,5,109,347,110,1,"&Filtri"
 120,13,122,191,54,1,""
 121,210,122,135,14,1,"&Rimuovi elemento selezionato dai filtri"
@@ -78,7 +78,7 @@ COMMENT,"English version"
 218,1,"Il plugin sta funzionando con Internet.\nVuoi interrompere questa sessione Internet?"
 220,1,"Inizializzazione connessione Internet..."
 221,1,"Inizializzazione non riuscita: %s"
-222,1,"Connessione a \tuwww.altap.cz\tlhttps://www.altap.cz\tn..."
+222,1,"Connecting to \tuwww.altap.cz\tlhttps://www.altap.cz\tn..."
 223,1,"Connessione non riuscita: %s"
 
 [STRINGTABLE 2]

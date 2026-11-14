@@ -1,0 +1,17 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\chinesetraditional\folders\folders.atp"
+TEXTVERSION,"0.4 (x64)"
+VERSION,"0,4,0,197"
+
+[TRANSLATION]
+LANGID,1028
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"chinesetraditional (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"資料夾"
+1001,1,"關於外掛程式"
+1003,1,"瀏覽桌面、控制台、資源回收筒等資料夾。"
+1004,1,"'\t桌面"
+

@@ -1,0 +1,61 @@
+{
+  "name": "Перегляд подій",
+  "description": "Переглядає журнали подій Windows на панелі файлової системи Salamander.",
+  "commands": {
+    "EventViewer.open": "Відкрити перегляд подій"
+  },
+  "fileSystems": {
+    "events": {
+      "name": "Перегляд подій",
+      "rootItems": {
+        "custom-views": "Спеціальні подання",
+        "windows-logs": "Журнали Windows",
+        "applications-services": "Журнали програм і служб"
+      },
+      "columns": {
+        "level": {
+          "name": "Рівень",
+          "description": "Важливість події"
+        },
+        "logged": {
+          "name": "Дата й час",
+          "description": "Час запису події до журналу"
+        },
+        "source": {
+          "name": "Джерело",
+          "description": "Постачальник події"
+        },
+        "eventId": {
+          "name": "Ідентифікатор події",
+          "description": "Ідентифікатор події"
+        },
+        "task": {
+          "name": "Категорія завдання",
+          "description": "Категорія завдання події"
+        }
+      },
+      "actions": {
+        "openEvent": "Властивості події"
+      }
+    }
+  },
+  "administrativeEvents": "Адміністративні події",
+  "eventName": "Подія {0}, {1} [{2}]",
+  "windowTitle": "Властивості події - подія {0}, {1}",
+  "general": "Загальні",
+  "descriptionLabel": "Опис",
+  "details": "Докладно",
+  "close": "Закрити",
+  "messageUnavailable": "Повідомлення події недоступне.",
+  "textTruncated": "Текст обрізано.",
+  "openErrorTitle": "Не вдалося відкрити подію",
+  "openError": "Не вдалося відкрити подію.\r\n\r\n{0}",
+  "metadata": "Назва журналу: {0}\r\nДжерело: {1}\r\nІдентифікатор події: {2}    Рівень: {3}\r\nЗаписано: {4}    Категорія завдання: {5}\r\nКористувач: {6}    Комп’ютер: {7}\r\nІдентифікатор запису: {8}",
+  "levels": {
+    "critical": "Критичний",
+    "error": "Помилка",
+    "warning": "Попередження",
+    "information": "Інформація",
+    "verbose": "Докладно"
+  }
+}

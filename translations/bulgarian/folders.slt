@@ -1,0 +1,17 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\bulgarian\folders\folders.atp"
+TEXTVERSION,"0.4 (x64)"
+VERSION,"0,4,0,197"
+
+[TRANSLATION]
+LANGID,1026
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"bulgarian (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"Папки"
+1001,1,"За приставката"
+1003,1,"Разглеждане на папки като Работен плот, Контролен панел, Кошче и др."
+1004,1,"'\tРаботен плот"
+

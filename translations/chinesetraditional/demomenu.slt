@@ -1,0 +1,20 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\chinesetraditional\demomenu\demomenu.atp"
+TEXTVERSION,"1.0.3 (x64)"
+VERSION,"1,0,3,197"
+
+[TRANSLATION]
+LANGID,1028
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
+
+[STRINGTABLE 0]
+46,1,"範例選單"
+47,1,"關於外掛程式"
+
+[STRINGTABLE 1]
+48,1,"此外掛程式可協助您製作自己的選單延伸外掛程式。"
+49,1,"www.altap.cz"
+50,1,"&測試命令"
+

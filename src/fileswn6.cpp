@@ -42,6 +42,7 @@
 // | 2026-11-10 | Offer size elevation for one folder or the selected tree. | Keep the active consent owner and avoid repeated elevation within the approved scope. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Keep the protected size dialog open through Windows consent. | Return activation before reading or asking about another subtree. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Remember foreground after the size broker launches. | Defer focus restoration while the panel is disabled. | #731 | GPT-6.1 Sol |
+// | 2026-11-12 | Keep packed-file panels visible during shell launch. | Parent the transparent shell helper beside the owner-drawn list instead of over it. | | openai/gpt-6-luna-pro |
 // | 2026-11-10 | Transfer clipboard source lease to disk copy script. | Preserve staged files until asynchronous copy work completes. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-10 | Preserve exact paths for permanent directory removal. | Discover denied descendants during tree traversal and never sweep unreadable content. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Build verified protected metadata from its checked attributes. | Avoid masking a denied attribute lookup as filesystem flags. | #731 | GPT-6.1 Sol (Codex) |
@@ -4512,7 +4513,7 @@ void CFilesWindow::ExecuteFromArchive(int index, BOOL edit, HWND editWithMenuPar
         {
             HCURSOR oldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));
             MainWindow->SetDefaultDirectories();
-            ExecuteAssociation(GetListBoxHWND(), buf, s);
+            ExecuteAssociation(MainWindow->HWindow, buf, s);
             SetCursor(oldCur);
         }
     }

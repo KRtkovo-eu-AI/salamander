@@ -1,12 +1,12 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\german\samandarin\samandarin.atp"
-TEXTVERSION,"0.10 (x64)"
-VERSION,"0,10,0,196"
+TEXTVERSION,"0.11 (x64)"
+VERSION,"0,11,0,197"
 
 [TRANSLATION]
 LANGID,1031
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 1]
 48,1,"Prüft GitHub-Releases und bietet an, die neueste Samandarin-Version zu öffnen."
-49,1,"https://samandarin.net/download"
+49,1,"open.samandarin.netdownload"
 50,1,"Updates jetzt prüfen"
 51,1,"Unerwartete verwaltete Ausnahme:"
 52,1,"Kann den verwalteten Samandarin-Helfer nicht initialisieren.\nÜberprüfen Sie, dass sich Samandarin.Managed.dll neben dem Plugin befindet."
@@ -125,8 +125,8 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 144,1,"Möglich"
 145,1,"Während der Installation erforderlich"
 146,1,"Nein"
-147,0,"This package has higher-risk capabilities:\n\n{0}\n\nInstall or update it anyway?"
+147,1,"Dieses Paket verfügt über risikoreichere Funktionen:\n\n{0}\n\nTrotzdem installieren oder aktualisieren?"
 148,1,"Mit Installer gebündelt"
-149,0,"Updates are available for the following plugins or extensions:\n\n{0}"
+149,1,"Für die folgenden Plugins oder Erweiterungen sind Updates verfügbar:\n\n{0}"
 150,1,"Plugin-Updates öffnen"
 

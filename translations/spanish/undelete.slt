@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\spanish\undelete\undelete.atp"
-TEXTVERSION,"1.13 (x64)"
-VERSION,"1,13,0,196"
+TEXTVERSION,"1.14 (x64)"
+VERSION,"1,14,0,197"
 
 [TRANSLATION]
 LANGID,3082
@@ -155,7 +155,7 @@ COMMENT,"Versión en español"
 82,1,"Formato"
 83,1,"Tamaño"
 84,1,"Libre"
-85,0,"% Free"
+85,1,"% Free"
 86,1,"Ruta de acceso al GUID"
 90,1,"$Bitmap tiene tamaño cero. Se saltará la estimación de daño de ficheros."
 91,1,"Fallo en localizar $Bitmap en este volumen. Cancelada la estimación de daño de ficheros."

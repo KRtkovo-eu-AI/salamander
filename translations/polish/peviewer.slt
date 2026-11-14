@@ -1,0 +1,38 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\polish\peviewer\peviewer.atp"
+TEXTVERSION,"3.2 (x64)"
+VERSION,"3,2,0,197"
+
+[TRANSLATION]
+LANGID,1045
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"polish (automatic AI translation)"
+
+[DIALOG 8501]
+346,154,1,"Konfiguracja przeglądarki Portable Executable"
+1300,7,7,64,8,1,"&Dostępne sekcje:"
+8700,7,17,105,130,1,""
+8702,119,17,50,14,1,"&Dodaj ->"
+8703,119,35,50,14,1,"<- &Usuń"
+1301,176,7,60,8,1,"&Widoczne sekcje:"
+8701,176,17,105,130,1,""
+8704,289,17,50,14,1,"Przenieś w &górę"
+8705,289,35,50,14,1,"Przenieś w &dół"
+1,289,97,50,14,1,"OK"
+2,289,115,50,14,1,"Anuluj"
+8706,289,133,50,14,1,"&Przywróć"
+
+[STRINGTABLE 0]
+1016,1,"O wtyczce"
+
+[STRINGTABLE 1]
+10100,1,"Przeglądarka Portable Executable"
+10101,1,"Nie można otworzyć pliku %s."
+10102,1,"Utworzenie pliku tymczasowego nie powiodło się."
+10103,1,"Wystąpił wyjątek.\n\nPrzeglądany plik: %s\n\nJeśli uważasz, że przeglądany plik nie jest uszkodzony, wyślij ten plik na adres support@altap.cz.\nOdtworzymy i naprawimy błąd przeglądarki. Dziękujemy za współpracę!"
+10104,1,"Wyświetla informacje o plikach Portable Executable, takich jak EXE, DLL itd."
+
+[STRINGTABLE 2]
+10118,1,"W konfiguracji wtyczki nie znaleziono żadnej wybranej sekcji Portable Executable.\nUżyj menu Opcje > Konfiguracja wtyczek > Przeglądarka Portable Executable\nw głównym oknie Open Samandarin, aby ustawić widoczne sekcje."
+

@@ -1,0 +1,64 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\indonesian\tar\tar.atp"
+TEXTVERSION,"3.36 (x64)"
+VERSION,"3,36,0,197"
+
+[TRANSLATION]
+LANGID,1057
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"indonesian (automatic AI translation)"
+
+[STRINGTABLE 0]
+11200,1,"Kesalahan Plugin TAR"
+11201,1,"Format arsip tidak dikenali atau tidak didukung."
+11202,1,"Data tidak valid pada header TAR — arsip rusak."
+11203,1,"Checksum file atau header salah — arsip rusak."
+11204,1,"Kesalahan internal: struktur data file rusak."
+11205,1,"Tanda tangan blok tidak dikenal — dilewati."
+11206,1,"File yang diperlukan tidak ditemukan dalam arsip."
+11207,1,"Kesalahan alokasi memori."
+
+[STRINGTABLE 1]
+11240,1,"Arsip LZH belum didukung."
+
+[STRINGTABLE 2]
+11250,1,"Ekstrak"
+11251,1,"Mengekstrak "
+11252,1,"Melewati "
+11260,1,"Kesalahan GZip"
+11261,1,"Metode kompresi yang digunakan tidak dikenal, tidak dapat mengekstrak."
+11262,1,"File ini dienkripsi. Enkripsi tidak didukung dalam arsip GZip."
+11263,1,"File ini bagian dari arsip multipart. Arsip GZip multipart tidak didukung."
+
+[STRINGTABLE 3]
+11264,1,"Flag tidak dikenal ditemukan pada header GZip, tidak dapat mengekstrak."
+11265,1,"Kesalahan saat membuka file arsip: "
+11266,1,"Akhir file ditemukan terlalu dini."
+11267,1,"Kesalahan saat membaca file arsip: "
+11268,1,"Kesalahan saat menulis ke file keluaran: "
+11269,1,"Fungsi WriteFile menolak menulis semua data yang diminta."
+11270,1,"Blok tidak valid ditemukan di aliran GZip, tidak dapat mengekstrak."
+11271,1,"Kesalahan internal pada plugin TAR. Beri tahu kami melalui email support@altap.cz."
+11272,1,"Kesalahan alokasi memori."
+11273,1,"Kesalahan CRC."
+11274,1,"Data tak terduga pada aliran terkompresi, arsip rusak."
+11275,1,"Kesalahan saat mencari di file arsip: "
+
+[STRINGTABLE 4]
+11280,1,"Penampil RPM"
+11281,1,"Kesalahan RPM"
+11282,1,"Kesalahan saat membuat nama file sementara."
+11283,1,"Kesalahan saat membuat file sementara."
+11284,1,"File tidak dikenali sebagai arsip RPM."
+11285,1,"Versi RPM yang diminta arsip ini tidak didukung."
+11286,1,"Tanda tangan arsip RPM tidak dikenal ditemukan."
+11291,1,"Rekaman file memiliki tanda tangan yang salah."
+11292,1,"Rekaman header file rusak."
+11293,1,"Format header cpio tidak dikenal."
+
+[STRINGTABLE 5]
+11299,1,"TAR"
+11300,1,"Jelajahi dan ekstrak arsip Unix."
+11301,1,"Tentang Plugin"
+

@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\indonesian\unlha\unlha.atp"
+TEXTVERSION,"1.16 (x64)"
+VERSION,"1,16,0,197"
+
+[TRANSLATION]
+LANGID,1057
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"indonesian (automatic AI translation)"
+
+[STRINGTABLE 0]
+1,1,"File LZH tidak valid atau format file tidak dikenal."
+2,1,"Kesalahan checksum header.\nArsip rusak — tidak semua file dapat ditampilkan."
+3,1,"Memori habis."
+4,1,"Kesalahan penulisan"
+5,1,"UnLHA"
+6,1,"Kesalahan saat membuka arsip."
+7,1,"Entri arsip tidak dapat ditambahkan ke daftar file."
+8,1,"Arsip berisi satu atau beberapa tautan simbolis UNIX yang tidak akan ditampilkan."
+10,1,"File tidak dapat diekstrak."
+11,1,"Kesalahan pada data terkompresi. CRC tidak cocok."
+12,1,"Kesalahan saat membaca arsip."
+13,1,"Mengekstrak Arsip LHA - %s"
+14,1,"Menyiapkan data dan membuat direktori..."
+15,1,"mengekstrak: "
+
+[STRINGTABLE 1]
+16,1,"mengekstrak..."
+17,1,"Operasi tidak dapat diselesaikan karena nama jalur terlalu panjang."
+18,1,"Operasi tidak dapat diselesaikan karena mask terlalu panjang."
+19,1,"Metode kompresi tidak dikenal. File tidak dapat diekstrak."
+20,1,"metode yang tidak dikenal dilewati..."
+21,1,"Telusuri dan ekstrak arsip LHA."
+22,1,"Tentang Plugin"
+

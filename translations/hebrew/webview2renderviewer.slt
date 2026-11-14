@@ -1,0 +1,41 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\hebrew\webview2renderviewer\webview2renderviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1037
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"hebrew (automatic AI translation)"
+
+[STRINGTABLE 0]
+46,1,"מציג WebView2"
+47,1,"אודות התוסף"
+
+[STRINGTABLE 1]
+48,1,"מציג דפי HTML, Markdown ומסמכי אינטרנט שעברו עיבוד באמצעות WebView2."
+49,1,"open.samandarin.net"
+50,1,"לא ניתן להכין את אירוע הסנכרון הדרוש למציג."
+51,1,"הקובץ שנבחר גדול מדי לפתיחה. קבצים שגודלם מעל 32 MB אינם נתמכים."
+52,1,"&קובץ"
+53,1,"&תצוגה"
+54,1,"&סגור\tEsc"
+55,1,"&רענן\tF5"
+56,1,"&התקרב\tCtrl++"
+57,1,"&התרחק\tCtrl+-"
+58,1,"&אפס\tCtrl+0"
+59,1,"טוען..."
+60,1,"מוכן"
+61,1,"לא ניתן לאתחל את מנוע העיבוד של WebView2."
+62,1,"לא ניתן לפתוח את הקובץ שנבחר."
+63,1,"הצג &מספרי שורות"
+
+[STRINGTABLE 2]
+64,1,"&הקף שורות\tF2"
+65,1,"הצג &רווחים לבנים"
+66,1,"&עריכה"
+67,1,"&העתק\tCtrl+C"
+68,1,"בחר &הכול\tCtrl+A"
+69,1,"&הדפס...\tCtrl+P"
+

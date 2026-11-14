@@ -10,7 +10,7 @@
 // look at shared\versinfo.rc
 
 #define VERSINFO_MAJOR       2
-#define VERSINFO_MINORA      27
+#define VERSINFO_MINORA      28
 #define VERSINFO_MINORB      0
 
 #include "spl_vers.h" // get version & build numbers
@@ -31,7 +31,7 @@
 #endif
 
 // for SLG translators
-#define VERSINFO_SLG_WEB     "www.altap.cz"
+#define VERSINFO_SLG_WEB     "samandarin.net"
 #define VERSINFO_SLG_COMMENT "English version"
 
 #endif // __PICTVIEW_VERSINFO_RH2

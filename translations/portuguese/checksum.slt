@@ -1,0 +1,116 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\portuguese\checksum\checksum.atp"
+TEXTVERSION,"2.5 (x64)"
+VERSION,"2,5,0,197"
+
+[TRANSLATION]
+LANGID,1046
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"portuguese (automatic AI translation)"
+
+[DIALOG 1000]
+344,84,1,"Calcular checksums"
+1001,5,5,334,54,1,"List1"
+1007,5,68,42,8,1,"Calculando:"
+1006,50,68,105,8,1,"Progress1"
+1002,162,65,55,14,1,"Con&figurar..."
+1003,223,65,55,14,1,"&Salvar..."
+1004,284,65,55,14,1,"&Parar"
+1005,5,68,101,8,1,"dica da área de transferência"
+
+[DIALOG 1001]
+189,109,1,"Configuração de Checksum"
+300,8,5,174,76,1," Calcular checksums "
+100,15,16,105,10,1,"&CRC/SFV"
+101,15,28,105,10,1,"&MD5"
+102,15,40,105,10,1,"SHA-&1"
+103,15,52,105,10,1,"SHA-&256"
+104,15,64,105,10,1,"SHA-&512"
+1,14,88,50,14,1,"OK"
+2,69,88,50,14,1,"Cancelar"
+9,124,88,50,14,1,"Ajuda"
+
+[DIALOG 2000]
+260,84,1,""
+1001,5,5,250,54,1,"List1"
+1007,5,68,42,8,1,"Verificando:"
+1006,42,68,101,8,1,"Progress1"
+2002,5,68,140,8,1,""
+2001,149,65,50,14,1,"&Focar"
+1004,205,65,50,14,1,"&Parar"
+
+[STRINGTABLE 0]
+1,1,"Checksum"
+2,1,"Sobre o plug-in"
+3,1,"Verificador e calculadora de checksums SFV, MD5, SHA-1, SHA-256 e SHA-512."
+4,1,"Memória insuficiente"
+5,1,"Erro ao abrir o arquivo"
+6,1,"Erro de leitura"
+7,1,"Erro de gravação"
+
+[STRINGTABLE 1]
+40,1,"Ignorado"
+41,1,"Calculando..."
+42,1,"Cancelado"
+43,1,"Clique com o botão direito em um item para copiar um checksum para a área de transferência."
+44,1,"Copiar valor &CRC para a área de transferência\t Ctrl+C"
+45,1,"Copiar checksum &MD5 para a área de transferência\t Ctrl+M"
+46,1,"Copiar checksum SHA-&1 para a área de transferência\t Ctrl+1"
+47,1,"Copiar checksum SHA-&256 para a área de transferência\t Ctrl+2"
+
+[STRINGTABLE 2]
+48,1,"Copiar checksum SHA-&512 para a área de transferência\t Ctrl+5"
+52,1,"Copiar &todos os valores para a área de transferência"
+53,1,"&Remover item\t Delete"
+54,1,"O arquivo '%s' já existe.\n Deseja substituí-lo?"
+55,1,"Erro ao criar o arquivo."
+56,1,"Arquivos ignorados ou cancelados durante o cálculo não foram salvos."
+57,1,"Erro ao abrir o arquivo '%s'."
+58,1,"Ausente"
+59,1,"O arquivo selecionado não tem extensão SFV, MD5, SHA1, SHA256 nem SHA512. Deseja continuar mesmo assim?"
+60,1,"O arquivo selecionado não é um arquivo SFV, MD5, SHA-1, SHA-256 nem SHA-512 válido."
+61,1,"Verificando..."
+62,1,"OK"
+63,1,"Corrompido"
+
+[STRINGTABLE 3]
+65,1,"&Verificar checksums..."
+66,1,"&Calcular checksums..."
+67,1,"A configuração já está aberta."
+68,1,"As alterações terão efeito na próxima abertura da janela 'Calcular checksums'."
+70,1,"Todos os arquivos OK"
+71,1,"%d corrompidos, %d ausentes, %d ignorados"
+72,1,"O Open Samandarin está ocupado. O comando solicitado não pode ser concluído; tente novamente mais tarde."
+74,1,"&Fechar"
+75,1,"Lendo a árvore de diretórios, aguarde..."
+76,1,"Erro ao ler o diretório"
+77,1,"Nenhum arquivo"
+78,1,"Verificar checksums"
+79,1,"Arquivo"
+
+[STRINGTABLE 4]
+80,1,"Tamanho"
+81,1,"Status"
+82,1,"CRC"
+83,1,"MD5"
+84,1,"SHA-1"
+85,1,"SHA-256"
+86,1,"SHA-512"
+90,1,"Salvar arquivo de checksum"
+91,1,"Arquivos SFV (*.sfv)|*.sfv|"
+92,1,"Arquivos MD5 (*.md5)|*.md5|"
+93,1,"Arquivos SHA-1 (*.sha1)|*.sha1|"
+94,1,"Arquivos SHA-256 (*.sha256)|*.sha256|"
+95,1,"Arquivos SHA-512 (*.sha512)|*.sha512|"
+
+[STRINGTABLE 5]
+100,1,"Verificar CRC"
+101,1,"Verificar MD5"
+102,1,"Verificar SHA-1"
+103,1,"Verificar SHA-256"
+104,1,"Verificar SHA-512"
+
+[STRINGTABLE 6]
+120,1,"Não é possível concluir a operação porque o nome é longo demais."
+

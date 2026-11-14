@@ -1,12 +1,12 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\czech\samandarin\samandarin.atp"
-TEXTVERSION,"0.10 (x64)"
-VERSION,"0,10,0,196"
+TEXTVERSION,"0.11 (x64)"
+VERSION,"0,11,0,197"
 
 [TRANSLATION]
 LANGID,1029
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 1]
 48,1,"Kontroluje vydání na GitHubu a nabízí otevřít nejnovější sestavení Samandarin."
-49,1,"https://samandarin.net/download"
+49,1,"open.samandarin.netdownload"
 50,1,"Zkontrolovat aktualizace nyní"
 51,1,"Neočekávaná spravovaná výjimka:"
 52,1,"Nelze inicializovat spravovaného pomocníka Samandarin.\nOvěřte, že Samandarin.Managed.dll je umístěn vedle zásuvného modulu."
@@ -125,8 +125,8 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 144,1,"Možné"
 145,1,"Vyžadováno při instalaci"
 146,1,"Ne"
-147,0,"This package has higher-risk capabilities:\n\n{0}\n\nInstall or update it anyway?"
+147,1,"Tento balíček má následující rizikovější funkce:\n\n{0}\n\nPřesto jej nainstalovat nebo aktualizovat?"
 148,1,"Dodáno s instalátorem"
-149,0,"Updates are available for the following plugins or extensions:\n\n{0}"
+149,1,"Pro následující zásuvné moduly nebo rozšíření jsou k dispozici aktualizace:\n\n{0}"
 150,1,"Otevřít aktualizace pluginů"
 

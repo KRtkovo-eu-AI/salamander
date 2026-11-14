@@ -1,0 +1,116 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\swedish\checksum\checksum.atp"
+TEXTVERSION,"2.5 (x64)"
+VERSION,"2,5,0,197"
+
+[TRANSLATION]
+LANGID,1053
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"swedish (automatic AI translation)"
+
+[DIALOG 1000]
+344,84,1,"Beräkna kontrollsummor"
+1001,5,5,334,54,1,"Lista 1"
+1007,5,68,42,8,1,"Beräknar:"
+1006,50,68,105,8,1,"Förlopp 1"
+1002,162,65,55,14,1,"&Konfigurera..."
+1003,223,65,55,14,1,"&Spara..."
+1004,284,65,55,14,1,"&Stoppa"
+1005,5,68,51,8,1,"tips för urklipp"
+
+[DIALOG 1001]
+189,109,1,"Checksum-inställningar"
+300,8,5,174,76,1," Beräkna kontrollsummor "
+100,15,16,105,10,1,"&CRC/SFV"
+101,15,28,105,10,1,"&MD5"
+102,15,40,105,10,1,"SHA-&1"
+103,15,52,105,10,1,"SHA-&256"
+104,15,64,105,10,1,"SHA-&512"
+1,14,88,50,14,1,"OK"
+2,69,88,50,14,1,"Avbryt"
+9,124,88,50,14,1,"Hjälp"
+
+[DIALOG 2000]
+260,84,1,""
+1001,5,5,250,54,1,"Lista 1"
+1007,5,68,36,8,1,"Verifierar:"
+1006,42,68,101,8,1,"Förlopp 1"
+2002,5,68,140,8,1,""
+2001,149,65,50,14,1,"&Fokusera"
+1004,205,65,50,14,1,"&Stoppa"
+
+[STRINGTABLE 0]
+1,1,"Checksum"
+2,1,"Om plugin"
+3,1,"Verifierar och beräknar kontrollsummor för SFV, MD5, SHA-1, SHA-256 och SHA-512."
+4,1,"Slut på minne"
+5,1,"Fel vid öppning av fil"
+6,1,"Läsfel"
+7,1,"Skrivfel"
+
+[STRINGTABLE 1]
+40,1,"Överhoppad"
+41,1,"Beräknar..."
+42,1,"Avbruten"
+43,1,"Högerklicka på ett objekt för att kopiera kontrollsumman till urklipp."
+44,1,"Kopiera &CRC-värde i urklipp\tCtrl+C"
+45,1,"Kopiera &MD5-summa till urklipp\tCtrl+M"
+46,1,"Kopiera SHA-&1-summa till urklipp\tCtrl+1"
+47,1,"Kopiera SHA-&256-summa till urklipp\tCtrl+2"
+
+[STRINGTABLE 2]
+48,1,"Kopiera SHA-&512-summa till urklipp\tCtrl+5"
+52,1,"Kopiera &alla värden till urklipp"
+53,1,"&Ta bort\tDelete"
+54,1,"Filen '%s' finns redan.\nVill du skriva över den?"
+55,1,"Fel när filen skapades."
+56,1,"Filer som hoppades över eller avbröts under beräkningen sparades inte."
+57,1,"Fel när filen '%s' öppnades."
+58,1,"Saknas"
+59,1,"Den valda filen har inget SFV-, MD5-, SHA1-, SHA256- eller SHA512-tillägg. Vill du fortsätta ändå?"
+60,1,"Den valda filen är inte en giltig SFV-, MD5-, SHA-1-, SHA-256- eller SHA-512-fil."
+61,1,"Verifierar..."
+62,1,"OK"
+63,1,"Skadad"
+
+[STRINGTABLE 3]
+65,1,"&Verifiera kontrollsummor..."
+66,1,"&Beräkna kontrollsummor..."
+67,1,"Konfigurationen är redan öppen."
+68,1,"Ändringarna börjar gälla nästa gång beräkningsfönstret öppnas."
+70,1,"Alla filer OK"
+71,1,"%d skadade, %d saknade, %d överhoppade"
+72,1,"Open Samandarin är upptaget. Kommandot kunde inte utföras, försök igen senare."
+74,1,"&Stäng"
+75,1,"Läser katalogträdet, vänta..."
+76,1,"Fel vid läsning av katalog"
+77,1,"Inga filer"
+78,1,"Verifiera kontrollsummor"
+79,1,"Fil"
+
+[STRINGTABLE 4]
+80,1,"Storlek"
+81,1,"Status"
+82,1,"CRC"
+83,1,"MD5"
+84,1,"SHA-1"
+85,1,"SHA-256"
+86,1,"SHA-512"
+90,1,"Spara kontrollsummefil"
+91,1,"SFV-filer (*.sfv)|*.sfv|"
+92,1,"MD5-filer (*.md5)|*.md5|"
+93,1,"SHA-1-filer (*.sha1)|*.sha1|"
+94,1,"SHA-256-filer (*.sha256)|*.sha256|"
+95,1,"SHA-512-filer (*.sha512)|*.sha512|"
+
+[STRINGTABLE 5]
+100,1,"Verifiera CRC"
+101,1,"Verifiera MD5"
+102,1,"Verifiera SHA-1"
+103,1,"Verifiera SHA-256"
+104,1,"Verifiera SHA-512"
+
+[STRINGTABLE 6]
+120,1,"Åtgärden kan inte slutföras eftersom namnet är för långt."
+

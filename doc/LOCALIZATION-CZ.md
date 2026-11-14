@@ -1,6 +1,9 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Popsat odstranění anglických build seedů. | Nenechávat v runtime stromu nepotřebné soubory english.slg. | | openrouter/openai/gpt-6-luna-pro |
+| 2026-11-13 | Popsat jazykové resources přímo v pluginech. | Držet překlady u samostatně aktualizovatelných binárek pluginů. | | openrouter/openai/gpt-6-luna-pro |
 | 2026-11-05 | Document FIFO matching for duplicate menu POPUP IDs. | Prevent Internal Viewer and other menu titles from collapsing to Help after rebase. | https://github.com/KRtkovo-eu-AI/salamander/issues/751 | Composer |
+| 2026-11-04 | Dokumentovat English-in-host a jeden langpack.dll. | Méně podepisovaných .slg; možná anglická-only minimální instalace. | | Composer |
 | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 -->
 # Jak přeložit Samandarin
@@ -75,7 +78,7 @@ Zobrazit pluginy, kterým chybí překladové archivy:
 pwsh -File .\tools\localization\localize.ps1 check
 ```
 
-Sestavit všechny dostupné jazykové `.slg` do hotového runtime:
+Sestavit oficiální language pack do hotového runtime:
 
 ```powershell
 pwsh -File .\tools\localization\localize.ps1 build `
@@ -85,8 +88,29 @@ pwsh -File .\tools\localization\localize.ps1 build `
 Příkaz `build` je release krok pro jazykové balíčky. Interně volá
 `tools/localization/build_language_packs.ps1`, vytvoří zahoditelný workspace pro
 Translator, importuje commitnuté archivy `translations/<language>/<module>.slt`
-do kopií aktuálních anglických `.slg`, ověří layout, zkontroluje SLT round-trip a
-potom hotové `.slg` zkopíruje zpět do populovaného runtime stromu.
+do kopií aktuálních anglických `.slg`, ověří layout, zkontroluje SLT round-trip,
+zkopíruje `.slg` intermediáty do runtime stromu a poté neanglické `.slg` hlavní
+aplikace sbalí do podepsaného PE kontejneru `lang\langpack.dll`; překlady každého
+pluginu vloží přímo do jeho `plugins\<module>\<module>.spl`
+(`tools/localization/build_official_langpack.ps1`). Po úspěšném zabalení skript
+vygenerované neanglické `.slg` intermediáty i build seedy `english.slg` z runtime
+stromu odstraní. Před dalším překládáním, které tyto seedy potřebuje, runtime znovu
+sestavte a naplňte.
+
+Runtime architektura:
+
+- **Angličtina** je vestavěná v `salamand.exe` a first-party `.spl` (runtime
+  `english.slg` nepotřebuje).
+- **Oficiální neanglické jazyky Samandarina** se načítají z `lang\langpack.dll`.
+- **Jazyky first-party pluginů** jsou vložené v odpovídajícím `.spl`, takže každá
+  aktualizace pluginu obsahuje i jeho překlady.
+- **Legacy / 3rd-party pluginy** můžou dál mít `plugins\<name>\lang\*.slg`;
+  host tento fallback zachovává. Při aktualizaci se podporují také pluginové
+  resources ze staršího `langpack.dll`.
+
+Minimální instalace může `langpack.dll` vynechat a hlavní aplikaci spustit anglicky;
+překlady vybraných first-party pluginů jsou součástí jejich `.spl`. Inno Setup
+úloha „Další jazyky rozhraní“ instaluje jazykový balíček hlavní aplikace.
 
 Pokud jsou texty v `translations/` správně, už je nepřekódovávejte a znovu je
 nespouštějte přes překladové API. Udělejte jen čerstvý build Samandarina, čerstvý build
@@ -94,9 +118,8 @@ nespouštějte přes překladové API. Udělejte jen čerstvý build Samandarina
 jakékoliv fatální chybě nezapíše nové `.slg` do runtime stromu; nejdřív opravte
 vypsaný problém a potom build spusťte znovu.
 
-Tímhle krokem se nemění runtime architektura Samandarina: `.slg` musí být správně
-vygenerované už před spuštěním aplikace. Pokud round-trip validace selže, nejde
-o varování k ignorování — výsledný language pack se nesmí testovat ani shipovat.
+Pokud round-trip validace selže, nejde o varování k ignorování — daný jazyk se
+nesmí balit do `langpack.dll` ani do `.spl` pluginu ani shipovat.
 
 Každý `.slt` archiv musí mít v sekci `[TRANSLATION]` správné `LANGID` podle
 adresáře jazyka. Dávkový překladový skript ho při zápisu kandidátů normalizuje a

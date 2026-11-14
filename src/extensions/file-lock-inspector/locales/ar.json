@@ -1,0 +1,40 @@
+{
+  "name": "فاحص أقفال الملفات",
+  "commands": {
+    "FileLockInspector.inspect": "فاحص أقفال الملفات..."
+  },
+  "strings": {
+    "title": "فاحص أقفال الملفات",
+    "files": "الملفات",
+    "noLocks": "لم يتم العثور على عمليات تقفل الملفات.",
+    "lockingProcesses": "العمليات التي تقفل الملفات",
+    "process": "العملية",
+    "pid": "PID",
+    "type": "النوع",
+    "status": "الحالة",
+    "executable": "الملف التنفيذي",
+    "inspecting": "جارٍ البحث عن العمليات التي تقفل الملفات...",
+    "lockCount": "عدد العمليات التي تقفل الملفات: {0}",
+    "inspectFailed": "فشل فحص أقفال الملفات.",
+    "openLocation": "فتح الموقع",
+    "closeProcess": "إغلاق العملية",
+    "endProcess": "إنهاء العملية...",
+    "copyReport": "نسخ التقرير",
+    "refresh": "تحديث",
+    "close": "إغلاق",
+    "locationUnavailable": "موقع الملف التنفيذي غير متاح لهذه العملية.",
+    "closeUnavailable": "لا توجد نافذة رئيسية لهذه العملية يمكن إغلاقها بأمان.",
+    "confirmEnd": "إنهاء العملية \"{0}\" (PID {1})؟{2}{2}قد تُفقد البيانات غير المحفوظة في هذا التطبيق.",
+    "selectFile": "حدد ملفًا واحدًا على الأقل أو اجعله نشطًا أولًا.",
+    "responding": "يستجيب",
+    "notResponding": "لا يستجيب",
+    "processEnded": "(انتهت العملية)",
+    "appMainWindow": "تطبيق",
+    "appOtherWindow": "نافذة في الخلفية",
+    "appService": "خدمة",
+    "appExplorer": "مستكشف Windows",
+    "appConsole": "وحدة التحكم",
+    "appCritical": "عملية مهمة",
+    "appUnknown": "غير معروف"
+  }
+}

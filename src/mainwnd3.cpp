@@ -9,6 +9,7 @@
 // | 2026-11-12 | Gate test-only Retry copy on current panel selection. | Verify the exact fixture in the UI thread immediately before the native copy command. | #731 | GPT-6 |
 // | 2026-11-11 | Route Branch Stop through its explicit user action. | Keep initial results while preserving refresh cancellation semantics. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Return to the invoking window when admin shell consent is cancelled. | Keep a successful visible shell in the foreground. | #731 | GPT-6.1 Sol |
+// | 2026-11-14 | Show a flag on the primary panel tab. | Distinguish the primary tab from tabs locked by the user. | | openai/gpt-6-luna-pro |
 // | 2026-11-10 | Enable clipboard copy from plugin file systems. | The staged-file clipboard path supports plugin FS sources with copy-from-FS service. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-08 | Remove the standalone ZIP recovery command route. | Limit UAC to existing ZIP commands. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Dispatch explicit ZIP recovery from a disk panel. | Use the normal guarded command route for attached and detached panels. | | GPT-6.1 Sol (Codex) |
@@ -894,12 +895,9 @@ static std::wstring BuildTabDisplayText(CFilesWindow* panel, int index)
     if (panel != NULL && panel->HasCustomTabPrefix())
         prefix = panel->GetCustomTabPrefix();
     std::wstring result;
-    bool shouldShowLock = (panel != NULL && panel->IsTabLocked());
-    if (!shouldShowLock && index == 0)
-        // The default tab is always considered locked from the UI perspective,
-        // even if the persisted state marks it as unlocked.
-        shouldShowLock = true;
-    if (shouldShowLock)
+    if (index == 0)
+        result = L"\u2691";
+    else if (panel != NULL && panel->IsTabLocked())
         result = L"\U0001F512";
     if (!prefix.empty())
     {

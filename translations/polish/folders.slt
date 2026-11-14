@@ -1,0 +1,17 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\polish\folders\folders.atp"
+TEXTVERSION,"0.4 (x64)"
+VERSION,"0,4,0,197"
+
+[TRANSLATION]
+LANGID,1045
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"polish (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"Foldery"
+1001,1,"O wtyczce"
+1003,1,"Przeglądaj foldery takie jak Pulpit, Panel sterowania, Kosz itd."
+1004,1,"'\tPulpit"
+

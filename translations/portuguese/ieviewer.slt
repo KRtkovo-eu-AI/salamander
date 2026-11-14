@@ -1,0 +1,18 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\portuguese\ieviewer\ieviewer.atp"
+TEXTVERSION,"1.14 (x64)"
+VERSION,"1,14,0,197"
+
+[TRANSLATION]
+LANGID,1046
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"portuguese (automatic AI translation)"
+
+[STRINGTABLE 0]
+10100,1,"Visualizador do Internet Explorer"
+10101,1,"Não foi possível abrir o Visualizador do Internet Explorer.\n Relate este problema para support@altap.cz."
+10102,1,"Erro"
+10103,1,"Visualizador leve de HTML e XML baseado no Internet Explorer."
+10105,1,"Sobre o plug-in"
+

@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\indonesian\unchm\unchm.atp"
+TEXTVERSION,"1.7 (x64)"
+VERSION,"1,7,0,197"
+
+[TRANSLATION]
+LANGID,1057
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"indonesian (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"UnCHM"
+1001,1,"Tidak dapat membuka file."
+1002,1,"Kesalahan tidak ditentukan."
+1003,1,"Mengekstrak Arsip CHM"
+1004,1,"Kesalahan saat mengekstrak file."
+1005,1,"Tidak dapat menangani file ini."
+1006,1,"Memori tidak cukup."
+1007,1,"Tentang Plugin"
+
+[STRINGTABLE 1]
+1009,1,"Jelajahi dan ekstrak file CHM."
+1010,1,"Tidak dapat membuat direktori sementara."
+1011,1,"Tidak dapat menghapus file sementara."
+1012,1,"Format file tidak dikenal atau citra CHM tidak valid.\n\nJika Anda yakin citra CHM ini valid, hubungi support@altap.cz dan bantu kami mendukung format ini."
+1013,1,"Tidak dapat membuka file ini."
+1014,1,"Pembuatan file sementara gagal."
+1015,1,"Tidak dapat mengatur atribut file."
+1016,1,"Tidak dapat membuat direktori '%s'."
+1020,1,"Ya"
+1021,1,"Tidak"
+1022,1,"Kesalahan"
+1023,1,"Peringatan"
+
+[STRINGTABLE 2]
+1032,1,"Kesalahan internal plugin."
+
+[STRINGTABLE 3]
+1100,1,"Kesalahan baca"
+1101,1,"Kesalahan tulis"
+
+[STRINGTABLE 4]
+1105,1,"Angka tidak valid."
+1106,1,"Membatalkan operasi, harap tunggu..."
+1107,1,"Pustaka CHMLIB Hak Cipta © 2001-2010 Jed Wing"
+

@@ -1,0 +1,12 @@
+{
+  "name": "JSON Viewer (nodeJS)",
+  "description": "بديل خفيف لعارض JSON .NET. يعرض ملفات JSON في WebView2 باستخدام عارض JSON الخاص بفايرفوكس/كروم (pd4d10/json-viewer).",
+  "viewers": {
+    "JSON Viewer (nodeJS)": "JSON Viewer (nodeJS)"
+  },
+  "strings": {
+    "invalidFallback": "الملف ليس JSON صالحًا وتعذر فتح عارض النصوص Prism.",
+    "viewerOpenFailed": "تعذر فتح عارض المستندات WebView2.\nثبّت Salamatrix (إطار العارض المشترك) وتأكد من توفر WebView2 Runtime.",
+    "noPath": "لم يتم توفير مسار ملف إلى JSON Viewer (nodeJS)."
+  }
+}

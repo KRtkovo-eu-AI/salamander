@@ -1,0 +1,20 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\hebrew\csdemo\csdemo.atp"
+TEXTVERSION,"1.0.6 (x64)"
+VERSION,"1,0,6,197"
+
+[TRANSLATION]
+LANGID,1037
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
+
+[STRINGTABLE 0]
+46,1,"דמו C#"
+47,1,"אודות התוסף"
+
+[STRINGTABLE 1]
+48,1,"תוסף דוגמה המארח ממשק משתמש WinForms מנוהל דרך CLR."
+49,1,"open.samandarin.net"
+50,1,"הצג את חלון &C# דמו"
+

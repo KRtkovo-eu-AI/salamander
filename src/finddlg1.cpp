@@ -21,6 +21,7 @@
 // | 2026-11-08 | Distinguish content-search consent from metadata consent. | Show the access required by the active Find options. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Use the common protected read confirmation. | Share the same prompt with the internal viewer. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Show a protected subtree consent prompt from Find. | Let the ordinary Find worker continue independently. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-12 | Read and paint Find headers as Unicode. | Avoid ANSI common-control conversions corrupting localized UTF-8 column names. | | openai/gpt-6-luna-pro |
 // | 2026-11-07 | Indicate background Find work with the system app-starting cursor. | Show active searches and sorts while retaining native interaction cursors. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Publish only the visible Find viewport to UI Automation. | Preserve native rendering, keyboard interaction, and legacy accessibility. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Defer Find sorting until enumeration ends. | Publish the final activity after result preparation and optional sorting. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
@@ -184,7 +185,7 @@ void UpdateFindDarkChrome(HWND dialog, HWND statusBar, HWND listView, CFindTBHea
 #define FIND_SORT_BITMAP_W 8
 #define FIND_SORT_BITMAP_H 8
 
-void PaintFindHeaderSortArrow(HDC hdc, const RECT* itemRect, const char* text, UINT format, BOOL reverse)
+void PaintFindHeaderSortArrow(HDC hdc, const RECT* itemRect, const WCHAR* text, UINT format, BOOL reverse)
 {
     if (hdc == NULL || itemRect == NULL || HHeaderSort == NULL)
         return;
@@ -192,9 +193,9 @@ void PaintFindHeaderSortArrow(HDC hdc, const RECT* itemRect, const char* text, U
     SIZE sz;
     sz.cx = 0;
     sz.cy = 0;
-    int textLen = text != NULL ? (int)strlen(text) : 0;
+    int textLen = text != NULL ? lstrlenW(text) : 0;
     if (textLen > 0)
-        GetTextExtentPoint32(hdc, text, textLen, &sz);
+        GetTextExtentPoint32W(hdc, text, textLen, &sz);
 
     int x;
     if ((format & DT_RIGHT) != 0)
@@ -247,14 +248,12 @@ bool PaintFindListHeader(LPNMCUSTOMDRAW cd, LRESULT& result, int sortBy, BOOL re
         {
             if (showSort)
             {
-                char text[256];
-                text[0] = 0;
-                HDITEM item;
-                memset(&item, 0, sizeof(item));
+                WCHAR text[256] = {};
+                HDITEMW item = {};
                 item.mask = HDI_TEXT | HDI_FORMAT;
                 item.pszText = text;
                 item.cchTextMax = _countof(text);
-                Header_GetItem(cd->hdr.hwndFrom, column, &item);
+                SendMessageW(cd->hdr.hwndFrom, HDM_GETITEMW, column, reinterpret_cast<LPARAM>(&item));
                 UINT format = DT_LEFT;
                 if ((item.fmt & HDF_RIGHT) != 0)
                     format = DT_RIGHT;
@@ -281,14 +280,12 @@ bool PaintFindListHeader(LPNMCUSTOMDRAW cd, LRESULT& result, int sortBy, BOOL re
         RECT rc = cd->rc;
         FillFindRect(cd->hdc, &rc, RGB(0x20, 0x20, 0x20));
 
-        char text[256];
-        text[0] = 0;
-        HDITEM item;
-        memset(&item, 0, sizeof(item));
+        WCHAR text[256] = {};
+        HDITEMW item = {};
         item.mask = HDI_TEXT | HDI_FORMAT;
         item.pszText = text;
         item.cchTextMax = _countof(text);
-        Header_GetItem(cd->hdr.hwndFrom, column, &item);
+        SendMessageW(cd->hdr.hwndFrom, HDM_GETITEMW, column, reinterpret_cast<LPARAM>(&item));
 
         rc.left += 5;
         rc.right -= 5;
@@ -309,7 +306,7 @@ bool PaintFindListHeader(LPNMCUSTOMDRAW cd, LRESULT& result, int sortBy, BOOL re
 
         int oldBkMode = SetBkMode(cd->hdc, TRANSPARENT);
         COLORREF oldText = SetTextColor(cd->hdc, colors.readableText);
-        DrawText(cd->hdc, text, -1, &rc, format);
+        DrawTextW(cd->hdc, text, -1, &rc, format);
         SetTextColor(cd->hdc, oldText);
         SetBkMode(cd->hdc, oldBkMode);
 

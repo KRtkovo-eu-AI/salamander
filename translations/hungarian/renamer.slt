@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\hungarian\renamer\renamer.atp"
-TEXTVERSION,"1.16 (x64)"
-VERSION,"1,16,0,196"
+TEXTVERSION,"1.17 (x64)"
+VERSION,"1,17,0,197"
 
 [TRANSLATION]
 LANGID,1038
@@ -256,10 +256,10 @@ COMMENT,"Magyar változat"
 1104,1,"Igazítási- ('l') vagy szélességmegadás (pozitív egész szám) szükséges."
 1105,1,"Szélességmegadás szükséges (pozitív egész szám)"
 1106,1,"Kitöltésmegadás szükséges (egy betű)"
-1107,1,"<Új név hibája: %s>"
-1108,0,"<Invalid value in some input field>"
-1109,1,"Szabályos kifejezés hiba: %s"
-1110,1,"<Boyer–Moore hiba: %s>"
+1107,1,"<Új név hiba: %s>"
+1108,1,"<Invalid value in some input field>"
+1109,1,"<Szabályos kifejezés hiba: %s>"
+1110,1,"<Boyer-Moore hiba: %s>"
 1111,1,"<Hiba: %s>"
 1112,1,"Nincs hiba."
 1113,1,"Kevés memória."

@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\russian\diskdir\diskdir.atp"
 TEXTVERSION,"1.1 (x64)"
-VERSION,"1,1,0,196"
+VERSION,"1,1,0,197"
 
 [TRANSLATION]
 LANGID,1049
 AUTHOR,"KRtkovo.eu"
 WEB,"samandarin.net"
-COMMENT,"English version"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 200]
 278,94,1,"Создать каталог DiskDir"
@@ -29,7 +29,7 @@ COMMENT,"English version"
 105,1,"Каталог DiskDir"
 106,1,"Путь к каталогу недействителен или слишком длинный."
 107,1,"Имя каталога уже используется директорией."
-108,0,"The catalog already exists:\n\n"
+108,1,"Каталог уже существует:\n\n"
 109,1,"\n\nПерезаписать? "
 110,1,"Каталоги DiskDir не хранят содержимое файлов, поэтому исходные файлы переместить нельзя."
 111,1,"Добавление записей в существующий каталог DiskDir не поддерживается."

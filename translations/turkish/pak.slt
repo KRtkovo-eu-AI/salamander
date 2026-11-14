@@ -1,0 +1,75 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\turkish\pak\pak.atp"
+TEXTVERSION,"1.74 (x64)"
+VERSION,"1,74,0,197"
+
+[TRANSLATION]
+LANGID,1055
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"turkish (automatic AI translation)"
+
+[DIALOG 100]
+194,73,1,"PAK Arşivini İyileştir"
+300,8,9,68,8,1,"Geçerli veri boyutu:"
+101,64,9,118,8,1,""
+301,8,20,77,8,1,"Toplam dosya boyutu:"
+102,64,20,118,8,1,""
+302,8,31,71,8,1,"Boşa harcanan alan:"
+103,64,31,118,8,1,""
+303,8,44,178,1,1,""
+1,41,53,50,14,1,"İyileştir"
+2,101,53,50,14,1,"İptal"
+
+[STRINGTABLE 0]
+500,1,"Dosya açılamıyor: %s"
+501,1,"paklib arabirimi başlatılamıyor. Zaten açık bir dosya var."
+502,1,"Dosya açılamıyor. Zaten açık bir dosya var."
+503,1,"Dosya boyutu alınamıyor: %s"
+504,1,"Geçersiz veri biçimi."
+505,1,"Yetersiz bellek."
+506,1,"Geçerli PAK merkezi dizini"
+507,1,"Dosya konumu ayarlanamıyor: %s"
+508,1,"Dosya okunamıyor: %s"
+509,1,"Dosya konumu alınamıyor: %s"
+510,1,"Dosyaya yazılamıyor: %s"
+511,1,"Adı çok uzun olduğu için dosya eklenemiyor."
+
+[STRINGTABLE 1]
+1000,1,"PAK"
+1001,1,"Yetersiz bellek."
+1002,1,"Dosya listeye eklenemiyor."
+1003,1,"paklib.dll yüklenemedi veya yordam adresi alınamadı: "
+1004,1,"PAK Arşivi Açılıyor - %s"
+1005,1,"Veriler hazırlanıyor..."
+1006,1,"Ayıklanıyor..."
+1007,1,"Ayıklanıyor: "
+
+[STRINGTABLE 2]
+1008,1,"Dosya yolu çok uzun olduğundan işlem tamamlanamıyor."
+1009,1,"Dosya konumu ayarlanamıyor: "
+1010,1,"Dosya konumu alınamıyor: "
+1011,1,"Dosyaya yazılamıyor:"
+1013,1,"Dosya açılamıyor: "
+1014,1,"Maske çok uzun olduğundan işlem tamamlanamıyor."
+1015,1,"PAK Arşivinden Siliniyor - %s"
+1016,1,"Siliniyor..."
+1017,1,"Siliniyor: "
+1018,1,"İşlem iptal ediliyor, lütfen bekleyin..."
+1019,1,"PAK Arşivine Sıkıştırılıyor - %s"
+1020,1,"Dosya çok büyük olduğundan eklenemiyor."
+1021,1,"Sıkıştırılıyor..."
+1022,1,"Adı çok uzun olduğu için dosya eklenemiyor."
+1023,1,"Sıkıştırılıyor: "
+
+[STRINGTABLE 3]
+1024,1,"Dosya okunamıyor: "
+1025,1,"Eklenti Open Samandarin'a bağlanamıyor."
+1026,1,"İyileştiriliyor, lütfen bekleyin..."
+1027,1,"PAK Arşivi İyileştiriliyor - %s"
+1028,1,"Dosya silme işlemi başarıyla tamamlanmadı. Boşa harcanan disk alanını geri kazanmak için eklenti menüsünden PAK iyileştirmesini çalıştırmanız gerekebilir."
+1029,1,"PAK'ı &İyileştir"
+1030,1,"Üzgünüz, eklentinin süresi doldu. Daha yeni bir sürüm için web sitemizi kontrol edin."
+1031,1,"Quake PAK arşivlerine göz atın ve arşivleri ayıklayın."
+1032,1,"Eklenti Hakkında"
+

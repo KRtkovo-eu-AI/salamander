@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\hypervm\hypervm.atp"
-TEXTVERSION,"1.10 (x64)"
-VERSION,"1,10,0,196"
+TEXTVERSION,"1.11 (x64)"
+VERSION,"1,11,0,197"
 
 [TRANSLATION]
 LANGID,1040
 AUTHOR,"Open Samandarin"
-WEB,"www.altap.cz"
-COMMENT,"English version"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
 
 [STRINGTABLE 0]
 46,1,"Macchine Hyper-V"
@@ -15,7 +15,7 @@ COMMENT,"English version"
 
 [STRINGTABLE 1]
 48,1,"Mostra le macchine virtuali Hyper-V locali nel pannello."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Mostra finestra delle macchine &Hyper-V"
 51,1,"Crea &VHD"
 52,1,"&Collega VHD"

@@ -133,7 +133,7 @@ CPluginInterfaceAbstract*
     SalamanderGeneral->SetFlagLoadOnSalamanderStart(TRUE);
 
     // Setup plugin home page.
-    salamander->SetPluginHomePageURL("www.altap.cz");
+    salamander->SetPluginHomePageURL("samandarin.net");
 
     SalamanderGeneral->RegisterServiceOwned(
         SALAMATRIX_SERVICE_SCRIPT_RUNNER,

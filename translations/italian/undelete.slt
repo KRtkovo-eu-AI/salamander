@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\undelete\undelete.atp"
-TEXTVERSION,"1.13 (x64)"
-VERSION,"1,13,0,196"
+TEXTVERSION,"1.14 (x64)"
+VERSION,"1,14,0,197"
 
 [TRANSLATION]
 LANGID,1040
 AUTHOR,"Open Samandarin"
-WEB,"www.altap.cz"
-COMMENT,"English version"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 1000]
 341,77,1,"Annulla ripristino"
@@ -155,7 +155,7 @@ COMMENT,"English version"
 82,1,"Formato"
 83,1,"Dimensione"
 84,1,"Libero"
-85,0,"% Free"
+85,1,"% Free"
 86,1,"Percorso GUID"
 90,1,"L'immagine ha dimensione zero. Stima danni del file annullata."
 91,1,"Impossibile trovare $Bitmap in questa unità. Stima danni del file annullata."

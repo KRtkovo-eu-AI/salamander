@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\chinesesimplified\zip\zip.atp"
-TEXTVERSION,"1.8 (x64)"
-VERSION,"1,8,0,196"
+TEXTVERSION,"1.9 (x64)"
+VERSION,"1,9,0,197"
 
 [TRANSLATION]
 LANGID,2052
@@ -558,4 +558,5 @@ COMMENT,"简体中文版"
 1252,1,"KB"
 1253,1,"MB"
 1254,1,"当前版本的 ZIP 插件不支持修改 ZIP 文件使用的数据格式"
+1255,1,"并非所有压缩包条目都已解压缩。源压缩包已保留。"
 

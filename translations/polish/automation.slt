@@ -1,0 +1,75 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\polish\automation\automation.atp"
+TEXTVERSION,"2.9 (x64)"
+VERSION,"2,9,0,197"
+
+[TRANSLATION]
+LANGID,1045
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"polish (automatic AI translation)"
+
+[DIALOG 100]
+205,64,1,"Pole wprowadzania"
+1150,8,8,189,8,1,"Monit:"
+101,8,18,189,12,1,""
+1,48,42,50,14,1,"OK"
+2,107,42,50,14,1,"Anuluj"
+
+[DIALOG 101]
+332,143,1,"Konfiguracja automatyzacji"
+375,8,9,67,8,1,"&Katalogi skryptów:"
+371,8,19,316,73,1,""
+1001,8,102,112,10,1,"Włącz &debugowanie skryptów"
+1,75,121,50,14,1,"OK"
+2,141,121,50,14,1,"Anuluj"
+9,207,121,50,14,1,"&Pomoc"
+
+[MENU 106]
+0,1,"[POPUP]"
+40013,1,"Przeglądaj…"
+40014,1,"Katalog Salamandera"
+40015,1,"Zmienna środowiskowa"
+
+[STRINGTABLE 0]
+1,1,"Automatyzacja"
+2,1,"Automatyzuje typowe zadania za pomocą skryptów."
+3,1,"O wtyczce"
+
+[STRINGTABLE 1]
+128,1,"Błąd skryptu automatyzacji"
+129,1,"Wiersz:\t%u\r\n"
+130,1,"Kolumna:\t%u\r\n"
+131,1,"Błąd:\t%s"
+132,1,"Uruchom aktywny skrypt"
+134,1,"Postęp operacji"
+135,1,"Źródło:\t%s\r\n"
+136,1,"Otwórz menu skryptów"
+137,1,"(brak skryptu)"
+138,1,"Nie udało się wykonać skryptu '%s'.\r\n%s"
+139,1,"Nieznany błąd."
+140,1,"1\t&Przerwij"
+141,1,"1\t&Debuguj\t2\t&Przerwij"
+142,1,"Katalog skryptów"
+143,1,"Wybierz katalog repozytorium skryptów."
+
+[STRINGTABLE 2]
+144,1,"Przerwij skrypt"
+145,1,"Przerwij uruchomiony skrypt\tCtrl+Break"
+146,1,"Okno Open Samandarin jest zablokowane przez wtyczkę Automatyzacja. Zakończ uruchomiony skrypt."
+147,1,"Nie udało się zainicjować silnika skryptów."
+
+[STRINGTABLE 3]
+256,1,"Nieprawidłowe archiwum."
+257,1,"Nie można zamknąć bieżącej ścieżki."
+258,1,"Ścieżka została skrócona."
+259,1,"Nie można zmienić właściwości ani wywołać metody %s, gdy okno jest wyświetlone."
+260,1,"Nie można zmienić właściwości ani wywołać metody %s, gdy okno jest ukryte."
+261,1,"Nie udało się załadować wtyczki."
+262,1,"Awaria wtyczki."
+263,1,"Nie udało się przenieść pliku do pamięci podręcznej dysku."
+264,1,"Błąd składni maski plików."
+265,1,"Do kontenera można dodawać tylko komponenty."
+266,1,"Formularzy nie można dodawać do kontenera."
+267,1,"Wykonywanie skryptu zostało przerwane przez użytkownika."
+
