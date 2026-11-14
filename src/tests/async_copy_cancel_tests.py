@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Combine the actual transport check with a real peer exit. | Verify pending native I/O drains after an external process dies. | #731 | gpt-6.1-terra |
 # | 2026-11-14 | Extract the native thin pause wait. | Test synchronous connection-loss handling directly. | #731 | gpt-6.1-terra |
 # | 2026-11-14 | Exercise worker handling of a disconnected thin job. | Check pending I/O is drained before reporting loss. | #731 | gpt-6.1-terra |
 # | 2026-11-13 | Test cancellation after issuing real asynchronous I/O. | Ensure the native copy drain sees pending reads and writes. | #731 | GPT-6 |
@@ -26,9 +27,11 @@ def main():
     config = parser.parse_args().configuration
     worker_path = ROOT / "src/worker.cpp"
     header_path = ROOT / "src/worker.h"
-    before = {p: hashlib.sha256(p.read_bytes()).hexdigest() for p in (worker_path, header_path)}
+    broker_path = ROOT / "src/uacbroker/uacbroker.cpp"
+    before = {p: hashlib.sha256(p.read_bytes()).hexdigest() for p in (worker_path, header_path, broker_path)}
     worker = worker_path.read_text(encoding="utf-8-sig")
     header = header_path.read_text(encoding="utf-8-sig")
+    broker = broker_path.read_text(encoding="utf-8-sig")
     async_params = extract(worker, "struct CAsyncCopyParams\n{", "// **********************************************************************************\n")
     enums = extract(worker, "enum CCopy_BlkState\n", "struct CCopy_Context\n")
     issue = extract(worker, "BOOL CCopy_Context::StartReading(", "int CCopy_Context::FindBlock(")
@@ -36,6 +39,7 @@ def main():
     drain = extract(worker, "void CCopy_Context::CancelOpPhase1()", "BOOL CCopy_Context::RetryCopyReadErr(")
     suspend = extract(worker, "BOOL CCopy_Context::HandleSuspModeAndCancel(", "void DoCopyFileLoopAsync(")
     wait_resume = extract(worker, "DWORD CThinCopyWorker::WaitTransferResume()", "bool CThinCopyWorker::CancelBeforeElevation()")
+    transport = extract(broker, "DWORD ThinCopySession::CheckTransport() const", "\n#endif\n\nbool ThinCopySession::Matches(")
     buffer = re.search(r"^#define ASYNC_COPY_BUF_SIZE \([^\r\n]*", header, re.MULTILINE)
     if not buffer:
         raise RuntimeError("native copy buffer definition missing")
@@ -43,7 +47,7 @@ def main():
     code = (template.replace("@@BUFFER@@", buffer.group(0)).replace("@@ASYNC@@", async_params)
             .replace("@@ENUMS@@", enums).replace("@@ISSUE@@", issue)
             .replace("@@FREE@@", free).replace("@@DRAIN@@", drain).replace("@@SUSPEND@@", suspend)
-            .replace("@@WAIT_RESUME@@", wait_resume))
+            .replace("@@WAIT_RESUME@@", wait_resume).replace("@@TRANSPORT@@", transport))
     if "@@" in code:
         raise RuntimeError("unexpanded native test placeholder")
     env = compiler_environment()
@@ -66,6 +70,7 @@ def main():
         if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
             raise RuntimeError(str(path) + " changed during test")
     print("worker.cpp SHA-256:", before[worker_path])
+    print("uacbroker.cpp SHA-256:", before[broker_path])
     print("Actual extracted native issue and drain methods; real pending named-pipe I/O.")
     print("Not a complete F5 transfer, broker, UI, elevated session, or filesystem compatibility test.")
     return 0

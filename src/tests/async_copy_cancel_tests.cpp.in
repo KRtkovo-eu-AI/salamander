@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-14 | Exercise native async suspension on connection loss. | Verify a real pending read is drained before error reporting. | #731 | gpt-6.1-terra |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Connect the actual transport check to pending native I/O. | Exercise a real peer process exit in the same isolated scenario. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Exercise async wait on connection loss and completion. | Check real pending I/O is drained only after loss. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Exercise all async pause modes and completed-write loss. | Check tracked I/O drains before loss is reported. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Test synchronous pause with a disconnected session. | Verify native error state and prompt detection before resume. | #731 | gpt-6.1-terra |
@@ -12,6 +13,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -80,17 +83,37 @@ static BOOL ObservedGetOverlappedResult(HANDLE file, OVERLAPPED* overlapped, DWO
 @@ENUMS@@
 struct COperations { BOOL ChangeSpeedLimit = FALSE; };
 struct CProgressDlgData { BOOL* CancelWorker = nullptr; HANDLE WorkerNotSuspended = nullptr; };
+namespace UacF7
+{
+struct TransferJobSession
+{
+    HANDLE pipe = nullptr;
+    ULONGLONG OpeningGeneration() const { return pipe ? 1 : 0; }
+};
+class ThinCopySession
+{
+public:
+    DWORD CheckTransport() const;
+    mutable std::mutex gate;
+    TransferJobSession owned;
+    TransferJobSession* shared = nullptr;
+    std::unique_ptr<TransferJobSession> planned;
+    ULONGLONG plannedGeneration = 0;
+};
+@@TRANSPORT@@
+}
 struct CThinCopyWorker
 {
     std::atomic<DWORD> connectionStatus{ERROR_SUCCESS};
     bool brokerHandleDelivered = true;
     bool scoped = true;
+    UacF7::ThinCopySession* transport = nullptr;
     CProgressDlgData dialog{};
     unsigned reports = 0;
     OVERLAPPED* pending = nullptr;
     bool drainedBeforeReport = false;
     bool Scoped() const { return scoped; }
-    DWORD CheckTransferConnection() const { return connectionStatus.load(); }
+    DWORD CheckTransferConnection() const { return transport ? transport->CheckTransport() : connectionStatus.load(); }
     DWORD WaitTransferResume() const;
     bool ReportTargetFailure(DWORD, int)
     {
@@ -579,6 +602,110 @@ static void TestPendingWait(bool loseConnection)
     CloseHandle(resumed);
 }
 
+struct ExternalSessionPeer
+{
+    HANDLE server = INVALID_HANDLE_VALUE;
+    HANDLE process = nullptr;
+    ~ExternalSessionPeer()
+    {
+        if (process)
+        {
+            if (WaitForSingleObject(process, 0) == WAIT_TIMEOUT) TerminateProcess(process, 91);
+            WaitForSingleObject(process, 5000);
+            CloseHandle(process);
+        }
+        if (server != INVALID_HANDLE_VALUE) CloseHandle(server);
+    }
+    bool Stop()
+    {
+        return process && TerminateProcess(process, 91) && WaitForSingleObject(process, 5000) == WAIT_OBJECT_0;
+    }
+    bool Open()
+    {
+        const std::wstring name = L"\\\\.\\pipe\\SamThinAsyncPeer-" + std::to_wstring(GetCurrentProcessId());
+        server = CreateNamedPipeW(name.c_str(), PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE,
+                                  PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_REJECT_REMOTE_CLIENTS,
+                                  1, 256, 256, 0, nullptr);
+        if (server == INVALID_HANDLE_VALUE) return false;
+        OVERLAPPED connect{};
+        connect.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        if (!connect.hEvent) return false;
+        const BOOL connected = ConnectNamedPipe(server, &connect);
+        const DWORD connectError = connected ? ERROR_SUCCESS : GetLastError();
+        if (!connected && connectError != ERROR_IO_PENDING && connectError != ERROR_PIPE_CONNECTED)
+        { CloseHandle(connect.hEvent); return false; }
+        wchar_t image[32768]{};
+        const DWORD length = GetModuleFileNameW(nullptr, image, _countof(image));
+        if (!length || length >= _countof(image))
+        {
+            CancelIoEx(server, &connect);
+            if (connectError == ERROR_IO_PENDING) WaitForSingleObject(connect.hEvent, INFINITE);
+            CloseHandle(connect.hEvent); return false;
+        }
+        std::wstring command = L"\"" + std::wstring(image) + L"\" --pipe-child \"" + name + L"\"";
+        STARTUPINFOW startup{}; startup.cb = sizeof(startup);
+        PROCESS_INFORMATION child{};
+        const BOOL launched = CreateProcessW(image, command.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW,
+                                              nullptr, nullptr, &startup, &child);
+        if (launched) { process = child.hProcess; CloseHandle(child.hThread); }
+        bool ready = connected || connectError == ERROR_PIPE_CONNECTED;
+        if (launched && connectError == ERROR_IO_PENDING)
+        {
+            const DWORD wait = WaitForSingleObject(connect.hEvent, 5000);
+            DWORD ignored = 0;
+            ready = wait == WAIT_OBJECT_0 && GetOverlappedResult(server, &connect, &ignored, FALSE);
+        }
+        if (!ready && connectError == ERROR_IO_PENDING)
+        {
+            CancelIoEx(server, &connect);
+            WaitForSingleObject(connect.hEvent, INFINITE);
+        }
+        CloseHandle(connect.hEvent);
+        return launched && ready;
+    }
+};
+
+static void TestExternalLossDuringPendingIo()
+{
+    Pipe io;
+    ExternalSessionPeer peer;
+    if (!io.Open(true, 97) || !peer.Open()) { Check(false, "create separate I/O and external session pipes"); return; }
+    CAsyncCopyParams async;
+    async.Init(TRUE);
+    if (async.Failed() || !async.Buffers[0]) { Check(false, "allocate external-loss buffer"); return; }
+    BOOL cancelled = FALSE, copyError = FALSE;
+    HANDLE input = io.server, output = nullptr;
+    HANDLE resumed = CreateEventW(nullptr, TRUE, TRUE, nullptr);
+    if (!resumed) { Check(false, "create external-loss resume event"); return; }
+    UacF7::ThinCopySession transport;
+    transport.owned.pipe = peer.server;
+    COperations ops; CProgressDlgData dialog;
+    dialog.CancelWorker = &cancelled; dialog.WorkerNotSuspended = resumed;
+    CThinCopyWorker thin; thin.dialog = dialog; thin.transport = &transport;
+    CCopy_Context ctx;
+    ctx.AsyncPar = &async; ctx.DlgData = &dialog; ctx.In = &input; ctx.Out = &output;
+    ctx.Script = &ops; ctx.Thin = &thin;
+    DWORD error = ERROR_SUCCESS, bytes = 0;
+    Check(transport.CheckTransport() == ERROR_SUCCESS, "actual transport sees live external peer");
+    const BOOL started = ctx.StartReading(0, 1, &error, FALSE);
+    Check(started && !HasOverlappedIoCompleted(async.GetOverlapped(0)), "external loss has real pending I/O");
+    thin.pending = async.GetOverlapped(0);
+    std::atomic<bool> peerStopped{false};
+    std::thread watcher([&] {
+        Sleep(150); peerStopped.store(peer.Stop()); Sleep(1500);
+        CancelIoEx(input, async.GetOverlapped(0)); // bounded test cleanup
+    });
+    const ULONGLONG start = GetTickCount64();
+    const BOOL stopped = ctx.WaitForPendingTransfer(input, async.GetOverlapped(0), &bytes, &copyError);
+    const ULONGLONG elapsed = GetTickCount64() - start;
+    watcher.join();
+    Check(peerStopped.load() && stopped && copyError && thin.reports == 1 && thin.drainedBeforeReport &&
+          elapsed < 1400 && ctx.ReadingBlocks == 0 && ctx.FreeBlocks == 8,
+          "actual transport detects external process death and drains pending I/O");
+    DrainUnexpectedPending(input, async.GetOverlapped(0));
+    CloseHandle(resumed);
+}
+
 static void TestCompletedWritePauseLoss()
 {
     Pipe pipe;
@@ -648,6 +775,15 @@ static void TestSynchronousPauseConnectionLoss()
 
 int wmain(int argc, wchar_t** argv)
 {
+    if (argc == 3 && std::wstring(argv[1]) == L"--pipe-child")
+    {
+        HANDLE client = CreateFileW(argv[2], GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING,
+                                    FILE_FLAG_OVERLAPPED, nullptr);
+        if (client == INVALID_HANDLE_VALUE) return 3;
+        Sleep(INFINITE);
+        CloseHandle(client);
+        return 0;
+    }
     if (argc != 2) return 2;
     Test(true, false, 1);
     Test(true, true, 2);
@@ -667,6 +803,7 @@ int wmain(int argc, wchar_t** argv)
     TestPausedConnectionLoss(true);
     TestPendingWait(true);
     TestPendingWait(false);
+    TestExternalLossDuringPendingIo();
     TestCompletedWritePauseLoss();
     TestSynchronousPauseConnectionLoss();
     return failures ? 1 : 0;
