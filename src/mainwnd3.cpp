@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Show a flag on the primary panel tab. | Distinguish the primary tab from tabs locked by the user. | | openai/gpt-6-luna-pro |
 // | 2026-11-10 | Enable clipboard copy from plugin file systems. | The staged-file clipboard path supports plugin FS sources with copy-from-FS service. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-07 | Pump main-window messages while Find closes. | Let Find defer destruction until its workers release their data. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Check Find responsiveness on the main window timer. | Use the independent main message loop during a Find stall. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
@@ -880,12 +881,9 @@ static std::wstring BuildTabDisplayText(CFilesWindow* panel, int index)
     if (panel != NULL && panel->HasCustomTabPrefix())
         prefix = panel->GetCustomTabPrefix();
     std::wstring result;
-    bool shouldShowLock = (panel != NULL && panel->IsTabLocked());
-    if (!shouldShowLock && index == 0)
-        // The default tab is always considered locked from the UI perspective,
-        // even if the persisted state marks it as unlocked.
-        shouldShowLock = true;
-    if (shouldShowLock)
+    if (index == 0)
+        result = L"\u2691";
+    else if (panel != NULL && panel->IsTabLocked())
         result = L"\U0001F512";
     if (!prefix.empty())
     {
