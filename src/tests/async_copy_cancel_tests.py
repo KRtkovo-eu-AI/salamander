@@ -40,6 +40,7 @@ def main():
     suspend = extract(worker, "BOOL CCopy_Context::HandleSuspModeAndCancel(", "void DoCopyFileLoopAsync(")
     wait_resume = extract(worker, "DWORD CThinCopyWorker::WaitTransferResume()", "bool CThinCopyWorker::CancelBeforeElevation()")
     transport = extract(broker, "DWORD ThinCopySession::CheckTransport() const", "\n#endif\n\nbool ThinCopySession::Matches(")
+    connection_method = extract(worker, "    DWORD CheckTransferConnection() const\n", "\n    bool NativeOverwrite()")
     sync_loop = extract(worker, "void DoCopyFileLoopOrig(", "enum CCopy_BlkState")
     write_retry = sync_loop.split("case IDRETRY: // on a network", 1)[1].split("if (out != NULL)", 1)[0]
     read_retry = sync_loop.split("            RETRY_COPY:", 1)[1].split("if (in != NULL)", 1)[0]
@@ -59,6 +60,7 @@ def main():
             .replace("@@ENUMS@@", enums).replace("@@ISSUE@@", issue)
             .replace("@@FREE@@", free).replace("@@DRAIN@@", drain).replace("@@SUSPEND@@", suspend)
             .replace("@@WAIT_RESUME@@", wait_resume).replace("@@TRANSPORT@@", transport)
+            .replace("@@ACTUAL_CONNECTION_METHOD@@", connection_method)
             .replace("@@SYNC_WRITE_RETRY_GUARD@@", write_guard).replace("@@SYNC_READ_RETRY_GUARD@@", read_guard)
             .replace("@@ASYNC_WRITE_RETRY_GUARD@@", async_write_guard)
             .replace("@@ASYNC_READ_RETRY_GUARD@@", async_read_guard))

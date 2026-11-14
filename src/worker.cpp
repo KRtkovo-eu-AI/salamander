@@ -2531,7 +2531,10 @@ struct CThinCopyWorker
     bool Scoped() const { return active && session != nullptr && scopeMayHaveStarted; }
     DWORD CheckTransferConnection() const
     {
-        return Scoped() && brokerHandleDelivered ? session->CheckTransport() : ERROR_SUCCESS;
+        const DWORD previousError = GetLastError();
+        const DWORD result = Scoped() && brokerHandleDelivered ? session->CheckTransport() : ERROR_SUCCESS;
+        if (result == ERROR_SUCCESS) SetLastError(previousError);
+        return result;
     }
     bool NativeOverwrite() const { return nativeTargetOverwrite && !targetCreatedByBroker && !cleanupUncertain && !suppressLocalCleanup; }
     bool NativeTarget() const { return !targetCreatedByBroker && (nativeTargetCreated || NativeOverwrite()); }
