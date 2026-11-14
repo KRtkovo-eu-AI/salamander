@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Exercise the laboratory overwrite injection. | Verify its gating and preservation of the worker's last error. | #731 | GPT-6 |
 // | 2026-11-14 | Test a native target with an elevated source session. | Preserve ordinary retry and local cleanup. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Test real Scan Ahead fallback over actual metadata handles. | Check denied probes and cancellation without changing target content. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Test protected target attribute fallback. | Preserve the native hidden and system confirmation without requesting file contents. | #731 | gpt-6.1-terra |
@@ -155,6 +156,7 @@ static BOOL ValidateInjectedTargetIdentity(COperation* operation, CProgressDlgDa
 }
 @@LEGACY_SCAN@@
 @@SCAN_HELPER@@
+@@DENY_OVERWRITE@@
 static bool ThinCopyTestDenyOpen(CThinCopyWorker*, bool) { return false; }
 static bool ThinCopyTestDenyReopen(CThinCopyWorker*, bool) { return false; }
 static HANDLE ThinCopyTestDeniedHandle() { SetLastError(ERROR_ACCESS_DENIED); return INVALID_HANDLE_VALUE; }
@@ -177,6 +179,24 @@ int wmain(int argc, wchar_t** argv) {
     int failures = 0;
     if (argc != 2) return 1;
     const std::wstring fixture = argv[1];
+    {
+        CThinCopyWorker test;
+        SetEnvironmentVariableW(L"SAM_UAC_THIN_UNELEVATED_TEST", nullptr);
+        SetEnvironmentVariableW(L"SAM_UAC_TEST_DENY_OVERWRITE", L"1");
+        SetLastError(ERROR_ALREADY_EXISTS);
+        Check(!ThinCopyTestDenyOverwrite(&test) && GetLastError() == ERROR_ALREADY_EXISTS,
+              "overwrite injection requires explicit laboratory mode", failures);
+        SetEnvironmentVariableW(L"SAM_UAC_THIN_UNELEVATED_TEST", L"1");
+        test.active = false;
+        Check(!ThinCopyTestDenyOverwrite(&test), "overwrite injection requires an active thin operation", failures);
+        test.active = true;
+        SetLastError(ERROR_ALREADY_EXISTS);
+        Check(ThinCopyTestDenyOverwrite(&test) && GetLastError() == ERROR_ALREADY_EXISTS,
+              "laboratory overwrite denial triggers once without changing last error", failures);
+        Check(!ThinCopyTestDenyOverwrite(&test), "overwrite injection is one-shot", failures);
+        SetEnvironmentVariableW(L"SAM_UAC_THIN_UNELEVATED_TEST", nullptr);
+        SetEnvironmentVariableW(L"SAM_UAC_TEST_DENY_OVERWRITE", nullptr);
+    }
     {
         BOOL cancelled = FALSE;
         CThinCopyWorker scan;

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Inject one overwrite denial in the unelevated laboratory build. | Exercise real scoped F5 overwrite without changing fixture ACLs. | #731 | GPT-6 |
 // | 2026-11-14 | Distinguish session loss from uncertain privileged cleanup. | Keep ordinary target cleanup and error reporting native. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Observe thin-session loss while waiting for async I/O. | Cancel and drain issued operations before returning to the worker. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Check remaining async pause paths for thin-session loss. | Preserve issued I/O until its native cancel drain completes. | #731 | gpt-6.1-terra |
@@ -2803,6 +2804,27 @@ static bool ThinCopyTestDenyOpen(CThinCopyWorker* context, bool target)
     }
     SetLastError(savedError);
     return injected;
+}
+
+// Exercise the native overwrite path with an asInvoker laboratory peer. The
+// actual target remains writable by that peer; no ACL or production behavior
+// is changed. Inject before CREATE_ALWAYS so the original object stays intact.
+static bool ThinCopyTestDenyOverwrite(CThinCopyWorker* context)
+{
+    if (!context || !context->active)
+        return false;
+    const DWORD savedError = GetLastError();
+    wchar_t lab[2]{}, enabled[2]{};
+    const bool selected = GetEnvironmentVariableW(L"SAM_UAC_THIN_UNELEVATED_TEST", lab, _countof(lab)) == 1 &&
+                          lab[0] == L'1' &&
+                          GetEnvironmentVariableW(L"SAM_UAC_TEST_DENY_OVERWRITE", enabled, _countof(enabled)) == 1 &&
+                          enabled[0] == L'1';
+    static volatile LONG injected = 0;
+    const bool deny = selected && InterlockedCompareExchange(&injected, 1, 0) == 0;
+    if (deny)
+        ThinCopyTestSignalPreserve(L"SAM_UAC_TEST_OVERWRITE_DENIED_EVENT");
+    SetLastError(savedError);
+    return deny;
 }
 
 // Force a retry-only denial without changing fixture ACLs: the separate
@@ -9784,7 +9806,12 @@ COPY_AGAIN:
                                     if (thin.active && !thin.targetCreatedByBroker)
                                         thin.nativeTargetOverwrite = true;
 #endif
-                                    out = HANDLES_Q(CreateFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), access, 0, NULL, CREATE_ALWAYS, fileAttrs, NULL));
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                    out = ThinCopyTestDenyOverwrite(&thin) ? ThinCopyTestDeniedHandle() :
+#else
+                                    out =
+#endif
+                                        HANDLES_Q(CreateFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), access, 0, NULL, CREATE_ALWAYS, fileAttrs, NULL));
 #ifdef SAM_UAC_THIN_COPY_TEST
                                     if (thin.active && out == INVALID_HANDLE_VALUE && GetLastError() == ERROR_ACCESS_DENIED)
                                     {

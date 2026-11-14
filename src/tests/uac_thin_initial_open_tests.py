@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Check laboratory overwrite injection gates. | Keep test-only denials one-shot and disabled outside the lab. | #731 | GPT-6 |
 # | 2026-11-14 | Exercise the actual Scan Ahead metadata fallback. | Check denial, cancellation and changed targets without a GUI. | #731 | gpt-6.1-terra |
 # | 2026-11-14 | Test recoverable identity queries and fixed scope identities. | Distinguish temporary metadata failures from substitutions and terminal states. | #731 | GPT-6 |
 # | 2026-11-13 | Test scoped target continuity before probe. | Reject substituted targets without elevating or deleting them. | #731 | GPT-6 |
@@ -47,6 +48,9 @@ def main():
     begin = worker.index("static HANDLE ThinCopyOpenLocalRetry(")
     end = worker.index("\n#define THIN_REMEMBER_SOURCE", begin)
     local_retry = worker[begin:end].replace("ThinCopyOpenLocalRetry(", "ActualThinCopyOpenLocalRetry(", 1)
+    begin = worker.index("static bool ThinCopyTestDenyOverwrite(")
+    end = worker.index("\n// Force a retry-only denial", begin)
+    deny_overwrite = worker[begin:end]
     begin = worker.index("HANDLE CThinCopyWorker::Open(")
     end = worker.index("HANDLE CThinCopyWorker::CancelReceivedHandle(", begin)
     open_code = worker[begin:end]
@@ -63,7 +67,8 @@ def main():
     code = (template.replace("@@PHASE@@", phase).replace("@@METHODS@@", methods)
             .replace("@@PREPARATION@@", preparation).replace("@@REMEMBER_SOURCE@@", remember)
             .replace("@@MACROS@@", macros).replace("@@LOCAL_RETRY@@", local_retry)
-            .replace("@@LEGACY_SCAN@@", legacy_scan).replace("@@SCAN_HELPER@@", scan))
+            .replace("@@LEGACY_SCAN@@", legacy_scan).replace("@@SCAN_HELPER@@", scan)
+            .replace("@@DENY_OVERWRITE@@", deny_overwrite))
     if "@@" in code:
         raise RuntimeError("Missing test template replacement")
     env = compiler_environment()
