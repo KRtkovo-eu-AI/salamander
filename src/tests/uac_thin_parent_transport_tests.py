@@ -45,12 +45,13 @@ def main():
     crash_mode.add_argument('--client-planned-ea-only', action='store_true')
     crash_mode.add_argument('--client-planned-async-only', action='store_true')
     crash_mode.add_argument('--client-planned-async-mismatch-only', action='store_true')
+    crash_mode.add_argument('--client-planned-preallocation-only', action='store_true')
     args = parser.parse_args()
     env = compiler_environment()
     compiler = shutil.which('cl', path=env.get('PATH'))
     flags = ('/MTd', '/Od', '/D_DEBUG') if args.configuration == 'Debug' else ('/MT', '/O2', '/DNDEBUG')
     async_loop = args.client_planned_async_only or args.client_planned_async_mismatch_only
-    linked_loop = args.client_planned_loop_only or args.client_planned_mismatch_only or args.client_planned_grow_only or args.client_planned_shrink_only or args.client_planned_ea_only or async_loop
+    linked_loop = args.client_planned_loop_only or args.client_planned_mismatch_only or args.client_planned_grow_only or args.client_planned_shrink_only or args.client_planned_ea_only or args.client_planned_preallocation_only or async_loop
     client_mode = args.client_reopen_only or args.client_lost_budget_only or args.client_external_lost_budget_only or args.client_connection_only or args.client_planned_only or linked_loop
     if args.owned_cleanup_only or client_mode or args.overwrite_only or args.lost_reply_only or args.external_lost_reply_only:
         flags += ('/DSAM_UAC_THIN_REOPEN_PROTOTYPE',)
@@ -60,6 +61,8 @@ def main():
         flags += ('/DSAM_UAC_LOOP_LINK_HARNESS', '/wd4201')
     if async_loop:
         flags += ('/DSAM_UAC_LOOP_LINK_ASYNC', '/wd4100')
+    if args.client_planned_preallocation_only:
+        flags += ('/DSAM_UAC_LINK_PREALLOC', '/wd4505')
     if args.client_lost_budget_only or args.client_external_lost_budget_only:
         flags += ('/DSAM_UAC_THIN_HANDOFF_TEST_CAP=3',)
     with tempfile.TemporaryDirectory(prefix='uac-thin-parent-') as temp:
@@ -84,6 +87,13 @@ def main():
                 else:
                     loop.write_text(build_sync_loop_source(worker, header), encoding='utf-8')
                 sources.append(str(loop))
+                if args.client_planned_preallocation_only:
+                    preallocation = Path(temp) / 'native_preallocation.cpp'
+                    emitted = run([sys.executable, '-B', str(ROOT / 'src/tests/uac_thin_preallocation_tests.py'),
+                                   '--emit-linked', str(preallocation)], cwd=temp, env=env, timeout=20)
+                    if emitted.returncode:
+                        return emitted.returncode
+                    sources.append(str(preallocation))
         try:
             if client_mode:
                 # PreparedTransfer pins the named host/broker pair even when
@@ -138,6 +148,8 @@ def main():
                 command.append('--thin-client-planned-only')
             if args.client_planned_async_mismatch_only:
                 command.append('--thin-client-planned-mismatch-only')
+            if args.client_planned_preallocation_only:
+                command.append('--thin-client-planned-only')
             return run(command, cwd=temp, env=env, timeout=25).returncode
         finally:
             root = Path(temp).resolve(strict=True)

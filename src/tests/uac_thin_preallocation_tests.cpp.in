@@ -32,6 +32,8 @@ struct State {
     Fault fault = Fault::None;
     int scopedCloses = 0, discards = 0, refused = 0, pathDeletes = 0, continuations = 0, resetCalls = 0;
     HANDLE expectedTarget = nullptr, signalCancelOnSize = nullptr;
+    void* linkedContext = nullptr;
+    bool (*linkedDiscard)(void*) = nullptr;
     int reports = 0, unknownReports = 0, closedSessions = 0; DWORD reportedError = ERROR_SUCCESS;
     int reportedCaption = 0; std::string reportedTarget;
 } state;
@@ -94,7 +96,11 @@ struct CThinCopyWorker {
         if (state.failClose) { file = nullptr; return ReportTargetFailure(ERROR_INVALID_HANDLE); }
         const BOOL closed = ::CloseHandle(file); file = nullptr; return closed != FALSE;
     }
-    bool DiscardTarget() { ++state.discards; return state.cleanupSucceeds || ReportTargetFailure(ERROR_PARTIAL_COPY); }
+    bool DiscardTarget() {
+        ++state.discards;
+        if (state.linkedDiscard) return state.linkedDiscard(state.linkedContext) || ReportTargetFailure(ERROR_PARTIAL_COPY);
+        return state.cleanupSucceeds || ReportTargetFailure(ERROR_PARTIAL_COPY);
+    }
     bool RefuseUnsafeTargetCleanup() { ++state.refused; return ReportTargetFailure(ERROR_FILE_INVALID); }
 };
 static LRESULT MockSendMessage(HWND, UINT message, WPARAM kind, LPARAM parameter) {

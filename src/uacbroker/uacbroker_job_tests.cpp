@@ -2848,6 +2848,9 @@ constexpr bool linkedAsync = false;
 #endif
 extern "C" BOOL RunLinkedNativeCopyLoop(HANDLE*, HANDLE*, const wchar_t*, const wchar_t*, ULONGLONG, ULONGLONG,
                                         void*, DWORD (*)(void*), HANDLE (*)(void*), bool (*)(void*), BOOL);
+#ifdef SAM_UAC_LINK_PREALLOC
+extern "C" BOOL RunLinkedPreallocationFallback(HANDLE*, HANDLE*, const wchar_t*, void*, bool (*)(void*));
+#endif
 struct LinkedThinContext
 {
     UacF7::ThinCopySession* thin;
@@ -3073,11 +3076,29 @@ void CheckThinClientPlannedTree(const Directory& source, const Directory& target
         readOk && count == 1 && value == 0x67;
     Check(sourceOpened, "open the verified source through the real client on the original pipe");
     if (!sourceOpened) return;
-    const auto created = thin.Open(nullptr, request, UacF7::ThinOpenKind::TargetCreate, useOverlapped, false,
-                                   nullptr, UacF7::ThinOpenedSource{input.get()});
+    auto created = thin.Open(nullptr, request, UacF7::ThinOpenKind::TargetCreate, useOverlapped, false,
+                             nullptr, UacF7::ThinOpenedSource{input.get()});
     auto output = Adopt(created.file);
     count = 0;
 #ifdef SAM_UAC_LOOP_LINK_HARNESS
+#ifdef SAM_UAC_LINK_PREALLOC
+    LinkedThinContext allocationContext{&thin, &request, created.targetIdentity, input.get(), targetFile.c_str(), false};
+    HANDLE allocationInput = input.release();
+    HANDLE allocationOutput = output.release();
+    const bool recovered = !created.error && !created.unknown && allocationInput && allocationOutput &&
+        RunLinkedPreallocationFallback(&allocationInput, &allocationOutput, targetFile.c_str(),
+                                       &allocationContext, LinkedThinDiscard) &&
+        allocationContext.discardCount == 1 && IsAbsent(targetFile) && thin.IsOpen();
+    input.reset(allocationInput); output.reset(allocationOutput);
+    Check(recovered, "preallocation failure discards actual owned target through client and dispatcher");
+    if (!recovered) return;
+    created = thin.Open(nullptr, request, UacF7::ThinOpenKind::TargetCreate, useOverlapped, false,
+                        nullptr, UacF7::ThinOpenedSource{input.get()});
+    output = Adopt(created.file);
+    Check(!created.error && !created.unknown && output && thin.IsOpen(),
+          "create a new target on the same session after verified preallocation cleanup");
+    if (created.error || created.unknown || !output) return;
+#endif
     LARGE_INTEGER zero{};
     LinkedThinContext loopContext{&thin, &request, created.targetIdentity, input.get(), targetFile.c_str(), mismatch};
     HANDLE rawInput = input.release();

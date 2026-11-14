@@ -15,7 +15,9 @@ from branch_panel_getters_tests import ROOT, compiler_environment, read, run
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--configuration', choices=('Debug', 'Release'), default='Debug')
-    config = parser.parse_args().configuration
+    parser.add_argument('--emit-linked', type=Path, help=argparse.SUPPRESS)
+    args = parser.parse_args()
+    config = args.configuration
     production = ROOT / 'src/worker.cpp'
     before = hashlib.sha256(production.read_bytes()).hexdigest()
     dialog_file = ROOT / 'src/dialogs.cpp'
@@ -69,6 +71,38 @@ def main():
             .replace('@@FATAL_BRANCH@@', fatal))
     if '@@' in code:
         raise RuntimeError('Missing test template replacement')
+    if args.emit_linked:
+        code = code[:code.index('static bool AppendByte(')]
+        # The linked worker-loop fixture has its own adapted types with the
+        # same names. Isolate them to avoid C++ ODR/comdat collisions.
+        if code.count('#include <vector>\n') != 1:
+            raise RuntimeError('Cannot isolate the linked preallocation adapter')
+        code = code.replace('#include <vector>\n', '#include <vector>\nnamespace PreallocFixture {\n', 1)
+        code += r'''
+extern "C" BOOL RunLinkedPreallocationFallback(HANDLE* input, HANDLE* output, const wchar_t* target,
+                                                void* context, bool (*discard)(void*))
+{
+    BOOL cancel = FALSE, skippedAllocation = FALSE;
+    HANDLE event = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (!event) return FALSE;
+    state = {}; state.scoped = true; state.broker = true; state.expectedTarget = *output;
+    state.fault = Fault::SeekStart;
+    state.linkedContext = context; state.linkedDiscard = discard;
+    FakeDialog dialog{&cancel, event}; CThinCopyWorker thin{dialog}; thin.targetCreatedByBroker = true;
+    const int result = RunBranch(*output, *input, target, skippedAllocation, thin);
+    CloseHandle(event);
+    if (result != BranchResult::Reopen) *input = nullptr; // Failure branch owns the input close.
+    const bool ok = result == BranchResult::Reopen && skippedAllocation && !*output &&
+                    state.scopedCloses == 1 && state.discards == 1 && !state.pathDeletes && !state.reports;
+    if (!ok)
+        std::printf("preallocation: result=%d skip=%d output=%p closes=%d discards=%d pathDeletes=%d reports=%d\n",
+                    result, skippedAllocation, *output, state.scopedCloses, state.discards, state.pathDeletes, state.reports);
+    return ok;
+}
+} // namespace PreallocFixture
+'''
+        args.emit_linked.write_text(code, encoding='utf-8')
+        return 0
     env = compiler_environment()
     compiler = shutil.which('cl', path=env.get('PATH'))
     if not compiler:
