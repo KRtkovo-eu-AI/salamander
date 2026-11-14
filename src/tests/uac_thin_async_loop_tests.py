@@ -81,7 +81,9 @@ extern "C" BOOL RunLinkedNativeCopyLoop(HANDLE* input, HANDLE* output, const wch
 code += r'''
 int wmain(int argc, wchar_t** argv) {
     if (argc != 3) return 2;
-    const bool retry = argv[2][0] == L'1';
+    const wchar_t mode = argv[2][0];
+    if (mode < L'0' || mode > L'4' || argv[2][1] != L'\0') return 2;
+    const bool inject = mode != L'0';
     const std::wstring source = std::wstring(argv[1]) + L"\\source-東.bin";
     const std::wstring target = std::wstring(argv[1]) + L"\\target-日.bin";
     std::vector<BYTE> expected(65539);
@@ -105,7 +107,8 @@ int wmain(int argc, wchar_t** argv) {
     CQuadWord done, total, size(expected.size()), previous;
     int limit=1024, allocation=0;
     CThinCopyWorker thin;
-    injectFault=retry; didFault=false; writes=0; dialogCount=0; dialogChoice=IDRETRY;
+    injectFault=inject; didFault=false; writes=0; dialogCount=0;
+    dialogChoice=mode == L'2' ? IDB_SKIP : mode == L'3' ? IDB_SKIPALL : mode == L'4' ? IDCANCEL : IDRETRY;
     DoCopyFileLoopAsync(&parameters, in, out, nullptr, limit, &script, dialog, FALSE, &operation,
                         total, error, skip, nullptr, done, size, 1024, allocation, again, previous, &thin);
     if (in && in != INVALID_HANDLE_VALUE) CloseHandle(in);
@@ -113,11 +116,57 @@ int wmain(int argc, wchar_t** argv) {
     CloseHandle(resumed);
     HANDLE result=CreateFileW(target.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
     std::vector<BYTE> actual(expected.size()); count=0; LARGE_INTEGER actualSize{};
-    const bool ok = !error && !skip && !again && (!retry || (didFault && dialogCount == 1)) && done.Value == expected.size() && result != INVALID_HANDLE_VALUE &&
-        GetFileSizeEx(result, &actualSize) && actualSize.QuadPart == static_cast<LONGLONG>(expected.size()) &&
-        ReadFile(result, actual.data(), static_cast<DWORD>(actual.size()), &count, nullptr) && count == actual.size() && actual == expected;
+    bool ok = result != INVALID_HANDLE_VALUE && GetFileSizeEx(result, &actualSize) &&
+        actualSize.QuadPart >= 0 && actualSize.QuadPart <= static_cast<LONGLONG>(expected.size());
+    if (mode <= L'1') {
+        ok = ok && !error && !skip && !again && done.Value == expected.size() &&
+            actualSize.QuadPart == static_cast<LONGLONG>(expected.size()) &&
+            ReadFile(result, actual.data(), static_cast<DWORD>(actual.size()), &count, nullptr) && count == actual.size() && actual == expected;
+    } else {
+        ok = ok && !again && (mode == L'4' ? error && !skip : !error && skip) &&
+            (dialog.SkipAllFileWrite != FALSE) == (mode == L'3') && actualSize.QuadPart > 0 &&
+            ReadFile(result, actual.data(), static_cast<DWORD>(actualSize.QuadPart), &count, nullptr) &&
+            count == static_cast<DWORD>(actualSize.QuadPart) &&
+            std::equal(actual.begin(), actual.begin() + count, expected.begin());
+    }
+    ok = ok && (inject ? didFault && dialogCount == 1 : !didFault && dialogCount == 0);
+    const bool firstDidFault=didFault;
+    const unsigned firstDialogCount=dialogCount;
     if (result != INVALID_HANDLE_VALUE) CloseHandle(result);
-    std::printf("%s original async loop%s transferred exact content: %llu bytes, fault %d, dialogs %u\n", ok ? "PASS" : "FAIL", retry ? " with Retry" : "", done.Value, didFault, dialogCount);
+    HANDLE sourceCheck=CreateFileW(source.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+    LARGE_INTEGER sourceSize{}; count=0; std::vector<BYTE> sourceBytes(expected.size());
+    ok = ok && sourceCheck != INVALID_HANDLE_VALUE && GetFileSizeEx(sourceCheck, &sourceSize) &&
+        sourceSize.QuadPart == static_cast<LONGLONG>(expected.size()) &&
+        ReadFile(sourceCheck, sourceBytes.data(), static_cast<DWORD>(sourceBytes.size()), &count, nullptr) &&
+        count == sourceBytes.size() && sourceBytes == expected;
+    if (sourceCheck != INVALID_HANDLE_VALUE) CloseHandle(sourceCheck);
+    if (mode == L'3' && ok) {
+        const std::wstring secondTarget = std::wstring(argv[1]) + L"\\target-second-東.bin";
+        in=CreateFileW(source.c_str(), GENERIC_READ, FILE_SHARE_READ|FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr);
+        out=CreateFileW(secondTarget.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_FLAG_OVERLAPPED, nullptr);
+        resumed=CreateEventW(nullptr, TRUE, TRUE, nullptr);
+        ok = in != INVALID_HANDLE_VALUE && out != INVALID_HANDLE_VALUE && resumed != nullptr;
+        if (ok) {
+            CProgressDlgData nextDialog{&cancel, resumed, nullptr};
+            nextDialog.SkipAllFileWrite=dialog.SkipAllFileWrite;
+            COperation nextOperation=operation; nextOperation.TargetNameW=secondTarget.c_str();
+            CAsyncCopyParams nextParameters; nextParameters.Init(TRUE);
+            error=skip=again=FALSE; CQuadWord nextDone, nextTotal, nextSize(expected.size()), nextPrevious;
+            writes=dialogCount=0; injectFault=true; didFault=false; dialogChoice=IDCANCEL;
+            if (nextParameters.Failed()) ok=false;
+            else {
+                DoCopyFileLoopAsync(&nextParameters, in, out, nullptr, limit, &script, nextDialog, FALSE, &nextOperation,
+                                    nextTotal, error, skip, nullptr, nextDone, nextSize, 1024, allocation, again, nextPrevious, &thin);
+                ok = !error && skip && !again && didFault && dialogCount == 0 && nextDialog.SkipAllFileWrite;
+            }
+        }
+        if (in && in != INVALID_HANDLE_VALUE) CloseHandle(in);
+        if (out && out != INVALID_HANDLE_VALUE) CloseHandle(out);
+        if (resumed) CloseHandle(resumed);
+        if (!DeleteFileW(secondTarget.c_str())) return 6;
+        std::printf("%s persisted Skip All skips a later write failure without a new dialog\n", ok ? "PASS" : "FAIL");
+    }
+    std::printf("%s original async loop mode %lc: done %llu bytes, target %lld bytes, fault %d, dialogs %u, error %d, skip %d, skip-all %d\n", ok ? "PASS" : "FAIL", mode, done.Value, actualSize.QuadPart, firstDidFault, firstDialogCount, error, skip, dialog.SkipAllFileWrite);
     if (!DeleteFileW(source.c_str()) || !DeleteFileW(target.c_str())) return 6;
     return ok ? 0 : 1;
 }
@@ -134,8 +183,8 @@ with tempfile.TemporaryDirectory(prefix='thin-async-loop-', dir=ROOT.parent / 'b
     result = run([compiler, '/nologo', '/std:c++17', '/EHsc', '/utf-8', '/W4', '/WX', '/wd4100',
                   '/wd4201', '/wd4244', *flags, str(source), '/Fe:' + str(exe)], cwd=str(root), env=env, timeout=60)
     if result.returncode: raise SystemExit(result.returncode)
-    for retry in ('0', '1'):
-        result = run([str(exe), directory, retry], cwd=str(root), env=env, timeout=25)
+    for mode in ('0', '1', '2', '3', '4'):
+        result = run([str(exe), directory, mode], cwd=str(root), env=env, timeout=25)
         if result.returncode: raise SystemExit(result.returncode)
 for path, digest in before.items():
     if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
