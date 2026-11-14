@@ -8,8 +8,18 @@
 #define SAM_UAC_THIN_COPY_TEST
 #include "../uacbroker/thin_launch_access_probe.h"
 
-int wmain()
+int wmain(int argc, wchar_t** argv)
 {
+    if (argc == 2 && (_wcsicmp(argv[1], L"--external") == 0 || _wcsicmp(argv[1], L"--external-invalid") == 0))
+    {
+        HANDLE restricted = nullptr;
+        if (_wcsicmp(argv[1], L"--external") == 0 &&
+            !DuplicateHandle(GetCurrentProcess(), GetCurrentProcess(), GetCurrentProcess(), &restricted,
+                             PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, FALSE, 0)) return 4;
+        UacThinLaunchProbe::Observe(restricted);
+        if (restricted) CloseHandle(restricted);
+        return 0;
+    }
     const std::wstring base = L"Local\\SamandarinLaunchMaskTest-" + std::to_wstring(GetCurrentProcessId());
     std::vector<HANDLE> events;
     auto create = [&](const std::wstring& name) {
