@@ -138,6 +138,18 @@ static void SyncWriteRetryGuard(CThinCopyWorker* thin, BOOL& copyError, unsigned
 @@SYNC_WRITE_RETRY_GUARD@@
     ++reopenCount;
 }
+static BOOL AsyncReadRetryGuard(CThinCopyWorker* Thin, BOOL* copyError, unsigned& reopenCount)
+{
+@@ASYNC_READ_RETRY_GUARD@@
+    ++reopenCount;
+    return TRUE;
+}
+static BOOL AsyncWriteRetryGuard(CThinCopyWorker* Thin, BOOL* copyError, unsigned& reopenCount)
+{
+@@ASYNC_WRITE_RETRY_GUARD@@
+    ++reopenCount;
+    return TRUE;
+}
 #undef SAM_UAC_THIN_COPY_TEST
 struct CCopy_Context
 {
@@ -691,20 +703,33 @@ static void TestExternalLossBeforeSyncRetry()
     unsigned reopenCount = 0;
     SyncReadRetryGuard(&thin, copyError, reopenCount);
     SyncWriteRetryGuard(&thin, copyError, reopenCount);
-    Check(!copyError && !thin.reports && reopenCount == 2,
-          "live peer permits native read and write Retry to reach reopen");
+    const BOOL asyncReadLive = AsyncReadRetryGuard(&thin, &copyError, reopenCount);
+    const BOOL asyncWriteLive = AsyncWriteRetryGuard(&thin, &copyError, reopenCount);
+    Check(!copyError && !thin.reports && reopenCount == 4 && asyncReadLive && asyncWriteLive,
+          "live peer permits sync and async Retry to reach reopen");
     Check(peer.Stop(), "stop external peer while error dialog is conceptually open");
     SyncReadRetryGuard(&thin, copyError, reopenCount);
-    Check(copyError && thin.reports == 1 && reopenCount == 2,
+    Check(copyError && thin.reports == 1 && reopenCount == 4,
           "read Retry reports real disconnected pipe before reopen");
     copyError = FALSE;
     SyncWriteRetryGuard(&thin, copyError, reopenCount);
-    Check(copyError && thin.reports == 2 && reopenCount == 2,
+    Check(copyError && thin.reports == 2 && reopenCount == 4,
           "write Retry reports real disconnected pipe before reopen");
+    copyError = FALSE;
+    Check(!AsyncReadRetryGuard(&thin, &copyError, reopenCount) && copyError &&
+          thin.reports == 3 && reopenCount == 4,
+          "async read Retry reports real disconnected pipe before reopen");
+    copyError = FALSE;
+    Check(!AsyncWriteRetryGuard(&thin, &copyError, reopenCount) && copyError &&
+          thin.reports == 4 && reopenCount == 4,
+          "async write Retry reports real disconnected pipe before reopen");
     copyError = FALSE;
     SyncReadRetryGuard(nullptr, copyError, reopenCount);
     SyncWriteRetryGuard(nullptr, copyError, reopenCount);
-    Check(!copyError && reopenCount == 4, "native Retry without a thin worker remains unblocked");
+    const BOOL asyncReadNative = AsyncReadRetryGuard(nullptr, &copyError, reopenCount);
+    const BOOL asyncWriteNative = AsyncWriteRetryGuard(nullptr, &copyError, reopenCount);
+    Check(!copyError && reopenCount == 8 && asyncReadNative && asyncWriteNative,
+          "native sync and async Retry without a thin worker remains unblocked");
 }
 
 static void TestExternalLossDuringPendingIo(int mode)

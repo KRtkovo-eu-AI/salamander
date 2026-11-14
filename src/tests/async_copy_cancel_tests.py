@@ -45,6 +45,12 @@ def main():
     read_retry = sync_loop.split("            RETRY_COPY:", 1)[1].split("if (in != NULL)", 1)[0]
     write_guard = extract(write_retry, "#ifdef SAM_UAC_THIN_COPY_TEST", "#endif") + "#endif\n"
     read_guard = extract(read_retry, "#ifdef SAM_UAC_THIN_COPY_TEST", "#endif") + "#endif\n"
+    async_read = extract(worker, "BOOL CCopy_Context::HandleReadingErr(", "BOOL CCopy_Context::RetryCopyWriteErr(")
+    async_write = extract(worker, "BOOL CCopy_Context::HandleWritingErr(", "BOOL CCopy_Context::HandleSuspModeAndCancel(")
+    async_read_retry = async_read.split("case IDRETRY:", 1)[1].split("if (RetryCopyReadErr(", 1)[0]
+    async_write_retry = async_write.split("case IDRETRY:", 1)[1].split("if (RetryCopyWriteErr(", 1)[0]
+    async_read_guard = extract(async_read_retry, "#ifdef SAM_UAC_THIN_COPY_TEST", "#endif") + "#endif\n"
+    async_write_guard = extract(async_write_retry, "#ifdef SAM_UAC_THIN_COPY_TEST", "#endif") + "#endif\n"
     buffer = re.search(r"^#define ASYNC_COPY_BUF_SIZE \([^\r\n]*", header, re.MULTILINE)
     if not buffer:
         raise RuntimeError("native copy buffer definition missing")
@@ -53,7 +59,9 @@ def main():
             .replace("@@ENUMS@@", enums).replace("@@ISSUE@@", issue)
             .replace("@@FREE@@", free).replace("@@DRAIN@@", drain).replace("@@SUSPEND@@", suspend)
             .replace("@@WAIT_RESUME@@", wait_resume).replace("@@TRANSPORT@@", transport)
-            .replace("@@SYNC_WRITE_RETRY_GUARD@@", write_guard).replace("@@SYNC_READ_RETRY_GUARD@@", read_guard))
+            .replace("@@SYNC_WRITE_RETRY_GUARD@@", write_guard).replace("@@SYNC_READ_RETRY_GUARD@@", read_guard)
+            .replace("@@ASYNC_WRITE_RETRY_GUARD@@", async_write_guard)
+            .replace("@@ASYNC_READ_RETRY_GUARD@@", async_read_guard))
     if "@@" in code:
         raise RuntimeError("unexpanded native test placeholder")
     env = compiler_environment()

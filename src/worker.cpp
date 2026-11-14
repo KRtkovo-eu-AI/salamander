@@ -6357,6 +6357,18 @@ BOOL CCopy_Context::HandleReadingErr(int blkIndex, DWORD err, BOOL* copyError, B
         {
         case IDRETRY:
         {
+#ifdef SAM_UAC_THIN_COPY_TEST
+            if (Thin)
+            {
+                const DWORD connectionError = Thin->CheckTransferConnection();
+                if (connectionError != ERROR_SUCCESS)
+                {
+                    Thin->ReportTransferLoss(connectionError, IDS_ERRORREADINGFILE);
+                    *copyError = TRUE;
+                    return FALSE;
+                }
+            }
+#endif
             if (RetryCopyReadErr(&err, copyAgain, &errAgain))
                 return TRUE; // retry
             else
@@ -6542,6 +6554,18 @@ BOOL CCopy_Context::HandleWritingErr(int blkIndex, DWORD err, BOOL* copyError, B
         {
         case IDRETRY:
         {
+#ifdef SAM_UAC_THIN_COPY_TEST
+            if (Thin)
+            {
+                const DWORD connectionError = Thin->CheckTransferConnection();
+                if (connectionError != ERROR_SUCCESS)
+                {
+                    Thin->ReportTransferLoss(connectionError, IDS_ERRORWRITINGFILE);
+                    *copyError = TRUE;
+                    return FALSE;
+                }
+            }
+#endif
             if (RetryCopyWriteErr(&err, copyAgain, &errAgain, allocFileSize, maxWriteOffset))
                 return TRUE; // retry
             else
