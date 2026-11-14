@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Select matching user association targets explicitly. | Do not let runtime mask order or a rejected fallback handler override the Viewer, Alternate View, or Editor target shown in the matrix. |  | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-06 | Keep archive metadata cache invalidation with strict path decoding. | Preserve upstream fixes and Branch View path and lifetime contracts. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
@@ -2031,6 +2032,74 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
     }
 }
 
+static int FileAssociationPatternSpecificity(const char* pattern)
+{
+    int specificity = 0;
+    if (pattern == NULL)
+        return specificity;
+    for (const char* current = pattern; *current != 0; ++current)
+        if (*current != '*' && *current != '?' && *current != ';' && *current != '|' &&
+            *current != ' ' && *current != '\t')
+            ++specificity;
+    return specificity;
+}
+
+static CViewerMasksItem* FindUserViewerAssociation(CViewerMasks* masks,
+                                                   const char* namePart,
+                                                   const char* extension)
+{
+    CViewerMasksItem* best = NULL;
+    int bestSpecificity = -1;
+    if (masks == NULL)
+        return NULL;
+    for (int i = 0; i < masks->Count; ++i)
+    {
+        CViewerMasksItem* item = masks->At(i);
+        if (item == NULL || !item->UserAssociationOverride || item->Masks == NULL)
+            continue;
+        int error;
+        if (item->Masks->PrepareMasks(error) && item->Masks->AgreeMasks(namePart, extension))
+        {
+            const int specificity = FileAssociationPatternSpecificity(
+                item->Masks->GetMasksString());
+            if (specificity > bestSpecificity)
+            {
+                best = item;
+                bestSpecificity = specificity;
+            }
+        }
+    }
+    return best;
+}
+
+static CEditorMasksItem* FindUserEditorAssociation(CEditorMasks* masks,
+                                                   const char* namePart,
+                                                   const char* extension)
+{
+    CEditorMasksItem* best = NULL;
+    int bestSpecificity = -1;
+    if (masks == NULL)
+        return NULL;
+    for (int i = 0; i < masks->Count; ++i)
+    {
+        CEditorMasksItem* item = masks->At(i);
+        if (item == NULL || !item->UserAssociationOverride || item->Masks == NULL)
+            continue;
+        int error;
+        if (item->Masks->PrepareMasks(error) && item->Masks->AgreeMasks(namePart, extension))
+        {
+            const int specificity = FileAssociationPatternSpecificity(
+                item->Masks->GetMasksString());
+            if (specificity > bestSpecificity)
+            {
+                best = item;
+                bestSpecificity = specificity;
+            }
+        }
+    }
+    return best;
+}
+
 BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, BOOL returnLock,
                  HANDLE& lock, BOOL& lockOwner, BOOL addToHistory, int enumFileNamesSourceUID,
                  int enumFileNamesLastFileIndex)
@@ -2098,6 +2167,12 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
         }
     }
 
+    // User rows are selected from the active association table, independently
+    // of the legacy runtime row order. Among overlapping user patterns, the
+    // most specific matching pattern wins.
+    if (viewer == NULL && handlerID == 0xFFFFFFFF)
+        viewer = FindUserViewerAssociation(masks, namePart, tmpExt);
+
     if (viewer == NULL)
     {
         int i;
@@ -2117,7 +2192,10 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
                         if (plugin != NULL && plugin->SupportViewer)
                         {
                             if (!plugin->CanViewFile(name))
+                            {
+                                viewer = NULL;
                                 continue; // try to find another viewer, this one won't do it
+                            }
                         }
                         else
                             TRACE_E("Unexpected error (before CanViewFile) in (Alt)ViewerMasks (invalid ViewerType).");
@@ -2406,6 +2484,11 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
                 editor = masks->At(i);
         }
     }
+
+    // Do not let a broader legacy mask (for example *.*) beat a User row
+    // selected in File Associations.
+    if (editor == NULL && handlerID == 0xFFFFFFFF)
+        editor = FindUserEditorAssociation(masks, namePart, tmpExt);
 
     if (editor == NULL)
     {

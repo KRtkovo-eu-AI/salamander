@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Preserve external English modules for old plug-ins. | Keep legacy plug-ins using lang\\english.slg functional. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-13 | Load plug-in translations from each plug-in module. | Ship language resources with independently updatable .spl files. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-04 | Add the official language-pack loader API. | English ships in host binaries; non-English languages ship in one signed pack. | | Composer |
 
@@ -18,6 +19,9 @@
 
 // Module key for the main application.
 #define SAL_LANGPACK_MODULE_SALAMAND "salamand"
+
+// Resource present in modern host/plugin binaries whose English UI resources are embedded.
+#define SAL_LANGPACK_EMBEDDED_ENGLISH_RESOURCE_NAME "OPEN_SAMANDARIN_EMBEDDED_ENGLISH"
 
 // Returns TRUE when 'slgName' is the built-in English language (english / english.slg).
 BOOL SalIsEnglishLanguageName(const char* slgName);

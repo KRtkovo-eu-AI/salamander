@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Isolate File Associations targets from grouped archive formats. | Make exact per-extension Pack/Unpack overrides win without changing sibling extensions. |  | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-07 | Persist and honor user-owned archive-association extensions. | Keep automatic plugin migrations from overwriting Configuration assignments. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-05 | Add EnsureExtensionsForPlugin for TAR-family archive association repair. | Restoring .tgz/.tar.gz panel ownership after imported association corruption. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | Composer |
 // CommentsTranslationProject: TRANSLATED
@@ -651,6 +652,91 @@ BOOL CPackerFormatConfig::IsUserOverride(int index, const char* extension)
     if (index < 0 || index >= Formats.Count || extension == NULL || *extension == 0)
         return FALSE;
     return IsExtensionInList(Formats[index]->UserExtensions, extension, strlen(extension));
+}
+
+BOOL CPackerFormatConfig::SetAssociationTarget(const char* extension, BOOL setPacker,
+                                               int archiveIndex, BOOL userOverride)
+{
+    if (extension == NULL || extension[0] == 0 || strchr(extension, ';') != NULL ||
+        strchr(extension, '*') != NULL || strchr(extension, '?') != NULL)
+        return FALSE;
+
+    const size_t extensionLength = strlen(extension);
+    BOOL usePacker = FALSE;
+    int packerIndex = -1;
+    int unpackerIndex = -1;
+    BOOL oldType = FALSE;
+    BOOL found = FALSE;
+
+    // Preserve the other operation from the first runtime owner, but remove
+    // this extension from every row so stale duplicates cannot win BuildArray.
+    for (int i = 0; i < Formats.Count; ++i)
+    {
+        CPackerFormatConfigData* data = Formats[i];
+        if (IsExtensionInList(data->Ext, extension, extensionLength))
+        {
+            usePacker = data->UsePacker;
+            packerIndex = data->PackerIndex;
+            unpackerIndex = data->UnpackerIndex;
+            oldType = data->OldType;
+            found = TRUE;
+            break;
+        }
+    }
+
+    for (int i = Formats.Count - 1; i >= 0; --i)
+    {
+        CPackerFormatConfigData* data = Formats[i];
+        const char* begin = data->Ext;
+        std::string remaining;
+        BOOL removed = FALSE;
+        while (begin != NULL && *begin != 0)
+        {
+            const char* end = strchr(begin, ';');
+            const size_t length = end != NULL ? static_cast<size_t>(end - begin) : strlen(begin);
+            if (length == extensionLength && _strnicmp(begin, extension, length) == 0)
+                removed = TRUE;
+            else
+            {
+                if (!remaining.empty())
+                    remaining += ';';
+                remaining.append(begin, length);
+            }
+            if (end == NULL)
+                break;
+            begin = end + 1;
+        }
+        if (!removed)
+            continue;
+        if (remaining.empty())
+            DeleteFormat(i);
+        else if (!SetFormat(i, remaining.c_str(), data->UsePacker, data->PackerIndex,
+                            data->UnpackerIndex, data->OldType))
+            return FALSE;
+    }
+
+    if (!found)
+    {
+        usePacker = FALSE;
+        packerIndex = -1;
+        unpackerIndex = -1;
+        oldType = FALSE;
+    }
+    if (setPacker)
+    {
+        usePacker = TRUE;
+        packerIndex = archiveIndex;
+    }
+    else
+        unpackerIndex = archiveIndex;
+
+    const int index = AddFormat();
+    if (index < 0 || !SetFormat(index, extension, usePacker, packerIndex,
+                                unpackerIndex, oldType))
+        return FALSE;
+    if (userOverride)
+        MarkFormatAsUserOverride(index);
+    return TRUE;
 }
 
 void CPackerFormatConfig::RemoveExtensionsForPlugin(int pluginIndex, const char* const* extensions, int extensionCount)

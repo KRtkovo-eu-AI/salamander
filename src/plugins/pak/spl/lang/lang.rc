@@ -1,4 +1,6 @@
-﻿// Microsoft Visual C++ generated resource script.
+﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Mark the custom Pak English resources. | Preserve legacy plugin detection when English is embedded by the custom resource script. | | openrouter/openai/gpt-6-luna-pro |
+// Microsoft Visual C++ generated resource script.
 //
 #pragma code_page(65001)
 
@@ -21,6 +23,11 @@
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_NEU)
 LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
+
+"OPEN_SAMANDARIN_EMBEDDED_ENGLISH" RCDATA
+BEGIN
+    0x4F, 0x53, 0x45, 0x31
+END
 
 #ifdef APSTUDIO_INVOKED
 /////////////////////////////////////////////////////////////////////////////
