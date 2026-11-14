@@ -2887,11 +2887,12 @@ static bool LinkedThinDiscard(void* context)
     return true;
 }
 #endif
-void CheckThinClientPlannedTree(const Directory& source, const Directory& target, bool mismatch = false, int sizeChange = 0)
+void CheckThinClientPlannedTree(const Directory& source, const Directory& target, bool mismatch = false, int sizeChange = 0, bool sourceEa = false)
 {
 #ifndef SAM_UAC_LOOP_LINK_HARNESS
     (void)mismatch;
     (void)sizeChange;
+    (void)sourceEa;
 #endif
     constexpr wchar_t root[] = L"client-planned-\u6771";
     constexpr wchar_t leaf[] = L"payload-\u65e5.txt";
@@ -2934,6 +2935,22 @@ void CheckThinClientPlannedTree(const Directory& source, const Directory& target
         DWORD written = 0;
         if (!file || !WriteFile(file.get(), expected.data(), static_cast<DWORD>(expected.size()), &written, nullptr) ||
             written != expected.size()) { Check(false, "prepare multiblock source"); return; }
+    }
+    if (sourceEa)
+    {
+        auto file = Adopt(CreateFileW(sourceFile.c_str(), FILE_WRITE_EA | FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+        using NtSetEa = NTSTATUS (NTAPI*)(HANDLE, PIO_STATUS_BLOCK, PVOID, ULONG);
+        const auto setEa = reinterpret_cast<NtSetEa>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "NtSetEaFile"));
+        struct EaBuffer { ULONG next; UCHAR flags; UCHAR nameLength; USHORT valueLength; char name[8]; UCHAR value; };
+        EaBuffer ea{}; ea.nameLength = 7; ea.valueLength = 1;
+        std::memcpy(ea.name, "uactest", 8); ea.value = 0x5a;
+        IO_STATUS_BLOCK io{}; ULONG eaSize = 0;
+        const bool prepared = file && setEa && setEa(file.get(), &io, &ea, 17) >= 0 &&
+            NtQueryInformationFile(file.get(), &io, &eaSize, sizeof(eaSize),
+                static_cast<FILE_INFORMATION_CLASS>(7)) >= 0 && eaSize != 0;
+        Check(prepared, "prepare real NTFS extended attribute for linked worker loop");
+        if (!prepared) return;
     }
 #else
     constexpr size_t sourceSize = 1;
@@ -5166,6 +5183,11 @@ int wmain(int argc, wchar_t** argv)
     }
 #ifdef SAM_UAC_CLIENT_PIPE_HARNESS
 #ifdef SAM_UAC_LOOP_LINK_HARNESS
+    if (argc == 2 && !wcscmp(argv[1], L"--thin-client-planned-ea-only"))
+    {
+        CheckThinClientPlannedTree(source, target, false, 0, true);
+        return failures ? 1 : 0;
+    }
     if (argc == 2 && (!wcscmp(argv[1], L"--thin-client-planned-grow-only") ||
                       !wcscmp(argv[1], L"--thin-client-planned-shrink-only")))
     {
