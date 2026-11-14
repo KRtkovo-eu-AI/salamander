@@ -2811,7 +2811,12 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
             LARGE_INTEGER sourceSize{};
             if (!error)
                 error = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), basic, false,
-                    UacCopyLeaf::StreamPolicy::RequireDefault, FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE);
+                    UacCopyLeaf::StreamPolicy::RequireDefault,
+#ifdef SAM_UAC_THIN_COPY_TEST
+                    UacF7::nativeCopyAttributes);
+#else
+                    FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE);
+#endif
             if (!error && (!GetFileSizeEx(source.get(), &sourceSize) ||
                 sourceSize.QuadPart < 0 || static_cast<ULONGLONG>(sourceSize.QuadPart) != header.copySize))
                 error = ERROR_FILE_INVALID;

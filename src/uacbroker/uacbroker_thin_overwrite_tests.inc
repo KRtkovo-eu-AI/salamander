@@ -55,6 +55,56 @@ void CheckThinOverwrite(const Directory& source, const Directory& target, const 
     { Check(false, "prepare long Unicode overwrite parent"); return; }
     Check(deep.path.size() > 260, "overwrite uses actual long Unicode parent");
 
+    for (bool asynchronous : {false, true})
+    {
+        for (DWORD bits = 1; bits < 8; ++bits)
+        {
+            const DWORD attributes = FILE_ATTRIBUTE_ARCHIVE |
+                ((bits & 1) ? FILE_ATTRIBUTE_READONLY : 0) |
+                ((bits & 2) ? FILE_ATTRIBUTE_HIDDEN : 0) |
+                ((bits & 4) ? FILE_ATTRIBUTE_SYSTEM : 0);
+            const std::wstring leaf = std::wstring(asynchronous ? L"async-native-source-" : L"sync-native-source-") +
+                                      std::to_wstring(bits) + L"-東";
+            const auto path = source.File(leaf);
+            Check(WriteByte(path, 0x47) && SetFileAttributesW(path.c_str(), attributes),
+                  "prepare source with native read-only hidden or system attributes");
+            auto identityHandle = Adopt(CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+            FILE_ID_INFO identity{};
+            if (!identityHandle || !GetFileInformationByHandleEx(identityHandle.get(), FileIdInfo, &identity, sizeof(identity)))
+            { Check(false, "capture native-attribute source identity"); return; }
+            identityHandle.reset();
+            JobPipe job;
+            DWORD status = ERROR_GEN_FAILURE;
+            ThinWireReply reply{};
+            const bool opened = job.Open() && job.Thin(source, leaf, identity, deep, leaf,
+                Operation::ThinOpenSource, nullptr, asynchronous, status, reply, INVALID_HANDLE_VALUE,
+                INVALID_HANDLE_VALUE, false, 28u);
+            auto reader = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+            Check(opened && !status && reader, "native-attribute source is opened within approved scope");
+            BYTE value = 0; DWORD bytes = 0;
+            OVERLAPPED io{};
+            auto event = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+            io.hEvent = event.get();
+            BOOL read = reader && ReadFile(reader.get(), &value, 1, &bytes, asynchronous ? &io : nullptr);
+            if (!read && asynchronous && GetLastError() == ERROR_IO_PENDING)
+                read = GetOverlappedResult(reader.get(), &io, &bytes, TRUE);
+            Check(read && bytes == 1 && value == 0x47, "delegated source retains native read semantics");
+            Check(job.Thin(source, leaf, identity, deep, leaf, Operation::ThinTargetCreate,
+                nullptr, asynchronous, status, reply, reader.get(), INVALID_HANDLE_VALUE, false, 28u) &&
+                !status && reply.value, "source attributes do not block approved target creation");
+            const FILE_ID_INFO targetId = reply.target;
+            auto output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+            output.reset();
+            Check(job.Thin(source, leaf, identity, deep, leaf, Operation::ThinDiscardTarget,
+                &targetId, false, status, reply, INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE, false, 28u) &&
+                !status && IsAbsent(deep.File(leaf)), "cleanup preserves source and removes only owned target");
+            reader.reset(); job.Finish();
+            Check(SetFileAttributesW(path.c_str(), FILE_ATTRIBUTE_NORMAL) && DeleteFileW(path.c_str()),
+                  "remove only native-attribute source fixture");
+        }
+    }
+
     {
         const auto path = deep.File(L"scan-evidence-東.txt");
         const auto parked = deep.File(L"scan-evidence-parked.txt");
