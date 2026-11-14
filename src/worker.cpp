@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Recheck thin-session liveness while finishing an F5 item. | Stop metadata updates after a detected broker loss. | #731 | GPT-6 |
 // | 2026-11-14 | Preserve scoped partial targets after terminal session loss. | Do not truncate broker-owned data when cleanup can no longer be verified. | #731 | GPT-6 |
 // | 2026-11-14 | Inject one overwrite denial in the unelevated laboratory build. | Exercise real scoped F5 overwrite without changing fixture ACLs. | #731 | GPT-6 |
 // | 2026-11-14 | Distinguish session loss from uncertain privileged cleanup. | Keep ordinary target cleanup and error reporting native. | #731 | gpt-6.1-terra |
@@ -2549,6 +2550,13 @@ struct CThinCopyWorker
         const DWORD result = Scoped() && brokerHandleDelivered ? session->CheckTransport() : ERROR_SUCCESS;
         if (result == ERROR_SUCCESS) SetLastError(previousError);
         return result;
+    }
+    bool CheckCompletionConnection(int caption)
+    {
+        const DWORD error = CheckTransferConnection();
+        if (error == ERROR_SUCCESS) return true;
+        ReportTransferLoss(error, caption);
+        return false;
     }
     bool NativeOverwrite() const { return nativeTargetOverwrite && !targetCreatedByBroker && !cleanupUncertain && !suppressLocalCleanup; }
     bool NativeTarget() const { return !targetCreatedByBroker && (nativeTargetCreated || NativeOverwrite()); }
@@ -8952,6 +8960,10 @@ COPY_AGAIN:
                         goto COPY_AGAIN;
                     }
 
+#ifdef SAM_UAC_THIN_COPY_TEST
+                    if (!thin.CheckCompletionConnection(IDS_ERRORREADINGFILE))
+                        goto COPY_ERROR;
+#endif
                     if (lantasticCheck)
                     {
                         CQuadWord inSize, outSize;
@@ -8977,6 +8989,10 @@ COPY_AGAIN:
                             {
                             case IDRETRY:
                             {
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                if (!thin.CheckCompletionConnection(IDS_ERRORWRITINGFILE))
+                                    goto COPY_ERROR;
+#endif
                                 operationDone = CQuadWord(0, 0);
                                 script->SetTFSandProgressSize(lastTransferredFileSize, totalDone);
                                 SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
@@ -8999,9 +9015,14 @@ COPY_AGAIN:
 
                     FILETIME /*creation, lastAccess,*/ lastWrite;
                     BOOL ignoreGetFileTimeErr = FALSE;
-                    while (!ignoreGetFileTimeErr &&
-                           !GetFileTime(in, NULL /*&creation*/, NULL /*&lastAccess*/, &lastWrite))
+                    while (!ignoreGetFileTimeErr)
                     {
+#ifdef SAM_UAC_THIN_COPY_TEST
+                        if (!thin.CheckCompletionConnection(IDS_ERRORGETTINGFILETIME))
+                            goto COPY_ERROR;
+#endif
+                        if (GetFileTime(in, NULL /*&creation*/, NULL /*&lastAccess*/, &lastWrite))
+                            break;
                         DWORD err = GetLastError();
 
                         WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
@@ -9087,9 +9108,14 @@ COPY_AGAIN:
                         BOOL ignoreSetFileTimeErr = FALSE;
                         if (!ignoreGetFileTimeErr) // only if we did not ignore the error while reading the file time (nothing to set otherwise)
                         {
-                            while (!ignoreSetFileTimeErr &&
-                                   !SetFileTime(out, NULL /*&creation*/, NULL /*&lastAccess*/, &lastWrite))
+                            while (!ignoreSetFileTimeErr)
                             {
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                if (!thin.CheckCompletionConnection(IDS_ERRORSETTINGFILETIME))
+                                    goto COPY_ERROR;
+#endif
+                                if (SetFileTime(out, NULL /*&creation*/, NULL /*&lastAccess*/, &lastWrite))
+                                    break;
                                 DWORD err = GetLastError();
 
                                 WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
@@ -9141,6 +9167,8 @@ COPY_AGAIN:
                             (!script->OverwriteOlder || (!ignoreGetFileTimeErr && !ignoreSetFileTimeErr)))
                             moveReceipt->captured = UacF7::CaptureMoveFileIdentity(out, moveReceipt->target, true);
 #ifdef SAM_UAC_THIN_COPY_TEST
+                        if (!thin.CheckCompletionConnection(IDS_ERRORCHANGINGATTRS))
+                            goto COPY_ERROR;
                         const bool thinScopedAttributes = thin.ScopedTarget();
                         if (thinScopedAttributes)
                         {

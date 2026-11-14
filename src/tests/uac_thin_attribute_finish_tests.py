@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Include the completion connection guard. | Test both brokered and ordinary targets after a loss. | #731 | GPT-6 |
 # | 2026-11-13 | Compare scoped and ordinary attribute finish behavior. | Preserve native plain-copy failure handling without pathname access. | #731 | GPT-6 |
 """Test the extracted F5 completion branch, not the full worker or UAC."""
 import argparse
@@ -19,7 +20,7 @@ def main():
     production = ROOT / "src/worker.cpp"
     before = hashlib.sha256(production.read_bytes()).hexdigest()
     worker = read("src/worker.cpp")
-    start = worker.index("#ifdef SAM_UAC_THIN_COPY_TEST\n                        const bool thinScopedAttributes")
+    start = worker.index("#ifdef SAM_UAC_THIN_COPY_TEST\n                        if (!thin.CheckCompletionConnection(IDS_ERRORCHANGINGATTRS))")
     end = worker.index("\n                    if (script->CopyAttrs) // verify", start)
     actual = worker[start:end]
     template = (ROOT / "src/tests/uac_thin_attribute_finish_tests.cpp.in").read_text(encoding="utf-8")

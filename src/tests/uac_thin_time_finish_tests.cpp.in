@@ -1,0 +1,70 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Test F5 time completion after session loss. | Stop metadata Retry before using handed-off handles. | #731 | GPT-6 |
+#include <windows.h>
+#include <cstdio>
+#include <initializer_list>
+#define SAM_UAC_THIN_COPY_TEST
+#define WM_USER_DIALOG (WM_APP + 20)
+constexpr int IDS_ERRORGETTINGFILETIME=1, IDS_ERRORSETTINGFILETIME=2;
+constexpr int IDB_IGNOREALL=300, IDB_IGNORE=301, IDB_SKIPALL=302, IDB_SKIP=303;
+struct State { bool lost=false, failTime=false, loseInDialog=false; int calls=0, reports=0, dialogs=0; } state;
+struct Thin {
+    bool CheckCompletionConnection(int) {
+        if (state.lost) { ++state.reports; return false; }
+        return true;
+    }
+};
+struct Dialog { HANDLE WorkerNotSuspended; BOOL* CancelWorker; BOOL SkipAllGetFileTime=FALSE, IgnoreAllGetFileTimeErr=FALSE,
+    SkipAllSetFileTime=FALSE, IgnoreAllSetFileTimeErr=FALSE; };
+struct Operation { char* SourceName; char* TargetName; };
+static char* LoadStr(int) { static char value[]="message"; return value; }
+static char* GetErrorText(DWORD) { static char value[]="error"; return value; }
+static LRESULT MockSendMessage(HWND, UINT, WPARAM, LPARAM param) {
+    ++state.dialogs; if (state.loseInDialog) state.lost=true;
+    auto data=reinterpret_cast<char**>(param); *reinterpret_cast<int*>(data[0])=IDRETRY; return 0;
+}
+static BOOL MockGetFileTime(HANDLE, LPFILETIME, LPFILETIME, LPFILETIME) {
+    ++state.calls; if (state.failTime) { SetLastError(ERROR_READ_FAULT); return FALSE; } return TRUE;
+}
+static BOOL MockSetFileTime(HANDLE, const FILETIME*, const FILETIME*, const FILETIME*) {
+    ++state.calls; if (state.failTime) { SetLastError(ERROR_WRITE_FAULT); return FALSE; } return TRUE;
+}
+#undef SendMessage
+#define SendMessage MockSendMessage
+#define GetFileTime MockGetFileTime
+#define SetFileTime MockSetFileTime
+static bool GetPhase(HANDLE ready) {
+    Thin thin; BOOL cancelled=FALSE; Dialog dlgData{ready,&cancelled};
+    char source[]="source", target[]="target"; Operation operation{source,target}; Operation* op=&operation;
+    HANDLE in=reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(1)); HWND hProgressDlg=nullptr;
+@@GET_PHASE@@
+    return true;
+COPY_ERROR: return false;
+SKIP_COPY: return false;
+}
+static bool SetPhase(HANDLE ready) {
+    Thin thin; BOOL cancelled=FALSE; Dialog dlgData{ready,&cancelled};
+    char source[]="source", target[]="target"; Operation operation{source,target}; Operation* op=&operation;
+    HANDLE out=reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(1)); HWND hProgressDlg=nullptr;
+    FILETIME lastWrite{}; BOOL ignoreGetFileTimeErr=FALSE;
+@@SET_PHASE@@
+    return true;
+COPY_ERROR: return false;
+SKIP_COPY: return false;
+}
+int main() {
+    HANDLE ready=CreateEventW(nullptr, TRUE, TRUE, nullptr);
+    if (!ready) return 2;
+    int failures=0;
+    for (auto phase : {GetPhase, SetPhase}) {
+        state={}; if (!phase(ready) || state.calls!=1 || state.reports) ++failures;
+        state={}; state.lost=true; if (phase(ready) || state.calls || state.reports!=1) ++failures;
+        state={}; state.failTime=true; state.loseInDialog=true;
+        if (phase(ready) || state.calls!=1 || state.dialogs!=1 || state.reports!=1) ++failures;
+    }
+    CloseHandle(ready);
+    std::printf("%s time completion, including loss during Retry dialog\n", failures ? "FAIL" : "PASS");
+    return failures ? 1 : 0;
+}
