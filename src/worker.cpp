@@ -13441,12 +13441,15 @@ static BOOL GetParallelFileIdentity(const std::wstring& path, DWORD& volumeSeria
         return FALSE;
     BY_HANDLE_FILE_INFORMATION info;
     BOOL success = GetFileInformationByHandle(file, &info);
+    const DWORD error = success ? ERROR_SUCCESS : GetLastError();
     HANDLES(CloseHandle(file));
     if (success)
     {
         volumeSerial = info.dwVolumeSerialNumber;
         fileIndex = ((ULONGLONG)info.nFileIndexHigh << 32) | info.nFileIndexLow;
     }
+    else
+        SetLastError(error ? error : ERROR_GEN_FAILURE);
     return success;
 }
 
@@ -13458,14 +13461,17 @@ static BOOL GetParallelDirectoryIdentity(const std::wstring& path, DWORD& volume
                                              NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL));
     if (directory == INVALID_HANDLE_VALUE) return FALSE;
     BY_HANDLE_FILE_INFORMATION info;
-    BOOL success = GetFileInformationByHandle(directory, &info) &&
-                   (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+    const BOOL queried = GetFileInformationByHandle(directory, &info);
+    const DWORD error = queried ? ERROR_DIRECTORY : GetLastError();
+    BOOL success = queried && (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
     HANDLES(CloseHandle(directory));
     if (success)
     {
         volumeSerial = info.dwVolumeSerialNumber;
         fileIndex = ((ULONGLONG)info.nFileIndexHigh << 32) | info.nFileIndexLow;
     }
+    else
+        SetLastError(error ? error : ERROR_GEN_FAILURE);
     return success;
 }
 
