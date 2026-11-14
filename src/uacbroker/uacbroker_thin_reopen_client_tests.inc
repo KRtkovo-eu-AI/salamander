@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Exercise the handoff bound after external broker crashes. | Check client behavior when a separate dispatcher dies before reply. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Exercise the real client with an exhausted lost-handle budget. | Bound repeated lost replies and retain control operations. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Observe the actual client after a lost source-handle reply. | Check job retirement while measuring the unclaimed duplicate. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Send deferred evidence through the real thin client. | Cover the Scan Ahead request frame in both I/O modes. | #731 | gpt-6.1-terra |
@@ -40,7 +41,8 @@ void CheckThinAnchorFailure(const Directory& source, const Directory& target)
 
 void CheckThinClientReopen(const Directory& source, const Directory& target, bool asynchronous,
                           bool overwrite = false, bool failOverwriteHandoff = false, bool staleScan = false,
-                          bool lostSourceReply = false, unsigned lostIndex = 0, bool expectBudget = false)
+                          bool lostSourceReply = false, unsigned lostIndex = 0, bool expectBudget = false,
+                          bool externalLoss = false)
 {
     std::wstring root = lostSourceReply ? L"lost-source-reply" : failOverwriteHandoff ? L"overwrite-failed-\u6771" :
         staleScan ? (asynchronous ? L"overwrite-stale-async" : L"overwrite-stale-sync") :
@@ -68,11 +70,31 @@ void CheckThinClientReopen(const Directory& source, const Directory& target, boo
     { Check(false, "prepare the actual planned tree scope"); return; }
     JobPipe pipe;
     ULONGLONG lostHandle = 0;
+    Handle crashReady, crashMapping;
+    std::unique_ptr<void, decltype(&UnmapViewOfFile)> crashView(nullptr, UnmapViewOfFile);
+    ULONGLONG* crashValue = nullptr;
+    std::wstring crashEventName, crashMappingName;
+    if (externalLoss)
+    {
+        GUID id{}; wchar_t guid[40]{};
+        if (FAILED(CoCreateGuid(&id)) || !StringFromGUID2(id, guid, ARRAYSIZE(guid)))
+        { Check(false, "create external client crash names"); return; }
+        crashEventName = L"Local\\SamThinClientCrashEvent-" + std::wstring(guid);
+        crashMappingName = L"Local\\SamThinClientCrashMapping-" + std::wstring(guid);
+        crashReady = Adopt(CreateEventW(nullptr, TRUE, FALSE, crashEventName.c_str()));
+        crashMapping = Adopt(CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0,
+                                                sizeof(ULONGLONG), crashMappingName.c_str()));
+        if (crashMapping) crashView.reset(MapViewOfFile(crashMapping.get(), FILE_MAP_READ, 0, 0, sizeof(ULONGLONG)));
+        crashValue = static_cast<ULONGLONG*>(crashView.get());
+        if (!crashReady || !crashMapping || !crashValue)
+        { Check(false, "create external client crash controls"); return; }
+    }
     DWORD status = ERROR_GEN_FAILURE;
     ListingReply listing{};
     std::vector<UacF7::TreeCopySourceEntry> rows;
-    const bool planned = pipe.Open(nullptr, nullptr, Operation::FindContent, nullptr, false,
-                                   nullptr, failOverwriteHandoff, false, nullptr, lostSourceReply ? &lostHandle : nullptr) &&
+    const bool planned = (externalLoss ? pipe.OpenExternal(crashEventName.c_str(), crashMappingName.c_str()) :
+        pipe.Open(nullptr, nullptr, Operation::FindContent, nullptr, false,
+                  nullptr, failOverwriteHandoff, false, nullptr, lostSourceReply ? &lostHandle : nullptr)) &&
         pipe.Request(Operation::PlanCopyTree, source, root, status, &target, nullptr, nullptr,
                      false, nullptr, nullptr, 0) && !status &&
         pipe.ListTreeSource(from, {}, from.identity.file, listing, rows) &&
@@ -110,7 +132,16 @@ void CheckThinClientReopen(const Directory& source, const Directory& target, boo
                                    UacF7::ThinOpenedSource{}, UacF7::ThinCancelEvent{invalidEvent});
     Check(invalid.error == ERROR_INVALID_HANDLE && !invalid.unknown && thin.IsOpen(),
           "invalid cancellation handle stops before the broker request");
+    bool reachedCrash = false, crashed = false;
+    std::thread killer;
+    if (externalLoss && !expectBudget)
+        killer = std::thread([&] {
+            reachedCrash = WaitForSingleObject(crashReady.get(), 10000) == WAIT_OBJECT_0;
+            crashed = pipe.CrashExternal();
+        });
     const auto opened = thin.Open(nullptr, request, UacF7::ThinOpenKind::Source, false, false, nullptr);
+    if (killer.joinable()) killer.join();
+    if (crashValue) { lostHandle = *crashValue; crashView.reset(); crashValue = nullptr; }
     auto input = Adopt(opened.file);
     if (lostSourceReply)
     {
@@ -128,7 +159,8 @@ void CheckThinClientReopen(const Directory& source, const Directory& target, boo
         const DWORD finished = pipe.Finish();
         HANDLE unclaimed = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(lostHandle));
         Check(opened.error != ERROR_SUCCESS && opened.unknown && !input && !thin.IsOpen() &&
-              finished == ERROR_BROKEN_PIPE && unclaimed && GetFileType(unclaimed) == FILE_TYPE_DISK &&
+              (externalLoss ? reachedCrash && crashed : finished == ERROR_BROKEN_PIPE) &&
+              unclaimed && GetFileType(unclaimed) == FILE_TYPE_DISK &&
               HasByte(sourcePath, 0x67) && IsAbsent(targetPath),
               "actual client retires job but lost reply leaves a host duplicate");
         if (unclaimed) Check(CloseHandle(unclaimed) != FALSE, "test closes recorded unclaimed source handle");

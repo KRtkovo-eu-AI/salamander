@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Schedule a test-only external broker crash before a thin reply. | Verify duplicated handle lifetime across real process termination. | #731 | gpt-6.1-terra |
 | 2026-11-14 | Bound uncertain thin-handle deliveries per host process. | Prevent repeatable lost replies from accumulating unbounded handles. | #731 | gpt-6.1-terra |
 | 2026-11-14 | Instrument a lost thin-handle reply in dispatcher tests. | Measure unclaimed handle behavior without altering production requests. | #731 | gpt-6.1-terra |
 | 2026-11-14 | Verify transmitted Scan Ahead evidence before target overwrite. | Preserve the native deferred-conflict check after consent. | #731 | gpt-6.1-terra |
@@ -711,6 +712,8 @@ struct ThinIdentityScanPause
 thread_local ThinIdentityScanPause* activeThinIdentityScanPause = nullptr;
 thread_local bool activeThinFailCreatedTransfer = false;
 thread_local ULONGLONG* activeThinLostReply = nullptr;
+thread_local ULONGLONG* activeThinCrashReply = nullptr;
+thread_local HANDLE activeThinCrashReady = nullptr;
 #ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
 thread_local bool activeThinFailAnchorOpen = false;
 thread_local ThinIdentityScanPause* activeThinOverwritePause = nullptr;
@@ -4309,6 +4312,14 @@ DWORD ServeTransferJob(const InstallLocation& install, HANDLE pipe, HANDLE host,
         if (error)
             return error == ERROR_CANCELLED ? ERROR_SUCCESS : error;
 #if defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_BROKER_JOB_TEST)
+        if (activeThinCrashReply && activeThinCrashReady && IsThinOpen(unusedListing) &&
+            result == ERROR_SUCCESS && thinReply.value)
+        {
+            *activeThinCrashReply = thinReply.value;
+            if (!SetEvent(activeThinCrashReady)) return GetLastError();
+            WaitForSingleObject(host, 10000); // Parent terminates only this test child.
+            return ERROR_BROKEN_PIPE;
+        }
         if (activeThinLostReply && IsThinOpen(unusedListing) && result == ERROR_SUCCESS && thinReply.value)
         {
             *activeThinLostReply = thinReply.value;

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Terminate an external dispatcher before its handle reply. | Observe actual cross-process loss after duplication. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Exercise lost replies after actual handle duplication. | Measure whether repeated failed sessions leave host handles alive. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Transmit deferred conflict evidence in dispatcher fixtures. | Exercise the real request frame after consent. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Test thin overwrite through the actual dispatcher. | Check native truncation, sharing, object binding and partial handoff. | #731 | GPT-6 |
@@ -229,7 +230,7 @@ public:
     ~JobPipe() { Finish(); }
 
 #ifdef SAM_UAC_THIN_COPY_TEST
-    bool OpenExternal()
+    bool OpenExternal(const wchar_t* crashEvent = nullptr, const wchar_t* crashMapping = nullptr)
     {
         GUID id{};
         if (FAILED(CoCreateGuid(&id))) return false;
@@ -243,6 +244,8 @@ public:
         if (!length || length >= ARRAYSIZE(image)) return false;
         std::wstring command = L"\"" + std::wstring(image) + L"\" --thin-dispatch-child \"" + name +
             L"\" " + std::to_wstring(GetCurrentProcessId());
+        if (crashEvent && crashMapping)
+            command += L" \"" + std::wstring(crashEvent) + L"\" \"" + crashMapping + L"\"";
         STARTUPINFOW startup{}; startup.cb = sizeof(startup);
         PROCESS_INFORMATION process{};
         if (!CreateProcessW(image, command.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW,
@@ -4898,7 +4901,7 @@ void CheckThinHostCrash(const Directory& source, const Directory& target)
 int wmain(int argc, wchar_t** argv)
 {
 #ifdef SAM_UAC_THIN_COPY_TEST
-    if (argc == 4 && !wcscmp(argv[1], L"--thin-dispatch-child"))
+    if ((argc == 4 || argc == 6) && !wcscmp(argv[1], L"--thin-dispatch-child"))
     {
         const DWORD hostPid = wcstoul(argv[3], nullptr, 10);
         const auto host = Adopt(OpenProcess(PROCESS_DUP_HANDLE | PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE,
@@ -4909,7 +4912,20 @@ int wmain(int argc, wchar_t** argv)
             FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr)));
         if (!host || !pipe || !install.DirectoryHandle() || !ExpectedPipePeer(pipe.get(), host.get(), hostPid, true))
             return 3;
-        return ServeTransferJob(install, pipe.get(), host.get(), hostPid, GetTickCount64() + timeoutMs) ? 4 : 0;
+        Handle ready, mapping;
+        void* mapped = nullptr;
+        if (argc == 6)
+        {
+            ready = Adopt(OpenEventW(EVENT_MODIFY_STATE, FALSE, argv[4]));
+            mapping = Adopt(OpenFileMappingW(FILE_MAP_WRITE, FALSE, argv[5]));
+            if (!ready || !mapping || !(mapped = MapViewOfFile(mapping.get(), FILE_MAP_WRITE, 0, 0, sizeof(ULONGLONG))))
+                return 5;
+            activeThinCrashReady = ready.get();
+            activeThinCrashReply = static_cast<ULONGLONG*>(mapped);
+        }
+        const DWORD status = ServeTransferJob(install, pipe.get(), host.get(), hostPid, GetTickCount64() + timeoutMs);
+        if (mapped) UnmapViewOfFile(mapped);
+        return status ? 4 : 0;
     }
 #endif
     Directory source, target, outside;
@@ -4935,6 +4951,11 @@ int wmain(int argc, wchar_t** argv)
         return failures ? 1 : 0;
     }
 #ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
+    if (argc == 2 && !wcscmp(argv[1], L"--thin-external-lost-reply-only"))
+    {
+        CheckThinExternalLostReply(source, target);
+        return failures ? 1 : 0;
+    }
     if (argc == 2 && !wcscmp(argv[1], L"--thin-lost-reply-only"))
     {
         CheckThinLostReply(source, target);
@@ -4954,6 +4975,13 @@ int wmain(int argc, wchar_t** argv)
 #if defined(SAM_UAC_CLIENT_PIPE_HARNESS) && defined(SAM_UAC_THIN_PLANNED_PROTOTYPE)
 #ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
 #ifdef SAM_UAC_THIN_HANDOFF_TEST_CAP
+    if (argc == 2 && !wcscmp(argv[1], L"--thin-client-external-lost-budget-only"))
+    {
+        for (unsigned i = 0; i != 3; ++i)
+            CheckThinClientReopen(source, target, false, false, false, false, true, i, false, true);
+        CheckThinClientReopen(source, target, false, false, false, false, true, 3, true, true);
+        return failures ? 1 : 0;
+    }
     if (argc == 2 && !wcscmp(argv[1], L"--thin-client-lost-budget-only"))
     {
         for (unsigned i = 0; i != 3; ++i)

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Run a cross-process crash before the thin handle reply. | Measure a real broker-process exit after duplication. | #731 | gpt-6.1-terra |
 # | 2026-11-14 | Exercise a bounded budget on the real client pipe. | Verify repeated lost responses stop further handle requests. | #731 | gpt-6.1-terra |
 # | 2026-11-14 | Run the post-duplication lost-reply case. | Measure repeated unclaimed handles on the real dispatcher pipe. | #731 | gpt-6.1-terra |
 # | 2026-11-14 | Add isolated native overwrite dispatcher cases. | Compare actual NTFS behavior without claiming complete F5 or UAC acceptance. | #731 | GPT-6 |
@@ -27,18 +28,20 @@ def main():
     crash_mode.add_argument('--owned-cleanup-only', action='store_true')
     crash_mode.add_argument('--overwrite-only', action='store_true')
     crash_mode.add_argument('--lost-reply-only', action='store_true')
+    crash_mode.add_argument('--external-lost-reply-only', action='store_true')
     crash_mode.add_argument('--client-reopen-only', action='store_true')
     crash_mode.add_argument('--client-lost-budget-only', action='store_true')
+    crash_mode.add_argument('--client-external-lost-budget-only', action='store_true')
     args = parser.parse_args()
     env = compiler_environment()
     compiler = shutil.which('cl', path=env.get('PATH'))
     flags = ('/MTd', '/Od', '/D_DEBUG') if args.configuration == 'Debug' else ('/MT', '/O2', '/DNDEBUG')
-    client_mode = args.client_reopen_only or args.client_lost_budget_only
-    if args.owned_cleanup_only or client_mode or args.overwrite_only or args.lost_reply_only:
+    client_mode = args.client_reopen_only or args.client_lost_budget_only or args.client_external_lost_budget_only
+    if args.owned_cleanup_only or client_mode or args.overwrite_only or args.lost_reply_only or args.external_lost_reply_only:
         flags += ('/DSAM_UAC_THIN_REOPEN_PROTOTYPE',)
     if client_mode:
         flags += ('/DSAM_UAC_CLIENT_PIPE_HARNESS', '/DSAM_UAC_THIN_PLANNED_PROTOTYPE')
-    if args.client_lost_budget_only:
+    if args.client_lost_budget_only or args.client_external_lost_budget_only:
         flags += ('/DSAM_UAC_THIN_HANDOFF_TEST_CAP=3',)
     with tempfile.TemporaryDirectory(prefix='uac-thin-parent-') as temp:
         exe = Path(temp) / ('salamand.exe' if client_mode else 'uacbroker_thin_parent_job_tests.exe')
@@ -80,10 +83,14 @@ def main():
                 command.append('--thin-overwrite-only')
             if args.lost_reply_only:
                 command.append('--thin-lost-reply-only')
+            if args.external_lost_reply_only:
+                command.append('--thin-external-lost-reply-only')
             if args.client_reopen_only:
                 command.append('--thin-client-reopen-only')
             if args.client_lost_budget_only:
                 command.append('--thin-client-lost-budget-only')
+            if args.client_external_lost_budget_only:
+                command.append('--thin-client-external-lost-budget-only')
             return run(command, cwd=temp, env=env, timeout=25).returncode
         finally:
             root = Path(temp).resolve(strict=True)
