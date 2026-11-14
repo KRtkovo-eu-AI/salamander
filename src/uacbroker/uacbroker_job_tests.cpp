@@ -2841,7 +2841,12 @@ void CheckPlannedTreeThinJob(const Directory& source, const Directory& target, c
 
 #if defined(SAM_UAC_CLIENT_PIPE_HARNESS) && defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_PLANNED_PROTOTYPE)
 #ifdef SAM_UAC_LOOP_LINK_HARNESS
-extern "C" BOOL RunLinkedNativeSyncLoop(HANDLE*, HANDLE*, const wchar_t*, const wchar_t*, ULONGLONG, ULONGLONG,
+#ifdef SAM_UAC_LOOP_LINK_ASYNC
+constexpr bool linkedAsync = true;
+#else
+constexpr bool linkedAsync = false;
+#endif
+extern "C" BOOL RunLinkedNativeCopyLoop(HANDLE*, HANDLE*, const wchar_t*, const wchar_t*, ULONGLONG, ULONGLONG,
                                         void*, DWORD (*)(void*), HANDLE (*)(void*), bool (*)(void*), BOOL);
 struct LinkedThinContext
 {
@@ -2868,7 +2873,7 @@ static HANDLE LinkedThinRetry(void* context)
         if (!file || !WriteFile(file.get(), &changed, 1, &bytes, nullptr) || bytes != 1)
         { SetLastError(ERROR_WRITE_FAULT); return INVALID_HANDLE_VALUE; }
     }
-    const auto reopened = state.thin->Open(nullptr, *state.request, UacF7::ThinOpenKind::TargetRetry, false, false,
+    const auto reopened = state.thin->Open(nullptr, *state.request, UacF7::ThinOpenKind::TargetRetry, linkedAsync, false,
         &state.target, UacF7::ThinOpenedSource{state.source});
     if (reopened.error || reopened.unknown || reopened.file == INVALID_HANDLE_VALUE)
     {
@@ -3049,15 +3054,26 @@ void CheckThinClientPlannedTree(const Directory& source, const Directory& target
         if (!changed) return;
     }
 #endif
-    const auto opened = thin.Open(nullptr, request, UacF7::ThinOpenKind::Source, false, false, nullptr);
+#ifdef SAM_UAC_LOOP_LINK_ASYNC
+    constexpr bool useOverlapped = true;
+#else
+    constexpr bool useOverlapped = false;
+#endif
+    const auto opened = thin.Open(nullptr, request, UacF7::ThinOpenKind::Source, useOverlapped, false, nullptr);
     auto input = Adopt(opened.file);
     BYTE value = 0;
     DWORD count = 0;
+    OVERLAPPED read{};
+    auto event = Adopt(useOverlapped ? CreateEventW(nullptr, TRUE, FALSE, nullptr) : nullptr);
+    read.hEvent = event.get();
+    BOOL readOk = input && (!useOverlapped || event) && ReadFile(input.get(), &value, 1, &count, useOverlapped ? &read : nullptr);
+    if (!readOk && input && event && useOverlapped && GetLastError() == ERROR_IO_PENDING)
+        readOk = GetOverlappedResult(input.get(), &read, &count, TRUE);
     const bool sourceOpened = !opened.error && !opened.unknown && input &&
-        ReadFile(input.get(), &value, 1, &count, nullptr) && count == 1 && value == 0x67;
+        readOk && count == 1 && value == 0x67;
     Check(sourceOpened, "open the verified source through the real client on the original pipe");
     if (!sourceOpened) return;
-    const auto created = thin.Open(nullptr, request, UacF7::ThinOpenKind::TargetCreate, false, false,
+    const auto created = thin.Open(nullptr, request, UacF7::ThinOpenKind::TargetCreate, useOverlapped, false,
                                    nullptr, UacF7::ThinOpenedSource{input.get()});
     auto output = Adopt(created.file);
     count = 0;
@@ -3068,12 +3084,13 @@ void CheckThinClientPlannedTree(const Directory& source, const Directory& target
     HANDLE rawOutput = output.release();
     const bool targetCreated = !created.error && !created.unknown && rawOutput && rawOutput != INVALID_HANDLE_VALUE &&
         SetFilePointerEx(rawInput, zero, nullptr, FILE_BEGIN) &&
-        RunLinkedNativeSyncLoop(&rawInput, &rawOutput, sourceFile.c_str(), targetFile.c_str(), sourceSize, expected.size(),
+        RunLinkedNativeCopyLoop(&rawInput, &rawOutput, sourceFile.c_str(), targetFile.c_str(), sourceSize, expected.size(),
                                 &loopContext, LinkedThinCheck, LinkedThinRetry, LinkedThinDiscard, mismatch) &&
         loopContext.reopenCount == 1 && loopContext.discardCount == (mismatch ? 1u : 0u);
     input.reset(rawInput);
     output.reset(rawOutput);
-    Check(targetCreated, "native synchronous loop retries through actual client and dispatcher");
+    Check(targetCreated, useOverlapped ? "native asynchronous loop retries through actual client and dispatcher" :
+                                       "native synchronous loop retries through actual client and dispatcher");
     if (mismatch)
     {
         auto original = Adopt(CreateFileW(sourceFile.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr));
@@ -3098,7 +3115,7 @@ void CheckThinClientPlannedTree(const Directory& source, const Directory& target
         LinkedThinContext restartContext{&thin, &request, restartedTarget.targetIdentity, input.get(), targetFile.c_str(), false};
         rawInput = input.release();
         rawOutput = output.release();
-        const bool restarted = RunLinkedNativeSyncLoop(&rawInput, &rawOutput, sourceFile.c_str(), targetFile.c_str(), sourceSize, expected.size(),
+        const bool restarted = RunLinkedNativeCopyLoop(&rawInput, &rawOutput, sourceFile.c_str(), targetFile.c_str(), sourceSize, expected.size(),
             &restartContext, LinkedThinCheck, LinkedThinRetry, LinkedThinDiscard, FALSE) &&
             restartContext.reopenCount == 1 && !restartContext.discardCount;
         input.reset(rawInput); output.reset(rawOutput);
@@ -3191,9 +3208,14 @@ void CheckThinClientPlannedTree(const Directory& source, const Directory& target
     LARGE_INTEGER start{};
     count = 0;
     value = 0;
+    OVERLAPPED finalRead{};
+    finalRead.hEvent = event.get();
+    BOOL finalReadOk = input && SetFilePointerEx(input.get(), start, nullptr, FILE_BEGIN) &&
+        ReadFile(input.get(), &value, 1, &count, useOverlapped ? &finalRead : nullptr);
+    if (!finalReadOk && input && useOverlapped && GetLastError() == ERROR_IO_PENDING)
+        finalReadOk = GetOverlappedResult(input.get(), &finalRead, &count, TRUE);
     const bool closed = job && job.get() == address && !job->IsOpen() && !job->OpeningGeneration() &&
-        input && SetFilePointerEx(input.get(), start, nullptr, FILE_BEGIN) &&
-        ReadFile(input.get(), &value, 1, &count, nullptr) && count == 1 && value == 0x67;
+        finalReadOk && count == 1 && value == 0x67;
     Check(closed, "closing the client pipe returns the closed job without revoking an issued source handle");
 }
 #ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE

@@ -100,7 +100,7 @@ static BOOL TestWrite(HANDLE h, LPCVOID b, DWORD n, LPDWORD w, LPOVERLAPPED o) {
 @@LOOP@@
 
 #ifdef SAM_UAC_LOOP_LINK_HARNESS
-extern "C" BOOL RunLinkedNativeSyncLoop(HANDLE* input, HANDLE* output, const wchar_t* source, const wchar_t* target,
+extern "C" BOOL RunLinkedNativeCopyLoop(HANDLE* input, HANDLE* output, const wchar_t* source, const wchar_t* target,
                                         ULONGLONG fileBytes, ULONGLONG expectedBytes, void* context, DWORD (*check)(void*), HANDLE (*retry)(void*),
                                         bool (*discard)(void*), BOOL expectRestart)
 {

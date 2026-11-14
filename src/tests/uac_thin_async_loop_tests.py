@@ -15,7 +15,9 @@ from safe_file_paths_tests import ROOT, compiler_environment, run
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--configuration', choices=('Debug', 'Release'), default='Debug')
-config = parser.parse_args().configuration
+parser.add_argument('--emit-linked', type=Path, help=argparse.SUPPRESS)
+args = parser.parse_args()
+config = args.configuration
 worker_path, header_path = ROOT / 'src/worker.cpp', ROOT / 'src/worker.h'
 before = {p: hashlib.sha256(p.read_bytes()).hexdigest() for p in (worker_path, header_path)}
 worker = worker_path.read_text(encoding='utf-8-sig')
@@ -46,6 +48,36 @@ begin = section.index('BOOL DisableLocalBuffering(')
 finish = section.index('BOOL CCopy_Context::StartReading(', begin)
 section = section[:begin] + 'BOOL DisableLocalBuffering(CAsyncCopyParams*, HANDLE, DWORD*) { return TRUE; }\n' + section[finish:]
 code += section
+if args.emit_linked:
+    code += r'''
+extern "C" BOOL RunLinkedNativeCopyLoop(HANDLE* input, HANDLE* output, const wchar_t* source, const wchar_t* target,
+                                        ULONGLONG fileBytes, ULONGLONG expectedBytes, void* context, DWORD (*check)(void*),
+                                        HANDLE (*retry)(void*), bool (*discard)(void*), BOOL expectRestart)
+{
+    if (expectRestart) return FALSE; // This fixture does not yet cover a changed prefix.
+    BOOL cancel=FALSE, error=FALSE, skipped=FALSE, again=FALSE;
+    HANDLE resumed=CreateEventW(nullptr, TRUE, TRUE, nullptr);
+    if (!resumed) return FALSE;
+    CProgressDlgData dialog{&cancel, resumed, nullptr};
+    char inName[]="source", outName[]="target";
+    COperation op{}; op.SourceName=inName; op.TargetName=outName; op.SourceNameW=source; op.TargetNameW=target;
+    op.Size=CQuadWord(fileBytes);
+    COperations script; script.TotalSize=op.Size;
+    CAsyncCopyParams parameters; parameters.Init(TRUE);
+    if (parameters.Failed()) { CloseHandle(resumed); return FALSE; }
+    CQuadWord done, total, size(fileBytes), previous;
+    int limit=1024, allocation=0;
+    CThinCopyWorker thin; thin.sessionContext=context; thin.sessionCheck=check;
+    thin.sessionRetryTarget=retry; thin.sessionDiscardTarget=discard;
+    injectFault=true; didFault=false; writes=dialogCount=0; dialogChoice=IDRETRY;
+    DoCopyFileLoopAsync(&parameters, *input, *output, nullptr, limit, &script, dialog, FALSE, &op,
+                        total, error, skipped, nullptr, done, size, 1024, allocation, again, previous, &thin);
+    CloseHandle(resumed);
+    return !error && !skipped && !again && !thin.reports && didFault && dialogCount == 1 && done.Value == expectedBytes;
+}
+'''
+    args.emit_linked.write_text(code, encoding='utf-8')
+    raise SystemExit(0)
 code += r'''
 int wmain(int argc, wchar_t** argv) {
     if (argc != 3) return 2;
