@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Dispatch owned-target cleanup cases through the actual pipe. | Separate reopen cleanup evidence from historical retained-writer tests. | #731 | GPT-6 |
 // | 2026-11-14 | Exercise dispatcher shutdown after host process death. | Verify scoped resources are released when the real peer disappears. | #731 | GPT-6 |
 // | 2026-11-14 | Exercise thin dispatcher across a real process crash. | Verify the lifetime of already transferred handles without claiming UAC acceptance. | #731 | GPT-6 |
 // | 2026-11-13 | Inject target-anchor failure in the isolated dispatcher test. | Check the already-created file is preserved. | #731 | GPT-6 |
@@ -4873,6 +4874,9 @@ void CheckThinHostCrash(const Directory& source, const Directory& target)
 }
 #endif
 #include "uacbroker_thin_cleanup_contract_tests.inc"
+#if defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_REOPEN_PROTOTYPE)
+#include "uacbroker_thin_owned_cleanup_tests.inc"
+#endif
 }
 
 int wmain(int argc, wchar_t** argv)
@@ -4914,6 +4918,13 @@ int wmain(int argc, wchar_t** argv)
         CheckThinExternalCrash(source, target);
         return failures ? 1 : 0;
     }
+#ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
+    if (argc == 2 && !wcscmp(argv[1], L"--thin-owned-cleanup-only"))
+    {
+        CheckThinOwnedCleanup(source, target, outside);
+        return failures ? 1 : 0;
+    }
+#endif
 #if defined(SAM_UAC_CLIENT_PIPE_HARNESS) && defined(SAM_UAC_THIN_PLANNED_PROTOTYPE)
 #ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
     if (argc == 2 && !wcscmp(argv[1], L"--thin-client-reopen-only"))

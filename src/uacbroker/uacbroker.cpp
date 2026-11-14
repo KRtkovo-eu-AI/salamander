@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Clean up identity-anchored thin targets without content exclusivity. | Preserve native cancellation semantics while refusing substituted objects. | #731 | GPT-6 |
 | 2026-11-14 | Return explicit errors when thin handle transfer cannot start. | Never report success from a stale last-error value after host liveness fails. | #731 | GPT-6 |
 | 2026-11-14 | Preserve uncertainty if closing a rejected thin handle fails. | Retire the affected session rather than claiming ownership was resolved. | #731 | GPT-6 |
 | 2026-11-14 | Validate empty thin cleanup and release replies. | Reject malformed confirmations instead of accepting uncertain cleanup. | #731 | GPT-6 |
@@ -2419,6 +2420,38 @@ DWORD DuplicateThinToHost(HANDLE host, DWORD hostPid, HANDLE source, DWORD acces
     return ERROR_SUCCESS;
 }
 
+#if defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_REOPEN_PROTOTYPE)
+DWORD DiscardThinOwnedTarget(HANDLE parent, std::wstring_view leaf,
+                            const FILE_ID_INFO& expected, HANDLE anchor)
+{
+    // The caller supplies the pinned approved parent and a record of its own
+    // CREATE_NEW. Keep that object's independent anchor alive across the open:
+    // a removed/replaced pathname must not allow file-ID reuse to authorize
+    // deletion of a different object. Content changes are not an identity loss.
+    FILE_ID_INFO anchored{};
+    if (!anchor || !GetFileInformationByHandleEx(anchor, FileIdInfo, &anchored, sizeof(anchored)))
+        return anchor ? GetLastError() : ERROR_FILE_INVALID;
+    if (!UacRenameLeaf::Detail::SameSource(anchored, expected)) return ERROR_FILE_INVALID;
+    HANDLE raw = nullptr;
+    DWORD error = UacRenameLeaf::Detail::OpenFile(parent, leaf, raw, DELETE,
+        FILE_SHARE_READ | FILE_SHARE_WRITE, FILE_OPEN, 0);
+    const auto deletion = Adopt(raw);
+    FILE_ID_INFO actual{};
+    if (!error && !GetFileInformationByHandleEx(deletion.get(), FileIdInfo, &actual, sizeof(actual)))
+        error = GetLastError();
+    if (!error && !UacRenameLeaf::Detail::SameSource(actual, expected)) error = ERROR_FILE_INVALID;
+    FILE_ATTRIBUTE_TAG_INFO attributes{};
+    if (!error && !GetFileInformationByHandleEx(deletion.get(), FileAttributeTagInfo,
+                                               &attributes, sizeof(attributes))) error = GetLastError();
+    if (!error && (attributes.FileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)))
+        error = ERROR_NOT_SUPPORTED;
+    FILE_DISPOSITION_INFO disposition{TRUE};
+    if (!error && !SetFileInformationByHandle(deletion.get(), FileDispositionInfo,
+                                             &disposition, sizeof(disposition))) error = GetLastError();
+    return error;
+}
+#endif
+
 // Request framing and consent scope are shared with the existing transfer job.
 // Only a file object with the role-specific access is duplicated, never the
 // broker process or token. A lost reply can leave a remote handle unclaimed.
@@ -2688,12 +2721,20 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
             result = ERROR_SUCCESS;
             return ERROR_SUCCESS;
         }
-        // The worker has closed its handle. Matching the file ID cannot prove
-        // that another writer did not subsequently alter this same object.
         if (discard)
         {
+#ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
+            // The request matches this job's created-object record. The
+            // anchor prevents ID reuse, and the deletion handle verifies the
+            // current entry. Do not invent a content-revision guarantee.
+            result = DiscardThinOwnedTarget(targetParent, targetLeaf, record->target, record->retained.get());
+            if (!result) state.created.erase(record);
+#else
+            // Historical retained-writer experiment; the reopen candidate
+            // above is the migration path, not a promise of content isolation.
             if (retain) state.created.erase(record); // unlock; no pathname deletion
             result = ERROR_PARTIAL_COPY;
+#endif
             return ERROR_SUCCESS;
         }
 #endif
@@ -2820,7 +2861,22 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         }
         const auto cleanupCreated = [&]() -> DWORD {
             if (!madeTarget) return ERROR_SUCCESS;
-#ifdef SAM_UAC_THIN_COPY_TEST
+#if defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_REOPEN_PROTOTYPE)
+            // No writable handle was delivered on these failure paths. Obtain
+            // an independent identity anchor before releasing our writer.
+            if (!targetIdentityValid) return ERROR_PARTIAL_COPY;
+            if (!targetAnchor)
+            {
+                HANDLE rawAnchor = nullptr;
+                const DWORD anchorError = UacRenameLeaf::Detail::OpenFile(targetParent, targetLeaf, rawAnchor, 0,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, FILE_OPEN, 0);
+                targetAnchor = Adopt(rawAnchor);
+                if (anchorError) return ERROR_PARTIAL_COPY;
+            }
+            file.reset();
+            return DiscardThinOwnedTarget(targetParent, targetLeaf, reply.target, targetAnchor.get())
+                ? ERROR_PARTIAL_COPY : ERROR_SUCCESS;
+#elif defined(SAM_UAC_THIN_COPY_TEST)
             // Reopening by name after this handle closes cannot establish that
             // the created object has not been altered by an independent writer.
             return ERROR_PARTIAL_COPY;

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Distinguish ordinary overwrites from scoped target cleanup. | Preserve upstream behavior without using the broker for local mutations. | #731 | GPT-6 |
 # | 2026-11-13 | Cover unstarted prepared scope during Retry. | Prevent a missing target from being created before identity validation. | #731 | GPT-6 |
 # | 2026-11-13 | Check scoped preallocation reset and failure exit. | Keep the cleanup regression check aligned with handle-based recovery. | #731 | GPT-6 |
 # | 2026-11-12 | Cover deferred source cancellation and safe local retry. | Preserve live targets and reject side-effecting reopen. | #731 | GPT-6 |
@@ -23,7 +24,7 @@ class ScopedCleanupContracts(unittest.TestCase):
             with self.subTest(loop=name):
                 code = section(name, end)
                 clear = code.index("WorkerClearReadOnlyW(")
-                guard = code.rfind("if (thin && thin->Scoped())", 0, clear)
+                guard = code.rfind("if (thin && thin->ScopedTarget())", 0, clear)
                 self.assertGreater(guard, -1)
                 scoped = code[guard:clear]
                 self.assertIn("CloseScopedTarget(out)", scoped)
@@ -35,7 +36,7 @@ class ScopedCleanupContracts(unittest.TestCase):
     def test_initial_allocation_cleanup_stops_if_unverified(self):
         worker = section("BOOL DoCopyFile(COperation* op", "BOOL DoMoveFile(")
         code = worker.split("// if possible, allocate the required space for the file", 1)[1].split("script->SetFileStartParams();", 1)[0]
-        guard = code.index("if (thin.Scoped())")
+        guard = code.index("if (thin.ScopedTarget())")
         scoped = code[guard:code.index("\n                            else\n#endif", guard)]
         self.assertIn("!thin.dataTransferStarted && !cancelled", scoped)
         self.assertIn("ThinCopyResetFailedPreallocation(out)", scoped)
@@ -82,14 +83,16 @@ class ScopedCleanupContracts(unittest.TestCase):
         self.assertIn("!receivedWasTarget || !targetCreatedByBroker || DiscardTarget()", code)
 
     def test_scoped_attributes_use_live_handle(self):
-        code = section("const bool thinScopedAttributes = thin.Scoped()", "if (!HANDLES(CloseHandle(out)))")
+        code = section("const bool thinScopedAttributes = thin.ScopedTarget()", "if (!HANDLES(CloseHandle(out)))")
         self.assertIn("SetFileInformationByHandle(out, FileBasicInfo", code)
         self.assertIn("thin.CloseScopedTarget(out)", code)
         self.assertIn("IDS_ERRORCHANGINGATTRS", code)
         self.assertNotIn("SetFileAttributesW", code)
 
-    def test_existing_target_not_deleted_by_scoped_experiment(self):
-        code = section("if (thin.Scoped())\n                            {\n                                // Existing conflict targets", "BOOL targetCannotOpenForWrite")
+    def test_existing_target_uses_only_native_overwrite_if_not_uncertain(self):
+        code = section("if (thin.Scoped())\n                            {\n                                // Continue only", "BOOL targetCannotOpenForWrite")
+        self.assertIn("thin.nativeTargetOverwrite = true", code)
+        self.assertIn("if (!thin.NativeOverwrite())", code)
         self.assertIn("ERROR_NOT_SUPPORTED", code)
         self.assertIn("return FALSE", code)
         self.assertNotIn("DeleteFileW", code)
@@ -103,6 +106,12 @@ class ScopedCleanupContracts(unittest.TestCase):
         macro = section("#define THIN_OPEN_TARGET_RETRY(ctx, local, overlapped)", "#define THIN_OPEN_TARGET_PROBE")
         self.assertIn("((ctx)->request || (ctx)->session) ? ThinCopyOpenLocalRetry", macro)
         self.assertIn("ThinCopyOpenRetry", macro)
+
+    def test_async_retry_uses_the_target_scope_not_only_the_source_session(self):
+        code = section("BOOL CCopy_Context::RetryCopyReadErr(", "BOOL CCopy_Context::HandleWritingErr(")
+        self.assertEqual(code.count("if (Thin && Thin->ScopedTarget())"), 3)
+        self.assertNotIn("if (Thin && Thin->Scoped())", code)
+        self.assertEqual(code.count("Thin->CloseScopedTarget(*Out)"), 3)
 
     def test_uncertain_cleanup_is_not_retried(self):
         code = section("bool CThinCopyWorker::DiscardTarget()", "#endif")

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Model native target routing. | Keep scoped preallocation tests aligned with worker ownership. | #731 | GPT-6 |
 // | 2026-11-14 | Exercise terminal warnings for uncertain cleanup. | Preserve the path and reason while explaining an unconfirmed copy. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise failed preallocation recovery on exact scoped targets. | Verify safe reuse and fail-closed handling without pathname deletion. | #731 | GPT-6 |
 #include <windows.h>
@@ -72,13 +73,15 @@ struct FakeSession { void Close() { ++state.closedSessions; } };
 struct CThinCopyWorker {
     FakeDialog& dialog;
     bool terminal = false, suppressLocalCleanup = false, targetCreatedByBroker = false, dataTransferStarted = false;
-    bool cleanupUncertain = false;
+    bool cleanupUncertain = false, nativeTargetOverwrite = false;
     FakeSession sessionValue;
     FakeSession* session = &sessionValue;
     void* request = nullptr;
     HWND progress = nullptr;
     Operation operation;
     bool Scoped() const { return state.scoped; }
+    bool NativeOverwrite() const { return nativeTargetOverwrite && !targetCreatedByBroker && !cleanupUncertain && !suppressLocalCleanup; }
+    bool ScopedTarget() const { return Scoped() && !NativeOverwrite(); }
     bool CancelBeforeElevation();
     bool ReportTargetFailure(DWORD error, int caption = IDS_ERRORDELETINGFILE);
     bool CloseScopedTarget(HANDLE& file) {

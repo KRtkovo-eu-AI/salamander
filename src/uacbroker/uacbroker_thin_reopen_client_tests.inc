@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Verify native cleanup through the real thin client. | Confirm identified partial deletion and cleaned-up preparation failure. | #731 | GPT-6 |
 // | 2026-11-13 | Check metadata-probe mutation rights. | Verify the broker does not grant time changes or deletion. | #731 | GPT-6 |
 // | 2026-11-13 | Verify overwrite-probe metadata access. | Preserve native conflict details without granting file content access. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise anchor-open failure after target creation. | Verify no target handle escapes and the uncertain file is retained. | #731 | GPT-6 |
@@ -27,12 +28,9 @@ void CheckThinAnchorFailure(const Directory& source, const Directory& target)
     ThinWireReply reply{};
     const bool exchanged = pipe.Thin(source, sourceLeaf, sourceId, target, targetLeaf,
         Operation::ThinTargetCreate, nullptr, false, status, reply, input.get(), INVALID_HANDLE_VALUE, true, 28u);
-    auto preserved = Adopt(CreateFileW(target.File(targetLeaf).c_str(), FILE_READ_ATTRIBUTES,
-        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
-    LARGE_INTEGER size{};
-    Check(exchanged && status == ERROR_PARTIAL_COPY && !reply.value && preserved &&
-          GetFileSizeEx(preserved.get(), &size) && size.QuadPart == 0 && HasByte(source.File(sourceLeaf), 0x54),
-          "anchor-open failure returns no handle and preserves the uncertain target and source");
+    Check(exchanged && status == ERROR_ACCESS_DENIED && !reply.value &&
+          IsAbsent(target.File(targetLeaf)) && HasByte(source.File(sourceLeaf), 0x54),
+          "anchor-open failure cleans its identified creation without returning a handle");
 }
 
 void CheckThinClientReopen(const Directory& source, const Directory& target, bool asynchronous)
@@ -232,4 +230,15 @@ void CheckThinClientReopen(const Directory& source, const Directory& target, boo
     { Check(false, "restore the verified target fixture"); return; }
     Check(thin.ReleaseTarget(request, created.targetIdentity) == ERROR_SUCCESS && HasByte(targetPath, 0x67),
           "release closes the anchor and leaves the verified target intact");
+    Check(thin.DiscardTarget(request, created.targetIdentity) == ERROR_FILE_INVALID && HasByte(targetPath, 0x67),
+          "released target is no longer eligible for privileged cleanup");
+    if (!DeleteFileW(targetPath.c_str())) { Check(false, "reset released test target"); return; }
+    const auto next = thin.Open(nullptr, request, UacF7::ThinOpenKind::TargetCreate, asynchronous, false,
+                               nullptr, UacF7::ThinOpenedSource{input.get()});
+    auto nextHandle = Adopt(next.file);
+    Check(!next.error && !next.unknown && nextHandle, "create another partial in the same verified scope");
+    if (next.error || next.unknown || !nextHandle) return;
+    nextHandle.reset();
+    Check(thin.DiscardTarget(request, next.targetIdentity) == ERROR_SUCCESS && IsAbsent(targetPath) && thin.IsOpen(),
+          "actual client accepts empty successful cleanup reply and retains the job");
 }

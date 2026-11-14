@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Model native overwrite routing. | Keep target retry tests aligned with the worker. | #731 | GPT-6 |
 // | 2026-11-13 | Keep target continuity loss sticky across Retry. | Prevent later matching opens from clearing the cleanup guard. | #731 | gpt-6.1-terra |
 // | 2026-11-13 | Exercise target continuity before elevation. | Refuse replacements and preserve their cleanup boundary. | #731 | GPT-6 |
 // | 2026-11-13 | Include the native resume-wait method in the extracted harness. | Keep scoped open tests aligned with worker synchronization. | #731 | GPT-6 |
@@ -56,7 +57,7 @@ struct CThinCopyWorker {
     bool active = true, terminal = false, earlierSourceRequired = false, earlierSourceKnown = false, sourceVerified = true;
     bool sourceContinuityLost = false, targetContinuityLost = false;
     bool scopeMayHaveStarted = false, targetKnown = false, suppressLocalCleanup = false;
-    bool targetCreatedByBroker = false;
+    bool targetCreatedByBroker = false, nativeTargetOverwrite = false, cleanupUncertain = false;
     int openCalls = 0, refusedCleanup = 0;
     UacF7::ThinOpenKind lastKind = UacF7::ThinOpenKind::Source;
     bool lastOverlapped = false;
@@ -79,6 +80,7 @@ struct CThinCopyWorker {
     bool RefuseUnsafeTargetCleanup() { ++refusedCleanup; return false; }
     bool DiscardTarget() { return false; }
     bool Scoped() const { return active && session != nullptr && scopeMayHaveStarted; }
+    bool NativeOverwrite() const { return nativeTargetOverwrite && !targetCreatedByBroker && !cleanupUncertain && !suppressLocalCleanup; }
 };
 static BOOL RealClose(HANDLE file) { return CloseHandle(file); }
 static int closeCalls = 0;
@@ -431,6 +433,29 @@ int wmain(int argc, wchar_t** argv) {
         Check(output == INVALID_HANDLE_VALUE && error == ERROR_FILE_NOT_FOUND && !localAttempts &&
               GetFileAttributesW(pending.operation.TargetNameW.c_str()) == INVALID_FILE_ATTRIBUTES,
               "missing pending target uses OPEN_EXISTING without creating a file", failures);
+    }
+    {
+        // Native Retry keeps the worker's OPEN_ALWAYS behavior for an ordinary
+        // target even if the source uses an elevated session.
+        CThinCopyWorker native; native.dialog.CancelWorker = &cancelled;
+        native.request = std::make_unique<UacF7::PreparedTransfer>();
+        native.session = &existing; native.scopeMayHaveStarted = true;
+        native.nativeTargetOverwrite = true;
+        native.RememberTarget(original, true);
+        native.RememberTarget(changed, true);
+        Check(!native.targetContinuityLost && !native.suppressLocalCleanup && !native.targetKnown,
+              "native target does not acquire a broker continuity requirement", failures);
+        const std::wstring path = fixture + L"\\native-retry-created.txt";
+        Check(GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES,
+              "native retry fixture starts absent", failures);
+        int localAttempts = 0;
+        const HANDLE output = THIN_OPEN_TARGET_RETRY(&native,
+            (++localAttempts, CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, OPEN_ALWAYS,
+                                          FILE_ATTRIBUTE_NORMAL, nullptr)), false);
+        Check(output != INVALID_HANDLE_VALUE && localAttempts == 1 && native.openCalls == 0,
+              "native target Retry uses ordinary OPEN_ALWAYS without broker", failures);
+        if (output != INVALID_HANDLE_VALUE) Check(RealClose(output) != FALSE, "close native retry target", failures);
+        Check(DeleteFileW(path.c_str()) != FALSE, "remove native retry target", failures);
     }
     {
         CThinCopyWorker pending; pending.dialog.CancelWorker = &cancelled;

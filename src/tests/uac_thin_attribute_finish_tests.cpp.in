@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Model native target attribute completion. | Preserve normal pathname behavior for a locally overwritten target. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise actual scoped F5 completion branch. | Compare attribute failures with the ordinary worker path. | #731 | GPT-6 |
 #include <windows.h>
 #include <cstdio>
@@ -14,7 +15,7 @@ constexpr int IDS_ERRORWRITINGFILE = 1, IDS_ERRORCHANGINGATTRS = 2;
 constexpr int IDB_SKIPALL = 300, IDB_SKIP = 301;
 
 struct TestState {
-    bool scoped = false, copyAttrs = false, failAttributes = false, failClose = false, failScopedClose = false;
+    bool scoped = false, nativeTarget = false, copyAttrs = false, failAttributes = false, failClose = false, failScopedClose = false;
     int handleAttributes = 0, pathAttributes = 0, closes = 0, releases = 0, reports = 0;
     DWORD passedAttributes = 0, reportedError = 0;
     HANDLE attributesHandle = nullptr;
@@ -24,6 +25,7 @@ struct TestOperation { char* TargetName = const_cast<char*>("fixture"); bool Tar
 struct TestDialog { HANDLE WorkerNotSuspended = nullptr; BOOL* CancelWorker = nullptr; BOOL SkipAllFileWrite = FALSE; };
 struct TestThin {
     bool Scoped() const { return state.scoped; }
+    bool ScopedTarget() const { return Scoped() && !state.nativeTarget; }
     bool CloseScopedTarget(HANDLE& out) {
         ++state.closes; out = nullptr;
         if (state.failScopedClose) { ++state.reports; state.reportedError = ERROR_INVALID_HANDLE; return false; }
@@ -95,6 +97,10 @@ static void Check(bool condition, const char* name, int& failures)
 int main()
 {
     int failures = 0;
+    state = {}; state.scoped = true; state.nativeTarget = true;
+    Check(Finish() && state.handleAttributes == 0 && state.pathAttributes == 1 &&
+          state.closes == 1 && state.releases == 1 && state.reports == 0,
+          "native target keeps the original attribute completion even with a scoped source", failures);
     for (bool attributeFailure : {false, true})
     {
         state = {}; state.scoped = true; state.failAttributes = attributeFailure;

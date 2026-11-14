@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Preserve native overwrite for an unprivileged target. | Keep protected-source copies on the original worker without elevating target mutations. | #731 | GPT-6 |
 // | 2026-11-13 | Preserve target identity loss across Retry. | Prevent later opens from clearing the cleanup guard. | #731 | gpt-6.1-terra |
 // | 2026-11-13 | Reject unobservable cancellation after handle delivery. | Close received handles when the worker cannot check cancellation. | #731 | GPT-6 |
 // | 2026-11-13 | Retain displayed batch consent after proven prelaunch failure. | Avoid repeating approval on the next matching native F5 item. | #731 | GPT-6 |
@@ -2426,6 +2427,9 @@ struct CThinCopyWorker
     bool targetContinuityLost = false;
     bool targetKnown = false;
     bool targetCreatedByBroker = false;
+    // Existing targets remain under the worker's ordinary token; this does
+    // not authorize mutation of a broker-created or uncertain target.
+    bool nativeTargetOverwrite = false;
     bool dataTransferStarted = false;
     bool suppressLocalCleanup = false;
     bool cleanupUncertain = false;
@@ -2508,6 +2512,8 @@ struct CThinCopyWorker
     void RememberTarget(HANDLE file, bool force = false);
     bool ValidateRetriedTarget(HANDLE file);
     bool Scoped() const { return active && session != nullptr && scopeMayHaveStarted; }
+    bool NativeOverwrite() const { return nativeTargetOverwrite && !targetCreatedByBroker && !cleanupUncertain && !suppressLocalCleanup; }
+    bool ScopedTarget() const { return Scoped() && !NativeOverwrite(); }
     bool ReportTargetFailure(DWORD error, int caption = IDS_ERRORDELETINGFILE);
     bool CloseScopedTarget(HANDLE& file);
     bool RefuseUnsafeTargetCleanup();
@@ -2760,15 +2766,17 @@ static HANDLE ThinCopyOpenLocalRetry(CThinCopyWorker* context, bool overlapped)
 #define THIN_OPEN_TARGET_CREATE(ctx, local, overlapped) ThinCopyOpened((ctx), (local), UacF7::ThinOpenKind::TargetCreate, (overlapped), ThinOpenPhase::Initial)
 #define THIN_OPEN_SOURCE_RETRY(ctx, local, overlapped) ThinCopyOpened((ctx), ThinCopyTestDenyReopen((ctx), false) ? ThinCopyTestDeniedHandle() : (local), UacF7::ThinOpenKind::Source, (overlapped), ThinOpenPhase::Retry)
 #define THIN_OPEN_TARGET_RETRY(ctx, local, overlapped) \
+    ((ctx) && (ctx)->NativeOverwrite() ? (local) : \
     ((ctx) && (ctx)->targetCreatedByBroker ? \
         ThinCopyOpenRetry((ctx), (overlapped)) : \
         ((ctx) && ((ctx)->request || (ctx)->session) ? ThinCopyOpenLocalRetry((ctx), (overlapped)) : \
-        ThinCopyOpened((ctx), ThinCopyTestDenyReopen((ctx), true) ? ThinCopyTestDeniedHandle() : (local), UacF7::ThinOpenKind::TargetRetry, (overlapped), ThinOpenPhase::Retry)))
+        ThinCopyOpened((ctx), ThinCopyTestDenyReopen((ctx), true) ? ThinCopyTestDeniedHandle() : (local), UacF7::ThinOpenKind::TargetRetry, (overlapped), ThinOpenPhase::Retry))))
 #define THIN_OPEN_TARGET_PROBE(ctx, local) ThinCopyOpened((ctx), (local), UacF7::ThinOpenKind::TargetProbe, false, ThinOpenPhase::Probe)
 #define THIN_DELETE_TARGET(ctx, local) \
+    ((ctx) && (ctx)->NativeOverwrite() ? (local) : \
     ((ctx) && (ctx)->suppressLocalCleanup ? (ctx)->RefuseUnsafeTargetCleanup() : \
         ((ctx) && (ctx)->targetCreatedByBroker ? (ctx)->DiscardTarget() : \
-        ((ctx) && ((ctx)->request || (ctx)->session) ? (ctx)->RefuseUnsafeTargetCleanup() : (local))))
+        ((ctx) && ((ctx)->request || (ctx)->session) ? (ctx)->RefuseUnsafeTargetCleanup() : (local)))))
 #else
 #define THIN_REMEMBER_SOURCE(ctx, file) ((void)0)
 #define THIN_REMEMBER_TARGET(ctx, file) ((void)0)
@@ -5252,7 +5260,7 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
                         if (wholeFileAllocated)
                             SetEndOfFile(out);     // otherwise on a floppy the remaining bytes would be written
 #ifdef SAM_UAC_THIN_COPY_TEST
-                        if (thin && thin->Scoped())
+                        if (thin && thin->ScopedTarget())
                         {
                             if (!thin->CloseScopedTarget(out)) { copyError = TRUE; return; }
                         }
@@ -5277,7 +5285,7 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
                         { // restart the whole operation
                             HANDLES(CloseHandle(in));
 #ifdef SAM_UAC_THIN_COPY_TEST
-                            if (thin && thin->Scoped())
+                            if (thin && thin->ScopedTarget())
                             {
                                 in = NULL;
                                 if (!thin->CloseScopedTarget(out)) { copyError = TRUE; return; }
@@ -5419,7 +5427,7 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
                         if (wholeFileAllocated)
                             SetEndOfFile(out); // otherwise on a floppy the remaining bytes would be written
 #ifdef SAM_UAC_THIN_COPY_TEST
-                        if (thin && thin->Scoped())
+                        if (thin && thin->ScopedTarget())
                         {
                             in = NULL;
                             if (!thin->CloseScopedTarget(out)) { copyError = TRUE; return; }
@@ -5509,7 +5517,7 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
                 allocWholeFileOnStart = 2 /* no */; // skip further attempts on this target disk
 
 #ifdef SAM_UAC_THIN_COPY_TEST
-                if (thin && thin->Scoped())
+                if (thin && thin->ScopedTarget())
                 {
                     if (!thin->CloseScopedTarget(out) || !THIN_DELETE_TARGET(thin, FALSE))
                     {
@@ -5977,7 +5985,7 @@ BOOL CCopy_Context::RetryCopyReadErr(DWORD* err, BOOL* copyAgain, BOOL* errAgain
         if (WholeFileAllocated)
             SetEndOfFile(*Out); // otherwise on a floppy the remaining bytes would be written
 #ifdef SAM_UAC_THIN_COPY_TEST
-        if (Thin && Thin->Scoped())
+        if (Thin && Thin->ScopedTarget())
         {
             *In = NULL;
             if (!Thin->CloseScopedTarget(*Out)) { *errAgain = TRUE; return FALSE; }
@@ -6099,7 +6107,7 @@ BOOL CCopy_Context::RetryCopyWriteErr(DWORD* err, BOOL* copyAgain, BOOL* errAgai
         if (WholeFileAllocated)
             SetEndOfFile(*Out);     // otherwise on a floppy the remaining bytes would be written
 #ifdef SAM_UAC_THIN_COPY_TEST
-        if (Thin && Thin->Scoped())
+        if (Thin && Thin->ScopedTarget())
         {
             if (!Thin->CloseScopedTarget(*Out)) { *errAgain = TRUE; return FALSE; }
         }
@@ -6138,7 +6146,7 @@ BOOL CCopy_Context::RetryCopyWriteErr(DWORD* err, BOOL* copyAgain, BOOL* errAgai
         {
             HANDLES(CloseHandle(*In));
 #ifdef SAM_UAC_THIN_COPY_TEST
-            if (Thin && Thin->Scoped())
+            if (Thin && Thin->ScopedTarget())
             {
                 *In = NULL;
                 if (!Thin->CloseScopedTarget(*Out)) { *errAgain = TRUE; return FALSE; }
@@ -6604,7 +6612,7 @@ void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, vo
                 while (1)
                 {
 #ifdef SAM_UAC_THIN_COPY_TEST
-                    if (thin && thin->Scoped())
+                    if (thin && thin->ScopedTarget())
                     {
                         if (!thin->CloseScopedTarget(out) || !THIN_DELETE_TARGET(thin, FALSE))
                         {
@@ -7274,7 +7282,7 @@ void CThinCopyWorker::RememberSource(HANDLE file, bool force)
 
 void CThinCopyWorker::RememberTarget(HANDLE file, bool force)
 {
-    if (active && file && file != INVALID_HANDLE_VALUE && !targetCreatedByBroker &&
+    if (active && file && file != INVALID_HANDLE_VALUE && !targetCreatedByBroker && !NativeOverwrite() &&
         (force || request))
     {
         UacF7::MoveFileIdentity actual{};
@@ -8195,7 +8203,7 @@ COPY_AGAIN:
                             }
 
 #ifdef SAM_UAC_THIN_COPY_TEST
-                            if (thin.Scoped())
+                            if (thin.ScopedTarget())
                             {
                                 // Only the first transfer attempt can reuse a
                                 // freshly created target this way. Keep its exact
@@ -8295,7 +8303,7 @@ COPY_AGAIN:
                             if (wholeFileAllocated)
                                 SetEndOfFile(out); // otherwise on a floppy the remaining part of the file would be written
 #ifdef SAM_UAC_THIN_COPY_TEST
-                            if (thin.Scoped())
+                            if (thin.ScopedTarget())
                             {
                                 if (!thin.CloseScopedTarget(out)) return FALSE;
                             }
@@ -8320,7 +8328,7 @@ COPY_AGAIN:
                             if (wholeFileAllocated)
                                 SetEndOfFile(out); // otherwise on a floppy the remaining part of the file would be written
 #ifdef SAM_UAC_THIN_COPY_TEST
-                            if (thin.Scoped())
+                            if (thin.ScopedTarget())
                             {
                                 if (!thin.CloseScopedTarget(out)) return FALSE;
                             }
@@ -8538,7 +8546,7 @@ COPY_AGAIN:
                             (!script->OverwriteOlder || (!ignoreGetFileTimeErr && !ignoreSetFileTimeErr)))
                             moveReceipt->captured = UacF7::CaptureMoveFileIdentity(out, moveReceipt->target, true);
 #ifdef SAM_UAC_THIN_COPY_TEST
-                        const bool thinScopedAttributes = thin.Scoped();
+                        const bool thinScopedAttributes = thin.ScopedTarget();
                         if (thinScopedAttributes)
                         {
                             // Set metadata on the still-open exact object;
@@ -9057,15 +9065,18 @@ COPY_AGAIN:
 #ifdef SAM_UAC_THIN_COPY_TEST
                             if (thin.Scoped())
                             {
-                                // Existing conflict targets are not owned by
-                                // ThinCopySession. Until the reviewed overwrite
-                                // protocol is integrated, neither unlink nor
-                                // truncate one through a scoped experiment.
-                                if (in != NULL && in != INVALID_HANDLE_VALUE)
-                                    HANDLES(CloseHandle(in));
-                                in = NULL;
-                                thin.ReportTargetFailure(ERROR_NOT_SUPPORTED, IDS_ERROROPENINGFILE);
-                                return FALSE;
+                                // Continue only with the original worker's
+                                // ordinary-token target operations. Broker-created
+                                // or uncertain targets keep the fail-closed path.
+                                thin.nativeTargetOverwrite = true;
+                                if (!thin.NativeOverwrite())
+                                {
+                                    if (in != NULL && in != INVALID_HANDLE_VALUE)
+                                        HANDLES(CloseHandle(in));
+                                    in = NULL;
+                                    thin.ReportTargetFailure(ERROR_NOT_SUPPORTED, IDS_ERROROPENINGFILE);
+                                    return FALSE;
+                                }
                             }
 #endif
                             BOOL targetCannotOpenForWrite = FALSE;
