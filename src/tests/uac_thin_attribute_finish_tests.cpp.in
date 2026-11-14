@@ -1,12 +1,14 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Check scoped completion attribute observation. | Exercise the revised native comparison input. | #731 | GPT-6 |
 // | 2026-11-14 | Compare real zero-attribute completion APIs. | Preserve the native archive-clearing semantics. | #731 | GPT-6 |
 // | 2026-11-14 | Verify scoped CopyAttrs preserves the archive bit. | Match the original attribute selection. | #731 | GPT-6 |
 // | 2026-11-14 | Exercise loss before scoped attribute completion. | Prevent further metadata writes after a detected broken session. | #731 | GPT-6 |
 // | 2026-11-14 | Model native target attribute completion. | Preserve normal pathname behavior for a locally overwritten target. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise actual scoped F5 completion branch. | Compare attribute failures with the ordinary worker path. | #731 | GPT-6 |
 #include <windows.h>
+#include <winioctl.h>
 #include <cstdio>
 #include <sstream>
 #include <string>
@@ -21,6 +23,7 @@ struct TestState {
     bool scoped = false, nativeTarget = false, copyAttrs = false, failAttributes = false, failClose = false, failScopedClose = false, connectionLost = false;
     int handleAttributes = 0, pathAttributes = 0, closes = 0, releases = 0, reports = 0;
     DWORD passedAttributes = 0, reportedError = 0, sourceAttributes = FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_READONLY;
+    DWORD observedAttributes = FILE_ATTRIBUTE_ARCHIVE;
     HANDLE attributesHandle = nullptr;
 } state;
 struct TestScript { BOOL CopyAttrs = FALSE; };
@@ -48,6 +51,13 @@ static BOOL MockSetFileInformationByHandle(HANDLE file, FILE_INFO_BY_HANDLE_CLAS
     if (kind != FileBasicInfo || size != sizeof(FILE_BASIC_INFO)) return FALSE;
     state.passedAttributes = static_cast<FILE_BASIC_INFO*>(value)->FileAttributes;
     if (state.failAttributes) { SetLastError(ERROR_ACCESS_DENIED); return FALSE; }
+    state.observedAttributes = state.passedAttributes;
+    return TRUE;
+}
+static BOOL MockGetFileInformationByHandleEx(HANDLE, FILE_INFO_BY_HANDLE_CLASS kind, LPVOID value, DWORD size)
+{
+    if (kind != FileBasicInfo || size != sizeof(FILE_BASIC_INFO)) return FALSE;
+    static_cast<FILE_BASIC_INFO*>(value)->FileAttributes = state.observedAttributes;
     return TRUE;
 }
 static BOOL MockSetFileAttributesW(LPCWSTR, DWORD attrs)
@@ -68,6 +78,7 @@ static char* LoadStr(int) { static char value[] = "caption"; return value; }
 static char* GetErrorText(DWORD) { static char value[] = "error"; return value; }
 static LRESULT MockSendMessage(HWND, UINT, WPARAM, LPARAM) { return 0; }
 #define SetFileInformationByHandle MockSetFileInformationByHandle
+#define GetFileInformationByHandleEx MockGetFileInformationByHandleEx
 #define SetFileAttributesW MockSetFileAttributesW
 #define CloseHandle MockCloseHandle
 #define DeleteFileW MockDeleteFileW
@@ -78,6 +89,8 @@ static BOOL Finish()
 {
     HANDLE out = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(1));
     DWORD attr = state.sourceAttributes;
+    DWORD scopedFinishedAttrs = INVALID_FILE_ATTRIBUTES;
+    bool scopedFinishedTarget = false;
     TestScript object; object.CopyAttrs = state.copyAttrs; TestScript* script = &object;
     TestOperation operation; TestOperation* op = &operation;
     TestThin thin;
@@ -87,6 +100,8 @@ static BOOL Finish()
     if (out != nullptr)
     {
 @@FINISH_BRANCH@@
+    if (script->CopyAttrs) thin.ReleaseTargetPin();
+    if (script->CopyAttrs && scopedFinishedTarget && scopedFinishedAttrs != state.observedAttributes) return FALSE;
     return TRUE;
 COPY_ERROR:
     return FALSE;
@@ -97,6 +112,7 @@ COPY_AGAIN:
 }
 
 #undef SetFileInformationByHandle
+#undef GetFileInformationByHandleEx
 #undef SetFileAttributesW
 #undef CloseHandle
 #undef DeleteFileW
@@ -129,6 +145,48 @@ static bool RealZeroAttributesMatch()
     return results[0] == FILE_ATTRIBUTE_NORMAL && results[1] == results[0];
 }
 
+static bool RealCompressedAttributesMatch()
+{
+    const wchar_t* paths[] = {L"native-compressed-東.tmp", L"handle-compressed-東.tmp"};
+    DWORD results[2]{};
+    bool ok = true;
+    for (unsigned i = 0; i != 2; ++i)
+    {
+        HANDLE file = CreateFileW(paths[i], GENERIC_READ | GENERIC_WRITE, 0, nullptr, CREATE_NEW,
+                                  FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (file == INVALID_HANDLE_VALUE) { ok = false; break; }
+        USHORT format = COMPRESSION_FORMAT_DEFAULT;
+        DWORD bytes = 0;
+        bool current = DeviceIoControl(file, FSCTL_SET_COMPRESSION, &format, sizeof(format),
+                                       nullptr, 0, &bytes, nullptr) != FALSE;
+        if (current && i == 1)
+        {
+            FILE_BASIC_INFO basic{};
+            basic.FileAttributes = FILE_ATTRIBUTE_COMPRESSED | FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_READONLY;
+            current = SetFileInformationByHandle(file, FileBasicInfo, &basic, sizeof(basic)) != FALSE;
+            if (current && GetFileInformationByHandleEx(file, FileBasicInfo, &basic, sizeof(basic)))
+                results[i] = basic.FileAttributes;
+            else current = false;
+        }
+        current = CloseHandle(file) != FALSE && current;
+        if (current && i == 0)
+        {
+            current = SetFileAttributesW(paths[i], FILE_ATTRIBUTE_COMPRESSED | FILE_ATTRIBUTE_HIDDEN |
+                                                  FILE_ATTRIBUTE_READONLY) != FALSE;
+            if (current) results[i] = GetFileAttributesW(paths[i]);
+        }
+        if (!current) { ok = false; break; }
+    }
+    for (const auto path : paths)
+        if (GetFileAttributesW(path) != INVALID_FILE_ATTRIBUTES)
+        {
+            SetFileAttributesW(path, FILE_ATTRIBUTE_NORMAL);
+            if (!DeleteFileW(path)) ok = false;
+        }
+    const DWORD mask = FILE_ATTRIBUTE_COMPRESSED | FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_ARCHIVE;
+    return ok && (results[0] & mask) == (results[1] & mask) && (results[1] & FILE_ATTRIBUTE_COMPRESSED);
+}
+
 static void Check(bool condition, const char* name, int& failures)
 {
     std::printf("%s %s\n", condition ? "PASS" : "FAIL", name);
@@ -138,6 +196,7 @@ int main()
 {
     int failures = 0;
     Check(RealZeroAttributesMatch(), "real file APIs agree on clearing the archive attribute", failures);
+    Check(RealCompressedAttributesMatch(), "real compressed file APIs preserve the same displayed attributes", failures);
     state = {}; state.scoped = true; state.connectionLost = true;
     Check(!Finish() && state.handleAttributes == 0 && state.pathAttributes == 0 &&
           state.reports == 1 && state.reportedError == ERROR_BROKEN_PIPE,
@@ -177,15 +236,13 @@ int main()
     Check(Finish() && state.passedAttributes == FILE_ATTRIBUTE_NORMAL && state.reports == 0,
           "hypothetical zero attributes clear archive rather than leave it unchanged", failures);
     state = {}; state.scoped = true; state.failAttributes = true; state.copyAttrs = true;
-    Check(!Finish() && state.handleAttributes == 1 && state.pathAttributes == 0 &&
-          state.closes == 1 && state.releases == 1 && state.reports == 1 &&
-          state.reportedError == ERROR_ACCESS_DENIED,
-          "hypothetical CopyAttrs=true retains its previous failure handling", failures);
+    Check(Finish() && state.handleAttributes == 1 && state.pathAttributes == 0 &&
+          state.closes == 1 && state.releases == 1 && state.reports == 0,
+          "CopyAttrs failure is left to the native attribute comparison", failures);
     state = {}; state.scoped = true; state.failAttributes = true; state.copyAttrs = true; state.failScopedClose = true;
-    Check(!Finish() && state.handleAttributes == 1 && state.pathAttributes == 0 &&
-          state.closes == 1 && state.releases == 0 && state.reports == 1 &&
-          state.reportedError == ERROR_INVALID_HANDLE,
-          "hypothetical CopyAttrs=true stops after uncertain close without another report", failures);
+    Check(Finish() && state.handleAttributes == 1 && state.pathAttributes == 0 &&
+          state.closes == 1 && state.releases == 1 && state.reports == 0,
+          "CopyAttrs setting failure does not bypass native comparison", failures);
     state = {}; state.scoped = true; state.failAttributes = true; state.failClose = true;
     Check(!Finish() && state.closes == 1 && state.releases == 0 && state.reports == 1 &&
           state.reportedError == ERROR_INVALID_HANDLE && state.pathAttributes == 0,

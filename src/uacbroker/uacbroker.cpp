@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Clear readonly on an identified partial target before cleanup. | Preserve the native CopyAttrs cancellation behavior. | #731 | GPT-6 |
 | 2026-11-14 | Restrict experimental CopyAttrs target read access. | Prepare native attribute handling without widening probes or source access. | #731 | GPT-6 |
 | 2026-11-14 | Check the experimental thin session's idle pipe. | Prepare detection of a broker exit without reading a reply. | #731 | gpt-6.1-terra |
 | 2026-11-14 | Schedule a test-only external broker crash before a thin reply. | Verify duplicated handle lifetime across real process termination. | #731 | gpt-6.1-terra |
@@ -2457,7 +2458,8 @@ DWORD CheckThinScanEvidence(HANDLE file, const ThinScanEvidence& expected)
         UacF7::ArchiveRevision current{};
         const DWORD error = UacZipUpdate::ReadRevision(file, current);
         if (error) return error;
-        if (!UacF7::IsNativePlainCopyFile(current.attributes)) return ERROR_FILE_INVALID;
+        if (!UacF7::IsNativePlainCopyFile(current.attributes) &&
+            !UacF7::IsNativeCompressedCopyFile(current.attributes)) return ERROR_FILE_INVALID;
         return UacF7::SameFileRevision(current, expected.revision) ? ERROR_SUCCESS : ERROR_FILE_INVALID;
     }
     return ERROR_INVALID_PARAMETER;
@@ -2555,6 +2557,18 @@ DWORD DiscardThinOwnedTarget(HANDLE parent, std::wstring_view leaf,
                                                &attributes, sizeof(attributes))) error = GetLastError();
     if (!error && (attributes.FileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)))
         error = ERROR_NOT_SUPPORTED;
+    if (!error && (attributes.FileAttributes & FILE_ATTRIBUTE_READONLY))
+    {
+        HANDLE rawAttributes = nullptr;
+        error = UacRenameLeaf::Detail::OpenFile(deletion.get(), L"", rawAttributes, FILE_WRITE_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, FILE_OPEN, 0);
+        const auto writableAttributes = Adopt(rawAttributes);
+        FILE_BASIC_INFO basic{};
+        basic.FileAttributes = attributes.FileAttributes & ~FILE_ATTRIBUTE_READONLY;
+        if (!basic.FileAttributes) basic.FileAttributes = FILE_ATTRIBUTE_NORMAL;
+        if (!error && !SetFileInformationByHandle(writableAttributes.get(), FileBasicInfo, &basic, sizeof(basic)))
+            error = GetLastError();
+    }
     FILE_DISPOSITION_INFO disposition{TRUE};
     if (!error && !SetFileInformationByHandle(deletion.get(), FileDispositionInfo,
                                              &disposition, sizeof(disposition))) error = GetLastError();
@@ -2826,7 +2840,7 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
 #ifdef SAM_UAC_THIN_COPY_TEST
                     // The original worker reads file data without rejecting NTFS EAs;
                     // authorization still binds the source to its verified parent and ID.
-                    UacF7::nativeCopyAttributes, false);
+                    UacF7::nativeCompressedCopyAttributes, false);
 #else
                     FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE);
 #endif

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Preserve native CopyAttrs handling on scoped file handles. | Reuse the F5 worker for attribute-aware copies. | #731 | GPT-6 |
 // | 2026-11-14 | Preserve the requested archive attribute on scoped completion. | Match native CopyAttrs semantics before enabling the option. | #731 | GPT-6 |
 // | 2026-11-14 | Observe broker loss while paused during F5 completion. | Preserve uncertain targets even when cancellation coincides with disconnection. | #731 | GPT-6 |
 // | 2026-11-14 | Recheck thin-session liveness while finishing an F5 item. | Stop metadata updates after a detected broker loss. | #731 | GPT-6 |
@@ -2889,6 +2890,7 @@ static HANDLE ThinCopyOpenLocalRetry(CThinCopyWorker* context, bool overlapped)
 }
 
 #define THIN_REMEMBER_SOURCE(ctx, file) do { if (ctx) (ctx)->RememberSource((file), true); } while (0)
+#define THIN_SCOPED_TARGET(ctx) ((ctx)->ScopedTarget())
 #define THIN_REMEMBER_TARGET(ctx, file) do { if (ctx) (ctx)->RememberTarget((file), true); } while (0)
 #define THIN_OPEN_SOURCE(ctx, local, overlapped) ThinCopyOpened((ctx), ThinCopyTestDenyOpen((ctx), false) ? ThinCopyTestDeniedHandle() : (local), UacF7::ThinOpenKind::Source, (overlapped), ThinOpenPhase::Initial)
 #define THIN_OPEN_TARGET_CREATE(ctx, local, overlapped) ThinCopyOpened((ctx), (local), UacF7::ThinOpenKind::TargetCreate, (overlapped), ThinOpenPhase::Initial)
@@ -2909,6 +2911,7 @@ static HANDLE ThinCopyOpenLocalRetry(CThinCopyWorker* context, bool overlapped)
         ((ctx) && ((ctx)->request || (ctx)->session) ? (ctx)->RefuseUnsafeTargetCleanup() : (local)))))
 #else
 #define THIN_REMEMBER_SOURCE(ctx, file) ((void)0)
+#define THIN_SCOPED_TARGET(ctx) false
 #define THIN_REMEMBER_TARGET(ctx, file) ((void)0)
 #define THIN_OPEN_SOURCE(ctx, local, overlapped) (local)
 #define THIN_OPEN_SOURCE_RETRY(ctx, local, overlapped) (local)
@@ -5121,13 +5124,21 @@ BOOL SyncOrAsyncDeviceIoControl(CAsyncCopyParams* asyncPar, HANDLE hDevice, DWOR
 }
 
 void SetCompressAndEncryptedAttrs(const char* name, DWORD attr, HANDLE* out, BOOL openAlsoForRead,
-                                  BOOL* encryptionNotSupported, CAsyncCopyParams* asyncPar)
+                                  BOOL* encryptionNotSupported, CAsyncCopyParams* asyncPar, bool scopedTarget = false)
 {
     const std::wstring nameW = WorkerOperationPathW(name);
     if (*out != INVALID_HANDLE_VALUE)
     {
         DWORD err = NO_ERROR;
-        DWORD curAttr = GetFileAttributesW(nameW.c_str());
+        DWORD curAttr = INVALID_FILE_ATTRIBUTES;
+        if (scopedTarget)
+        {
+            FILE_BASIC_INFO basic{};
+            if (GetFileInformationByHandleEx(*out, FileBasicInfo, &basic, sizeof(basic)))
+                curAttr = basic.FileAttributes;
+        }
+        else
+            curAttr = GetFileAttributesW(nameW.c_str());
         if ((curAttr == INVALID_FILE_ATTRIBUTES ||
              (attr & FILE_ATTRIBUTE_COMPRESSED) != (curAttr & FILE_ATTRIBUTE_COMPRESSED)) &&
             (attr & FILE_ATTRIBUTE_COMPRESSED) == 0)
@@ -5140,8 +5151,8 @@ void SetCompressAndEncryptedAttrs(const char* name, DWORD attr, HANDLE* out, BOO
                 TRACE_I("SetCompressAndEncryptedAttrs(): Unable to set Compressed attribute for " << name << "! error=" << GetErrorText(err));
             }
         }
-        if (curAttr == INVALID_FILE_ATTRIBUTES ||
-            (attr & FILE_ATTRIBUTE_ENCRYPTED) != (curAttr & FILE_ATTRIBUTE_ENCRYPTED))
+        if (!scopedTarget && (curAttr == INVALID_FILE_ATTRIBUTES ||
+            (attr & FILE_ATTRIBUTE_ENCRYPTED) != (curAttr & FILE_ATTRIBUTE_ENCRYPTED)))
         { // SalCreateFileEx above likely failed
             err = NO_ERROR;
             HANDLES(CloseHandle(*out)); // close the file; otherwise we cannot change its encrypted attribute
@@ -7415,11 +7426,15 @@ bool CThinCopyWorker::Configure(bool isMove, bool copyADS, bool encrypted)
 {
     // This check performs no allocation or I/O: ordinary copies should not
     // become dependent on preparing an elevation request.
-    active = !isMove && !copyADS && !encrypted && !script.CopyAttrs && !script.CopySecurity &&
+    active = !isMove && !copyADS && !encrypted && !script.CopySecurity &&
+#ifndef SAM_UAC_THIN_REOPEN_PROTOTYPE
+        !script.CopyAttrs &&
+#endif
         !script.IgnoreTransferAds && !script.OverwriteOlder && !script.DeferredTransferTarget &&
         (operation.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) &&
         !(operation.OpFlags & OPFL_AS_ENCRYPTED) && operation.SourceNameWValid &&
-        operation.TargetNameWValid && UacF7::IsNativePlainCopyFile(operation.Attr) &&
+        operation.TargetNameWValid && (UacF7::IsNativePlainCopyFile(operation.Attr) ||
+            (script.CopyAttrs && UacF7::IsNativeCompressedCopyFile(operation.Attr))) &&
         !(script.CopySource && script.CopySource->ElevationDeclined);
     return active;
 }
@@ -7703,10 +7718,18 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
             scan.legacyIndex = dialog.InjectedTargetFileIndex;
         }
     }
-    const auto result = session->Open(progress, *request, kind, overlapped, false,
+    const bool copyAttrsOpen = script.CopyAttrs && (kind == UacF7::ThinOpenKind::TargetCreate ||
+                                                     kind == UacF7::ThinOpenKind::TargetOverwrite);
+    auto result = session->Open(progress, *request, kind, overlapped, copyAttrsOpen,
         (kind == UacF7::ThinOpenKind::TargetRetry || kind == UacF7::ThinOpenKind::TargetReopenWrite) ? &target : nullptr,
         UacF7::ThinOpenedSource{openedSource}, UacF7::ThinCancelEvent{dialog.CancelWorkerEvent},
         scanOverwrite ? &scan : nullptr);
+    // Native CREATE_NEW retries without read access when it was requested
+    // only for attributes. Do not retry a declined or uncertain request.
+    if (copyAttrsOpen && kind == UacF7::ThinOpenKind::TargetCreate &&
+        result.error == ERROR_ACCESS_DENIED && !result.unknown && !result.declined && session->IsOpen())
+        result = session->Open(progress, *request, kind, overlapped, false, nullptr,
+            UacF7::ThinOpenedSource{openedSource}, UacF7::ThinCancelEvent{dialog.CancelWorkerEvent}, nullptr);
     if (!hadStarted && !brokerHandleDelivered && !targetCreatedByBroker &&
         result.preProbeFailure && result.error != ERROR_SUCCESS && result.error != ERROR_CANCELLED &&
         result.file == INVALID_HANDLE_VALUE &&
@@ -8706,7 +8729,7 @@ COPY_AGAIN:
                     if (script->CopyAttrs)
                     {
                         fileAttrs = lossEncryptionAttr ? (op->Attr & ~FILE_ATTRIBUTE_ENCRYPTED) : op->Attr;
-                        SetCompressAndEncryptedAttrs(op->TargetName, fileAttrs, &out, TRUE, NULL, asyncPar);
+                        SetCompressAndEncryptedAttrs(op->TargetName, fileAttrs, &out, TRUE, NULL, asyncPar, THIN_SCOPED_TARGET(&thin));
                     }
 
                     if (out != INVALID_HANDLE_VALUE && (fileAttrs & FILE_ATTRIBUTE_ENCRYPTED))
@@ -9094,6 +9117,10 @@ COPY_AGAIN:
                         script->AddBytesToSpeedMetersAndTFSandPS((DWORD)(COPY_MIN_FILE_SIZE - operationDone).Value, TRUE, 0, NULL, MAX_OP_FILESIZE);
 
                     DWORD attr = op->Attr & clearReadonlyMask;
+#ifdef SAM_UAC_THIN_COPY_TEST
+                    DWORD scopedFinishedAttrs = INVALID_FILE_ATTRIBUTES;
+                    bool scopedFinishedTarget = false;
+#endif
                     if (copyADS) // copy ADS streams if needed
                     {
                         SetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), FILE_ATTRIBUTE_ARCHIVE); // probably unnecessary, it hardly slows copying; reason: the file must not be read-only to work with it
@@ -9192,6 +9219,7 @@ COPY_AGAIN:
                         if (!thin.CheckCompletionConnection(IDS_ERRORCHANGINGATTRS))
                             goto COPY_ERROR;
                         const bool thinScopedAttributes = thin.ScopedTarget();
+                        scopedFinishedTarget = thinScopedAttributes;
                         if (thinScopedAttributes)
                         {
                             // Set metadata on the still-open exact object;
@@ -9202,14 +9230,12 @@ COPY_AGAIN:
                             // displayed attributes and yields NORMAL.
                             basic.FileAttributes = script->CopyAttrs ? (attr ? attr : FILE_ATTRIBUTE_NORMAL) :
                                                                       (attr | FILE_ATTRIBUTE_ARCHIVE);
-                            if (!SetFileInformationByHandle(out, FileBasicInfo, &basic, sizeof(basic)) &&
-                                script->CopyAttrs)
+                            SetFileInformationByHandle(out, FileBasicInfo, &basic, sizeof(basic));
+                            if (script->CopyAttrs)
                             {
-                                const DWORD attributeError = GetLastError();
-                                if (!thin.CloseScopedTarget(out)) return FALSE;
-                                thin.ReleaseTargetPin();
-                                thin.ReportTargetFailure(attributeError, IDS_ERRORCHANGINGATTRS);
-                                return FALSE;
+                                FILE_BASIC_INFO actual{};
+                                if (GetFileInformationByHandleEx(out, FileBasicInfo, &actual, sizeof(actual)))
+                                    scopedFinishedAttrs = actual.FileAttributes;
                             }
                             // For an ordinary copy the original pathname attribute
                             // update below deliberately ignores failure. Preserve
@@ -9266,7 +9292,8 @@ COPY_AGAIN:
                         }
 
 #ifdef SAM_UAC_THIN_COPY_TEST
-                        thin.ReleaseTargetPin();
+                        if (!script->CopyAttrs)
+                            thin.ReleaseTargetPin();
 #endif
 
 #ifdef SAM_UAC_THIN_COPY_TEST
@@ -9278,7 +9305,12 @@ COPY_AGAIN:
                     if (script->CopyAttrs) // verify whether the source file attributes were preserved
                     {
                         DWORD curAttrs;
-                        curAttrs = GetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str());
+#ifdef SAM_UAC_THIN_COPY_TEST
+                        curAttrs = scopedFinishedTarget ? scopedFinishedAttrs :
+#else
+                        curAttrs =
+#endif
+                            GetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str());
                         if (curAttrs == INVALID_FILE_ATTRIBUTES || (curAttrs & DISPLAYED_ATTRIBUTES) != (attr & DISPLAYED_ATTRIBUTES))
                         {                                                              // attributes probably were not preserved, warn the user
                             WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
@@ -9309,13 +9341,19 @@ COPY_AGAIN:
                             {
                             COPY_ERROR_2:
 
-                                WorkerClearReadOnlyW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL)); // the file must not be read-only if it is to be deleted
-                                DeleteFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str());
+                                if (!THIN_SCOPED_TARGET(&thin))
+                                    WorkerClearReadOnlyW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL));
+                                THIN_DELETE_TARGET(&thin, DeleteFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str()));
                                 return FALSE;
                             }
                             }
                         }
                     }
+
+#ifdef SAM_UAC_THIN_COPY_TEST
+                    if (script->CopyAttrs)
+                        thin.ReleaseTargetPin();
+#endif
 
                     if (script->CopySecurity) // should we copy NTFS security permissions?
                     {
@@ -10115,7 +10153,7 @@ COPY_AGAIN:
                                     {
                                         encryptionNotSupported = FALSE;
                                         SetCompressAndEncryptedAttrs(op->TargetName, (!lossEncryptionAttr && copyAsEncrypted ? FILE_ATTRIBUTE_ENCRYPTED : 0) | (script->CopyAttrs ? (op->Attr & (FILE_ATTRIBUTE_COMPRESSED | (lossEncryptionAttr ? 0 : FILE_ATTRIBUTE_ENCRYPTED))) : 0),
-                                                                     &out, script->CopyAttrs, &encryptionNotSupported, asyncPar);
+                                                                     &out, script->CopyAttrs, &encryptionNotSupported, asyncPar, THIN_SCOPED_TARGET(&thin));
                                         if (encryptionNotSupported) // unable to apply the Encrypted attribute, ask the user what to do...
                                         {
                                             if (dlgData.FileOutLossEncrAll)

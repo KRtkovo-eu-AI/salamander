@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Exercise cleanup after readonly attribute completion. | Preserve cancellation of scoped CopyAttrs targets. | #731 | GPT-6 |
 // | 2026-11-14 | Exercise scoped CopyAttrs target access. | Keep read access bound to verified create or overwrite. | #731 | GPT-6 |
 // | 2026-11-14 | Exercise deferred evidence through the dispatcher pipe. | Preserve both native conflict rules at the actual privileged open boundary. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Check both native deferred-conflict evidence forms. | Distinguish legacy identity from the existing full revision comparison. | #731 | gpt-6.1-terra |
@@ -55,6 +56,54 @@ void CheckThinOverwrite(const Directory& source, const Directory& target, const 
         !deep.Open(nested.File(std::wstring(120, L'y') + L"-日").c_str()))
     { Check(false, "prepare long Unicode overwrite parent"); return; }
     Check(deep.path.size() > 260, "overwrite uses actual long Unicode parent");
+
+    {
+        const wchar_t* leaf = L"compressed-source-東.txt";
+        const auto path = source.File(leaf);
+        Check(WriteByte(path, 0x46), "prepare compressed source fixture");
+        auto setting = Adopt(CreateFileW(path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr,
+                                         OPEN_EXISTING, 0, nullptr));
+        USHORT format = COMPRESSION_FORMAT_DEFAULT;
+        DWORD bytes = 0;
+        const bool supported = setting && DeviceIoControl(setting.get(), FSCTL_SET_COMPRESSION,
+            &format, sizeof(format), nullptr, 0, &bytes, nullptr);
+        const DWORD setupError = supported ? ERROR_SUCCESS : GetLastError();
+        setting.reset();
+        if (!supported && (setupError == ERROR_NOT_SUPPORTED || setupError == ERROR_INVALID_FUNCTION))
+            std::printf("SKIP: filesystem does not support file compression (%lu)\n", setupError);
+        else if (!supported) Check(false, "compress source fixture");
+        else
+        {
+            auto identity = Adopt(CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+            FILE_ID_INFO id{};
+            Check(identity && GetFileInformationByHandleEx(identity.get(), FileIdInfo, &id, sizeof(id)),
+                  "capture compressed source identity");
+            identity.reset();
+            JobPipe job; DWORD status = ERROR_GEN_FAILURE; ThinWireReply reply{};
+            const bool opened = job.Open() && job.Thin(source, leaf, id, deep, leaf,
+                Operation::ThinOpenSource, nullptr, false, status, reply, INVALID_HANDLE_VALUE,
+                INVALID_HANDLE_VALUE, false, 28u);
+            auto reader = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+            Check(opened && !status && reader, "scoped source open accepts compressed file");
+            Check(job.Thin(source, leaf, id, deep, leaf, Operation::ThinTargetCreate,
+                nullptr, false, status, reply, reader.get(), INVALID_HANDLE_VALUE, false, 92u) &&
+                !status && reply.value, "CopyAttrs compressed source obtains target handle");
+            const FILE_ID_INFO targetId = reply.target;
+            auto output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+            Check(output && DeviceIoControl(output.get(), FSCTL_SET_COMPRESSION, &format, sizeof(format),
+                nullptr, 0, &bytes, nullptr), "native compression operation uses transferred target handle");
+            FILE_BASIC_INFO basic{};
+            Check(output && GetFileInformationByHandleEx(output.get(), FileBasicInfo, &basic, sizeof(basic)) &&
+                (basic.FileAttributes & FILE_ATTRIBUTE_COMPRESSED), "target handle reports compression");
+            output.reset();
+            Check(job.Thin(source, leaf, id, deep, leaf, Operation::ThinDiscardTarget, &targetId,
+                false, status, reply, INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE, false, 28u) && !status &&
+                IsAbsent(deep.File(leaf)), "remove only the compressed target fixture");
+            reader.reset(); job.Finish();
+        }
+        Check(DeleteFileW(path.c_str()), "remove only the compressed source fixture");
+    }
 
     for (bool asynchronous : {false, true})
     {
@@ -219,6 +268,13 @@ void CheckThinOverwrite(const Directory& source, const Directory& target, const 
                 !status && reply.value, "source attributes do not block approved target creation");
             const FILE_ID_INFO targetId = reply.target;
             auto output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+            if (bits & 1)
+            {
+                FILE_BASIC_INFO basic{};
+                basic.FileAttributes = FILE_ATTRIBUTE_READONLY;
+                Check(output && SetFileInformationByHandle(output.get(), FileBasicInfo, &basic, sizeof(basic)),
+                    "set readonly on the scoped target before cancellation");
+            }
             output.reset();
             Check(job.Thin(source, leaf, identity, deep, leaf, Operation::ThinDiscardTarget,
                 &targetId, false, status, reply, INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE, false, 28u) &&
