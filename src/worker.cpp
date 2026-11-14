@@ -2682,8 +2682,9 @@ static HANDLE ThinCopyOpened(CThinCopyWorker* context, HANDLE local, UacF7::Thin
         {
             if ((context->request || context->session) && !context->ValidateRetriedTarget(local))
             {
+                const DWORD identityError = GetLastError();
                 HANDLES(CloseHandle(local));
-                SetLastError(ERROR_FILE_INVALID);
+                SetLastError(identityError ? identityError : ERROR_GEN_FAILURE);
                 return INVALID_HANDLE_VALUE;
             }
             context->RememberTarget(local, true);
@@ -2691,8 +2692,9 @@ static HANDLE ThinCopyOpened(CThinCopyWorker* context, HANDLE local, UacF7::Thin
         if (kind == UacF7::ThinOpenKind::TargetRetry && context->Scoped() &&
             !context->ValidateRetriedTarget(local))
         {
+            const DWORD identityError = GetLastError();
             HANDLES(CloseHandle(local));
-            SetLastError(ERROR_FILE_INVALID);
+            SetLastError(identityError ? identityError : ERROR_GEN_FAILURE);
             return INVALID_HANDLE_VALUE;
         }
         SetLastError(error);
@@ -7810,7 +7812,13 @@ void CThinCopyWorker::RememberTarget(HANDLE file, bool force)
 bool CThinCopyWorker::ValidateRetriedTarget(HANDLE file)
 {
     UacF7::MoveFileIdentity actual{};
-    if (!targetKnown || !UacF7::CaptureMoveFileIdentity(file, actual))
+    if (!targetKnown)
+    {
+        suppressLocalCleanup = true;
+        SetLastError(ERROR_FILE_INVALID);
+        return false;
+    }
+    if (!UacF7::CaptureMoveFileIdentity(file, actual))
     {
         suppressLocalCleanup = true;
         return false; // Retry may still prove the unchanged recorded object
@@ -7820,6 +7828,7 @@ bool CThinCopyWorker::ValidateRetriedTarget(HANDLE file)
     if (targetContinuityLost || terminal || cleanupUncertain)
     {
         suppressLocalCleanup = true;
+        SetLastError(targetContinuityLost ? ERROR_FILE_INVALID : ERROR_OPERATION_ABORTED);
         return false;
     }
     suppressLocalCleanup = false;

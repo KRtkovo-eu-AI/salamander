@@ -545,7 +545,7 @@ int wmain(int argc, wchar_t** argv) {
         const int beforeClose = closeCalls;
         HANDLE output = ThinCopyOpened(&pending, missingIdentity ? unavailable : changed,
             UacF7::ThinOpenKind::TargetRetry, false, ThinOpenPhase::Retry);
-        Check(output == INVALID_HANDLE_VALUE && GetLastError() == ERROR_FILE_INVALID &&
+        Check(output == INVALID_HANDLE_VALUE && GetLastError() == static_cast<DWORD>(missingIdentity ? ERROR_NOT_SUPPORTED : ERROR_FILE_INVALID) &&
               pending.targetContinuityLost == !missingIdentity && pending.targetKnown &&
               pending.target.id[0] == 1 && pending.suppressLocalCleanup && closeCalls == beforeClose + 1,
               missingIdentity ? "unverifiable pending target is not returned" :
@@ -575,6 +575,10 @@ int wmain(int argc, wchar_t** argv) {
         target.RememberTarget(unavailable, true);
         Check(target.targetKnown && target.target.id[0] == 1 && !target.targetContinuityLost &&
               target.suppressLocalCleanup, "failed target probe retains the original identity", failures);
+        HANDLE failed = ThinCopyOpened(&target, unavailable, UacF7::ThinOpenKind::TargetRetry, true, ThinOpenPhase::Retry);
+        Check(failed == INVALID_HANDLE_VALUE && GetLastError() == ERROR_NOT_SUPPORTED &&
+              target.targetKnown && !target.targetContinuityLost && target.suppressLocalCleanup,
+              started ? "started scope preserves target query error" : "prepared scope preserves target query error", failures);
         HANDLE output = ThinCopyOpened(&target, same, UacF7::ThinOpenKind::TargetRetry, true, ThinOpenPhase::Retry);
         Check(output == same && !target.suppressLocalCleanup && !target.targetContinuityLost,
               started ? "started scope can revalidate its target" : "prepared scope can revalidate its target", failures);
@@ -601,7 +605,7 @@ int wmain(int argc, wchar_t** argv) {
         HANDLE current = same; stopped.sourceHandle = &current;
         Check(!stopped.EnsurePrepared() && GetLastError() == ERROR_OPERATION_ABORTED,
               "matching identity cannot resume terminal or uncertain work", failures);
-        Check(!stopped.ValidateRetriedTarget(same) && stopped.suppressLocalCleanup,
+        Check(!stopped.ValidateRetriedTarget(same) && GetLastError() == ERROR_OPERATION_ABORTED && stopped.suppressLocalCleanup,
               "matching target cannot clear terminal cleanup protection", failures);
     }
     {
