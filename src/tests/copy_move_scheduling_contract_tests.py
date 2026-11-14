@@ -35,6 +35,20 @@ def function_slice(text: str, start: str, end: str) -> str:
 
 def require_target_guard_before_clear(section: str, description: str) -> None:
     """A failed identity check must return before any target mutation."""
+    if description == "copy":
+        marker = 'if (!THIN_VALIDATE_SCAN(&thin, op, dlgData, false))'
+        start = section.find(marker)
+        clear = section.find('WorkerClearReadOnlyW(', start + len(marker))
+        if start < 0 or clear < 0:
+            raise AssertionError('Missing copy identity guard before read-only clearing')
+        guarded = section[start:clear]
+        require(guarded, 'THIN_SCAN_PROBE_ERROR(&thin)', 'copy probe failure handling')
+        require(guarded, 'goto NORMAL_ERROR;', 'copy probe errors do not authorize mutation')
+        require(guarded, 'return ReturnCopyConflictChanged(in, dlgData);',
+                'copy returns changed identity for a new decision and closes its source')
+        if re.search(r'\b(?:WorkerClearReadOnlyW|DeleteFileW|SetFileAttributesW|MoveFileW|MoveFileExW)\s*\(', guarded):
+            raise AssertionError('Target mutation precedes copy read-only clearing')
+        return
     guard = re.search(
         r'if\s*\(!ValidateInjectedTargetIdentity\(op,\s*dlgData\)\)\s*'
         r'\{\s*dlgData\.ConflictTargetChanged\s*=\s*TRUE;\s*return\s+TRUE;\s*\}',
@@ -671,8 +685,44 @@ def main() -> None:
             "authorized overwrite carries scanned identity")
     require(conflict_worker, "GetFileInformationByHandle(out, &openedInfo)",
             "move checks the actual opened target handle")
-    require(conflict_worker, "openedFileIndex != dlgData.InjectedTargetFileIndex",
-            "copy refuses an unexpectedly replaced target")
+    legacy = function_slice(conflict_worker, 'static BOOL ValidateInjectedLegacyIdentity(',
+                            '#ifdef SAM_UAC_THIN_COPY_TEST')
+    require(legacy, 'volume == dialogData.InjectedTargetVolumeSerial && index == dialogData.InjectedTargetFileIndex',
+            'copy validates both parts of the originally scanned identity')
+    thin_scan = function_slice(conflict_worker, 'static BOOL ThinValidateInjectedTarget(',
+                               '#define THIN_VALIDATE_SCAN')
+    require(thin_scan, 'ValidateInjectedLegacyIdentity(operation, dialogData)',
+            'thin copy invokes the ordinary legacy identity check')
+    require(thin_scan, 'info.dwVolumeSerialNumber == dialogData.InjectedTargetVolumeSerial',
+            'protected copy compares the observed volume')
+    require(thin_scan, 'index == dialogData.InjectedTargetFileIndex',
+            'protected copy compares the observed file identity')
+    identity_open = function_slice(conflict_worker,
+        'static BOOL GetParallelFileIdentity(const std::wstring& path, DWORD& volumeSerial,\n                                    ULONGLONG& fileIndex)\n{',
+        'static BOOL GetParallelDirectoryIdentity(')
+    require(identity_open, 'GetFileInformationByHandle(file, &info)',
+            'ordinary identity is obtained from the opened file')
+    require(identity_open, 'info.dwVolumeSerialNumber', 'ordinary identity carries the volume')
+    require(identity_open, 'info.nFileIndexHigh', 'ordinary identity carries the file index')
+    thin_open = function_slice(conflict_worker, 'HANDLE CThinCopyWorker::Open(',
+                               'HANDLE CThinCopyWorker::CancelReceivedHandle(')
+    require(thin_open, 'scan.legacyVolume = dialog.InjectedTargetVolumeSerial;',
+            'protected overwrite forwards the scanned volume')
+    require(thin_open, 'scan.legacyIndex = dialog.InjectedTargetFileIndex;',
+            'protected overwrite forwards the scanned file index')
+    broker_worker = (ROOT / 'src/uacbroker/uacbroker.cpp').read_text(encoding='utf-8-sig')
+    broker_check = function_slice(broker_worker, 'DWORD CheckThinScanEvidence(', 'DWORD OpenThinOverwriteTarget(')
+    require(broker_check, 'GetFileInformationByHandle(file, &current)',
+            'broker checks scanned identity on the actual opened target')
+    require(broker_check, 'current.dwVolumeSerialNumber == expected.legacyVolume && index == expected.legacyIndex',
+            'broker compares both parts of the scanned identity')
+    broker_open = function_slice(broker_worker, 'DWORD OpenThinOverwriteTarget(', 'DWORD DiscardThinOwnedTarget(')
+    checked = broker_open.index('CheckThinScanEvidence(anchor.get(), *scan)')
+    if checked >= broker_open.index('SetFileInformationByHandle(') or checked >= broker_open.index('FILE_OVERWRITE'):
+        raise AssertionError('Broker mutates the target before checking scanned identity')
+    copy_body = function_slice(conflict_worker, 'BOOL DoCopyFile(', 'BOOL DoMoveFile(')
+    require(copy_body, 'THIN_VALIDATE_SCAN(&thin, op, dlgData, true)',
+            'copy checks the original identity before replacing the target')
     require(fileswn6, "type == atMove && script->CopyMoveConflictMode == CMCM_SCAN_AHEAD",
             "scan-ahead disables whole-directory fast move generation")
     require(fileswn6, "fastDirectoryMove = FALSE",
