@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Verify scoped CopyAttrs preserves the archive bit. | Match the original attribute selection. | #731 | GPT-6 |
 // | 2026-11-14 | Exercise loss before scoped attribute completion. | Prevent further metadata writes after a detected broken session. | #731 | GPT-6 |
 // | 2026-11-14 | Model native target attribute completion. | Preserve normal pathname behavior for a locally overwritten target. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise actual scoped F5 completion branch. | Compare attribute failures with the ordinary worker path. | #731 | GPT-6 |
@@ -18,7 +19,7 @@ constexpr int IDB_SKIPALL = 300, IDB_SKIP = 301;
 struct TestState {
     bool scoped = false, nativeTarget = false, copyAttrs = false, failAttributes = false, failClose = false, failScopedClose = false, connectionLost = false;
     int handleAttributes = 0, pathAttributes = 0, closes = 0, releases = 0, reports = 0;
-    DWORD passedAttributes = 0, reportedError = 0;
+    DWORD passedAttributes = 0, reportedError = 0, sourceAttributes = FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_READONLY;
     HANDLE attributesHandle = nullptr;
 } state;
 struct TestScript { BOOL CopyAttrs = FALSE; };
@@ -75,7 +76,7 @@ static LRESULT MockSendMessage(HWND, UINT, WPARAM, LPARAM) { return 0; }
 static BOOL Finish()
 {
     HANDLE out = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(1));
-    DWORD attr = FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_READONLY;
+    DWORD attr = state.sourceAttributes;
     TestScript object; object.CopyAttrs = state.copyAttrs; TestScript* script = &object;
     TestOperation operation; TestOperation* op = &operation;
     TestThin thin;
@@ -129,6 +130,17 @@ int main()
               attributeFailure ? "native ordinary attribute failure is ignored" :
                                  "native ordinary attributes use the existing path", failures);
     }
+    state = {}; state.scoped = true; state.copyAttrs = true;
+    Check(Finish() && state.handleAttributes == 1 && state.pathAttributes == 0 &&
+          state.passedAttributes == (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_READONLY) &&
+          state.closes == 1 && state.releases == 1 && state.reports == 0,
+          "hypothetical CopyAttrs=true keeps archive clear on the scoped target", failures);
+    state = {}; state.scoped = true; state.copyAttrs = true; state.sourceAttributes = FILE_ATTRIBUTE_ARCHIVE;
+    Check(Finish() && state.passedAttributes == FILE_ATTRIBUTE_ARCHIVE && state.reports == 0,
+          "hypothetical CopyAttrs=true keeps archive set on the scoped target", failures);
+    state = {}; state.scoped = true; state.copyAttrs = true; state.sourceAttributes = 0;
+    Check(Finish() && state.passedAttributes == FILE_ATTRIBUTE_NORMAL && state.reports == 0,
+          "hypothetical zero attributes clear archive rather than leave it unchanged", failures);
     state = {}; state.scoped = true; state.failAttributes = true; state.copyAttrs = true;
     Check(!Finish() && state.handleAttributes == 1 && state.pathAttributes == 0 &&
           state.closes == 1 && state.releases == 1 && state.reports == 1 &&

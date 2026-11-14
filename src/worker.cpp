@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Preserve the requested archive attribute on scoped completion. | Match native CopyAttrs semantics before enabling the option. | #731 | GPT-6 |
 // | 2026-11-14 | Observe broker loss while paused during F5 completion. | Preserve uncertain targets even when cancellation coincides with disconnection. | #731 | GPT-6 |
 // | 2026-11-14 | Recheck thin-session liveness while finishing an F5 item. | Stop metadata updates after a detected broker loss. | #731 | GPT-6 |
 // | 2026-11-14 | Preserve scoped partial targets after terminal session loss. | Do not truncate broker-owned data when cleanup can no longer be verified. | #731 | GPT-6 |
@@ -9196,7 +9197,11 @@ COPY_AGAIN:
                             // Set metadata on the still-open exact object;
                             // never follow the pathname after closing it.
                             FILE_BASIC_INFO basic{};
-                            basic.FileAttributes = attr | FILE_ATTRIBUTE_ARCHIVE;
+                            // Zero means "leave unchanged" for FileBasicInfo,
+                            // while SetFileAttributesW(path, 0) clears the
+                            // displayed attributes and yields NORMAL.
+                            basic.FileAttributes = script->CopyAttrs ? (attr ? attr : FILE_ATTRIBUTE_NORMAL) :
+                                                                      (attr | FILE_ATTRIBUTE_ARCHIVE);
                             if (!SetFileInformationByHandle(out, FileBasicInfo, &basic, sizeof(basic)) &&
                                 script->CopyAttrs)
                             {
