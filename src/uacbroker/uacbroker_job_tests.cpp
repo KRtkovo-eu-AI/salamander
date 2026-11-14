@@ -2840,6 +2840,13 @@ void CheckPlannedTreeThinJob(const Directory& source, const Directory& target, c
 #endif
 
 #if defined(SAM_UAC_CLIENT_PIPE_HARNESS) && defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_PLANNED_PROTOTYPE)
+#ifdef SAM_UAC_LOOP_LINK_HARNESS
+extern "C" BOOL RunLinkedNativeSyncLoop(HANDLE, HANDLE, const wchar_t*, const wchar_t*, void*, DWORD (*)(void*));
+static DWORD LinkedThinCheck(void* context)
+{
+    return static_cast<UacF7::ThinCopySession*>(context)->CheckTransport();
+}
+#endif
 void CheckThinClientPlannedTree(const Directory& source, const Directory& target)
 {
     constexpr wchar_t root[] = L"client-planned-\u6771";
@@ -2965,9 +2972,17 @@ void CheckThinClientPlannedTree(const Directory& source, const Directory& target
                                    nullptr, UacF7::ThinOpenedSource{input.get()});
     auto output = Adopt(created.file);
     count = 0;
+#ifdef SAM_UAC_LOOP_LINK_HARNESS
+    LARGE_INTEGER zero{};
+    const bool targetCreated = !created.error && !created.unknown && output &&
+        SetFilePointerEx(input.get(), zero, nullptr, FILE_BEGIN) &&
+        RunLinkedNativeSyncLoop(input.get(), output.get(), sourceFile.c_str(), targetFile.c_str(), &thin, LinkedThinCheck);
+    Check(targetCreated, "native synchronous loop copies using actual client and dispatcher handles");
+#else
     const bool targetCreated = !created.error && !created.unknown && output &&
         WriteFile(output.get(), &value, 1, &count, nullptr) && count == 1;
     Check(targetCreated, "create and write the target through the real client on that pipe");
+#endif
     if (!targetCreated) return;
     output.reset();
     const bool released = thin.ReleaseTarget(request, created.targetIdentity) == ERROR_SUCCESS;

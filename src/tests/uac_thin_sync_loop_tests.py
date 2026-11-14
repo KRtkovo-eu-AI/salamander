@@ -15,15 +15,7 @@ import tempfile
 from safe_file_paths_tests import ROOT, compiler_environment, run
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--configuration', choices=('Debug', 'Release'), default='Debug')
-    config = parser.parse_args().configuration
-    worker_path = ROOT / 'src/worker.cpp'
-    header_path = ROOT / 'src/worker.h'
-    before = {p: hashlib.sha256(p.read_bytes()).hexdigest() for p in (worker_path, header_path)}
-    worker = worker_path.read_text(encoding='utf-8-sig')
-    header = header_path.read_text(encoding='utf-8-sig')
+def build_source(worker, header):
     def section(start, end):
         begin = worker.index(start)
         return worker[begin:worker.index(end, begin)]
@@ -38,6 +30,17 @@ def main():
             .replace('@@LOOP@@', section('void DoCopyFileLoopOrig(', 'enum CCopy_BlkState')))
     if '@@' in code:
         raise RuntimeError('unexpanded test placeholder')
+    return code
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--configuration', choices=('Debug', 'Release'), default='Debug')
+    config = parser.parse_args().configuration
+    worker_path = ROOT / 'src/worker.cpp'
+    header_path = ROOT / 'src/worker.h'
+    before = {p: hashlib.sha256(p.read_bytes()).hexdigest() for p in (worker_path, header_path)}
+    code = build_source(worker_path.read_text(encoding='utf-8-sig'), header_path.read_text(encoding='utf-8-sig'))
     env = compiler_environment()
     compiler = shutil.which('cl', path=env.get('PATH'))
     if not compiler:

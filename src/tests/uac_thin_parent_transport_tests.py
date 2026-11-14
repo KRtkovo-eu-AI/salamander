@@ -19,6 +19,7 @@ import shutil
 import tempfile
 
 from safe_file_paths_tests import ROOT, compiler_environment, run
+from uac_thin_sync_loop_tests import build_source as build_sync_loop_source
 
 
 def main():
@@ -36,15 +37,18 @@ def main():
     crash_mode.add_argument('--client-external-lost-budget-only', action='store_true')
     crash_mode.add_argument('--client-connection-only', action='store_true')
     crash_mode.add_argument('--client-planned-only', action='store_true')
+    crash_mode.add_argument('--client-planned-loop-only', action='store_true')
     args = parser.parse_args()
     env = compiler_environment()
     compiler = shutil.which('cl', path=env.get('PATH'))
     flags = ('/MTd', '/Od', '/D_DEBUG') if args.configuration == 'Debug' else ('/MT', '/O2', '/DNDEBUG')
-    client_mode = args.client_reopen_only or args.client_lost_budget_only or args.client_external_lost_budget_only or args.client_connection_only or args.client_planned_only
+    client_mode = args.client_reopen_only or args.client_lost_budget_only or args.client_external_lost_budget_only or args.client_connection_only or args.client_planned_only or args.client_planned_loop_only
     if args.owned_cleanup_only or client_mode or args.overwrite_only or args.lost_reply_only or args.external_lost_reply_only:
         flags += ('/DSAM_UAC_THIN_REOPEN_PROTOTYPE',)
     if client_mode:
         flags += ('/DSAM_UAC_CLIENT_PIPE_HARNESS', '/DSAM_UAC_THIN_PLANNED_PROTOTYPE')
+    if args.client_planned_loop_only:
+        flags += ('/DSAM_UAC_LOOP_LINK_HARNESS', '/wd4201')
     if args.client_lost_budget_only or args.client_external_lost_budget_only:
         flags += ('/DSAM_UAC_THIN_HANDOFF_TEST_CAP=3',)
     with tempfile.TemporaryDirectory(prefix='uac-thin-parent-') as temp:
@@ -57,6 +61,12 @@ def main():
                               f'#include "{(ROOT / "src/uacbroker/uacbroker.cpp").as_posix()}"\n',
                               encoding='utf-8')
             sources.append(str(client))
+            if args.client_planned_loop_only:
+                worker = (ROOT / 'src/worker.cpp').read_text(encoding='utf-8-sig')
+                header = (ROOT / 'src/worker.h').read_text(encoding='utf-8-sig')
+                loop = Path(temp) / 'native_sync_loop.cpp'
+                loop.write_text(build_sync_loop_source(worker, header), encoding='utf-8')
+                sources.append(str(loop))
         try:
             if client_mode:
                 # PreparedTransfer pins the named host/broker pair even when
@@ -97,7 +107,7 @@ def main():
                 command.append('--thin-client-external-lost-budget-only')
             if args.client_connection_only:
                 command.append('--thin-client-connection-only')
-            if args.client_planned_only:
+            if args.client_planned_only or args.client_planned_loop_only:
                 command.append('--thin-client-planned-only')
             return run(command, cwd=temp, env=env, timeout=25).returncode
         finally:

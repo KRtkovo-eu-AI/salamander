@@ -56,7 +56,11 @@ static bool failConnectionAfterWrite = false;
 struct CThinCopyWorker {
     bool terminal = false;
     unsigned reports = 0;
-    DWORD CheckTransferConnection() const { return failConnectionAfterWrite && writes ? ERROR_BROKEN_PIPE : ERROR_SUCCESS; }
+    void* sessionContext = nullptr;
+    DWORD (*sessionCheck)(void*) = nullptr;
+    DWORD CheckTransferConnection() const {
+        return sessionCheck ? sessionCheck(sessionContext) : failConnectionAfterWrite && writes ? ERROR_BROKEN_PIPE : ERROR_SUCCESS;
+    }
     bool ScopedTarget() const { return false; }
     bool CloseScopedTarget(HANDLE& h) { const BOOL result = CloseHandle(h); h = nullptr; return result != FALSE; }
     void ReportTransferLoss(DWORD, int) { ++reports; }
@@ -91,6 +95,26 @@ static BOOL TestWrite(HANDLE h, LPCVOID b, DWORD n, LPDWORD w, LPOVERLAPPED o) {
 #define THIN_DELETE_TARGET(ctx, local) (local)
 @@LOOP@@
 
+#ifdef SAM_UAC_LOOP_LINK_HARNESS
+extern "C" BOOL RunLinkedNativeSyncLoop(HANDLE input, HANDLE output, const wchar_t* source, const wchar_t* target,
+                                        void* context, DWORD (*check)(void*))
+{
+    BOOL cancel = FALSE, error = FALSE, skipped = FALSE, again = FALSE;
+    HANDLE resumed = CreateEventW(nullptr, TRUE, TRUE, nullptr);
+    if (!resumed) return FALSE;
+    CProgressDlgData dialog{&cancel, resumed, nullptr};
+    COperation op{}; op.SourceNameW = source; op.TargetNameW = target; op.Size = CQuadWord(1);
+    COperations script; script.TotalSize = op.Size;
+    CQuadWord done, total, size(1);
+    int limit = 1024, alloc = 0; BYTE buffer[1024]{};
+    CThinCopyWorker thin; thin.sessionContext = context; thin.sessionCheck = check;
+    writes = dialogCount = 0; injectFault = didFault = failConnectionAfterWrite = false;
+    DoCopyFileLoopOrig(input, output, buffer, limit, &script, dialog, FALSE, &op, total, error, skipped,
+                       nullptr, done, size, sizeof(buffer), alloc, again, &thin);
+    CloseHandle(resumed);
+    return !error && !skipped && !again && !thin.reports && done.Value == 1 && dialogCount == 0;
+}
+#else
 static int failures = 0;
 static void Check(bool ok, const char* label) { std::printf("%s %s\n", ok ? "PASS" : "FAIL", label); if (!ok) ++failures; }
 struct HandleReceipt { ULONG_PTR input = 0, output = 0; DWORD error = ERROR_SUCCESS; };
@@ -221,3 +245,4 @@ int wmain(int argc, wchar_t** argv)
     Check(DeleteFileW(source.c_str()) && DeleteFileW(target.c_str()), "remove only test fixtures");
     return failures ? 1 : 0;
 }
+#endif
