@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Test native preallocation fallback with a scoped source. | Preserve the original local destination flow. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Model native target routing. | Keep scoped preallocation tests aligned with worker ownership. | #731 | GPT-6 |
 // | 2026-11-14 | Exercise terminal warnings for uncertain cleanup. | Preserve the path and reason while explaining an unconfirmed copy. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise failed preallocation recovery on exact scoped targets. | Verify safe reuse and fail-closed handling without pathname deletion. | #731 | GPT-6 |
@@ -73,7 +74,7 @@ struct FakeSession { void Close() { ++state.closedSessions; } };
 struct CThinCopyWorker {
     FakeDialog& dialog;
     bool terminal = false, suppressLocalCleanup = false, targetCreatedByBroker = false, dataTransferStarted = false;
-    bool cleanupUncertain = false, nativeTargetOverwrite = false;
+    bool cleanupUncertain = false, nativeTargetOverwrite = false, nativeTargetCreated = false;
     FakeSession sessionValue;
     FakeSession* session = &sessionValue;
     void* request = nullptr;
@@ -81,7 +82,8 @@ struct CThinCopyWorker {
     Operation operation;
     bool Scoped() const { return state.scoped; }
     bool NativeOverwrite() const { return nativeTargetOverwrite && !targetCreatedByBroker && !cleanupUncertain && !suppressLocalCleanup; }
-    bool ScopedTarget() const { return Scoped() && !NativeOverwrite(); }
+    bool NativeTarget() const { return !targetCreatedByBroker && (nativeTargetCreated || NativeOverwrite()); }
+    bool ScopedTarget() const { return Scoped() && !NativeTarget(); }
     bool CancelBeforeElevation();
     bool ReportTargetFailure(DWORD error, int caption = IDS_ERRORDELETINGFILE);
     bool CloseScopedTarget(HANDLE& file) {
@@ -332,6 +334,20 @@ int wmain(int argc, wchar_t** argv)
         Check(result == BranchResult::Reopen && skip && state.pathDeletes == 1 && !state.scopedCloses &&
               ::GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES,
               "ordinary path retains delete-and-recreate behavior", failures);
+        if (in) ::CloseHandle(in);
+        if (event) ::CloseHandle(event);
+    }
+    {
+        const std::wstring path = root + L"\\target-" + std::to_wstring(sequence++) + L".bin";
+        HANDLE out = CreateTarget(path, false); BOOL cancel = FALSE;
+        HANDLE event = ::CreateEventW(nullptr, TRUE, FALSE, nullptr); HANDLE in = ::CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        state = {}; state.scoped = true; state.expectedTarget = out;
+        FakeDialog dialog{&cancel, event}; CThinCopyWorker thin{dialog}; thin.nativeTargetCreated = true;
+        BOOL skip = FALSE;
+        const auto result = out != INVALID_HANDLE_VALUE && event && in ? RunBranch(out, in, path, skip, thin) : BranchResult::Error;
+        Check(result == BranchResult::Reopen && skip && state.pathDeletes == 1 && !state.scopedCloses &&
+              ::GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES,
+              "native target retains ordinary preallocation fallback under source scope", failures);
         if (in) ::CloseHandle(in);
         if (event) ::CloseHandle(event);
     }

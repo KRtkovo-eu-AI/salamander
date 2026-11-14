@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Model locally created native targets. | Keep extracted cleanup tests aligned with worker routing. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Test cancellation of a write-only reopened target. | Keep the owned-target cleanup path identical to Retry. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Cover cancellation of an overwrite handle. | Verify that owned partial targets follow the existing cleanup path. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Test native overwrite cleanup routing. | Preserve normal deletion only for unprivileged targets. | #731 | GPT-6 |
@@ -90,10 +91,11 @@ struct CThinCopyWorker {
     std::unique_ptr<int> request;
     int target = 0;
     bool active = true, cleanupUncertain = false, terminal = false;
-    bool targetCreatedByBroker = false, targetKnown = false, suppressLocalCleanup = false, nativeTargetOverwrite = false;
+    bool targetCreatedByBroker = false, targetKnown = false, suppressLocalCleanup = false, nativeTargetOverwrite = false, nativeTargetCreated = false;
     explicit CThinCopyWorker(BOOL* cancelled) : operation{const_cast<char*>("fixture")}, dialog{cancelled} { currentCancellation = cancelled; }
     bool Scoped() const { return active && session != nullptr; }
     bool NativeOverwrite() const { return nativeTargetOverwrite && !targetCreatedByBroker && !cleanupUncertain && !suppressLocalCleanup; }
+    bool NativeTarget() const { return !targetCreatedByBroker && (nativeTargetCreated || NativeOverwrite()); }
     HANDLE SimulateOpenResult(FakeResult result);
     HANDLE CancelReceivedHandle(UacF7::ThinOpenKind kind, HANDLE received, DWORD reason = ERROR_CANCELLED);
     bool ReportTargetFailure(DWORD error, int caption = IDS_ERRORDELETINGFILE);

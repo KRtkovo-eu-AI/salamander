@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Preserve native handling of locally created targets. | Elevated source access must not restrict ordinary target Retry or cleanup. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Check the thin job between native copy operations. | Stop after detected broker loss and drain issued async I/O. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Probe inaccessible Scan Ahead targets through the approved job. | Reach the native conflict path without treating access denial as a replacement. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Recheck Scan Ahead evidence after UAC consent. | Preserve native deferred overwrite decisions without a general revision check. | #731 | gpt-6.1-terra |
@@ -2438,6 +2439,7 @@ struct CThinCopyWorker
     // Existing targets remain under the worker's ordinary token; this does
     // not authorize mutation of a broker-created or uncertain target.
     bool nativeTargetOverwrite = false;
+    bool nativeTargetCreated = false;
     bool dataTransferStarted = false;
     bool suppressLocalCleanup = false;
     bool cleanupUncertain = false;
@@ -2526,7 +2528,8 @@ struct CThinCopyWorker
         return Scoped() && brokerHandleDelivered ? session->CheckTransport() : ERROR_SUCCESS;
     }
     bool NativeOverwrite() const { return nativeTargetOverwrite && !targetCreatedByBroker && !cleanupUncertain && !suppressLocalCleanup; }
-    bool ScopedTarget() const { return Scoped() && !NativeOverwrite(); }
+    bool NativeTarget() const { return !targetCreatedByBroker && (nativeTargetCreated || NativeOverwrite()); }
+    bool ScopedTarget() const { return Scoped() && !NativeTarget(); }
     bool ReportTargetFailure(DWORD error, int caption = IDS_ERRORDELETINGFILE);
     bool CloseScopedTarget(HANDLE& file);
     bool RefuseUnsafeTargetCleanup();
@@ -2606,6 +2609,8 @@ static HANDLE ThinCopyOpened(CThinCopyWorker* context, HANDLE local, UacF7::Thin
     const DWORD error = GetLastError();
     if (!context)
         return local;
+    if (context->active && kind == UacF7::ThinOpenKind::TargetCreate)
+        context->nativeTargetCreated = local != INVALID_HANDLE_VALUE;
     if (local != INVALID_HANDLE_VALUE)
     {
         if (kind == UacF7::ThinOpenKind::Source)
@@ -2788,7 +2793,7 @@ static HANDLE ThinCopyOpenLocalRetry(CThinCopyWorker* context, bool overlapped)
 #define THIN_OPEN_TARGET_OVERWRITE(ctx, local, overlapped) ThinCopyOpened((ctx), (local), UacF7::ThinOpenKind::TargetOverwrite, (overlapped), ThinOpenPhase::Initial)
 #define THIN_OPEN_SOURCE_RETRY(ctx, local, overlapped) ThinCopyOpened((ctx), ThinCopyTestDenyReopen((ctx), false) ? ThinCopyTestDeniedHandle() : (local), UacF7::ThinOpenKind::Source, (overlapped), ThinOpenPhase::Retry)
 #define THIN_OPEN_TARGET_RETRY(ctx, local, overlapped) \
-    ((ctx) && (ctx)->NativeOverwrite() ? (local) : \
+    ((ctx) && (ctx)->NativeTarget() ? (local) : \
     ((ctx) && (ctx)->targetCreatedByBroker ? \
         ThinCopyOpenRetry((ctx), (overlapped)) : \
         ((ctx) && ((ctx)->request || (ctx)->session) ? ThinCopyOpenLocalRetry((ctx), (overlapped)) : \
@@ -2796,7 +2801,7 @@ static HANDLE ThinCopyOpenLocalRetry(CThinCopyWorker* context, bool overlapped)
 #define THIN_OPEN_TARGET_PROBE(ctx, local) ThinCopyOpened((ctx), (local), UacF7::ThinOpenKind::TargetProbe, false, ThinOpenPhase::Probe)
 #define THIN_TARGET_ATTRIBUTES(ctx, local, attempted) ThinCopyTargetAttributes((ctx), (local), (attempted))
 #define THIN_DELETE_TARGET(ctx, local) \
-    ((ctx) && (ctx)->NativeOverwrite() ? (local) : \
+    ((ctx) && (ctx)->NativeTarget() ? (local) : \
     ((ctx) && (ctx)->suppressLocalCleanup ? (ctx)->RefuseUnsafeTargetCleanup() : \
         ((ctx) && (ctx)->targetCreatedByBroker ? (ctx)->DiscardTarget() : \
         ((ctx) && ((ctx)->request || (ctx)->session) ? (ctx)->RefuseUnsafeTargetCleanup() : (local)))))
@@ -7499,7 +7504,7 @@ bool CThinCopyWorker::RememberSource(HANDLE file, bool force)
 
 void CThinCopyWorker::RememberTarget(HANDLE file, bool force)
 {
-    if (active && file && file != INVALID_HANDLE_VALUE && !targetCreatedByBroker && !NativeOverwrite() &&
+    if (active && file && file != INVALID_HANDLE_VALUE && !targetCreatedByBroker && !NativeTarget() &&
         (force || request))
     {
         UacF7::MoveFileIdentity actual{};

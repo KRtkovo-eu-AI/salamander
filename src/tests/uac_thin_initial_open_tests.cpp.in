@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Test a native target with an elevated source session. | Preserve ordinary retry and local cleanup. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Test real Scan Ahead fallback over actual metadata handles. | Check denied probes and cancellation without changing target content. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Test protected target attribute fallback. | Preserve the native hidden and system confirmation without requesting file contents. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Include overwrite in the thin-open fixture. | Exercise the new worker target role. | #731 | gpt-6.1-terra |
@@ -85,7 +86,7 @@ struct CThinCopyWorker {
     bool active = true, terminal = false, scanProbeError = false, earlierSourceRequired = false, earlierSourceKnown = false, sourceVerified = true;
     bool sourceContinuityLost = false, targetContinuityLost = false;
     bool scopeMayHaveStarted = false, targetKnown = false, suppressLocalCleanup = false;
-    bool targetCreatedByBroker = false, nativeTargetOverwrite = false, cleanupUncertain = false;
+    bool targetCreatedByBroker = false, nativeTargetOverwrite = false, nativeTargetCreated = false, cleanupUncertain = false;
     int openCalls = 0, refusedCleanup = 0;
     UacF7::ThinOpenKind lastKind = UacF7::ThinOpenKind::Source;
     bool lastOverlapped = false;
@@ -109,6 +110,7 @@ struct CThinCopyWorker {
     bool DiscardTarget() { return false; }
     bool Scoped() const { return active && session != nullptr && scopeMayHaveStarted; }
     bool NativeOverwrite() const { return nativeTargetOverwrite && !targetCreatedByBroker && !cleanupUncertain && !suppressLocalCleanup; }
+    bool NativeTarget() const { return !targetCreatedByBroker && (nativeTargetCreated || NativeOverwrite()); }
 };
 static BOOL RealClose(HANDLE file) { return CloseHandle(file); }
 static int closeCalls = 0;
@@ -657,6 +659,30 @@ int wmain(int argc, wchar_t** argv) {
               "native target Retry uses ordinary OPEN_ALWAYS without broker", failures);
         if (output != INVALID_HANDLE_VALUE) Check(RealClose(output) != FALSE, "close native retry target", failures);
         Check(DeleteFileW(path.c_str()) != FALSE, "remove native retry target", failures);
+    }
+    {
+        CThinCopyWorker native; native.dialog.CancelWorker = &cancelled;
+        native.request = std::make_unique<UacF7::PreparedTransfer>();
+        native.session = &existing; native.scopeMayHaveStarted = true;
+        const std::wstring path = fixture + L"\\native-created-target.txt";
+        HANDLE created = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+        created = ThinCopyOpened(&native, created, UacF7::ThinOpenKind::TargetCreate, false, ThinOpenPhase::Initial);
+        Check(created != INVALID_HANDLE_VALUE && native.NativeTarget() && !native.targetKnown && !native.openCalls,
+              "locally created target remains native with elevated source session", failures);
+        if (created != INVALID_HANDLE_VALUE) RealClose(created);
+        Check(DeleteFileW(path.c_str()) != FALSE, "remove native target before retry", failures);
+        int localAttempts = 0;
+        HANDLE retried = THIN_OPEN_TARGET_RETRY(&native,
+            (++localAttempts, CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, OPEN_ALWAYS,
+                                          FILE_ATTRIBUTE_NORMAL, nullptr)), false);
+        Check(retried != INVALID_HANDLE_VALUE && localAttempts == 1 && !native.openCalls,
+              "locally created target Retry keeps native OPEN_ALWAYS", failures);
+        if (retried != INVALID_HANDLE_VALUE) RealClose(retried);
+        native.cleanupUncertain = true;
+        Check(THIN_DELETE_TARGET(&native, DeleteFileW(path.c_str())) && !native.refusedCleanup,
+              "native target cleanup remains local after session failure", failures);
+        native.targetCreatedByBroker = true;
+        Check(!native.NativeTarget(), "broker-created target cannot inherit native cleanup", failures);
     }
     {
         CThinCopyWorker pending; pending.dialog.CancelWorker = &cancelled;
