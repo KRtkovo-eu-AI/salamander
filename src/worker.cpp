@@ -8313,6 +8313,17 @@ struct MoveCopyReceipt
     bool captured = false;
 };
 
+// Scan Ahead retries this operation after a conflict changes. Release the
+// source first, including a handle delegated by the elevated helper.
+static BOOL ReturnCopyConflictChanged(HANDLE& input, CProgressDlgData& dialog)
+{
+    if (input && input != INVALID_HANDLE_VALUE)
+        HANDLES(CloseHandle(input));
+    input = NULL;
+    dialog.ConflictTargetChanged = TRUE;
+    return TRUE;
+}
+
 BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
                 COperations* script, CQuadWord& totalDone,
                 DWORD clearReadonlyMask, BOOL* skip, BOOL lantasticCheck,
@@ -9358,9 +9369,7 @@ COPY_AGAIN:
                                 }
                                 goto NORMAL_ERROR;
                             }
-                            HANDLES(CloseHandle(in));
-                            dlgData.ConflictTargetChanged = TRUE;
-                            return TRUE;
+                            return ReturnCopyConflictChanged(in, dlgData);
                         }
                         if (targetExists || canElevateOverwrite)
                         {
@@ -9555,10 +9564,7 @@ COPY_AGAIN:
                                         }
                                         goto NORMAL_ERROR;
                                     }
-                                    HANDLES(CloseHandle(in));
-                                    in = NULL;
-                                    dlgData.ConflictTargetChanged = TRUE;
-                                    return TRUE;
+                                    return ReturnCopyConflictChanged(in, dlgData);
                                 }
                             }
                             if (attr != INVALID_FILE_ATTRIBUTES && (attr & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)))
@@ -9653,8 +9659,7 @@ COPY_AGAIN:
                                             }
                                             goto NORMAL_ERROR;
                                         }
-                                        dlgData.ConflictTargetChanged = TRUE;
-                                        return TRUE;
+                                        return ReturnCopyConflictChanged(in, dlgData);
                                     }
                                     BOOL chAttr = WorkerClearReadOnlyW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL), attr);
 
@@ -9736,8 +9741,7 @@ COPY_AGAIN:
                                                 }
                                                 goto NORMAL_ERROR;
                                             }
-                                            dlgData.ConflictTargetChanged = TRUE;
-                                            return TRUE;
+                                            return ReturnCopyConflictChanged(in, dlgData);
                                         }
                                         chAttr = SetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), 0);
                                         if (chAttr)
@@ -9760,8 +9764,7 @@ COPY_AGAIN:
                                             }
                                             goto NORMAL_ERROR;
                                         }
-                                        dlgData.ConflictTargetChanged = TRUE;
-                                        return TRUE;
+                                        return ReturnCopyConflictChanged(in, dlgData);
                                     }
 #ifdef SAM_UAC_THIN_COPY_TEST
                                     if (thin.active && !thin.targetCreatedByBroker)
@@ -9777,10 +9780,7 @@ COPY_AGAIN:
                                             err = GetLastError();
                                             if (err == ERROR_REVISION_MISMATCH && dlgData.ConflictDecisionInjected)
                                             {
-                                                HANDLES(CloseHandle(in));
-                                                in = NULL;
-                                                dlgData.ConflictTargetChanged = TRUE;
-                                                return TRUE;
+                                                return ReturnCopyConflictChanged(in, dlgData);
                                             }
                                             if (thin.terminal)
                                             {
@@ -9805,8 +9805,7 @@ COPY_AGAIN:
                                                 }
                                                 goto NORMAL_ERROR;
                                             }
-                                            dlgData.ConflictTargetChanged = TRUE;
-                                            return TRUE;
+                                            return ReturnCopyConflictChanged(in, dlgData);
                                         }
                                         // The target disk may reject creation with the requested encryption attributes.
                                         out = HANDLES_Q(CreateFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), access, 0, NULL, CREATE_ALWAYS, asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN, NULL));
@@ -9826,8 +9825,7 @@ COPY_AGAIN:
                                                 }
                                                 goto NORMAL_ERROR;
                                             }
-                                            dlgData.ConflictTargetChanged = TRUE;
-                                            return TRUE;
+                                            return ReturnCopyConflictChanged(in, dlgData);
                                         }
                                         out = HANDLES_Q(CreateFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), access, 0, NULL, CREATE_ALWAYS, fileAttrs, NULL));
                                         if (out == INVALID_HANDLE_VALUE && fileAttrs != (asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN))
@@ -9844,8 +9842,7 @@ COPY_AGAIN:
                                                     }
                                                     goto NORMAL_ERROR;
                                                 }
-                                                dlgData.ConflictTargetChanged = TRUE;
-                                                return TRUE;
+                                                return ReturnCopyConflictChanged(in, dlgData);
                                             }
                                             // Retry without optional creation attributes, still against the authorized identity.
                                             out = HANDLES_Q(CreateFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), access, 0, NULL, CREATE_ALWAYS, asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN, NULL));
@@ -9874,8 +9871,7 @@ COPY_AGAIN:
                                                     }
                                                     goto NORMAL_ERROR;
                                                 }
-                                                dlgData.ConflictTargetChanged = TRUE;
-                                                return TRUE;
+                                                return ReturnCopyConflictChanged(in, dlgData);
                                             }
                                             SetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), attr);
                                         }
@@ -9916,8 +9912,7 @@ COPY_AGAIN:
                                                     }
                                                     goto NORMAL_ERROR;
                                                 }
-                                                dlgData.ConflictTargetChanged = TRUE;
-                                                return TRUE;
+                                                return ReturnCopyConflictChanged(in, dlgData);
                                             }
                                             SetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), attr);
                                         }
