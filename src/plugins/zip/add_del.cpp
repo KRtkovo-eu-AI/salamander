@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Clarify staged ZIP deletion. | Explain why the unpublished archive does not create another backup. | #731 | GPT-6 |
 // | 2026-11-15 | Explain protected ZIP edit handling. | Describe staging and publication decisions. | #731 | GPT-6 |
 // | 2026-11-08 | Edit the prepared ZIP in place with standard ZIP options. | Report no-op deletion and truncation failure before publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
@@ -166,6 +167,7 @@ int CZipPack::DeleteFromArchive(SalEnumSelection next, void* param)
     }
     Options.Action = PA_NORMAL;
     Options.Encrypt = false;
+    // The host publishes this staged deletion, so the plugin must not create a separate backup.
     if (StagedEdit)
         Config.BackupZip = false;
     TCHAR title[1024];

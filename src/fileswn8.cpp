@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain protected file-operation handoff. | Document recycle identity, scoped transfer and partial-size reporting. | #731 | GPT-6 |
 // | 2026-11-15 | Explain protected transfer previews and incomplete sizes. | Keep consent and reporting tied to the active operation. | #731 | GPT-6 |
 // | 2026-11-15 | Explain denied size scans and total partial selections. | Report administrator denials and preserve lower-bound sums. | #731 | GPT-6 |
 // | 2026-11-11 | Explain an explicitly denied protected-folder recycle. | Keep the existing Shell result while identifying the unsupported elevated retry. | #731 | GPT-6.1 Terra |
@@ -185,6 +186,8 @@ BOOL PathContainsValidComponents(char* path, BOOL cutPath)
     return TRUE;
 }
 
+// Retry through the Shell only when elevation stays on the caller's account;
+// revalidate the original before and after consent and verify its recycle receipt.
 static HRESULT RetryProtectedRecycle(HWND owner, const std::wstring& path, const std::wstring& shellPath,
                                      const OperationRecycleDetail::VerifiedSource& original)
 {
@@ -753,6 +756,8 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
 
     BOOL invertRecycleBin = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
 
+    // Permit planning from a live protected listing without treating its read
+    // grant as permission to delete or write; those operations need their own scope.
     const auto protectedDeleteSource = [&] {
         const bool permanent = Configuration.UseRecycleBin == 0 ? !invertRecycleBin : invertRecycleBin;
         return type == atDelete && permanent && Is(ptDisk) && ProtectedListing &&
@@ -1168,6 +1173,8 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
         char nextFocus[MAX_PATH + 200]; // + 200 is a reserve (Windows can create paths longer than MAX_PATH)
         nextFocus[0] = 0;
         char* mask = NULL;
+        // Retain the exact target selected by the shield preview and any
+        // missing suffix that must be created by the scoped transfer.
         std::optional<UacF7::MoveFileIdentity> shieldedTransferTarget;
         std::optional<UacF7::DeferredTransferTarget> deferredTransferTarget;
         switch (type)
@@ -1278,6 +1285,8 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                 if (copyToSelectedDirs)
                     break;
 
+                // The dedicated tree path is limited to its supported options;
+                // all other operations continue through the ordinary planner.
                 if (type == atCopy && Is(ptDisk) && !IsBranchView() && !ProtectedListing && count <= 1 &&
                     !criteria.HasOptionsOtherThanDirectoryTimes() &&
                     conflictMode == CMCM_CURRENT && operationSchedulingOverride == COSO_DEFAULT)
@@ -1456,6 +1465,8 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                             }
 
                             *secondPart = 0; // 'path' holds the archive file name
+                            // A protected ZIP update must still refer to the captured
+                            // target panel and selection after the dialog returns.
                             if (watchZipTarget && StrICmp(path, zipTarget.ArchiveFile.c_str()) == 0)
                             {
                                 if (!zipTarget.IsCurrent(MainWindow) || !ZipPackSource::Check(&zipSource))
@@ -2105,6 +2116,8 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                             (!res2 || type == atCountSize ||
                              !StartProgressDialog(script, caption, NULL, NULL)))
                         {
+                            // Keep accessible totals while reporting any protected
+                            // omissions and quantities the broker could not measure.
                             if (res2 && type == atCountSize && script->CountSizeAnyIncomplete)
                                 ShowSizeInventoryIncomplete(operationOwner, script->CountSizeFirstOmissionPath,
                                                             script->CountSizeFirstOmission, script->CountSizeFirstOmissionWasElevated);

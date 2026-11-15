@@ -10,6 +10,7 @@
 // | 2026-11-07 | Offer one-file broker rename in the shared panel rename path. | Keep ordinary rename and overwrite semantics while adding explicit consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Connect native F7 to the protected mkdir pilot. | Offer elevation only for a verified existing parent. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Clarify protected viewer session reuse. | Distinguish panel reads from separate scoped consent. | #731 | GPT-6 |
 // | 2026-11-15 | Explain UAC previews and panel identity guards. | Clarify when the normal dialogs may offer elevation. | #731 | GPT-6 |
 // | 2026-11-14 | Reuse approved panel reads for internal F3. | Avoid a second consent for files already within the live panel scope. | #731 | GPT-6 |
 // | 2026-11-11 | Bind protected Find viewing to its captured identity. | Reject readable replacements and pathname-only handlers. | #731 | GPT-6.1 Terra |
@@ -2393,11 +2394,14 @@ static bool PrepareProtectedViewerSnapshot(HWND parent, const std::wstring* cand
         const bool inPanelScope = panelRoot && !panelRoot->empty() && candidate->size() > panelRoot->size() &&
             candidate->compare(0, panelRoot->size(), *panelRoot) == 0 &&
             (panelRoot->back() == L'\\' || (*candidate)[panelRoot->size()] == L'\\');
+        // Do not silently relaunch an expired panel session as a new grant.
         if (inPanelScope && !protectedListing->IsOpen())
         {
             SalMessageBox(parent, GetErrorText(ERROR_BROKEN_PIPE), LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
             return false;
         }
+        // An open panel session already authorizes this scoped read; reuse it
+        // instead of requesting a second broker or displaying another prompt.
         if (protectedListing && protectedListing->Contains(*candidate))
         {
             if (panelStillCurrent && !panelStillCurrent(panelContext)) return false;
@@ -2412,6 +2416,8 @@ static bool PrepareProtectedViewerSnapshot(HWND parent, const std::wstring* cand
             enumFileNamesSourceUID = enumFileNamesLastFileIndex = -1;
             return true;
         }
+        // A captured identity outside the live panel session needs separate
+        // read consent; recheck panel ownership after each modal operation.
         const int prompt = foundView ? IDS_UAC_VIEW_VERIFIED_CONFIRM : IDS_UAC_VIEW_CONFIRM;
         if (!ConfirmProtectedRead(parent, IDS_VIEWERTITLE, prompt, *candidate))
             return false;

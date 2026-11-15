@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Stop execution and editing of entries from a listing-only archive. | Require a future authorized extraction path. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Clarify protected size and tree planning. | Document batch scope, denied scans and transfer eligibility. | #731 | GPT-6 |
 // | 2026-11-15 | Explain shared size consent and protected copy scanning. | Document scope lifetime and the normal-worker fallback. | #731 | GPT-6 |
 // | 2026-11-15 | Exclude skipped links from size consent selections. | Let eligible sibling directories share their exact approved scope. | #731 | GPT-6 |
 // | 2026-11-15 | Preserve partial results for size scan branch errors. | Continue accessible items and report the actual omission. | #731 | GPT-6 |
@@ -1623,6 +1624,8 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
     BOOL countSize = (type == atCountSize);
     CQuadWord oldTotalSize;
 
+    // Build one bounded selection of sibling directories for the size batch;
+    // skipped links must not consume or widen the later consent scope.
     if (countSize && selCount > 1 && !IsBranchView())
     {
         for (int selected = 0; selected < selCount; ++selected)
@@ -2287,6 +2290,8 @@ BOOL CFilesWindow::BuildScriptDir(COperations* script, CActionType type, char* s
     char finalName[2 * MAX_PATH + 200];                                      // +200 is a reserve (Windows creates paths longer than MAX_PATH)
     BOOL sourcePathIsNet = (srcAndTgtPathsFlags & OPFL_SRCPATH_IS_NET) != 0; // valid only for atCopy and atMove
     const bool verifyDelete = type == atDelete && script->AllowPermanentDeletePilot;
+    // Mark eligible tree entries so the worker can keep their transfer in the
+    // approved tree job while preserving ordinary planner decisions.
     const bool copyTreeEntry = type == atCopy && script->AllowTreeTransfer;
     if (copyTreeEntry)
         srcAndTgtPathsFlags |= OPFL_UAC_TREE_ENTRY | OPFL_UAC_TRANSFER_ELIGIBLE;
@@ -2704,6 +2709,8 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                 }
                 else // an error occurred or no ADS
                 {
+                    // A denied directory listing can be retried by the scoped
+                    // tree path; other ADS failures retain the original error UI.
                     const bool deniedCopyDirectory = copyTreeEntry && adsWinError == ERROR_ACCESS_DENIED &&
                         ProbeLocalElevationAccess(copySourcePath, FILE_LIST_DIRECTORY, true) == ERROR_ACCESS_DENIED;
                     if (!deniedCopyDirectory && adsWinError != NO_ERROR &&                                                                    // an error occurred
@@ -2822,6 +2829,8 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                 free(op.SourceName);
                 goto _ERROR;
             }
+            // Carry exact wide paths and listing provenance for eligible tree
+            // entries; the broker validates them before creating a directory.
             if (copyTreeEntry && sourceDirAttr == FILE_ATTRIBUTE_DIRECTORY && !(op.OpFlags & OPFL_AS_ENCRYPTED))
             {
                 const auto source = SalMultiByteToWidePath(sourcePath, CP_UTF8);
@@ -4417,6 +4426,8 @@ void CFilesWindow::ExecuteFromArchive(int index, BOOL edit, HWND editWithMenuPar
                                       const POINT* editWithMenuPoint)
 {
     CALL_STACK_MESSAGE3("CFilesWindow::ExecuteFromArchive(%d, %d)", index, edit);
+    // This command does not execute or edit entries from protected ZIPs;
+    // report the existing limitation before entering ordinary archive handling.
     if (IsProtectedZip())
     {
         SalMessageBox(HWindow, LoadStr(IDS_UAC_ZIP_LIST_ONLY), LoadStr(IDS_UAC_ZIP_TITLE), MB_OK | MB_ICONINFORMATION);

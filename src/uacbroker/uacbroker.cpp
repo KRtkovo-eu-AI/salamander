@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Clarify remaining broker operation boundaries. | Document scoped identities, transport validation and session ownership. | #731 | GPT-6 |
 | 2026-11-15 | Explain broker security and transport boundaries. | Document peer verification, scoped dispatch, and lifetime rules. | #731 | GPT-6 |
 | 2026-11-15 | Read hard-linked file identities from a protected panel. | Permit safe same-volume F6 preparation without granting mutation access. | #731 | GPT-6 |
 | 2026-11-15 | Distinguish authenticated listing startup denial. | Report a broker refusal separately from failure to launch. | #731 | GPT-6 |
@@ -1368,6 +1369,8 @@ DWORD TransferArchiveFile(HANDLE pipe, HANDLE file, ULONGLONG remaining, bool se
     return ERROR_SUCCESS;
 }
 
+// Validate the reply shape and bind returned parent and source identities to
+// the request, including a changed-target response with a new nonce.
 DWORD ReadOverwriteProbeReply(HANDLE pipe, const RequestHeader& request, DWORD status,
                               UacF7::OverwriteProbeReply& reply, ULONGLONG deadline, HANDLE stop)
 {
@@ -1700,6 +1703,8 @@ private:
     TOKEN_PRIVILEGES previous{};
 };
 
+// EFS raw transfer needs a private, protected workspace on the same volume;
+// acquire only the scoped privileges needed before copying the verified object.
 DWORD CopyEncryptedFile(const InstallLocation& install, HANDLE sourceParent,
                         const UacDirectoryLeaf::ParentIdentity& sourceParentId,
                         const FILE_ID_INFO& sourceId, std::wstring_view sourceLeaf,
@@ -2016,6 +2021,8 @@ DWORD CopyOverExistingFile(const InstallLocation& install, HANDLE sourceParent,
     return publication.recoveryError ? ERROR_PARTIAL_COPY : publication.error;
 }
 
+// Cross-volume F6 copies from a guarded source and retires that exact source
+// only after the destination publication has been verified.
 DWORD MoveAcrossVolumes(const InstallLocation& install, HANDLE sourceParent,
                         const UacDirectoryLeaf::ParentIdentity& sourceParentId, const FILE_ID_INFO& sourceId,
                         std::wstring_view sourceLeaf, HANDLE targetParent,
@@ -2188,6 +2195,8 @@ DWORD MoveAcrossVolumes(const InstallLocation& install, HANDLE sourceParent,
     }, recover, published);
 }
 
+// The overwrite was already reviewed by the caller; recover or replace only
+// the recorded source and target identities within their verified parents.
 DWORD MoveOverExistingFile(const InstallLocation& install, HANDLE sourceParent,
                            const UacDirectoryLeaf::ParentIdentity& sourceParentId, const FILE_ID_INFO& sourceId,
                            std::wstring_view sourceLeaf, HANDLE targetParent,
@@ -2214,6 +2223,8 @@ DWORD MoveOverExistingFile(const InstallLocation& install, HANDLE sourceParent,
     return result.recoveryError ? ERROR_PARTIAL_COPY : result.error;
 }
 
+// Receive the edited archive into a verified private stage and publish it only
+// after the host sends the commit frame and both security descriptors match.
 DWORD WriteZipUpdate(const InstallLocation& install, HANDLE root, std::wstring_view relative, std::wstring_view leaf,
                      const UacDirectoryLeaf::ParentIdentity& expected, const UacF7::ArchiveRevision& revision,
                      ULONGLONG bytes, HANDLE pipe, ULONGLONG& deadline, DWORD& result, Handle& archive,
@@ -3953,6 +3964,8 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     return ERROR_SUCCESS;
 }
 
+// Serve only bounded ranges of the already opened archive between explicit
+// begin/end controls; release closes the archive handle without another open.
 DWORD ServeArchive(HANDLE pipe, Handle file, ULONGLONG size)
 {
     std::vector<BYTE> buffer(UacF7::archiveReadBlock);
@@ -4076,7 +4089,8 @@ DWORD ServeFindContent(HANDLE pipe, HANDLE root, std::wstring_view relative, ULO
     }
 }
 
-// Capture the child and parent identity beneath the approved root without treating its name as authority.
+// Capture parent and child IDs beneath the approved listing root, opening links
+// as links and treating the name as a locator rather than authorization.
 DWORD ReadListedLeafIdentity(HANDLE root, std::wstring_view relative, bool parentOnly, bool directoryLeaf,
                              bool linkLeaf, UacListing::LeafIdentity& reply)
 {
@@ -5647,6 +5661,8 @@ static Result RepeatTransferJob(HANDLE& pipe, RequestHeader& header, std::wstrin
     return result;
 }
 
+// Reuse an authenticated job only when its scope covers this prepared leaf;
+// otherwise send its captured parent and object identities in a new request.
 Result PreparedLeaf::Execute(HWND owner, TransferJobSession* job, BrokerActivity notify) const
 {
     Result result;
@@ -5683,6 +5699,8 @@ Result PreparedLeaf::Execute(HWND owner, TransferJobSession* job, BrokerActivity
     return result;
 }
 
+// Read the prepared object's snapshot for the unelevated internal viewer;
+// the viewer receives bytes rather than the broker's privileged file handle.
 Result PreparedLeaf::ReadViewerSnapshot(HWND owner, std::vector<BYTE>& snapshot) const
 {
     snapshot.clear();
@@ -5708,6 +5726,8 @@ ElevatedEditor::~ElevatedEditor()
         CloseHandle(handle);
 }
 
+// Resolve and pin the executable and its directory chain before offering a
+// separate elevated launch for an external editor.
 bool ElevatedEditor::Prepare(const std::wstring& command)
 {
     if (!pinned.empty())
@@ -5793,6 +5813,8 @@ bool ElevatedEditor::Prepare(const std::wstring& command)
     return true;
 }
 
+// Launch the verified editor with its own UAC consent; cancellation restores
+// the invoking window while a successful visible editor retains foreground.
 DWORD ElevatedEditor::Launch(HWND owner, const std::wstring& document) const
 {
     if (pinned.empty() || document.empty() || document.find(L'"') != std::wstring::npos)
@@ -5842,6 +5864,8 @@ bool PreparedTransfer::PrepareSource(const std::wstring& sourcePath, Operation o
     return true;
 }
 
+// Bind a missing destination suffix to an existing, identified ancestor so
+// its later creation stays inside the path approved for this transfer.
 bool PreparedTransfer::CaptureDeferredTarget(std::wstring directory, size_t ancestorLength, DeferredTransferTarget& target)
 {
     if (ancestorLength < 3 || ancestorLength >= directory.size() || directory[ancestorLength - 1] != L'\\')
@@ -5995,6 +6019,8 @@ bool CaptureOverwriteRevision(HANDLE file, ArchiveRevision& revision)
     return true;
 }
 
+// Capture source and target identities before the overwrite dialog, using the
+// verified parent listing if the target cannot be opened by the caller.
 bool PreparedTransfer::PrepareOverwrite(const std::wstring& sourcePath, const std::wstring& targetPath,
                                         ULONGLONG expectedSize, const PreparedLeaf* listedSource, bool moving, bool ignoreAds)
 {
@@ -6308,6 +6334,8 @@ TransferJobSession::~TransferJobSession()
     Close();
 }
 
+// Closing the pipe invalidates the opening generation as well as the session,
+// so later receipts cannot be mistaken for evidence from a reopened broker.
 void TransferJobSession::Close()
 {
     if (pipe)
@@ -6317,6 +6345,8 @@ void TransferJobSession::Close()
         openGeneration = openGeneration == MAXULONGLONG ? 0 : openGeneration + 1;
 }
 
+// Request only a validated relative directory and captured identity inside the
+// already approved tree-copy scope; returned rows remain tied to that scope.
 DWORD TransferJobSession::ListTreeSource(std::wstring_view relative, const MoveFileIdentity& directory,
                                         std::vector<TreeCopySourceEntry>& entries)
 {
@@ -7024,6 +7054,8 @@ bool ArchiveReadSession::Prepare(const std::wstring& path)
     return prepared.PrepareTarget(path, Operation::ReadArchive, {}, nullptr);
 }
 
+// Derive this archive request from the live panel listing's exact identity;
+// do not publish a partially prepared session if validation or allocation fails.
 DWORD ArchiveReadSession::PrepareFromListing(ListingSession& listing, const std::wstring& path,
                                              DWORD expectedAttributes)
 {
@@ -7451,6 +7483,8 @@ bool ListingSession::PrepareDirectory(const std::wstring& path, Operation operat
     return true;
 }
 
+// Capture a Find root only from an existing listing scope, retaining the
+// directory identity rather than broadening authority to an arbitrary path.
 DWORD ListingSession::CaptureFindRoot(const std::wstring& path, FindRootIdentity& identity, HANDLE stop)
 {
     std::unique_lock<std::recursive_mutex> lock(mutex, std::defer_lock);
@@ -7482,6 +7516,8 @@ DWORD ListingSession::CaptureFindRoot(const std::wstring& path, FindRootIdentity
     return ERROR_SUCCESS;
 }
 
+// Preserve the captured root while selecting the requested Find capability
+// and recursion depth for its separately prepared read session.
 bool ListingSession::PrepareFindRoot(const FindRootIdentity& identity, bool readContent, bool recursive)
 {
     ListingForegroundLock lock(mutex, foregroundWaiters);

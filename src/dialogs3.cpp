@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Clarify dynamic operation shields. | Document when destination edits trigger a new access preview. | #731 | GPT-6 |
 // | 2026-11-15 | Explain UAC integration boundaries. | Document scope, lifetime and native workflow decisions. | #731 | GPT-6 |
 // | 2026-11-10 | Refresh Copy/Move OK after destination edits. | Leave the existing path parser and options intact. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Track the shield shown on the native operation dialog. | Preserve consent intent across the local attempt and deny fallback. | #731 | Codex |
@@ -1102,6 +1103,8 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
 
     case WM_COMMAND:
+        // Re-evaluate the shield after the destination control processes its
+        // edit or selection; the preview does not grant elevation by itself.
         if (ElevationShieldProbe && LOWORD(wParam) == IDE_PATH &&
             (HIWORD(wParam) == CBN_EDITCHANGE || HIWORD(wParam) == CBN_SELCHANGE || HIWORD(wParam) == EN_CHANGE))
             PostMessage(HWindow, WM_USER_UPDATEELEVATIONSHIELD, 0, 0);
@@ -2146,6 +2149,7 @@ MENU_TEMPLATE_ITEM CopyMoveMoreDialogMenu[] =
 
     case WM_COMMAND:
     {
+        // Keep the expanded dialog's shield in sync with the current target.
         if (ElevationShieldProbe && LOWORD(wParam) == IDE_PATH &&
             (HIWORD(wParam) == CBN_EDITCHANGE || HIWORD(wParam) == CBN_SELCHANGE || HIWORD(wParam) == EN_CHANGE))
             PostMessage(HWindow, WM_USER_UPDATEELEVATIONSHIELD, 0, 0);

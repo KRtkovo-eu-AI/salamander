@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Clarify scoped ZIP selection publication. | Explain destination identity and create-only behavior. | #731 | GPT-6 |
 // | 2026-11-15 | Explain ZIP selection validation. | Document the boundary between decoded entries and privileged publication. | | GPT-6 |
 // | 2026-11-08 | Validate and publish a bounded ZIP selection. | Bind every output component to a verified destination handle. | | GPT-6.1 Sol (Codex) |
 #pragma once
@@ -76,6 +77,8 @@ inline DWORD Decode(const std::vector<BYTE>& bytes, std::vector<Entry>& entries)
     return ERROR_SUCCESS;
 }
 
+// Publish decoded selection entries only beneath the verified destination;
+// reject existing top-level names before creating the selected output tree.
 inline DWORD Publish(HANDLE root, const UacDirectoryLeaf::ParentIdentity& expected, const std::vector<BYTE>& bytes,
                      HANDLE connection = nullptr, ULONGLONG deadline = MAXULONGLONG)
 {

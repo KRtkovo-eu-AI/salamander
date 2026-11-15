@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Clarify protected ZIP entry validation. | Document the selected record, decoder and ownership boundaries. | #731 | GPT-6 |
 // | 2026-11-15 | Explain protected ZIP extraction. | Document record validation and bounded streaming. | #731 | GPT-6 |
 // | 2026-11-11 | Route extracted bytes through one output method. | Keep all existing ZIP methods on the same write behavior before adding streaming. | #731 | GPT-6.1 Terra |
 // | 2026-11-08 | Seek to the listed ZIP record and revalidate it before decoding. | Keep extraction work proportional to the selected entries. | | GPT-6.1 Sol (Codex) |
@@ -244,6 +245,7 @@ DWORD CZipUnpack::ReadSourceEntry(const SalZipReadSourceV1& source, const char* 
     if (listed.ItemNumber < 0 || listed.ItemNumber >= EOCentrDir.TotalEntries)
         return ERROR_INVALID_DATA;
 
+    // The listing retained the record offset; validate it before re-reading the selected entry.
     const QWORD centralStart = CentrDirOffs + ExtraBytes;
     const QWORD centralEnd = centralStart + CentrDirSize;
     QWORD offset = listed.CentralOffset;
@@ -267,6 +269,7 @@ DWORD CZipUnpack::ReadSourceEntry(const SalZipReadSourceV1& source, const char* 
     if ((entry.Flag & GPF_ENCRYPTED) || (entry.Method != CM_STORED && entry.Method != CM_DEFLATED))
         return ERROR_NOT_SUPPORTED;
 
+    // The local header must agree with the selected central record before decoding any bytes.
     std::vector<BYTE> input(MAX_HEADER_SIZE);
     auto* local = reinterpret_cast<CLocalFileHeader*>(input.data());
     if (ReadLocalHeader(local, entry.LocHeaderOffs))
@@ -299,6 +302,7 @@ DWORD CZipUnpack::ReadSourceEntry(const SalZipReadSourceV1& source, const char* 
     };
 
     DWORD error = ERROR_SUCCESS;
+    // Both supported methods stream bounded output through the same size and CRC checks.
     if (entry.Method == CM_STORED)
     {
         if (entry.CompSize != entry.Size)
@@ -351,6 +355,7 @@ DWORD CZipUnpack::ReadSourceEntry(const SalZipReadSourceV1& source, const char* 
 
     if (error)
         return error;
+    // Never return a partial or CRC-invalid protected entry as a successful read.
     if (written != entry.Size)
         return ERROR_INVALID_DATA;
     return crc == entry.Crc ? ERROR_SUCCESS : ERROR_CRC;
@@ -527,6 +532,7 @@ int CZipUnpack::FindFile(LPCTSTR name, CFileInfo* fileInfo, int nItem)
     DWORD pathFlag = Unix ? 0 : NORM_IGNORECASE;
     BOOL found = FALSE;
 
+    // Keep lookup buffers owned across every early exit.
     const std::unique_ptr<void, decltype(&free)> headerStorage(malloc(MAX_HEADER_SIZE), free);
     const std::unique_ptr<void, decltype(&free)> nameStorage(malloc(MAX_HEADER_SIZE), free);
     centralHeader = static_cast<CFileHeader*>(headerStorage.get());
@@ -781,6 +787,7 @@ void Refill(CDecompressionObject* decompress)
     decompress->Input->BytesLeft = s;
 }
 
+// Route existing extraction methods through one output operation.
 int CZipUnpack::WriteExtractBytes(const void* buffer, unsigned bytesToWrite)
 {
     return Write(OutputFile, buffer, bytesToWrite, &SkipAllIOErrors);

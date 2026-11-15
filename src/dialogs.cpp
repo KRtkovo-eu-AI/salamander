@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Clarify protected consent dialog ownership. | Document safe defaults and progress-window handoff. | #731 | GPT-6 |
 // | 2026-11-15 | Explain UAC integration boundaries. | Document scope, lifetime and native workflow decisions. | #731 | GPT-6 |
 // | 2026-11-14 | Explain uncertain thin-copy cleanup in terminal errors. | Tell users to check a retained destination without weakening identity checks. | #731 | GPT-6 |
 // | 2026-11-13 | Identify accepted thin batch scope. | Preserve consent only when the scope was actually displayed. | #731 | GPT-6 |
@@ -74,6 +75,8 @@
 #include "consts.h"
 #include "common/widepath.h"
 
+// Show the exact requested path with Cancel as the default; the shielded OK
+// explicitly requests elevation but does not itself start the broker.
 bool ConfirmProtectedRead(HWND owner, int caption, int description, const std::wstring& path)
 {
     const std::string message = std::string(LoadStr(description)) + "\n\n" +
@@ -1628,6 +1631,7 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         return TRUE;
     }
+    // Restore the invoking progress window on its own UI thread after consent.
     case UacF7::restoreConsentForegroundMessage:
         UacF7::RestoreConsentForeground(HWindow, reinterpret_cast<HWND>(wParam), static_cast<DWORD>(lParam));
         return TRUE;
@@ -1645,6 +1649,7 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
 #endif
 
+    // Indicate privileged work only while the broker is active for this operation.
     case WM_USER_UAC_PROGRESS_ACTIVE:
         SetBrokerActive(wParam != 0);
         return TRUE;

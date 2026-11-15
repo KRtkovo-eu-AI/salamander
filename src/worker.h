@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain Scan Ahead revision ownership. | Tie broker overwrite evidence to the scanned target. | #731 | GPT-6 |
 // | 2026-11-15 | Explain UAC worker state and dispatch. | Document ownership, consent scope, and incomplete results. | #731 | GPT-6 |
 // | 2026-11-15 | Explain denied size scans and total partial selections. | Report administrator denials and preserve lower-bound sums. | #731 | GPT-6 |
 // | 2026-11-13 | Guard experimental planned copy custody. | Reject reentrant item access to a checked-out session. | #731 | GPT-6 |
@@ -484,6 +485,8 @@ struct COperation
     ULONGLONG ScannedTargetFileIndex;
     BOOL ScannedTargetIdentityValid;
     BOOL ScannedTargetExisted;
+    // Optional no-follow revision for a broker-compatible Scan Ahead overwrite;
+    // zero attributes indicate that this extra observation was not captured.
     UacF7::ArchiveRevision ScannedTargetRevision;
     ULONGLONG ConflictOperationId;
     DWORD ConflictGeneration;

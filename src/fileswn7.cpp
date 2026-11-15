@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Prevent copying and deleting from the protected archive pilot. | Keep the archive listing read-only. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain protected ZIP staging. | Document workspace ownership and pre-publication validation. | #731 | GPT-6 |
 // | 2026-11-15 | Explain protected ZIP operation boundaries. | Clarify bounded extraction and staged updates. | #731 | GPT-6 |
 // | 2026-11-11 | Compare the portable file-list exclusion identity. | Keep both the volume serial and all 128 identity bits. | #731 | GPT-6.1 Sol |
 // | 2026-11-11 | Exclude a pinned workspace by its exact directory identity. | Prevent recursive file lists from including their own private staging tree. | #731 | GPT-6.1 Sol |
@@ -1024,6 +1025,8 @@ using ZipEditHandle = std::unique_ptr<void, ZipEditHandleDeleter>;
 using ZipEditEntry = DWORD(WINAPI*)(CSalamanderForOperationsAbstract*, const char*, const char*, const char*,
                                    SalEnumSelection2, SalEnumSelection, void*);
 
+// Keep the editable archive copy in a private, pinned directory until the
+// ordinary ZIP plugin finishes and the scoped update has been resolved.
 class ZipEditWorkspace
 {
 public:
@@ -1206,6 +1209,8 @@ try
         return report(error);
     if (!snapshot.IsCurrent(MainWindow))
         return report(ERROR_RETRY);
+    // Validate the finished stage with the ZIP plugin before requesting the
+    // separate consent that lets the broker replace the original archive.
     error = workspace.Open(GENERIC_READ, OPEN_EXISTING, stage);
     LARGE_INTEGER size{};
     if (!error && !GetFileSizeEx(stage.get(), &size))

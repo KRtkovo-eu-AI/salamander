@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Clarify protected ZIP parser boundaries. | Explain callback ownership and range validation. | #731 | GPT-6 |
 // | 2026-11-15 | Explain protected ZIP range reads. | Document validation and access through the approved source. | #731 | GPT-6 |
 // | 2026-11-08 | Open verified range sources for ZIP entry reads. | Bound ZIP64 extra-field reads by the actual header. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Read ZIP metadata through a bounded callback. | Validate ZIP64 offsets and keep protected listing on one file. | | GPT-6.1 Sol (Codex) |
@@ -928,6 +929,7 @@ int CZipCommon::CreateCFile(CFile** file, LPCTSTR fileName, unsigned int access,
 int CZipCommon::CloseCFile(CFile* file)
 {
     CALL_STACK_MESSAGE1("CZipCommon::CloseCFile()");
+    // A range-backed archive has no owned file handle; its source belongs to the host.
     if (file->File != INVALID_HANDLE_VALUE)
         CloseHandle(file->File);
     free(file->FileName);
@@ -1118,6 +1120,7 @@ int CZipCommon::FindEOCentrDirSig(BOOL* success)
                                 break;
                             }
                         }
+                        // Protected listing and extraction do not expose the archive comment.
                         if (!RangeSource && EOCentrDir.CommentLen)
                         {
                             Comment = (char*)malloc(EOCentrDir.CommentLen + 1);
@@ -1183,6 +1186,7 @@ int CZipCommon::FindEOCentrDirSig(BOOL* success)
                                     break;
                                 }
                             }
+                            // The range-backed path also skips comments in this scan branch.
                             if (!RangeSource && EOCentrDir.CommentLen)
                             {
                                 Comment = (char*)malloc(EOCentrDir.CommentLen + 1);
@@ -1364,6 +1368,7 @@ int CZipCommon::FindZip64EOCentrDirLocator()
     if (Read(ZipFile, &zip64Record, sizeof(zip64Record), NULL, NULL))
         return IDS_NODISPLAY;
 
+    // Recheck the located ZIP64 record before trusting its counts and offsets.
     if (RangeSource && (zip64Record.Signature != SIG_ZIP64EOCENTRDIR ||
                         zip64Record.DiskNum || zip64Record.StartDisk ||
                         zip64Record.DiskTotalEntries != zip64Record.TotalEntries))
@@ -1408,6 +1413,7 @@ int CZipCommon::FindZip64EOCentrDirLocator()
     {
         CZip64EOCentrDirRecordVer2 zip64RecordVer2;
 
+        // The bounded source must read only the actual version-two record size.
         if (Read(ZipFile, &zip64RecordVer2, RangeSource ? sizeof(zip64RecordVer2) : sizeof(zip64Record), NULL, NULL))
             return IDS_NODISPLAY;
         if ((zip64RecordVer2.Method != CM_STORED) || (zip64RecordVer2.AlgID != 0))
@@ -1429,6 +1435,7 @@ int CZipCommon::CheckForExtraBytes()
     if (MultiVol)
         return 0;
 
+    // Reject overflow and out-of-range central-directory data before computing its end.
     if (RangeSource && (CentrDirOffs > ZipFile->Size || CentrDirSize > ZipFile->Size - CentrDirOffs))
         return IDS_ERRFORMAT;
     QWORD endOfCentrDir = CentrDirOffs + CentrDirSize;

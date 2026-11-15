@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Clarify late Find consent accounting. | Distinguish the duplicate pass from the removed queue capacity. | #731 | GPT-6 |
 // | 2026-11-15 | Document protected Find access and session ownership. | Explain authorization scope and the lifetime of verified results. | #731 | GPT-6 |
 // | 2026-11-15 | Remove the fixed protected Find queue capacity. | Keep one scoped consent across large searches. | #731 | GPT-6 |
 // | 2026-11-15 | Restrict nonrecursive Find consent. | Keep the broker inside the user-requested search depth. | #731 | GPT-6 |
@@ -904,6 +905,8 @@ using FindProtectedSessions = std::vector<UacF7::ListingSession*>;
 
 enum class FindQueueResult { Added, Stopped, Limit, Failed, OutOfMemory };
 
+// The later duplicate-content pass may request access only if the search has
+// not already used its operation-wide consent allowance.
 static bool FindFileConsentLimit(DWORD error, DWORD attributes, size_t remaining)
 {
     return error == ERROR_ACCESS_DENIED && !remaining &&

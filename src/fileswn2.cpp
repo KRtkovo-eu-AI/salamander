@@ -9,6 +9,7 @@
 // | 2026-11-08 | Offer a protected ZIP listing after ordinary read denial. | Reuse the internal viewer for read-only output. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Route disk navigation and refresh through the approved listing session. | Reuse consent inside the root and release it on exit. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Clarify protected panel lifetime. | Document commit, cleanup and ZIP read fallback. | #731 | GPT-6 |
 // | 2026-11-15 | Explain protected panel and ZIP listing boundaries. | Clarify session ownership and privileged read failures. | #731 | GPT-6 |
 // | 2026-11-15 | Explain administrator listing denial. | Distinguish denied elevated access from launch errors and cancellation. | #731 | GPT-6 |
 // | 2026-11-12 | Keep the file panel visible during shell launch. | Parent the transparent shell helper beside the owner-drawn list instead of over it. | | openai/gpt-6-luna-pro |
@@ -2662,6 +2663,8 @@ void CFilesWindow::UpdateTreeView(BOOL active)
 void CFilesWindow::CloseCurrentPath(HWND parent, BOOL cancel, BOOL detachFS, BOOL newPathIsTheSame,
                                     BOOL isRefresh, BOOL canChangeSourceUID)
 {
+    // Close the approved listing when leaving its path, except for a cancelled
+    // change or a transition explicitly retaining the same session.
     if (!cancel && !KeepProtectedListing)
     {
         ProtectedListing.reset();
@@ -3222,6 +3225,8 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
                     MainWindow->CanAddToDirHistory = FALSE;
                 }
 
+                // Publish the prepared entries only after the old path closes;
+                // retain its session when navigating within the approved root.
                 KeepProtectedListing = protectedPath && !newProtectedListing;
                 CloseCurrentPath(parent, FALSE, detachFS, samePath, isRefresh, !samePath); // success, we switch to the new path
                 KeepProtectedListing = false;
@@ -3268,6 +3273,7 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
             }
             if (cannotList)
             { // the selected path can't be listed ("access denied" or low_memory) or it was alreadydeleted
+                // A failed panel refresh must not leave a stale session marked active.
                 if (protectedPath)
                 {
                     ProtectedListing.reset();
@@ -3787,6 +3793,8 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
                     err2 = reuseZipSession ? ERROR_ACCESS_DENIED : GetLastError();
 
                 const char* extension = strrchr(archive, '.');
+                // Only an explicitly permitted ZIP read after access denial may
+                // switch to the protected archive path.
                 const bool protectedZip = allowProtectedZip && err2 == ERROR_ACCESS_DENIED &&
                                           extension && _stricmp(extension, ".zip") == 0;
                 if (err2 != NO_ERROR && !protectedZip)

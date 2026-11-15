@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Clarify grouped UAC capability contracts. | Document foreground, file modes and scoped read sessions. | #731 | GPT-6 |
 | 2026-11-15 | Explain UAC request and session boundaries. | Document identity, operation scopes, and ownership for review. | #731 | GPT-6 |
 | 2026-11-15 | Report authenticated listing startup denial. | Distinguish a broker response from a launch failure. | #731 | GPT-6 |
 | 2026-11-15 | Classify per-branch size scan errors. | Continue accessible results without masking session or identity failures. | #731 | GPT-6 |
@@ -161,6 +162,8 @@ constexpr UINT restoreConsentForegroundMessage = WM_APP + 427;
 constexpr UINT restoreThinProgressForegroundMessage = WM_APP + 429;
 #endif
 
+// Remember an eligible owner before the system prompt so cancellation or
+// completion can return focus without activating an unrelated application.
 class ConsentForeground
 {
 public:
@@ -334,6 +337,8 @@ struct OverwriteProbeReply
 };
 static_assert(sizeof(OverwriteProbeReply) == 208);
 
+// Protected archive reads use explicitly delimited windows and bounded ranges;
+// a session must not read past the opened file or its remaining budget.
 constexpr DWORD archiveReadBlock = 64 * 1024;
 constexpr DWORD archiveReadBudget = 64 * 1024 * 1024;
 constexpr ULONGLONG archiveReadTimeoutMs = 30000;
@@ -430,6 +435,8 @@ inline bool IsNativeCompressedCopyFile(DWORD attributes)
     return (attributes & FILE_ATTRIBUTE_COMPRESSED) && !(attributes & ~nativeCompressedCopyAttributes);
 }
 
+// Restrict each protected copy to the attribute, stream and security mode that
+// its selected broker operation knows how to preserve.
 inline bool IsEligibleFileCopy(DWORD attributes, bool copyAttributes, bool ignoreAds, bool copySecurity)
 {
     if (IsEncryptedCopyFile(attributes))
@@ -470,6 +477,8 @@ inline bool IsCrossVolumeMoveFile(DWORD attributes)
     return attributes && !(attributes & ~crossVolumeMoveAttributes);
 }
 
+// Moving has its own supported attribute combinations and does not implicitly
+// authorize a copy with independently requested security preservation.
 inline bool IsEligibleMoveFile(DWORD attributes, bool copyAttributes, bool copySecurity)
 {
     return !copySecurity && (copyAttributes ? IsNativeCompressedCopyFile(attributes) : IsCrossVolumeMoveFile(attributes));
@@ -666,6 +675,8 @@ private:
     Operation operation = Operation::Mkdir;
 };
 
+// Hold the verified source and parent-chain identities for the caller's
+// protected Recycle Bin operation without granting a reusable delete handle.
 class ProtectedRecycleSource
 {
 public:
@@ -1065,6 +1076,8 @@ private:
 };
 
 
+// An external editor gets a separate UAC launch after its executable and
+// protected directory chain have been verified and pinned.
 class ElevatedEditor
 {
 public:
@@ -1262,6 +1275,8 @@ private:
     mutable std::atomic<unsigned> foregroundWaiters{0};
 };
 
+// Own the authenticated archive pipe and its prepared identity; read windows
+// and updates remain scoped to the one archive opened for this session.
 class ArchiveReadSession
 {
 public:

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Clarify protected ZIP listing completion. | Document restart ownership and complete-entry validation. | #731 | GPT-6 |
 // | 2026-11-15 | Explain protected ZIP listing integration. | Describe bounded parsing and panel metadata. | #731 | GPT-6 |
 // | 2026-11-08 | Record each ZIP entry offset from the ordinary parser. | Let protected selection reads seek directly to their records. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Use the common verified range-source initializer. | Share ZIP64 and single-volume checks. | | GPT-6.1 Sol (Codex) |
@@ -213,6 +214,7 @@ START_LIST:
             if (centralHeader->Version >> 8 == HS_UNIX && !Unix)
             {
                 Unix = TRUE;
+                // Release rows with their plugin data before restarting in case-sensitive mode.
                 dir->Clear(pluginData);
                 dir->SetFlags(SALDIRFLAG_CASESENSITIVE);
                 goto START_LIST;
@@ -348,6 +350,7 @@ START_LIST:
 */
         }
         haveFiles = cnt > 0;
+        // Do not return a partial protected archive listing as complete.
         if (RangeSource && !errorID && cnt != EOCentrDir.TotalEntries)
             errorID = IDS_ERRFORMAT;
     }

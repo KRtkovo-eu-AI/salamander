@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Clarify protected worker fallback and dispatch. | Explain scoped retries and native operation handling. | #731 | GPT-6 |
 // | 2026-11-15 | Explain UAC paths in the native worker. | Document approval, handle ownership, and error boundaries. | #731 | GPT-6 |
 // | 2026-11-14 | Preserve native CopyAttrs handling on scoped file handles. | Reuse the F5 worker for attribute-aware copies. | #731 | GPT-6 |
 // | 2026-11-14 | Preserve the requested archive attribute on scoped completion. | Match native CopyAttrs semantics before enabling the option. | #731 | GPT-6 |
@@ -1431,6 +1432,8 @@ void COperations::PublishConflictScanResult(int index, CCopyMoveConflictType typ
             HANDLES(LeaveCriticalSection(&ConflictCS));
             return;
         }
+        // Keep the optional no-follow broker revision with the ordinary scan
+        // fields so a later overwrite decision refers to the same observation.
         op.ScannedTargetAttributes = attributes;
         op.ScannedTargetSize = size;
         op.ScannedTargetWriteTime = writeTime;
@@ -1527,6 +1530,8 @@ BOOL COperations::ResolveConflictRequest(const CCopyMoveConflictRequest& request
     return valid;
 }
 
+// Accept the dialog result only while both the ordinary scan data and any
+// captured broker-compatible revision still match its decision snapshot.
 BOOL COperations::ResolveConflictSnapshot(const CCopyMoveConflictDecisionSnapshot& conflict,
                                           CCopyMoveConflictDecision decision, BOOL applyAll)
 {
@@ -1850,6 +1855,8 @@ BOOL COperations::RevalidateConflictItem(int index, CCopyMoveConflictType& confl
                         info.dwFileAttributes == op.ScannedTargetAttributes &&
                         (((ULONGLONG)info.nFileSizeHigh << 32) | info.nFileSizeLow) == op.ScannedTargetSize &&
                         CompareFileTime(&info.ftLastWriteTime, &op.ScannedTargetWriteTime) == 0;
+                // A recorded no-follow revision also has to match before an
+                // injected Scan Ahead decision can reach a broker overwrite.
                 if (valid && op.ScannedTargetRevision.attributes)
                 {
                     UacF7::ArchiveRevision current;
@@ -1940,6 +1947,8 @@ BOOL COperations::RevalidatePreparedConflictAncestors(int index)
     return TRUE;
 }
 
+// Discard the old decision and refresh ordinary and broker revision data when
+// the target observed by Scan Ahead can no longer be used.
 void COperations::RequeueChangedConflictItem(int index)
 {
     if (index < 0 || index >= Count) return;
@@ -8487,6 +8496,9 @@ BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
                 break;
             const bool listedSource = (op->OpFlags & OPFL_UAC_TRANSFER_LISTED) != 0;
             const auto* preparedSource = ListedTransferSource(*op, *script);
+            // Preserve a recorded preparation failure; otherwise listed or
+            // deferred paths start with an internal 50 fallback that the
+            // subsequent broker attempt can replace with its actual error.
             DWORD error = listedSource && preparedSource && preparedSource->Error ? preparedSource->Error :
                           (listedSource || deferred ? ERROR_NOT_SUPPORTED : ERROR_ACCESS_DENIED);
             if (!invalidSrcName && !invalidTgtName)
@@ -11225,6 +11237,8 @@ BOOL DoDeleteFile(HWND hProgressDlg, char* name, const CQuadWord& size, COperati
                 break;
             }
             }
+            // Recycle through the Shell so it uses the caller's bin; only the
+            // permanent-delete branch may retry an eligible denied item through the broker.
             if (useRecycleBin)
             {
                 CShellExecuteWnd shellExecuteWnd;
@@ -11437,6 +11451,8 @@ BOOL DoCreateDir(HWND hProgressDlg, char* name, DWORD attr,
 
     while (1)
     {
+        // A planned root or listing-derived source must use the verified copy
+        // scope rather than creating its destination through the local path.
         const bool plannedRoot = (op.OpFlags & OPFL_UAC_TREE_ROOT) && script->CopySource &&
                                  script->CopySource->Session && script->CopySource->Session->NeedsTreeRoot();
         const bool reviewedSource = (op.OpFlags & OPFL_UAC_TRANSFER_LISTED) &&
@@ -14932,6 +14948,8 @@ unsigned ThreadWorkerBody(void* parameter)
 
                 SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
 
+                // Use a prepared protected identity when available; otherwise
+                // keep the original delete worker and its retry decisions.
                 BOOL deletedOrSkipped = FALSE;
                 if (TryDeleteVerifiedLeaf(hProgressDlg, *op, *script, dlgData, deletedOrSkipped))
                 {
@@ -15005,6 +15023,8 @@ unsigned ThreadWorkerBody(void* parameter)
 
                 SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
 
+                // Apply an eligible protected metadata request through its
+                // verified identity, falling back to the original worker otherwise.
                 BOOL metadataSuccess = FALSE;
                 if (TryChangeBasicMetadata(hProgressDlg, *op, *attrsData, dlgData, metadataSuccess,
                                             script->ProtectedMetadataRequest.get()))

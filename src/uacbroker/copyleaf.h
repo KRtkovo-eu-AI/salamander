@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Clarify protected copy stream validation. | Document bounded inventory and verified stage writes. | #731 | GPT-6 |
 | 2026-11-15 | Explain protected copy lifetime and staging. | Document the broker's existing I/O and publication boundaries. | | GPT-6 |
 | 2026-11-11 | Keep verified move copies pending with their exact attributes and destination security. | Share read-only rollback and staged publication with F6 overwrite. | | GPT-6.1 Sol |
 | 2026-11-11 | Stream large attributed overwrite inputs and their named streams. | Remove native overwrite snapshot limits without changing ZIP extraction. | | GPT-6.1 Sol |
@@ -362,6 +363,8 @@ inline bool IsNamedDataStream(std::wstring_view suffix)
            UacDirectoryLeaf::IsComponent(suffix.substr(1, suffix.size() - 1 - type.size()));
 }
 
+// Validate the NTFS stream inventory and its total byte budget before the
+// broker opens named streams from the approved source.
 inline DWORD ReadDataStreams(HANDLE file, std::vector<DataStream>& streams, ULONGLONG maxBytes = UacF7::maxPilotCopyBytes)
 {
     constexpr size_t maxStreams = 64;
@@ -522,6 +525,8 @@ struct CopySourceLocation
     const std::vector<DataStream>* lockedInventory = nullptr;
 };
 
+// Copy the verified source's default and named streams into the protected
+// overwrite stage, then confirm that both inventories still match.
 inline DWORD CopyOverwriteStreams(HANDLE source, const CopySourceLocation& location, HANDLE parent,
                                   std::wstring_view stageLeaf, HANDLE stage, ULONGLONG expectedSize,
                                   HANDLE connection, ULONGLONG deadline, const CopyProgress* progress = nullptr)

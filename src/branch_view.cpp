@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 //
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain protected Branch View paging. | Document panel-session scope and failure handling. | #731 | GPT-6 |
 // | 2026-11-15 | Explain UAC integration boundaries. | Document scope, lifetime and native workflow decisions. | #731 | GPT-6 |
 // | 2026-11-12 | Preserve ordinary traversal of non-name-surrogate directories. | Keep readable descendants without extending the verified elevation scope. | #731 | GPT-6.1 Terra |
 // | 2026-11-12 | Detect identity and metadata changes during partial retries. | Retain previous rows without merging same-name replacements. | #731 | GPT-6.1 Terra |
@@ -1596,6 +1597,8 @@ void CFilesWindow::PollBranchView()
     {
     std::vector<Salamander::BranchView::Entry> batch;
     Salamander::BranchView::Progress progress;
+    // Advance the existing scan with the panel's approved listing only for
+    // paths in its scope; a closed session is a failure, not a new consent.
     if (BranchView->UseProtectedListing && !BranchView->StoppingInitial)
     {
         BranchView->Worker.Advance([](void* context, const std::wstring& directory,
