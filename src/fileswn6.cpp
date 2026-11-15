@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Stop execution and editing of entries from a listing-only archive. | Require a future authorized extraction path. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Exclude skipped links from size consent selections. | Let eligible sibling directories share their exact approved scope. | #731 | GPT-6 |
 // | 2026-11-15 | Preserve partial results for size scan branch errors. | Continue accessible items and report the actual omission. | #731 | GPT-6 |
 // | 2026-11-15 | Explain denied size scans and total partial selections. | Report administrator denials and preserve lower-bound sums. | #731 | GPT-6 |
 // | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
@@ -1356,6 +1357,14 @@ void CFilesWindow::DropCopyMove(BOOL copy, char* targetPath, CCopyMoveData* data
     }
 }
 
+static bool IsCompatibilityLinkForSize(const char* path);
+
+static bool SkipSizeDirectoryLink(DWORD attributes, bool verifyListedAlias, bool stayOnFileSystem, bool compatibilityLink)
+{
+    return (attributes & FILE_ATTRIBUTE_REPARSE_POINT) && !verifyListedAlias &&
+           (stayOnFileSystem || compatibilityLink);
+}
+
 struct CSizeBatchConsent
 {
     bool ElevationDeclined = false;
@@ -1616,6 +1625,14 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                                         Files->At(selection[selected] - Dirs->Count);
             if (!(item.Attr & FILE_ATTRIBUTE_DIRECTORY)) continue;
             const std::wstring full = SalPathRemoveExtendedPrefixW(GetItemFullPathW(item).c_str());
+            const bool verifyListedAlias = UacListing::HasCompatibilityLinkAttributes(item.Attr) &&
+                                           ProtectedListing && ProtectedListing->Contains(full);
+            const bool compatibilityLink = (item.Attr & FILE_ATTRIBUTE_REPARSE_POINT) && !verifyListedAlias &&
+                                           !Configuration.CountSizeStayOnFileSystem &&
+                                           UacListing::HasCompatibilityLinkAttributes(item.Attr) &&
+                                           IsCompatibilityLinkForSize(SalWideToMultiBytePath(full.c_str(), CP_UTF8).c_str());
+            if (SkipSizeDirectoryLink(item.Attr, verifyListedAlias, Configuration.CountSizeStayOnFileSystem, compatibilityLink))
+                continue;
             const auto slash = full.find_last_of(L'\\');
             if (slash == std::wstring::npos || slash + 1 >= full.size()) { sizeBatchConsent.Selected.clear(); break; }
             const auto parent = full.substr(0, slash == 2 ? 3 : slash);
@@ -2455,9 +2472,9 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
     const bool verifyListedAlias = type == atCountSize && firstLevelDir &&
         UacListing::HasCompatibilityLinkAttributes(sourceDirAttr) && ProtectedListing &&
         ProtectedListing->Contains(SalPathRemoveExtendedPrefixW(SalMultiByteToWidePath(sourcePath, CP_UTF8).c_str()));
-    if (type == atCountSize && (sourceDirAttr & FILE_ATTRIBUTE_REPARSE_POINT) && !verifyListedAlias &&
-        (Configuration.CountSizeStayOnFileSystem ||
-         (UacListing::HasCompatibilityLinkAttributes(sourceDirAttr) && IsCompatibilityLinkForSize(sourcePath))))
+    if (type == atCountSize && SkipSizeDirectoryLink(sourceDirAttr, verifyListedAlias, Configuration.CountSizeStayOnFileSystem,
+        (sourceDirAttr & FILE_ATTRIBUTE_REPARSE_POINT) && !verifyListedAlias && !Configuration.CountSizeStayOnFileSystem &&
+        UacListing::HasCompatibilityLinkAttributes(sourceDirAttr) && IsCompatibilityLinkForSize(sourcePath)))
     {
         *sourceEnd = 0; // restoring sourcePath
         if (targetEnd != NULL)

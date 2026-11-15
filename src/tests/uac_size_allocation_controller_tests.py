@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-15 | Cover skipped links in batch size consent. | Preserve eligible siblings and native link policy. | #731 | GPT-6 |
 # | 2026-11-15 | Test general size branch errors. | Verify partial results without masking terminal failures. | #731 | GPT-6 |
 # | 2026-11-15 | Test the partial-size status markup. | Catch unescaped prefix characters in the real parser. | #731 | GPT-6 |
 # | 2026-11-15 | Explain denied size scans and total partial selections. | Report administrator denials and preserve lower-bound sums. | #731 | GPT-6 |
@@ -40,6 +41,12 @@ def main():
     branch = source[start:end]
     helper = 'template<class Query>\n' + block(read('src/uacbroker/f7pilot.h'), 'DWORD QueryCompressedSize(')
     generated = read('src/tests/uac_size_allocation_controller_tests.cpp.in')
+    generated = generated.replace('@@SIZE_LINK_POLICY@@', block(source, 'static bool SkipSizeDirectoryLink('))
+    batch_start = source.index('    if (countSize && selCount > 1 && !IsBranchView())')
+    batch_end = source.index('    char* useName', batch_start)
+    batch_setup = source[batch_start:batch_end]
+    assert 'SkipSizeDirectoryLink(item.Attr, verifyListedAlias, Configuration.CountSizeStayOnFileSystem, compatibilityLink)' in batch_setup
+    assert batch_setup.index('if (SkipSizeDirectoryLink(') < batch_setup.index('sizeBatchConsent.Selected.emplace_back(')
     generated = generated.replace('@@BRANCH_ERRORS@@', block(read('src/uacbroker/f7pilot.h'), 'inline bool IsSkippableSizeBranchError('))
     start = status.index('const int prefix = partialSelectedSize')
     end = status.index('ExpandPluralBytesFilesDirs(text + prefix', start)
