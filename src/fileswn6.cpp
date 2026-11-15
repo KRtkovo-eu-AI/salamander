@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Stop execution and editing of entries from a listing-only archive. | Require a future authorized extraction path. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Keep size scan cancellation available during broker progress. | Preserve normal wait-window behavior for large protected trees. | #731 | GPT-6 |
+// | 2026-11-15 | Check large protected size totals before merging. | Preserve the original worker's signed counters without overflow. | #731 | GPT-6 |
 // | 2026-11-15 | Share size consent across exactly selected files and trees. | Reuse one authenticated scope without authorizing siblings. | #731 | GPT-6 |
 // | 2026-11-15 | Clarify protected size and tree planning. | Document batch scope, denied scans and transfer eligibility. | #731 | GPT-6 |
 // | 2026-11-15 | Explain shared size consent and protected copy scanning. | Document scope lifetime and the normal-worker fallback. | #731 | GPT-6 |
@@ -3110,8 +3112,43 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                     {
                         const bool canRequest = session->Contains(path);
                         brokerRequested = canRequest;
-                        inventoryError = canRequest ? session->Inventory(path, inventory, onlySize ? nullptr : &details, &firstSkipped) :
-                                         session->IsOpen() ? ERROR_ACCESS_DENIED : ERROR_BROKEN_PIPE;
+                        if (canRequest)
+                        {
+                            struct SizeWaitContext { HWND owner; bool cancelled; } wait{HWindow, false};
+                            // Keep the original wait and cancellation behavior while a
+                            // long, scoped inventory reports progress from the broker.
+                            const auto continueScan = [](void* context) -> bool {
+                                auto& state = *static_cast<SizeWaitContext*>(context);
+                                if (!UserWantsToCancelSafeWaitWindow())
+                                    return true;
+                                MSG msg;
+                                while (PeekMessage(&msg, NULL, WM_KEYFIRST, WM_KEYLAST, PM_REMOVE))
+                                    ;
+                                ShowSafeWaitWindow(FALSE);
+                                const int answer = SalMessageBox(state.owner, LoadStr(IDS_CANCELOPERATION),
+                                                                 LoadStr(IDS_QUESTION), MB_YESNO | MB_ICONQUESTION);
+                                UpdateWindow(MainWindow->HWindow);
+                                ShowSafeWaitWindow(TRUE);
+                                state.cancelled = answer == IDYES;
+                                return !state.cancelled;
+                            };
+                            ShowSafeWaitWindow(TRUE);
+                            inventoryError = session->Inventory(path, inventory, onlySize ? nullptr : &details,
+                                                                &firstSkipped, continueScan, &wait);
+                            ShowSafeWaitWindow(FALSE);
+                            if (wait.cancelled)
+                                choice = IDCANCEL;
+                        }
+                        else
+                            inventoryError = session->IsOpen() ? ERROR_ACCESS_DENIED : ERROR_BROKEN_PIPE;
+                        // Brokered scans may exceed the old entry cap, but the native
+                        // worker still stores counts in signed integers.
+                        if (!inventoryError &&
+                            (script->FilesCount < 0 || script->DirsCount < 0 ||
+                             inventory.files > static_cast<DWORD>(MAXLONG - script->FilesCount) ||
+                             inventory.directories > static_cast<DWORD>(MAXLONG - script->DirsCount) ||
+                             inventory.bytes > MAXULONGLONG - script->TotalSize.Value))
+                            inventoryError = ERROR_ARITHMETIC_OVERFLOW;
                         // A live broker could not read this selected subtree.
                         // Continue the batch, while retaining the omission.
                         if ((canRequest || batchSelection) && session->IsOpen() && UacF7::IsSkippableSizeBranchError(inventoryError))

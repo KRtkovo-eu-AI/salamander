@@ -810,20 +810,27 @@ public:
     bool Inventory(std::wstring_view path, DWORD expected, DWORD files,
                    DWORD omission = ERROR_SUCCESS, std::wstring_view expectedSkipped = {})
     {
-        const auto deadline = GetTickCount64() + timeoutMs;
-        ListingReply reply{};
-        if (!SendFindRequest(UacListing::inventoryRequest, path, deadline) ||
-            TransferRequest(server.get(), &reply, sizeof(reply), false, deadline) ||
-            reply.error != expected || reply.count != expectedSkipped.size())
-            return false;
-        if (expected)
-            return true;
+        if (!SendFindRequest(UacListing::inventoryRequest, path, GetTickCount64() + timeoutMs)) return false;
+        UacF7::InventoryFrame frame{};
+        DWORD ack = UacF7::inventoryFrameAck;
+        do
+        {
+            if (TransferRequest(server.get(), &frame, sizeof(frame), false, GetTickCount64() + timeoutMs) ||
+                frame.reserved || (frame.kind == UacF7::InventoryFrameKind::Heartbeat && (frame.count || frame.error)) ||
+                (frame.kind != UacF7::InventoryFrameKind::Heartbeat && frame.kind != UacF7::InventoryFrameKind::Complete))
+                return false;
+            if (frame.kind == UacF7::InventoryFrameKind::Heartbeat &&
+                TransferRequest(server.get(), &ack, sizeof(ack), true, GetTickCount64() + timeoutMs)) return false;
+        } while (frame.kind == UacF7::InventoryFrameKind::Heartbeat);
+        if (frame.error != expected || frame.count != expectedSkipped.size()) return false;
+        if (expected) return !TransferRequest(server.get(), &ack, sizeof(ack), true, GetTickCount64() + timeoutMs);
         UacF7::DirectoryInventory inventory;
-        std::wstring skipped(reply.count, L'\0');
-        return !TransferRequest(server.get(), &inventory, sizeof(inventory), false, deadline) &&
-               (!reply.count || !TransferRequest(server.get(), skipped.data(), reply.count * static_cast<DWORD>(sizeof(wchar_t)), false, deadline)) &&
+        std::wstring skipped(frame.count, L'\0');
+        return !TransferRequest(server.get(), &inventory, sizeof(inventory), false, GetTickCount64() + timeoutMs) &&
+               (!frame.count || !TransferRequest(server.get(), skipped.data(), frame.count * static_cast<DWORD>(sizeof(wchar_t)), false, GetTickCount64() + timeoutMs)) &&
                inventory.files == files && inventory.bytes == files && inventory.firstOmission == omission &&
-               !inventory.flags && skipped == expectedSkipped;
+               !inventory.flags && skipped == expectedSkipped &&
+               !TransferRequest(server.get(), &ack, sizeof(ack), true, GetTickCount64() + timeoutMs);
     }
 
     bool RejectFindRequest(DWORD header)

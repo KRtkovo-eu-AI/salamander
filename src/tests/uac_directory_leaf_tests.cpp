@@ -131,6 +131,7 @@
 #include "../uacbroker/metadataleaf.h"
 #include "../uacbroker/deleteleaf.h"
 #include "../uacbroker/listing.h"
+#include "../uacbroker/size_inventory.h"
 #include "../uacbroker/compatjunction.h"
 #include "../uacbroker/copyleaf.h"
 #include "../uacbroker/zipupdate.h"
@@ -4730,6 +4731,75 @@ void CheckPendingDirectoryChain(const std::wstring& fixture, HANDLE root)
           "rollback leaves a newly populated directory and its file intact", rollback);
 }
 
+bool CheckLargeDeepInventory(const std::wstring& fixture)
+{
+    const std::wstring path = fixture + L"\\destination\\size-large-deep";
+    if (!CreateDirectoryW(path.c_str(), nullptr)) return false;
+    constexpr DWORD fillers = UacListing::maxEntries + 8;
+    constexpr DWORD depth = 40;
+    for (DWORD i = 0; i != fillers; ++i)
+        if (!WriteFixture(path + L"\\item-" + std::to_wstring(i), {1})) return false;
+    std::vector<std::wstring> directories;
+    std::wstring deep = path;
+    for (DWORD i = 0; i != depth; ++i)
+    {
+        deep += L"\\d" + std::to_wstring(i);
+        if (!CreateDirectoryW(deep.c_str(), nullptr)) return false;
+        directories.push_back(deep);
+    }
+    const std::wstring leaf = deep + L"\\\u6771-size.bin";
+    if (!WriteFixture(leaf, {1, 2, 3})) return false;
+    const HANDLE raw = CreateFileW(path.c_str(), FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES,
+                                   FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                                   FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+    Handle directory(raw == INVALID_HANDLE_VALUE ? nullptr : raw);
+    if (!directory) return false;
+    UacF7::DirectoryInventory inventory{};
+    DWORD error = UacListing::Inventory(directory.get(), MAXULONGLONG, inventory);
+    Check(error == ERROR_SUCCESS && inventory.files == fillers + 1 && inventory.directories == depth &&
+              inventory.bytes == fillers + 3 && !inventory.firstOmission,
+          "count every file and directory beyond both size inventory limits", error);
+    UacF7::DirectorySizeDetails details{};
+    error = UacListing::Inventory(directory.get(), MAXULONGLONG, inventory, &details);
+    ULONGLONG detailBytes = 0;
+    for (const auto bytes : details.fileSizes) detailBytes += bytes;
+    Check(error == ERROR_SUCCESS && inventory.files == fillers + 1 && inventory.directories == depth &&
+              inventory.bytes == fillers + 3 && !inventory.firstOmission &&
+              details.fileSizes.size() == fillers + 1 && detailBytes == inventory.bytes,
+          "retain exact file-size details beyond the item and depth limits", error);
+    const std::wstring junction = path + L"\\loop";
+    if (!CreateDirectoryW(junction.c_str(), nullptr)) return false;
+    {
+        const HANDLE donorRaw = CreateFileW((fixture + L"\\junction").c_str(), GENERIC_READ,
+                                            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                                            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+        const HANDLE linkRaw = CreateFileW(junction.c_str(), GENERIC_WRITE,
+                                           FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                                           FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+        const Handle donor(donorRaw == INVALID_HANDLE_VALUE ? nullptr : donorRaw);
+        const Handle link(linkRaw == INVALID_HANDLE_VALUE ? nullptr : linkRaw);
+        std::vector<BYTE> buffer(MAXIMUM_REPARSE_DATA_BUFFER_SIZE);
+        DWORD bytes = 0, written = 0;
+        if (!donor || !link ||
+            !DeviceIoControl(donor.get(), FSCTL_GET_REPARSE_POINT, nullptr, 0, buffer.data(),
+                             static_cast<DWORD>(buffer.size()), &bytes, nullptr) ||
+            !DeviceIoControl(link.get(), FSCTL_SET_REPARSE_POINT, buffer.data(), bytes, nullptr, 0, &written, nullptr))
+            return false;
+    }
+    std::wstring skipped;
+    error = UacListing::Inventory(directory.get(), MAXULONGLONG, inventory, nullptr, &skipped);
+    Check(error == ERROR_SUCCESS && inventory.files == fillers + 1 && inventory.directories == depth &&
+              inventory.bytes == fillers + 3 && inventory.firstOmission == ERROR_REPARSE_POINT_ENCOUNTERED &&
+              skipped == L"loop", "skip a junction cycle while retaining the exact large inventory", error);
+    directory.reset();
+    if (!RemoveDirectoryW(junction.c_str()) || !DeleteFileW(leaf.c_str())) return false;
+    for (auto it = directories.rbegin(); it != directories.rend(); ++it)
+        if (!RemoveDirectoryW(it->c_str())) return false;
+    for (DWORD i = 0; i != fillers; ++i)
+        if (!DeleteFileW((path + L"\\item-" + std::to_wstring(i)).c_str())) return false;
+    return RemoveDirectoryW(path.c_str()) != FALSE;
+}
+
 bool CheckLargeDirectoryListing(const std::wstring& fixture)
 {
     const auto path = fixture + L"\\large-listing";
@@ -4869,7 +4939,7 @@ int wmain(int argc, wchar_t** argv)
         !CheckZipSelection(fixture, root.get()) || !CheckReplacement(fixture, root.get(), UacZipUpdate::ReplacementKind::Zip) ||
         !CheckReplacement(fixture, root.get(), UacZipUpdate::ReplacementKind::DiskCopy) || !CheckOverwriteProcessExit(fixture))
         return 2;
-    if (!CheckLargeDirectoryListing(fixture)) return 2;
+    if (!CheckLargeDirectoryListing(fixture) || !CheckLargeDeepInventory(fixture)) return 2;
     HANDLE rawListing = nullptr;
     ParentIdentity listingIdentity;
     DWORD listingError = OpenParentBelowRoot(root.get(), L"destination", rawListing, listingIdentity, FILE_LIST_DIRECTORY);

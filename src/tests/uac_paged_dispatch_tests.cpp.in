@@ -208,6 +208,88 @@ int wmain()
         panel.Close();
         panelJob.Finish();
     }
+    {
+        const auto begin = targetPath + L"\\size-deep";
+        std::vector<std::wstring> directories;
+        std::wstring deepest = begin;
+        if (!CreateDirectoryW(deepest.c_str(), nullptr)) return 22;
+        directories.push_back(deepest);
+        for (unsigned i = 1; i < 40; ++i)
+        {
+            deepest += L"\\d";
+            if (!CreateDirectoryW(deepest.c_str(), nullptr)) return 23;
+            directories.push_back(deepest);
+        }
+        const auto deepFile = deepest + L"\\\u6771.txt";
+        if (!WriteByte(deepFile, 9)) return 24;
+        JobPipe inventoryJob;
+        if (!inventoryJob.Open(nullptr, target.get(), Operation::Inventory)) return 25;
+        UacF7::ListingSession session;
+        session.root = L"C:\\inventory-fixture";
+        session.prepared.operation = Operation::Inventory;
+        session.prepared.serial = targetId.VolumeSerialNumber;
+        std::memcpy(session.prepared.fileId, targetId.FileId.Identifier, sizeof(session.prepared.fileId));
+        session.pipe = inventoryJob.DetachClientForPanel();
+        session.publishedOpen.store(true);
+        struct Progress { unsigned calls = 0; } progressState;
+        const auto progress = [](void* context) -> bool {
+            auto& state = *static_cast<Progress*>(context);
+            if (++state.calls == 2) Sleep(5500);
+            return true;
+        };
+        UacF7::DirectoryInventory counts{};
+        std::wstring skipped;
+        const ULONGLONG started = GetTickCount64();
+        DWORD error = session.Inventory(session.root, counts, nullptr, &skipped, progress, &progressState);
+        Check(error == ERROR_SUCCESS && counts.files == 4105 && counts.directories == 40 && counts.bytes == 4105 &&
+                  !counts.firstOmission && skipped.empty() && progressState.calls > 2 &&
+                  GetTickCount64() - started >= 5000 && session.IsOpen(),
+              "actual scoped inventory survives delayed confirmation and counts beyond both limits");
+        UacF7::DirectorySizeDetails details{};
+        counts = {};
+        error = session.Inventory(session.root, counts, &details, &skipped, progress, &progressState);
+        ULONGLONG total = 0;
+        for (const auto bytes : details.fileSizes) total += bytes;
+        Check(error == ERROR_SUCCESS && counts.files == 4105 && counts.directories == 40 && counts.bytes == 4105 &&
+                  details.fileSizes.size() == 4105 && total == 4105 && session.IsOpen(),
+              "streamed size details preserve every file and reuse the approved inventory session");
+        counts = {};
+        error = session.Inventory(L"C:\\unapproved", counts, nullptr, &skipped, progress, &progressState);
+        Check(error == ERROR_ACCESS_DENIED && !counts.files && !counts.directories && !counts.bytes && session.IsOpen(),
+              "streamed inventory refuses a path outside the approved scope");
+        session.Close();
+        inventoryJob.Finish();
+        {
+            JobPipe cancelledJob;
+            if (!cancelledJob.Open(nullptr, target.get(), Operation::Inventory)) return 28;
+            UacF7::ListingSession retained;
+            retained.root = L"C:\\cancel-inventory-fixture";
+            retained.prepared.operation = Operation::Inventory;
+            retained.prepared.serial = targetId.VolumeSerialNumber;
+            std::memcpy(retained.prepared.fileId, targetId.FileId.Identifier, sizeof(retained.prepared.fileId));
+            retained.pipe = cancelledJob.DetachClientForPanel();
+            retained.publishedOpen.store(true);
+            unsigned calls = 0;
+            const auto cancel = [](void* context) -> bool { return ++*static_cast<unsigned*>(context) != 2; };
+            UacF7::DirectoryInventory cancelled{}; cancelled.bytes = 44; cancelled.files = 9;
+            UacF7::DirectorySizeDetails cancelledDetails{}; cancelledDetails.fileSizes.push_back(77);
+            std::wstring omitted = L"old";
+            const DWORD cancelledError = retained.Inventory(retained.root, cancelled, &cancelledDetails,
+                                                             &omitted, cancel, &calls);
+            const bool intact = cancelledError == ERROR_CANCELLED && retained.IsOpen() &&
+                                !cancelled.bytes && !cancelled.files && cancelledDetails.fileSizes.empty() && omitted.empty();
+            UacF7::DirectoryInventory later{};
+            const DWORD laterError = retained.Inventory(retained.root, later);
+            Check(intact && !laterError && later.files == 4105 && later.directories == 40 && later.bytes == 4105 &&
+                      retained.IsOpen(),
+                  "actual dispatcher retains the inventory session after cancellation without partial totals");
+            retained.Close();
+            cancelledJob.Finish();
+        }
+        if (!DeleteFileW(deepFile.c_str())) return 26;
+        for (auto it = directories.rbegin(); it != directories.rend(); ++it)
+            if (!RemoveDirectoryW(it->c_str())) return 27;
+    }
     JobPipe job;
     if (!job.Open(nullptr, root.handle.get(), Operation::CompareList)) return 6;
     std::vector<UacF7::PagedListingEntry> rows;

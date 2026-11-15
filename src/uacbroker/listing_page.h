@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Preserve malformed reparse rows for size scans. | Skip only that entry without following it or losing readable siblings. | #731 | GPT-6 |
 | 2026-11-15 | Explain protected listing page ownership. | Document cursor identity and pending I/O lifetime. | #731 | GPT-6 |
 | 2026-11-12 | Enumerate bounded identity-bearing directory pages. | Retain one verified handle, original row IDs and native short names. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Retain pending I/O across unexpected wait failures. | The kernel may still own the status block and buffer. | #731 | GPT-6 (Codex) |
@@ -97,7 +98,7 @@ inline DWORD QueryError(NTSTATUS status)
 // Decode only the actual bytes returned by the kernel, never the unused tail.
 // `nextOffset` is zero for the last record; a dot entry is skipped explicitly.
 inline DWORD Decode(const BYTE* bytes, size_t size, size_t offset, UacF7::PagedListingEntry& entry,
-                    size_t& nextOffset, bool& skip)
+                    size_t& nextOffset, bool& skip, bool sizeScan = false)
 {
     entry = {};
     nextOffset = 0;
@@ -126,7 +127,8 @@ inline DWORD Decode(const BYTE* bytes, size_t size, size_t offset, UacF7::PagedL
     if (shortChars && !UacDirectoryLeaf::IsComponent(std::wstring_view(row->shortName, shortChars)))
         return ERROR_INVALID_DATA;
     const bool reparse = (row->attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
-    if (reparse && !row->reparseTag)
+    // Size scans report this entry as omitted and never open its target.
+    if (reparse && !row->reparseTag && !sizeScan)
         return ERROR_REPARSE_TAG_INVALID;
     const BYTE empty[16]{};
     if (!skip && !std::memcmp(row->id, empty, sizeof(empty)))
@@ -162,7 +164,8 @@ public:
     PagedCursor(const PagedCursor&) = delete;
     PagedCursor& operator=(const PagedCursor&) = delete;
 
-    DWORD Open(HANDLE ownedDirectory, const UacF7::MoveFileIdentity* expected, UacF7::MoveFileIdentity& actual)
+    DWORD Open(HANDLE ownedDirectory, const UacF7::MoveFileIdentity* expected, UacF7::MoveFileIdentity& actual,
+               bool sizeScan = false)
     {
         Close();
         const bool hasExpected = expected != nullptr;
@@ -170,6 +173,7 @@ public:
         actual = {};
         if (!ownedDirectory || ownedDirectory == INVALID_HANDLE_VALUE)
             return ERROR_INVALID_HANDLE;
+        sizeScan_ = sizeScan;
         directory_ = ownedDirectory; // ownership transfers even if validation fails
         try
         {
@@ -294,7 +298,7 @@ public:
                 UacF7::PagedListingEntry entry{};
                 size_t next = 0;
                 bool skip = false;
-                const DWORD error = PagedDetail::Decode(reinterpret_cast<const BYTE*>(buffer_.get()), used_, offset_, entry, next, skip);
+                const DWORD error = PagedDetail::Decode(reinterpret_cast<const BYTE*>(buffer_.get()), used_, offset_, entry, next, skip, sizeScan_);
                 if (error)
                     return Fail(error);
                 if (!skip)
@@ -324,6 +328,7 @@ public:
         used_ = offset_ = 0;
         restart_ = true;
         haveRows_ = complete_ = false;
+        sizeScan_ = false;
     }
 
 #ifdef SAM_UAC_LISTING_PAGE_TEST
@@ -341,5 +346,6 @@ private:
     bool restart_ = true;
     bool haveRows_ = false;
     bool complete_ = false;
+    bool sizeScan_ = false;
 };
 }

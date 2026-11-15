@@ -36,6 +36,7 @@ def main():
                    'size_t ListingSession::FindReadScope(', 'bool ListingSession::Contains(',
                    'DWORD ListingSession::Transfer(', 'DWORD ListingSession::SendPath(',
                    'DWORD ListingSession::PrepareLeaf(', 'DWORD ListingSession::CaptureFindRoot(',
+                   'DWORD ListingSession::Inventory(',
                    'DWORD ListingSession::List(', 'DWORD ListingSession::ListPanel(',
                    'DWORD ListingSession::OpenDirectoryCursor(', 'DWORD ListingSession::NextDirectoryPage(',
                    'DWORD ListingSession::CloseDirectoryCursor(')

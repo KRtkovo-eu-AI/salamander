@@ -15,6 +15,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 #pragma warning(disable: 4201)
 
@@ -38,9 +39,10 @@ struct CFileData { CQuadWord Size; BOOL SizeValid = FALSE; DWORD_PTR PluginData 
 
 static int prompts, warnings, measurements, g_prepared, waitDepth, inventories;
 static DWORD localError, g_startError, g_allocationError, g_inventoryError, prepareError, reportedError;
+static DWORD brokerFiles, brokerDirectories;
 static ULONGLONG localValue, brokerValue;
-static int nextChoice;
-static bool exactPrompt;
+static int nextChoice, cancelAnswer;
+static bool exactPrompt, pollInventory, cancelRequested;
 static std::wstring declinedPreparePath, promptedPath;
 static bool offer = true;
 static DWORD QueryLocal(const wchar_t*, DWORD* high)
@@ -72,7 +74,7 @@ struct RoutingProbe
 @@QUERY@@
 struct SizeSelectionItem { std::wstring path; bool directory; };
 struct FileAllocationRequest { ULONGLONG size = 0; DWORD attrs = 0; };
-struct DirectoryInventory { ULONGLONG bytes = 0, files = 0, directories = 0; DWORD firstOmission = 0, flags = 0; };
+struct DirectoryInventory { ULONGLONG bytes = 0; DWORD files = 0, directories = 0, firstOmission = 0, flags = 0; };
 struct DirectorySizeDetails { struct { ULONGLONG compressed = 0, occupied = 0; } disk; std::vector<ULONGLONG> fileSizes; };
 constexpr DWORD inventoryCompatibilityAlias = 1;
 constexpr ULONGLONG unavailableSize = ~0ULL;
@@ -107,8 +109,14 @@ struct ListingSession
     DWORD PrepareViewer(const std::wstring&, PreparedLeaf&, DWORD) { ++g_prepared; if (CloseDuringPrepare) Open = false; return prepareError; }
     DWORD MeasureFileAllocation(const std::wstring&, const FileAllocationRequest&, ULONGLONG& size)
     { ++measurements; if (!g_allocationError) size = brokerValue; return g_allocationError; }
-    DWORD Inventory(const std::wstring&, DirectoryInventory& inventory, DirectorySizeDetails*, std::wstring*)
-    { ++inventories; inventory.bytes = brokerValue; inventory.files = 1; return g_inventoryError; }
+    DWORD Inventory(const std::wstring&, DirectoryInventory& inventory, DirectorySizeDetails*, std::wstring*,
+                    bool (*progress)(void*), void* context)
+    {
+        ++inventories;
+        if (pollInventory && progress && !progress(context)) return ERROR_CANCELLED;
+        inventory.bytes = brokerValue; inventory.files = brokerFiles; inventory.directories = brokerDirectories;
+        return g_inventoryError;
+    }
 };
 static bool CanOfferElevation() { return offer; }
 }
@@ -123,6 +131,7 @@ static int ConfirmProtectedSize(HWND, const std::wstring& path, UacF7::ListingSe
     return nextChoice;
 }
 static void ShowSafeWaitWindow(BOOL show) { waitDepth += show ? -1 : 1; }
+static bool UserWantsToCancelSafeWaitWindow() { return std::exchange(cancelRequested, false); }
 static DWORD MyGetDiskFreeSpace(const char*, DWORD*, DWORD*, DWORD*, DWORD*) { return FALSE; }
 static std::wstring SalMultiByteToWidePathUtf8OrAcp(const char* value) { std::wstring s; while (*value) s.push_back(static_cast<unsigned char>(*value++)); return s; }
 static std::string SalWideToMultiBytePath(const wchar_t* value, UINT) { std::string s; while (*value) s.push_back(static_cast<char>(*value++)); return s; }
@@ -131,11 +140,12 @@ static std::wstring SalPathAddExtendedPrefixW(const wchar_t* path) { return path
 static std::wstring SalPathRemoveExtendedPrefixW(const wchar_t* path) { return path; }
 static const char* LoadStr(int) { return "size error"; }
 static const char* GetErrorText(DWORD error) { reportedError = error; return "error"; }
-static int SalMessageBox(HWND, const char*, const char*, UINT) { ++warnings; return IDNO; }
+static int SalMessageBox(HWND, const char*, const char*, UINT) { ++warnings; return cancelAnswer; }
 namespace Salamander { namespace BranchViewText {
 static std::string FormatCompressedSizeError(const char*, const char*, const char*) { return "error"; }
 } }
-static constexpr int IDS_GETCOMPRFILESIZEERROR = 1, IDS_ERRORTITLE = 2, atCountSize = 3;
+static constexpr int IDS_GETCOMPRFILESIZEERROR = 1, IDS_ERRORTITLE = 2, atCountSize = 3,
+                     IDS_CANCELOPERATION = 4, IDS_QUESTION = 5;
 static constexpr BOOL FileBasedCompression = TRUE;
 struct WindowFacade { HWND HWindow = nullptr; };
 static WindowFacade mainWindow;
@@ -149,7 +159,7 @@ struct COperations
     DWORD CountSizeFirstOmission = 0;
     bool CountSizeFirstOmissionWasElevated = false;
     std::wstring CountSizeFirstOmissionPath;
-    ULONGLONG FilesCount = 0, DirsCount = 0;
+    int FilesCount = 0, DirsCount = 0;
     CQuadWord TotalSize, OccupiedSpace, TotalFileSize, CompressedSize;
     SizesArray Sizes;
 };
@@ -158,6 +168,7 @@ class CFilesWindow
 public:
     HWND HWindow = nullptr;
     BOOL ErrListDirSkipAll = FALSE;
+    DWORD controllerError = ERROR_SUCCESS;
     std::unique_ptr<UacF7::ListingSession> ProtectedListing;
     int MeasureDirectory(COperations* script, CSizeScanScope* sizeScope, const std::wstring& requested)
     {
@@ -167,6 +178,7 @@ public:
         char source = 's', target = 't'; char* sourceEnd = &source; char* targetEnd = &target;
         const auto sizePath = [&] { return requested; };
 @@DIRECTORY_SIZE@@
+        controllerError = err;
         return -1;
     }
     struct SelectedFile { std::wstring path; };
@@ -208,7 +220,9 @@ static void Reset()
 {
     prompts = warnings = measurements = g_prepared = waitDepth = inventories = 0;
     localError = ERROR_ACCESS_DENIED; g_startError = g_allocationError = g_inventoryError = prepareError = reportedError = ERROR_SUCCESS;
-    localValue = brokerValue = 0; nextChoice = IDOK; offer = true; exactPrompt = false; declinedPreparePath.clear(); promptedPath.clear();
+    brokerFiles = 1; brokerDirectories = 0;
+    localValue = brokerValue = 0; nextChoice = IDOK; cancelAnswer = IDNO; offer = true; exactPrompt = false;
+    pollInventory = cancelRequested = false; declinedPreparePath.clear(); promptedPath.clear();
 }
 int main()
 {
@@ -278,6 +292,57 @@ int main()
               "selected-size status text preserves the lower bound and number highlighting");
     }
     constexpr DWORD sparse = FILE_ATTRIBUTE_SPARSE_FILE | FILE_ATTRIBUTE_ARCHIVE;
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeScanScope scope;
+        sum.FilesCount = 3; sum.DirsCount = 7; sum.TotalSize.Value = 42;
+        pollInventory = cancelRequested = true; cancelAnswer = IDYES; brokerValue = 3;
+        const auto result = panel.MeasureDirectory(&sum, &scope, L"C:\\scope\\cancel");
+        Check(result == FALSE && prompts == 1 && inventories == 1 && !waitDepth &&
+              sum.FilesCount == 3 && sum.DirsCount == 7 && sum.TotalSize.Value == 42,
+              "confirmed cancellation stops protected inventory without merging partial totals");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeScanScope scope;
+        pollInventory = cancelRequested = true; cancelAnswer = IDNO; brokerValue = 3;
+        const auto result = panel.MeasureDirectory(&sum, &scope, L"C:\\scope\\continue");
+        Check(result == TRUE && prompts == 1 && inventories == 1 && !waitDepth &&
+              sum.FilesCount == 1 && sum.TotalSize.Value == 3,
+              "declining cancellation continues the same protected inventory");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeScanScope scope;
+        sum.FilesCount = MAXLONG; sum.DirsCount = 7; sum.TotalSize.Value = 42; brokerValue = 3;
+        const auto result = panel.MeasureDirectory(&sum, &scope, L"C:\\scope\\file-overflow");
+        Check(result == -1 && panel.controllerError == ERROR_ARITHMETIC_OVERFLOW &&
+              sum.FilesCount == MAXLONG && sum.DirsCount == 7 && sum.TotalSize.Value == 42,
+              "file count overflow preserves all previous totals");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeScanScope scope;
+        sum.FilesCount = 3; sum.DirsCount = MAXLONG; sum.TotalSize.Value = 42;
+        brokerValue = 3; brokerFiles = 0; brokerDirectories = 1;
+        const auto result = panel.MeasureDirectory(&sum, &scope, L"C:\\scope\\directory-overflow");
+        Check(result == -1 && panel.controllerError == ERROR_ARITHMETIC_OVERFLOW &&
+              sum.FilesCount == 3 && sum.DirsCount == MAXLONG && sum.TotalSize.Value == 42,
+              "directory count overflow preserves all previous totals");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeScanScope scope;
+        sum.FilesCount = 3; sum.DirsCount = 7; sum.TotalSize.Value = MAXULONGLONG - 1;
+        brokerValue = 2; brokerDirectories = 1;
+        const auto result = panel.MeasureDirectory(&sum, &scope, L"C:\\scope\\byte-overflow");
+        Check(result == -1 && panel.controllerError == ERROR_ARITHMETIC_OVERFLOW &&
+              sum.FilesCount == 3 && sum.DirsCount == 7 && sum.TotalSize.Value == MAXULONGLONG - 1,
+              "byte total overflow preserves all previous totals");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeScanScope scope;
+        sum.FilesCount = MAXLONG - 1; sum.DirsCount = MAXLONG - 1; sum.TotalSize.Value = MAXULONGLONG - 1;
+        brokerValue = 1; brokerDirectories = 1;
+        const auto result = panel.MeasureDirectory(&sum, &scope, L"C:\\scope\\exact-boundary");
+        Check(result == TRUE && sum.FilesCount == MAXLONG && sum.DirsCount == MAXLONG &&
+              sum.TotalSize.Value == MAXULONGLONG, "representable boundary totals still succeed");
+    }
     {
         CQuadWord total, plugin; BOOL display = TRUE; bool partial = false;
         CFileData first, second; first.Size.Value = 100; first.SizeValid = TRUE;

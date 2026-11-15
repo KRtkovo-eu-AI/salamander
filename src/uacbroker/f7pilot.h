@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Stream protected size results in bounded frames. | Preserve scoped totals and responsive cancellation for large trees. | #731 | GPT-6 |
 | 2026-11-15 | Page large protected panel listings. | Keep ordinary listings compatible while removing the per-directory cap. | #731 | GPT-6 |
 | 2026-11-15 | Scope one read session to multiple captured selections. | Reuse one consent without granting unselected paths. | #731 | GPT-6 |
 | 2026-11-15 | Clarify grouped UAC capability contracts. | Document foreground, file modes and scoped read sessions. | #731 | GPT-6 |
@@ -1185,6 +1186,21 @@ struct DirectorySizeDetails
     std::vector<ULONGLONG> fileSizes;
 };
 
+// Intermediate inventory frames contain only lengths; the final reply may
+// additionally identify the first skipped path, as in the original protocol.
+enum class InventoryFrameKind : DWORD { Heartbeat = 1, FileSizes = 2, Complete = 3 };
+struct InventoryFrame
+{
+    InventoryFrameKind kind;
+    DWORD count;
+    DWORD error;
+    DWORD reserved;
+};
+constexpr DWORD maxInventoryFrameSizes = 64;
+constexpr DWORD inventoryFrameAck = 0x53495A45; // SIZE
+constexpr DWORD inventoryFrameCancel = 0x43414E43; // CANC
+static_assert(sizeof(InventoryFrame) == 16);
+
 struct FindRootIdentity
 {
     std::wstring path;
@@ -1259,7 +1275,7 @@ public:
     DWORD NextDirectoryPage(ULONGLONG lease, std::vector<PagedListingEntry>& entries, bool& done, HANDLE stop = nullptr);
     DWORD CloseDirectoryCursor(ULONGLONG lease, HANDLE stop = nullptr);
     DWORD Inventory(const std::wstring& path, DirectoryInventory& inventory, DirectorySizeDetails* details = nullptr,
-                    std::wstring* firstSkipped = nullptr);
+                    std::wstring* firstSkipped = nullptr, bool (*continueScan)(void*) = nullptr, void* context = nullptr);
     DWORD MeasureFileAllocation(const std::wstring& path, const FileAllocationRequest& identity, ULONGLONG& bytes);
     bool IsOpen() const { return publishedOpen.load(std::memory_order_acquire); }
     bool TryIsOpen(bool& open) const

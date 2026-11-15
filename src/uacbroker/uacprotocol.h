@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Version streamed inventory replies. | Reject incompatible host and broker size framing. | #731 | GPT-6 |
 // | 2026-11-15 | Version selected read scope framing. | Require compatible peers for multi-root consent. | #731 | GPT-6 |
 // | 2026-11-15 | Explain paired UAC image markers. | Reject mismatched protocol versions and executable roles. | #731 | GPT-6 |
 // | 2026-11-15 | Restrict nonrecursive Find consent. | Keep the broker inside the user-requested search depth. | #731 | GPT-6 |
@@ -46,7 +47,7 @@
 
 // Host, broker and probe embed these markers so a mismatched or wrong-role
 // executable is rejected before any privileged request is accepted.
-#define SAM_UAC_PROTOCOL_VERSION 51
+#define SAM_UAC_PROTOCOL_VERSION 52
 #define SAM_UAC_PROTOCOL_RESOURCE 63001
 #define SAM_UAC_IMAGE_HOST 1
 #define SAM_UAC_IMAGE_BROKER 2

@@ -7,6 +7,7 @@
 #include <windows.h>
 #include <algorithm>
 #include <atomic>
+#include <climits>
 #include <cstdio>
 #include <cstring>
 #include <memory>
@@ -544,6 +545,196 @@ void PanelPartialFailure()
           "an error after a panel page publishes no partial rows and keeps the session usable");
 }
 
+struct InventoryProgress
+{
+    unsigned calls = 0;
+    unsigned cancelAt = 2;
+    bool delay = false;
+    bool cancel = false;
+};
+
+bool InventoryContinue(void* context)
+{
+    auto& state = *static_cast<InventoryProgress*>(context);
+    ++state.calls;
+    if (state.calls == 2 && state.delay) Sleep(5500);
+    return !(state.calls == state.cancelAt && state.cancel);
+}
+
+bool ReadInventorySignal(HANDLE pipe, DWORD expected, DWORD timeout = timeoutMs)
+{
+    DWORD ack = 0;
+    return TransferRequest(pipe, &ack, sizeof(ack), false, GetTickCount64() + timeout) == ERROR_SUCCESS &&
+           ack == expected;
+}
+bool ReadInventoryAck(HANDLE pipe, DWORD timeout = timeoutMs) { return ReadInventorySignal(pipe, UacF7::inventoryFrameAck, timeout); }
+
+void InventoryDelayedContinue()
+{
+    Pair pair;
+    if (!pair.Open(32)) { Check(false, "prepare delayed inventory fixture"); return; }
+    auto session = Session(pair);
+    session->prepared.operation = UacF7::Operation::Inventory;
+    std::atomic<bool> peerOk{false};
+    std::thread peer([&] {
+        const UacF7::InventoryFrame heartbeat{UacF7::InventoryFrameKind::Heartbeat, 0, 0, 0};
+        const UacF7::InventoryFrame sizes{UacF7::InventoryFrameKind::FileSizes, 2, 0, 0};
+        const UacF7::InventoryFrame complete{UacF7::InventoryFrameKind::Complete, 0, 0, 0};
+        const ULONGLONG lengths[]{10, 20};
+        UacF7::DirectoryInventory result{}; result.bytes = 30; result.files = 2; result.directories = 40;
+        UacF7::DirectoryDiskSizes disk{}; disk.compressed = 30; disk.occupied = 8192;
+        const UacF7::DirectoryInventory empty{};
+        bool ok = Prefix(pair.peer.get(), UacListing::inventoryRequest | UacListing::sizeDetailsRequest) &&
+                  Write(pair.peer.get(), &heartbeat, sizeof(heartbeat)) && ReadInventoryAck(pair.peer.get(), 12000) &&
+                  Write(pair.peer.get(), &heartbeat, sizeof(heartbeat)) && ReadInventoryAck(pair.peer.get()) &&
+                  Write(pair.peer.get(), &sizes, sizeof(sizes)) && Write(pair.peer.get(), lengths, sizeof(lengths)) &&
+                  ReadInventoryAck(pair.peer.get()) && Write(pair.peer.get(), &complete, sizeof(complete)) &&
+                  Write(pair.peer.get(), &result, sizeof(result)) && Write(pair.peer.get(), &disk, sizeof(disk)) &&
+                  ReadInventoryAck(pair.peer.get()) && Prefix(pair.peer.get(), UacListing::inventoryRequest) &&
+                  Write(pair.peer.get(), &complete, sizeof(complete)) && Write(pair.peer.get(), &empty, sizeof(empty)) &&
+                  ReadInventoryAck(pair.peer.get());
+        peerOk = ok;
+    });
+    InventoryProgress progress{}; progress.delay = true;
+    UacF7::DirectoryInventory inventory{};
+    UacF7::DirectorySizeDetails details{};
+    std::wstring skipped;
+    const ULONGLONG start = GetTickCount64();
+    const DWORD result = session->Inventory(L"C:\\owned-fixture", inventory, &details, &skipped,
+                                            InventoryContinue, &progress);
+    const ULONGLONG elapsed = GetTickCount64() - start;
+    const bool exact = !result && inventory.files == 2 && inventory.directories == 40 && inventory.bytes == 30 &&
+                       details.fileSizes == std::vector<ULONGLONG>{10, 20} && details.disk.compressed == 30 &&
+                       details.disk.occupied == 8192 && skipped.empty();
+    UacF7::DirectoryInventory again{};
+    const DWORD second = session->Inventory(L"C:\\owned-fixture", again);
+    peer.join();
+    Check(exact && elapsed >= 5000 && progress.calls >= 4 && !second && session->IsOpen() && peerOk,
+          "a delayed inventory confirmation exceeds five seconds and retains the session and exact details");
+}
+
+void InventoryCancellation()
+{
+    Pair pair;
+    if (!pair.Open(33)) { Check(false, "prepare cancelled inventory fixture"); return; }
+    auto session = Session(pair);
+    session->prepared.operation = UacF7::Operation::Inventory;
+    std::atomic<bool> peerOk{false};
+    std::thread peer([&] {
+        const UacF7::InventoryFrame heartbeat{UacF7::InventoryFrameKind::Heartbeat, 0, 0, 0};
+        const UacF7::InventoryFrame complete{UacF7::InventoryFrameKind::Complete, 0, 0, 0};
+        UacF7::DirectoryInventory next{}; next.bytes = 9; next.files = 1;
+        peerOk = Prefix(pair.peer.get(), UacListing::inventoryRequest | UacListing::sizeDetailsRequest) &&
+                 Write(pair.peer.get(), &heartbeat, sizeof(heartbeat)) &&
+                 ReadInventorySignal(pair.peer.get(), UacF7::inventoryFrameCancel) &&
+                 Prefix(pair.peer.get(), UacListing::inventoryRequest) &&
+                 Write(pair.peer.get(), &complete, sizeof(complete)) && Write(pair.peer.get(), &next, sizeof(next)) &&
+                 ReadInventoryAck(pair.peer.get());
+    });
+    InventoryProgress progress{}; progress.cancel = true;
+    UacF7::DirectoryInventory inventory{}; inventory.bytes = 44; inventory.files = 9;
+    UacF7::DirectorySizeDetails details{}; details.fileSizes.push_back(77);
+    std::wstring skipped = L"old";
+    const DWORD result = session->Inventory(L"C:\\owned-fixture", inventory, &details, &skipped,
+                                            InventoryContinue, &progress);
+    const bool cancelled = result == ERROR_CANCELLED && session->IsOpen() && !inventory.bytes && !inventory.files &&
+                           details.fileSizes.empty() && skipped.empty();
+    UacF7::DirectoryInventory later{};
+    const DWORD retry = session->Inventory(L"C:\\owned-fixture", later);
+    peer.join();
+    Check(cancelled && retry == ERROR_SUCCESS && later.bytes == 9 && later.files == 1 && session->IsOpen() && peerOk,
+          "cancel at a heartbeat sends cancellation without publishing totals and retains the session");
+}
+
+void InventoryCancellationBeforeRequest()
+{
+    Pair pair;
+    if (!pair.Open(35)) { Check(false, "prepare pre-request inventory cancellation fixture"); return; }
+    auto session = Session(pair);
+    session->prepared.operation = UacF7::Operation::Inventory;
+    InventoryProgress progress{}; progress.cancel = true; progress.cancelAt = 1;
+    UacF7::DirectoryInventory cancelled{}; cancelled.bytes = 44; cancelled.files = 9;
+    const DWORD result = session->Inventory(L"C:\\owned-fixture", cancelled, nullptr, nullptr,
+                                            InventoryContinue, &progress);
+    const bool intact = result == ERROR_CANCELLED && !cancelled.bytes && !cancelled.files &&
+                        session->IsOpen() && NoBytes(pair.peer.get());
+    std::atomic<bool> peerOk{false};
+    std::thread peer([&] {
+        const UacF7::InventoryFrame complete{UacF7::InventoryFrameKind::Complete, 0, 0, 0};
+        UacF7::DirectoryInventory totals{}; totals.bytes = 9; totals.files = 1;
+        peerOk = Prefix(pair.peer.get(), UacListing::inventoryRequest) &&
+                 Write(pair.peer.get(), &complete, sizeof(complete)) &&
+                 Write(pair.peer.get(), &totals, sizeof(totals)) && ReadInventoryAck(pair.peer.get());
+    });
+    UacF7::DirectoryInventory later{};
+    const DWORD retry = session->Inventory(L"C:\\owned-fixture", later);
+    peer.join();
+    Check(intact && retry == ERROR_SUCCESS && later.bytes == 9 && later.files == 1 &&
+              session->IsOpen() && peerOk,
+          "cancellation before the first request emits no frame and preserves the live session");
+}
+
+void InventoryCancellationAtCompletion()
+{
+    Pair pair;
+    if (!pair.Open(36)) { Check(false, "prepare completed inventory cancellation fixture"); return; }
+    auto session = Session(pair);
+    session->prepared.operation = UacF7::Operation::Inventory;
+    std::atomic<bool> peerOk{false};
+    std::thread peer([&] {
+        const UacF7::InventoryFrame heartbeat{UacF7::InventoryFrameKind::Heartbeat, 0, 0, 0};
+        const UacF7::InventoryFrame complete{UacF7::InventoryFrameKind::Complete, 0, 0, 0};
+        UacF7::DirectoryInventory totals{}; totals.bytes = 9; totals.files = 1;
+        peerOk = Prefix(pair.peer.get(), UacListing::inventoryRequest) &&
+                 Write(pair.peer.get(), &heartbeat, sizeof(heartbeat)) && ReadInventoryAck(pair.peer.get()) &&
+                 Write(pair.peer.get(), &complete, sizeof(complete)) && Write(pair.peer.get(), &totals, sizeof(totals)) &&
+                 ReadInventorySignal(pair.peer.get(), UacF7::inventoryFrameCancel) &&
+                 Prefix(pair.peer.get(), UacListing::inventoryRequest) &&
+                 Write(pair.peer.get(), &complete, sizeof(complete)) && Write(pair.peer.get(), &totals, sizeof(totals)) &&
+                 ReadInventoryAck(pair.peer.get());
+    });
+    InventoryProgress progress{}; progress.cancel = true; progress.cancelAt = 3;
+    UacF7::DirectoryInventory cancelled{}; cancelled.bytes = 44; cancelled.files = 9;
+    const DWORD result = session->Inventory(L"C:\\owned-fixture", cancelled, nullptr, nullptr,
+                                            InventoryContinue, &progress);
+    const bool intact = result == ERROR_CANCELLED && !cancelled.bytes && !cancelled.files && session->IsOpen();
+    UacF7::DirectoryInventory later{};
+    const DWORD retry = session->Inventory(L"C:\\owned-fixture", later);
+    peer.join();
+    Check(intact && retry == ERROR_SUCCESS && later.bytes == 9 && later.files == 1 && session->IsOpen() && peerOk,
+          "cancel at a complete frame publishes no totals and permits another request");
+}
+
+void InventoryMismatchedDetails()
+{
+    Pair pair;
+    if (!pair.Open(34)) { Check(false, "prepare invalid inventory fixture"); return; }
+    auto session = Session(pair);
+    session->prepared.operation = UacF7::Operation::Inventory;
+    std::atomic<bool> peerOk{false};
+    std::thread peer([&] {
+        const UacF7::InventoryFrame sizes{UacF7::InventoryFrameKind::FileSizes, 2, 0, 0};
+        const UacF7::InventoryFrame complete{UacF7::InventoryFrameKind::Complete, 0, 0, 0};
+        const ULONGLONG lengths[]{10, 20};
+        UacF7::DirectoryInventory result{}; result.bytes = 31; result.files = 2;
+        DWORD ack = 0;
+        const bool sent = Prefix(pair.peer.get(), UacListing::inventoryRequest | UacListing::sizeDetailsRequest) &&
+                          Write(pair.peer.get(), &sizes, sizeof(sizes)) && Write(pair.peer.get(), lengths, sizeof(lengths)) &&
+                          ReadInventoryAck(pair.peer.get()) && Write(pair.peer.get(), &complete, sizeof(complete)) &&
+                          Write(pair.peer.get(), &result, sizeof(result));
+        const DWORD read = sent ? TransferRequest(pair.peer.get(), &ack, sizeof(ack), false,
+                                                   GetTickCount64() + timeoutMs) : ERROR_GEN_FAILURE;
+        peerOk = sent && (read == ERROR_BROKEN_PIPE || read == ERROR_NO_DATA || read == ERROR_PIPE_NOT_CONNECTED);
+    });
+    UacF7::DirectoryInventory inventory{};
+    UacF7::DirectorySizeDetails details{};
+    const DWORD result = session->Inventory(L"C:\\owned-fixture", inventory, &details);
+    peer.join();
+    Check(result == ERROR_INVALID_DATA && !session->IsOpen() && !inventory.bytes && !inventory.files &&
+              details.fileSizes.empty() && peerOk,
+          "inconsistent streamed file-size details are rejected without publishing totals");
+}
+
 void PanelViewerSnapshots()
 {
     Pair pair;
@@ -604,6 +795,11 @@ int main()
     CloseWaitsForPage();
     RetainedLifetime();
     PanelPartialFailure();
+    InventoryDelayedContinue();
+    InventoryCancellation();
+    InventoryCancellationBeforeRequest();
+    InventoryCancellationAtCompletion();
+    InventoryMismatchedDetails();
     PanelViewerSnapshots();
     std::printf("Failures=%d\n", failures);
     return failures ? 1 : 0;

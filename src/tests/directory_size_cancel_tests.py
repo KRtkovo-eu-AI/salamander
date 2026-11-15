@@ -46,7 +46,13 @@ def main():
         assert 'scopedSession->PrepareInventory(sizeScope->Root)' in protected
         assert protected.index('if (scoped && *startResult)') < protected.index('choice = ConfirmProtectedSize')
         assert '*startResult = inventoryError;' in protected
-        assert 'canRequest ? session->Inventory' in protected
+        request = protected[protected.index('if (canRequest)'):protected.index('if ((canRequest || batchSelection)')]
+        assert request.index('if (canRequest)') < request.index('session->Inventory(path, inventory, onlySize ? nullptr : &details,')
+        assert '&firstSkipped, continueScan, &wait)' in request
+        assert 'session->IsOpen() ? ERROR_ACCESS_DENIED : ERROR_BROKEN_PIPE' in request
+        assert request.index('UserWantsToCancelSafeWaitWindow()') < request.index('SalMessageBox(state.owner, LoadStr(IDS_CANCELOPERATION)')
+        assert request.index('state.cancelled = answer == IDYES;') < request.index('return !state.cancelled;')
+        assert request.index('if (wait.cancelled)') < request.index('choice = IDCANCEL;')
         scan_start = production.index('const bool wideSizeScan = type == atCountSize;')
         assert 'FindFirstFileW(pattern.c_str(), &sizeRow)' in production[scan_start:start]
         assert 'SalPathAddExtendedPrefixIfNeededW' in production[scan_start:start]

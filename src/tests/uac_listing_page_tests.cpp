@@ -42,6 +42,7 @@ static std::wstring Item(unsigned i)
 }
 static unsigned fakeCalls = 0;
 static bool fakeMalformed = false;
+static bool fakeZeroTag = false;
 static PIO_STATUS_BLOCK pendingIo = nullptr;
 static PVOID pendingBuffer = nullptr;
 static unsigned pendingWaits = 0;
@@ -70,7 +71,7 @@ static DWORD WINAPI PendingWait(HANDLE event, DWORD timeout)
 static NTSTATUS NTAPI FakeQuery(HANDLE, HANDLE, PVOID, PVOID, PIO_STATUS_BLOCK io,
     PVOID output, ULONG bytes, FILE_INFORMATION_CLASS, BOOLEAN, PUNICODE_STRING, BOOLEAN)
 {
-    if (fakeCalls++ != 0) return static_cast<NTSTATUS>(0xC0000022UL); // STATUS_ACCESS_DENIED
+    if (fakeCalls++ != 0) return fakeZeroTag ? UacListing::PagedDetail::statusNoMoreFiles : static_cast<NTSTATUS>(0xC0000022UL);
     if (bytes < 2 * sizeof(UacListing::PagedDetail::NativeRow)) return static_cast<NTSTATUS>(0xC000000DL);
     auto* first = static_cast<UacListing::PagedDetail::NativeRow*>(output);
     std::memset(output, 0, 2 * sizeof(*first));
@@ -78,15 +79,17 @@ static NTSTATUS NTAPI FakeQuery(HANDLE, HANDLE, PVOID, PVOID, PIO_STATUS_BLOCK i
     first->attributes = FILE_ATTRIBUTE_ARCHIVE;
     first->nameBytes = sizeof(WCHAR);
     first->name[0] = L'a';
-    first->next = fakeMalformed ? sizeof(*first) : 0;
-    if (fakeMalformed)
+    first->next = (fakeMalformed || fakeZeroTag) ? sizeof(*first) : 0;
+    if (fakeZeroTag) first->attributes = FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT;
+    if (fakeMalformed || fakeZeroTag)
     {
         auto* second = reinterpret_cast<UacListing::PagedDetail::NativeRow*>(
             static_cast<BYTE*>(output) + sizeof(*first));
-        second->nameBytes = 1; // invalid UTF-16 byte count
+        second->nameBytes = fakeZeroTag ? sizeof(WCHAR) : 1;
+        if (fakeZeroTag) { second->id[0] = 2; second->attributes = FILE_ATTRIBUTE_ARCHIVE; second->name[0] = L'b'; }
     }
     io->Status = 0;
-    io->Information = fakeMalformed ? 2 * sizeof(*first) : sizeof(*first);
+    io->Information = (fakeMalformed || fakeZeroTag) ? 2 * sizeof(*first) : sizeof(*first);
     return 0;
 }
 
@@ -129,6 +132,9 @@ int wmain(int argc, wchar_t** argv)
     row.next = 0;
     row.attributes |= FILE_ATTRIBUTE_REPARSE_POINT;
     Check(decode() == ERROR_REPARSE_TAG_INVALID, "reparse record without a tag is rejected");
+    Check(Decode(reinterpret_cast<const BYTE*>(&row), sizeof(row), 0, decoded, next, skip, true) == ERROR_SUCCESS &&
+          !skip && (decoded.data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) && !decoded.data.dwReserved0,
+          "size scan receives a zero-tag reparse entry for safe omission");
     row.reparseTag = IO_REPARSE_TAG_SYMLINK;
     Check(decode() == ERROR_SUCCESS && (decoded.data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) &&
           decoded.data.dwReserved0 == IO_REPARSE_TAG_SYMLINK, "valid reparse type and tag are preserved without following");
@@ -241,6 +247,21 @@ int wmain(int argc, wchar_t** argv)
     cursor.TestSetQuery(FakeQuery);
     Check(cursor.Next(page, done) == ERROR_INVALID_DATA && page.empty(),
           "malformed later row discards the whole uncommitted page");
+    fakeCalls = 0; fakeMalformed = false; fakeZeroTag = true;
+    Check(cursor.Open(OpenDirectory(root), &actual, refused) == ERROR_SUCCESS,
+          "prepare strict zero-tag reparse page");
+    cursor.TestSetQuery(FakeQuery);
+    Check(cursor.Next(page, done) == ERROR_REPARSE_TAG_INVALID && page.empty(),
+          "ordinary cursor rejects a zero-tag reparse page");
+    fakeCalls = 0;
+    Check(cursor.Open(OpenDirectory(root), &actual, refused, true) == ERROR_SUCCESS,
+          "prepare size inventory zero-tag reparse page");
+    cursor.TestSetQuery(FakeQuery);
+    Check(cursor.Next(page, done) == ERROR_SUCCESS && done && page.size() == 2 &&
+          (page[0].data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) && !page[0].data.dwReserved0 &&
+          !wcscmp(page[1].data.cFileName, L"b"),
+          "size cursor delivers the zero-tag entry and readable sibling without following the link");
+    cursor.Close(); fakeZeroTag = false;
     Check(cursor.Open(OpenDirectory(root), &actual, refused) == ERROR_SUCCESS,
           "prepare pending query with unexpected wait failures");
     cursor.TestSetQuery(PendingQuery);

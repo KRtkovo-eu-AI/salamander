@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Stream scoped directory size inventories. | Bound each response while retaining cancellation and identity checks. | #731 | GPT-6 |
 | 2026-11-15 | Page oversized protected panel listings. | Retain exact directory identities and complete results across pages. | #731 | GPT-6 |
 | 2026-11-15 | Avoid unnecessary traversal access for listed directory identity. | Offer UAC when a readable parent denies explicit traversal. | #731 | GPT-6 |
 | 2026-11-15 | Dispatch one approved set of exact read scopes. | Share consent without broadening access to unrelated siblings. | #731 | GPT-6 |
@@ -229,6 +230,7 @@
 #include "deleteleaf.h"
 #include "listing.h"
 #include "listing_page.h"
+#include "size_inventory.h"
 #include "copyleaf.h"
 #include "zipselection.h"
 #include "zipupdate.h"
@@ -4284,6 +4286,65 @@ DWORD MeasureExactAllocation(const ExactAllocationScope& scope, const UacF7::Fil
     return UacListing::MeasureFileAllocation(current.get(), scope.leaf, expected, bytes);
 }
 
+// Stream only the sizes and aggregate approved for this inventory; keep each
+// pipe frame bounded and terminate promptly when the authenticated host leaves.
+DWORD ServeStreamInventory(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root,
+                           std::wstring_view relative, DWORD selectionError, bool withDetails)
+{
+    DWORD transportError = ERROR_SUCCESS;
+    bool cancelledByAck = false;
+    const auto acknowledge = [&]() -> DWORD {
+        DWORD ack = 0;
+        const DWORD error = TransferRequest(pipe, &ack, sizeof(ack), false, GetTickCount64() + 15 * 60 * 1000);
+        if (error) return error;
+        if (!LiveInSession(host, hostPid)) return ERROR_OPERATION_ABORTED;
+        // A complete frame can be cancelled without losing the approved session.
+        if (ack == UacF7::inventoryFrameCancel) { cancelledByAck = true; return ERROR_CANCELLED; }
+        if (ack != UacF7::inventoryFrameAck) return ERROR_INVALID_DATA;
+        return ERROR_SUCCESS;
+    };
+    const auto emit = [&](UacF7::InventoryFrameKind kind, const ULONGLONG* data, DWORD count) -> DWORD {
+        if (!LiveInSession(host, hostPid)) return transportError = ERROR_OPERATION_ABORTED;
+        const ULONGLONG deadline = GetTickCount64() + timeoutMs;
+        if ((transportError = UacRenameLeaf::Detail::CheckTransferConnection(pipe, deadline)) != ERROR_SUCCESS)
+            return transportError;
+        UacF7::InventoryFrame frame{kind, count, ERROR_SUCCESS, 0};
+        transportError = TransferRequest(pipe, &frame, sizeof(frame), true, deadline);
+        if (!transportError && count)
+            transportError = TransferRequest(pipe, const_cast<ULONGLONG*>(data), count * sizeof(ULONGLONG), true,
+                                             GetTickCount64() + timeoutMs);
+        if (!transportError) transportError = acknowledge();
+        return transportError;
+    };
+    DWORD error = emit(UacF7::InventoryFrameKind::Heartbeat, nullptr, 0);
+    if (error) return cancelledByAck ? ERROR_SUCCESS : error;
+    UacF7::DirectoryInventory inventory{};
+    UacF7::DirectorySizeDetails details{};
+    std::wstring skipped;
+    DWORD status = selectionError;
+    if (!status)
+        status = UacListing::StreamInventoryBelowRoot(root, relative, MAXULONGLONG, inventory,
+                                                       withDetails ? &details : nullptr, &skipped, emit);
+    if (transportError) return cancelledByAck ? ERROR_SUCCESS : transportError;
+    if (skipped.size() > UacDirectoryLeaf::maxNativeName) status = ERROR_FILENAME_EXCED_RANGE;
+    UacF7::InventoryFrame complete{UacF7::InventoryFrameKind::Complete,
+                                    status ? 0u : static_cast<DWORD>(skipped.size()), status, 0};
+    error = TransferRequest(pipe, &complete, sizeof(complete), true, GetTickCount64() + timeoutMs);
+    if (!error && !status)
+        error = TransferRequest(pipe, &inventory, sizeof(inventory), true, GetTickCount64() + timeoutMs);
+    if (!error && !status && !skipped.empty())
+        error = TransferRequest(pipe, skipped.data(), static_cast<DWORD>(skipped.size() * sizeof(wchar_t)), true,
+                                GetTickCount64() + timeoutMs);
+    if (!error && !status && withDetails)
+        error = TransferRequest(pipe, &details.disk, sizeof(details.disk), true, GetTickCount64() + timeoutMs);
+    if (!error)
+    {
+        error = acknowledge();
+        if (cancelledByAck) error = ERROR_SUCCESS;
+    }
+    return error;
+}
+
 // Keep read operations on the authenticated connection and dispatch each
 // request against the root and read capability approved for that session.
 DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE defaultRoot, Operation defaultScope,
@@ -4550,12 +4611,12 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE defaultRoot,
                 return error;
             continue;
         }
-        UacF7::DirectoryInventory inventory;
-        UacF7::DirectorySizeDetails details;
-        std::wstring firstSkipped;
         if (inventoryRequest)
-            error = selectionError ? selectionError : UacListing::InventoryBelowRoot(root, relative, deadline - 250, inventory,
-                                                                                    sizeDetails ? &details : nullptr, &firstSkipped);
+        {
+            error = ServeStreamInventory(pipe, host, hostPid, root, relative, selectionError, sizeDetails);
+            if (error) return error;
+            continue;
+        }
         else
         {
             UacDirectoryLeaf::ParentIdentity identity;
@@ -4592,20 +4653,10 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE defaultRoot,
                     error = UacListing::Enumerate(directory ? directory.get() : root, entries);
             }
         }
-        const auto count = inventoryRequest ? firstSkipped.size() : entries.size();
+        const auto count = entries.size();
         ListingReply reply{error, error ? 0 : static_cast<DWORD>(count)};
         error = TransferRequest(pipe, &reply, sizeof(reply), true, deadline);
-        if (!error && !reply.error && inventoryRequest)
-            error = TransferRequest(pipe, &inventory, sizeof(inventory), true, deadline);
-        if (!error && inventoryRequest && reply.count)
-            error = TransferRequest(pipe, firstSkipped.data(), reply.count * static_cast<DWORD>(sizeof(wchar_t)), true, deadline);
-        if (!error && !reply.error && sizeDetails)
-        {
-            error = TransferRequest(pipe, &details.disk, sizeof(details.disk), true, deadline);
-            if (!error && inventory.files)
-                error = TransferRequest(pipe, details.fileSizes.data(), inventory.files * sizeof(ULONGLONG), true, deadline);
-        }
-        if (!error && !inventoryRequest && reply.count)
+        if (!error && reply.count)
             error = TransferRequest(pipe, entries.data(), reply.count * static_cast<DWORD>(sizeof(WIN32_FIND_DATAW)), true, deadline);
         if (error)
             return error;
@@ -8266,7 +8317,7 @@ DWORD ListingSession::ReadViewerSnapshot(const std::wstring& path, const Prepare
 }
 
 DWORD ListingSession::Inventory(const std::wstring& path, DirectoryInventory& inventory, DirectorySizeDetails* details,
-                                std::wstring* firstSkipped)
+                                std::wstring* firstSkipped, bool (*continueScan)(void*), void* context)
 {
     ListingForegroundLock lock(mutex, foregroundWaiters);
     inventory = {};
@@ -8274,75 +8325,100 @@ DWORD ListingSession::Inventory(const std::wstring& path, DirectoryInventory& in
         firstSkipped->clear();
     if (details)
         *details = {};
-    const auto deadline = GetTickCount64() + timeoutMs;
     const DWORD flags = UacListing::inventoryRequest | (details ? UacListing::sizeDetailsRequest : 0);
-    DWORD error = SendPath(path, flags, deadline);
+    // Cancellation before sending any request leaves the shared session usable.
+    if (continueScan && !continueScan(context)) return ERROR_CANCELLED;
+    DWORD error = SendPath(path, flags, GetTickCount64() + timeoutMs);
     if (error)
         return error;
-    ListingReply reply{};
-    error = Transfer(&reply, sizeof(reply), false, deadline);
-    if (!error && (reply.count > UacDirectoryLeaf::maxNativeName || (reply.error && reply.count)))
-        error = ERROR_INVALID_DATA;
-    if (!error && !reply.error)
+    DirectorySizeDetails measured;
+    ULONGLONG sum = 0;
+    DWORD status = ERROR_SUCCESS;
+    bool cancelledByAck = false;
+    const auto acknowledge = [&]() -> DWORD {
+        const bool cancel = continueScan && !continueScan(context);
+        DWORD ack = cancel ? inventoryFrameCancel : inventoryFrameAck;
+        const DWORD result = Transfer(&ack, sizeof(ack), true, GetTickCount64() + timeoutMs);
+        if (!result && cancel) { cancelledByAck = true; return ERROR_CANCELLED; }
+        return result;
+    };
+    try
     {
-        DirectoryInventory complete;
-        error = Transfer(&complete, sizeof(complete), false, deadline);
-        if (!error && (complete.directories > UacListing::maxEntries ||
-                       complete.files > UacListing::maxEntries - complete.directories ||
-                       (complete.flags & ~inventoryCompatibilityAlias) ||
-                       (complete.flags && (complete.directories || complete.files || complete.bytes || complete.firstOmission)) ||
-                       (reply.count && !complete.firstOmission)))
-            error = ERROR_INVALID_DATA;
-        std::wstring skipped;
-        if (!error && reply.count)
+        for (;;)
         {
-            skipped.resize(reply.count);
-            error = Transfer(skipped.data(), reply.count * static_cast<DWORD>(sizeof(wchar_t)), false, deadline);
-            std::wstring_view component = skipped;
-            while (!error)
+            InventoryFrame frame{};
+            error = Transfer(&frame, sizeof(frame), false, GetTickCount64() + timeoutMs);
+            if (error) break;
+            if (frame.reserved) { error = ERROR_INVALID_DATA; break; }
+            if (frame.kind == InventoryFrameKind::Heartbeat)
             {
-                const size_t split = component.find(L'\\');
-                if (!UacDirectoryLeaf::IsComponent(component.substr(0, split)))
-                    error = ERROR_INVALID_DATA;
-                if (split == std::wstring_view::npos)
-                    break;
-                component.remove_prefix(split + 1);
+                if (frame.count || frame.error) { error = ERROR_INVALID_DATA; break; }
+                if ((error = acknowledge()) != ERROR_SUCCESS) break;
+                continue;
             }
-        }
-        if (!error && details)
-        {
-            DirectorySizeDetails measured;
-            error = Transfer(&measured.disk, sizeof(measured.disk), false, deadline);
-            if (!error && complete.files)
+            if (frame.kind == InventoryFrameKind::FileSizes)
             {
-                measured.fileSizes.resize(complete.files);
-                error = Transfer(measured.fileSizes.data(), complete.files * sizeof(ULONGLONG), false, deadline);
-            }
-            ULONGLONG sum = 0;
-            for (const auto size : measured.fileSizes)
-            {
-                if (size > complete.bytes - sum)
+                if (!details || frame.error || !frame.count || frame.count > maxInventoryFrameSizes ||
+                    measured.fileSizes.size() > static_cast<size_t>(INT_MAX) - frame.count)
+                { error = ERROR_INVALID_DATA; break; }
+                if (frame.count > measured.fileSizes.max_size() - measured.fileSizes.size())
+                { error = ERROR_NOT_ENOUGH_MEMORY; break; }
+                const size_t start = measured.fileSizes.size();
+                measured.fileSizes.resize(start + frame.count);
+                error = Transfer(measured.fileSizes.data() + start, frame.count * sizeof(ULONGLONG), false,
+                                 GetTickCount64() + timeoutMs);
+                if (error) break;
+                for (size_t i = start; i < measured.fileSizes.size(); ++i)
                 {
-                    error = ERROR_INVALID_DATA;
-                    break;
+                    if (measured.fileSizes[i] > MAXULONGLONG - sum) { error = ERROR_INVALID_DATA; break; }
+                    sum += measured.fileSizes[i];
                 }
-                sum += size;
+                if (error) break;
+                if ((error = acknowledge()) != ERROR_SUCCESS) break;
+                continue;
             }
-            if (!error && sum != complete.bytes)
+            if (frame.kind != InventoryFrameKind::Complete || frame.count > UacDirectoryLeaf::maxNativeName ||
+                (frame.error && frame.count)) { error = ERROR_INVALID_DATA; break; }
+            status = frame.error;
+            if (status) { error = acknowledge(); break; }
+            DirectoryInventory complete{};
+            error = Transfer(&complete, sizeof(complete), false, GetTickCount64() + timeoutMs);
+            if (!error && (complete.files > static_cast<DWORD>(INT_MAX) || complete.directories > static_cast<DWORD>(INT_MAX) ||
+                           (complete.flags & ~inventoryCompatibilityAlias) ||
+                           (complete.flags && (complete.directories || complete.files || complete.bytes || complete.firstOmission)) ||
+                           (frame.count && !complete.firstOmission) ||
+                           (details && (measured.fileSizes.size() != complete.files || sum != complete.bytes))))
                 error = ERROR_INVALID_DATA;
-            if (!error)
-                *details = std::move(measured);
-        }
-        if (!error)
-        {
+            std::wstring skipped;
+            if (!error && frame.count)
+            {
+                skipped.resize(frame.count);
+                error = Transfer(skipped.data(), frame.count * static_cast<DWORD>(sizeof(wchar_t)), false,
+                                 GetTickCount64() + timeoutMs);
+                std::wstring_view component = skipped;
+                while (!error)
+                {
+                    const size_t split = component.find(L'\\');
+                    if (!UacDirectoryLeaf::IsComponent(component.substr(0, split))) error = ERROR_INVALID_DATA;
+                    if (split == std::wstring_view::npos) break;
+                    component.remove_prefix(split + 1);
+                }
+            }
+            if (!error && details)
+                error = Transfer(&measured.disk, sizeof(measured.disk), false, GetTickCount64() + timeoutMs);
+            if (error) break;
+            if ((error = acknowledge()) != ERROR_SUCCESS) break;
             inventory = complete;
+            if (details) *details = std::move(measured);
             if (firstSkipped)
                 *firstSkipped = std::move(skipped);
+            break;
         }
     }
-    if (error)
-        Close();
-    return error ? error : reply.error;
+    catch (const std::bad_alloc&) { error = ERROR_NOT_ENOUGH_MEMORY; }
+    // A confirmed frame cancellation does not revoke the shared panel session.
+    if (error && !cancelledByAck) Close();
+    return error ? error : status;
 }
 
 DWORD ListingSession::List(const std::wstring& path, std::vector<WIN32_FIND_DATAW>& entries,

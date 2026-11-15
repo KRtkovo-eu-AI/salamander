@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Share the compatibility alias check with streamed inventory. | Retain exact no-follow exclusions for large size scans. | #731 | GPT-6 |
 | 2026-11-15 | Scan large parent listings for file identities and revisions. | Preserve exact UAC authorization without rejecting large directories. | #731 | GPT-6 |
 | 2026-11-15 | Stream child identity through large parent listings. | Preserve exact identity checks without rejecting accessible large directories. | #731 | GPT-6 |
 | 2026-11-15 | Explain protected listing and identity checks. | Document bounded reads and partial results. | #731 | GPT-6 |
@@ -428,25 +429,6 @@ struct SubtreeManifest
 
 namespace Detail
 {
-// Retain the first omission and its relative path so a partial size result
-// is distinguishable from a complete inventory.
-inline void RecordOmission(SubtreeManifest& manifest, DWORD error, size_t parent, std::wstring_view leaf,
-                           std::wstring* firstSkipped)
-{
-    if (manifest.inventory.firstOmission)
-        return;
-    manifest.inventory.firstOmission = error;
-    if (!firstSkipped)
-        return;
-    firstSkipped->assign(leaf);
-    for (; parent != manifestRoot; parent = manifest.entries[parent].parent)
-    {
-        if (!firstSkipped->empty())
-            firstSkipped->insert(0, 1, L'\\');
-        firstSkipped->insert(0, manifest.entries[parent].name);
-    }
-}
-
 inline bool SameId(const FILE_ID_128& first, const FILE_ID_128& second)
 {
     return std::memcmp(first.Identifier, second.Identifier, sizeof(first.Identifier)) == 0;
@@ -509,8 +491,7 @@ inline DWORD MeasureFile(HANDLE parent, const ManifestEntry& entry, ULONGLONG se
 }
 
 inline DWORD ScanDirectory(HANDLE directory, unsigned depth, size_t parent, DWORD& remaining,
-                           ULONGLONG deadline, SubtreeManifest& manifest, SizeScan* scan = nullptr,
-                           bool sizeInventory = false, std::wstring* firstSkipped = nullptr)
+                           ULONGLONG deadline, SubtreeManifest& manifest)
 {
     if (GetTickCount64() >= deadline)
         return ERROR_TIMEOUT;
@@ -518,7 +499,6 @@ inline DWORD ScanDirectory(HANDLE directory, unsigned depth, size_t parent, DWOR
         return ERROR_BUFFER_OVERFLOW;
 
     std::vector<ManifestEntry> entries;
-    DWORD ioFailure = ERROR_SUCCESS;
     DWORD error = EnumerateRows(directory, true, [&](const FILE_ID_EXTD_DIR_INFO& row, std::wstring_view name) -> DWORD {
         if (GetTickCount64() >= deadline)
             return ERROR_TIMEOUT;
@@ -526,23 +506,12 @@ inline DWORD ScanDirectory(HANDLE directory, unsigned depth, size_t parent, DWOR
             return ERROR_BUFFER_OVERFLOW;
         --remaining;
         if (row.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
-        {
-            if (!sizeInventory)
-                return ERROR_REPARSE_TAG_INVALID;
-            if (!VerifyCompatibilityAlias(directory, name, row))
-                RecordOmission(manifest, ERROR_REPARSE_POINT_ENCOUNTERED, parent, name, firstSkipped);
-            return ERROR_SUCCESS;
-        }
+            return ERROR_REPARSE_TAG_INVALID;
         const auto bytes = (row.FileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? 0 : row.EndOfFile.QuadPart;
         entries.push_back({parent, std::wstring(name), row.FileId, row.FileAttributes, static_cast<ULONGLONG>(bytes)});
         return ERROR_SUCCESS;
-    }, &ioFailure);
-    if (error)
-    {
-        if (!sizeInventory || error != ioFailure || !UacF7::IsSkippableSizeBranchError(error))
-            return error;
-        RecordOmission(manifest, error, parent, {}, firstSkipped);
-    }
+    });
+    if (error) return error;
     std::sort(entries.begin(), entries.end(),
               [](const ManifestEntry& first, const ManifestEntry& second) { return first.name < second.name; });
     if (std::adjacent_find(entries.begin(), entries.end(), [](const ManifestEntry& first, const ManifestEntry& second) {
@@ -563,12 +532,7 @@ inline DWORD ScanDirectory(HANDLE directory, unsigned depth, size_t parent, DWOR
             HANDLE raw = nullptr;
             UacDirectoryLeaf::ParentIdentity identity;
             error = UacDirectoryLeaf::OpenParentBelowRoot(directory, recorded.name, raw, identity,
-                                                         FILE_LIST_DIRECTORY, !sizeInventory);
-            if (sizeInventory && error && UacF7::IsSkippableSizeBranchError(error))
-            {
-                RecordOmission(manifest, error, parent, recorded.name, firstSkipped);
-                continue;
-            }
+                                                         FILE_LIST_DIRECTORY, true);
             if (error)
                 return error;
             const std::unique_ptr<void, decltype(&CloseHandle)> child(raw, CloseHandle);
@@ -576,7 +540,7 @@ inline DWORD ScanDirectory(HANDLE directory, unsigned depth, size_t parent, DWOR
                 !UacDirectoryLeaf::Equal(identity.volume, manifest.root.volume) ||
                 !SameId(identity.file.FileId, recorded.id))
                 return ERROR_FILE_INVALID;
-            error = ScanDirectory(child.get(), depth + 1, index, remaining, deadline, manifest, scan, sizeInventory, firstSkipped);
+            error = ScanDirectory(child.get(), depth + 1, index, remaining, deadline, manifest);
             if (error)
                 return error;
             ++inventory.directories;
@@ -588,8 +552,6 @@ inline DWORD ScanDirectory(HANDLE directory, unsigned depth, size_t parent, DWOR
                 return ERROR_ARITHMETIC_OVERFLOW;
             inventory.bytes += bytes;
             ++inventory.files;
-            if (scan && (error = MeasureFile(directory, recorded, manifest.root.file.VolumeSerialNumber, *scan)) != ERROR_SUCCESS)
-                return error;
         }
     }
     return GetTickCount64() < deadline ? ERROR_SUCCESS : ERROR_TIMEOUT;
@@ -598,9 +560,7 @@ inline DWORD ScanDirectory(HANDLE directory, unsigned depth, size_t parent, DWOR
 
 // The manifest describes a live scan. A subsequent copy must still verify the
 // handles it actually uses for I/O and apply its own stream and metadata policy.
-inline DWORD CaptureTree(HANDLE directory, ULONGLONG deadline, SubtreeManifest& manifest,
-                         UacF7::DirectorySizeDetails* details, bool sizeInventory,
-                         std::wstring* firstSkipped = nullptr)
+inline DWORD CaptureTree(HANDLE directory, ULONGLONG deadline, SubtreeManifest& manifest)
 {
     manifest = {};
     if (GetTickCount64() >= deadline)
@@ -610,28 +570,7 @@ inline DWORD CaptureTree(HANDLE directory, ULONGLONG deadline, SubtreeManifest& 
     if (error)
         return error;
     DWORD remaining = maxEntries;
-    UacF7::DirectorySizeDetails measured;
-    Detail::SizeScan scan{measured};
-    if (details)
-    {
-        const auto volume = complete.root.volume + L"\\";
-        DWORD sectors, bytes, freeClusters, totalClusters;
-        if (GetDiskFreeSpaceW(volume.c_str(), &sectors, &bytes, &freeClusters, &totalClusters) &&
-            sectors && bytes <= MAXDWORD / sectors)
-            scan.cluster = sectors * bytes;
-    }
-    error = Detail::ScanDirectory(directory, 0, manifestRoot, remaining, deadline, complete,
-                                  details ? &scan : nullptr, sizeInventory, firstSkipped);
-    // A timeout or entry limit can end a safe read early. Keep the verified
-    // prefix only for size scans. Identity and malformed-data errors stay fatal.
-    if (sizeInventory && (error == ERROR_BUFFER_OVERFLOW || error == ERROR_TIMEOUT) &&
-        (complete.inventory.files || complete.inventory.directories))
-    {
-        Detail::RecordOmission(complete, error, manifestRoot, {}, firstSkipped);
-        error = ERROR_SUCCESS;
-    }
-    if (!error && details)
-        *details = std::move(measured);
+    error = Detail::ScanDirectory(directory, 0, manifestRoot, remaining, deadline, complete);
     if (!error)
         manifest = std::move(complete);
     return error;
@@ -639,7 +578,7 @@ inline DWORD CaptureTree(HANDLE directory, ULONGLONG deadline, SubtreeManifest& 
 
 inline DWORD CaptureManifest(HANDLE directory, ULONGLONG deadline, SubtreeManifest& manifest)
 {
-    return CaptureTree(directory, deadline, manifest, nullptr, false);
+    return CaptureTree(directory, deadline, manifest);
 }
 
 // Compare a fresh traversal with the captured root and entries; a manifest
@@ -666,42 +605,15 @@ inline DWORD VerifyManifest(HANDLE directory, ULONGLONG deadline, const SubtreeM
     return ERROR_SUCCESS;
 }
 
-inline DWORD Inventory(HANDLE directory, ULONGLONG deadline, UacF7::DirectoryInventory& inventory,
-                       UacF7::DirectorySizeDetails* details = nullptr, std::wstring* firstSkipped = nullptr)
-{
-    if (details)
-        *details = {};
-    if (firstSkipped)
-        firstSkipped->clear();
-    SubtreeManifest manifest;
-    const DWORD error = CaptureTree(directory, deadline, manifest, details, true, firstSkipped);
-    inventory = manifest.inventory;
-    if (error && firstSkipped)
-        firstSkipped->clear();
-    return error;
-}
-
 // Open the selected root without traversing links. An exact compatibility
 // alias is a zero-size exclusion only after rechecking its listing identity.
-inline DWORD InventoryBelowRoot(HANDLE root, std::wstring_view relative, ULONGLONG deadline,
-                                UacF7::DirectoryInventory& inventory, UacF7::DirectorySizeDetails* details,
-                                std::wstring* firstSkipped = nullptr)
+template <typename BeforePage>
+DWORD CheckInventoryCompatibilityAlias(HANDLE root, std::wstring_view relative, ULONGLONG deadline,
+                                       DWORD opened, UacF7::DirectoryInventory& inventory, BeforePage&& beforePage)
 {
-    inventory = {};
-    if (details)
-        *details = {};
-    if (firstSkipped)
-        firstSkipped->clear();
-    if (relative.empty())
-        return Inventory(root, deadline, inventory, details, firstSkipped);
-
+    if (relative.empty()) return opened;
     HANDLE raw = nullptr;
     UacDirectoryLeaf::ParentIdentity identity;
-    const DWORD opened = UacDirectoryLeaf::OpenParentBelowRoot(root, relative, raw, identity, FILE_LIST_DIRECTORY, false);
-    const std::unique_ptr<void, decltype(&CloseHandle)> directory(raw, CloseHandle);
-    if (!opened)
-        return Inventory(directory.get(), deadline, inventory, details, firstSkipped);
-
     const size_t split = relative.find_last_of(L'\\');
     const auto leaf = split == std::wstring_view::npos ? relative : relative.substr(split + 1);
     if (!UacDirectoryLeaf::IsComponent(leaf) || split == 0)
@@ -713,14 +625,16 @@ inline DWORD InventoryBelowRoot(HANDLE root, std::wstring_view relative, ULONGLO
     const std::unique_ptr<void, decltype(&CloseHandle)> parent(raw, CloseHandle);
     const HANDLE handle = parent ? parent.get() : root;
     bool alias = false;
-    const DWORD listed = Detail::EnumerateRows(handle, false, [&](const FILE_ID_EXTD_DIR_INFO& row, std::wstring_view name) -> DWORD {
+    DWORD pulseError = ERROR_SUCCESS;
+    const DWORD listed = Detail::EnumerateRowsChecked(handle, false, [&](const FILE_ID_EXTD_DIR_INFO& row, std::wstring_view name) -> DWORD {
         if (GetTickCount64() >= deadline)
             return ERROR_TIMEOUT;
         if (name != leaf)
             return ERROR_SUCCESS;
         alias = Detail::VerifyCompatibilityAlias(handle, name, row);
         return ERROR_NO_MORE_ITEMS;
-    });
+    }, [&]() -> DWORD { return pulseError = beforePage(); });
+    if (pulseError) return pulseError;
     if (listed != ERROR_NO_MORE_ITEMS || !alias)
         return opened;
     inventory.flags = UacF7::inventoryCompatibilityAlias;
