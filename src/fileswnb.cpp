@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain denied size scans and total partial selections. | Report administrator denials and preserve lower-bound sums. | #731 | GPT-6 |
 // | 2026-11-10 | Return the result of preparing Find editor elevation. | Release the caller before any consent dialog. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Dispatch Find F4 with its result context. | Use its owner and full name in the common editor path. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Pass the original Find context to the viewer. | Preserve the selected file attributes and dialog owner. | #731 | GPT-6.1 Sol |
@@ -97,6 +98,20 @@ enum
 {
     TREEVIEW_SPLITTER_WIDTH = 4
 };
+
+static void AccumulateSelectedSize(CQuadWord& total, BOOL& display, bool& partialTotal,
+                                   const CFileData& item, BOOL isDir, BOOL isDisk,
+                                   BOOL sizeValid, BOOL pluginSizeValid, const CQuadWord& pluginSize)
+{
+    const bool partial = isDisk && isDir && !item.SizeValid && item.PluginData == DiskDirectoryPartialSizeMarker;
+    if (pluginSizeValid || (sizeValid && (!isDir || item.SizeValid || partial)))
+    {
+        total += pluginSizeValid ? pluginSize : item.Size;
+        partialTotal |= partial && !pluginSizeValid;
+    }
+    else
+        display = FALSE;
+}
 
 //****************************************************************************
 //
@@ -1040,6 +1055,7 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             CQuadWord selectedSize(0, 0);
             BOOL displaySize = (ValidFileData & (VALID_DATA_SIZE | VALID_DATA_PL_SIZE)) != 0;
+            bool partialSelectedSize = false;
             int totalCount = Dirs->Count + Files->Count;
             int files = 0;
             int dirs = 0;
@@ -1062,10 +1078,8 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     else
                         files++;
                     plSizeValid = testPlSize && PluginData.GetByteSize(f, isDir, &plSize);
-                    if (plSizeValid || sizeValid && (!isDir || f->SizeValid))
-                        selectedSize += plSizeValid ? plSize : f->Size;
-                    else
-                        displaySize = FALSE; // soubor nezname velikosti nebo adresar bez zname/vypocitane velikosti
+                    AccumulateSelectedSize(selectedSize, displaySize, partialSelectedSize, *f, isDir, Is(ptDisk),
+                                           sizeValid, plSizeValid, plSize);
                 }
             }
             if (files > 0 || dirs > 0)
@@ -1096,7 +1110,9 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     char text[200];
                     if (displaySize)
                     {
-                        ExpandPluralBytesFilesDirs(text, 200, selectedSize, files, dirs, TRUE);
+                        const int prefix = partialSelectedSize ? 3 : 0;
+                        if (prefix) memcpy(text, ">= ", prefix);
+                        ExpandPluralBytesFilesDirs(text + prefix, 200 - prefix, selectedSize, files, dirs, TRUE);
                         LookForSubTexts(text, varPlacements, &varPlacementsCount);
                     }
                     else

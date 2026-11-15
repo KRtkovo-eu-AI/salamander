@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain denied size scans and total partial selections. | Report administrator denials and preserve lower-bound sums. | #731 | GPT-6 |
 // | 2026-11-13 | Guard experimental planned copy custody. | Reject reentrant item access to a checked-out session. | #731 | GPT-6 |
 // | 2026-11-13 | Distinguish pre-transfer prompt errors. | Respect cancellation without suppressing uncertain broker results. | #731 | GPT-6 |
 // | 2026-11-13 | Carry terminal thin-copy error details. | Preserve context without offering unsupported retries. | #731 | GPT-6 |
@@ -640,6 +641,7 @@ public:
     bool CountSizeAnyIncomplete = false; // at least one top-level directory was incomplete
     bool CountSizeAliasSkipped = false;
     DWORD CountSizeFirstOmission = ERROR_SUCCESS;
+    bool CountSizeFirstOmissionWasElevated = false;
     std::wstring CountSizeFirstOmissionPath;
     bool CountSizeUsedBroker = false;
     bool CountSizeCompressionUnavailable = false;

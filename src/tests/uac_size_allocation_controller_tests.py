@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-15 | Explain denied size scans and total partial selections. | Report administrator denials and preserve lower-bound sums. | #731 | GPT-6 |
 # | 2026-11-11 | Exercise protected multi-file selection. | Reuse only the approved panel without new prompts. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Compile the shared batch refusal state. | Test actual controller behavior across distinct scopes. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Exercise the actual size-allocation controller. | Verify consent choices and exact totals without interactive elevation. | #731 | GPT-6.1 Terra |
@@ -17,11 +18,27 @@ def main():
     parser.add_argument('--configuration', choices=('Debug', 'Release', 'Both'), default='Both')
     args = parser.parse_args()
     source = read('src/fileswn6.cpp')
+    status = read('src/fileswnb.cpp')
+    assert 'const int prefix = partialSelectedSize ? 3 : 0;' in status
+    assert 'ExpandPluralBytesFilesDirs(text + prefix, 200 - prefix, selectedSize' in status
+    notice = block(read('src/fileswn8.cpp'), 'static void ShowSizeInventoryIncomplete(')
+    assert 'error == ERROR_ACCESS_DENIED && deniedAsAdmin' in notice
+    assert 'LoadStr(IDS_UAC_INVENTORY_ADMIN_DENIED)' in notice
+    refresh = read('src/fileswn8.cpp')
+    start = refresh.index('if (type == atCountSize) // additional directory sizes have been calculated')
+    end = refresh.index('// if Salamander is active', start)
+    assert 'PostMessage(HWindow, WM_USER_SELCHANGED, 0, 0)' in refresh[start:end]
+    for catalog in (ROOT / 'translations').glob('*/salamand.slt'):
+        rows = [line for line in catalog.read_text(encoding='utf-8-sig').splitlines() if line.startswith('14722,')]
+        assert len(rows) == 1, f'missing or duplicate administrator-denied text in {catalog}'
+        if catalog.parent.name == 'czech':
+            assert rows[0].startswith('14722,1,') and 'i s oprávněním správce' in rows[0]
     start = source.index('    case atCountSize:', source.index('BOOL CFilesWindow::BuildScriptFile('))
     end = source.index('    case atRecursiveConvert:', start)
     branch = source[start:end]
     helper = 'template<class Query>\n' + block(read('src/uacbroker/f7pilot.h'), 'DWORD QueryCompressedSize(')
     generated = read('src/tests/uac_size_allocation_controller_tests.cpp.in')
+    generated = generated.replace('@@SELECTION_ACCUMULATOR@@', block(read('src/fileswnb.cpp'), 'static void AccumulateSelectedSize('))
     generated = generated.replace('@@QUERY@@', helper).replace('@@COUNT_SIZE@@', branch)
     batch = block(source, 'struct CSizeBatchConsent', ';')
     scope = block(source, 'struct CSizeScanScope', ';')

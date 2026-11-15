@@ -8,6 +8,7 @@
 // | 2026-11-11 | Localize the protected Find limit and incomplete status. | Explain omitted results without implying success. | #731 | GPT-6.1 Terra |
 // | 2026-11-08 | Explain the protected archive panel scope. | Localize the entry action message. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain denied size scans and total partial selections. | Report administrator denials and preserve lower-bound sums. | #731 | GPT-6 |
 // | 2026-11-14 | Describe read access in panel consent. | Make the scope of reusable viewer access clear. | #731 | GPT-6 |
 // | 2026-11-11 | Explain retained disk overwrite recovery files. | Make an uncertain result actionable without implying data was removed. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Describe exact-file allocation consent. | Identify the selected file and metadata-only access. | #731 | GPT-6.1 Terra |
@@ -2536,6 +2537,7 @@ STRINGTABLE
  IDS_UAC_INVENTORY_TITLE, "Protected subtree inventory"
  IDS_UAC_SIZE_COMPAT_ALIAS, "This Windows compatibility link was skipped. It contributes 0 bytes to the total."
  IDS_UAC_INVENTORY_INCOMPLETE, "The directory size calculation could not scan the entire tree."
+ IDS_UAC_INVENTORY_ADMIN_DENIED, "Access was denied even with administrator rights. The item's permissions may restrict access; inaccessible items are excluded from the result."
  IDS_UAC_INVENTORY_FILES, "Files: "
  IDS_UAC_INVENTORY_DIRECTORIES, "Subfolders: "
  IDS_UAC_INVENTORY_BYTES, "Logical size (bytes): "

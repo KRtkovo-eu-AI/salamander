@@ -19,6 +19,7 @@
 // | 2026-11-07 | Reserve the elevation confirmation for rename. | Prompt with the source and destination paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Reserve F7 elevation message IDs. | Localize consent and uncertain-result handling. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain denied size scans and total partial selections. | Report administrator denials and preserve lower-bound sums. | #731 | GPT-6 |
 // | 2026-11-11 | Reserve an exact-file allocation consent message. | Distinguish metadata-only approval from recursive directory sizing. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Reserve the compatibility alias size explanation. | Localize the zero-size exclusion. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Localize protected directory content comparison consent. | Show the exact subtree and operation before elevation. | #731 | GPT-6.1 Sol |
@@ -3401,5 +3402,6 @@
 #define IDS_BRANCH_MERGE_UNCERTAIN                   14719
 #define IDS_BRANCH_MERGE_UNCERTAIN_DETAIL            14720
 #define IDS_UAC_THIN_COPY_CONFIRM                    14721
+#define IDS_UAC_INVENTORY_ADMIN_DENIED               14722
 
 #endif // __TEXTS_RH2

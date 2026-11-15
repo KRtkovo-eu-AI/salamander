@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-15 | Explain denied size scans and total partial selections. | Report administrator denials and preserve lower-bound sums. | #731 | GPT-6 |
 # | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
 # | 2026-11-11 | Guard batch-wide refusal and per-root size scopes. | Keep denied consent isolated to one user operation. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Check the private partial size marker. | Keep incomplete directory size coverage without changing the SDK. | #731 | GPT-6.1 Sol |
@@ -44,7 +45,7 @@ def main():
         assert 'scopedSession->PrepareInventory(sizeScope->Root)' in protected
         assert protected.index('if (scoped && *startResult)') < protected.index('choice = ConfirmProtectedSize')
         assert '*startResult = inventoryError;' in protected
-        assert 'session->IsOpen() ? session->Inventory' in protected
+        assert 'canRequest ? session->Inventory' in protected
         scan_start = production.index('const bool wideSizeScan = type == atCountSize;')
         assert 'FindFirstFileW(pattern.c_str(), &sizeRow)' in production[scan_start:start]
         assert 'SalPathAddExtendedPrefixIfNeededW' in production[scan_start:start]
@@ -52,7 +53,7 @@ def main():
         assert 'IsDanglingDirectoryLinkForSize(sourcePath)' in production[scan_start:start]
         action = read('src/fileswn8.cpp')
         assert 'disableMainWindow = type != atCountSize' in action
-        direct_denial = protected.index('if (inventoryError == ERROR_ACCESS_DENIED && session->IsOpen())')
+        direct_denial = protected.index('if (inventoryError == ERROR_ACCESS_DENIED && canRequest && session->IsOpen())')
         assert direct_denial < protected.index('inventory.firstOmission = inventoryError;', direct_denial)
         assert direct_denial < protected.index('inventoryError = ERROR_SUCCESS;', direct_denial)
         assert direct_denial < protected.index('err = inventoryError;')

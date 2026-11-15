@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Record incomplete size reporting and selected totals. | Distinguish administrator denial from a lower-bound sum. | #731 | GPT-6 |
 | 2026-11-15 | Restrict nonrecursive Find grants. | Distinguish direct files from descendant access in the broker. | #731 | GPT-6 |
 | 2026-11-15 | Reuse protected result identities in refinement. | Record bounded implementation and remaining multi-item scope. | #731 | GPT-6 |
 | 2026-11-15 | Record selected-size and duplicate-read consent reuse. | Track exact scope, automated evidence and remaining Find gaps. | #731 | GPT-6 |
@@ -625,6 +626,13 @@
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
+
+## Neúplné velikosti a odmítnutí správcem — 15. listopadu 2026
+
+- **Uživatelské hlášení:** při výpočtu `C:\Windows` byla ohlášena chyba u `C:\Windows\CSC`; výběr více složek s velikostí zobrazenou jako `>=` neukázal jejich součet. Jde o uživatelské pozorování před opravou, nikoli o vlastní ověření konkrétního ACL CSC.
+- **Implementováno:** při odepření potvrzeném živou elevovanou relací doplní hlášení, že přístup nebyl povolen ani správci a nepřístupné položky ve výsledku chybí. Odmítnutí UAC nebo cesta mimo schválený rozsah se za takové odepření nevydává. Stavový řádek sčítá číselné velikosti úplných i částečně změřených složek a označí celkovou dolní mez `>=`; nezměřená složka stále potlačí neznámý součet. Po přepočtu se status obnoví.
+- **Automaticky ověřeno:** existující testy řadiče velikostí pokrývají smíšený součet, neznámou velikost, pluginová data, skutečné odepření brokerem, zamítnutí souhlasu a cestu mimo rozsah; testy průchodu a lokalizovaných textů prošly v Debug i Release. Český, slovenský a německý text je přeložený, ostatní katalogy mají nový text označený k překladu. Po sestavení bude potřeba uživatelské potvrzení; systémová UAC ani Computer Use se nespouštěly.
+- **Sestavení:** Release x64 v `C:\Samandarin\builds\uac-size-partial-report-20261115\salamander\Release_x64`; SHA-256 hosta `80AD892E036CD9D2867C3E3E6B79AF6248946A12E1F248BE1BC66E35C32D1321`, brokeru `473CD66580638BDAB44CD413189ED03B688684FCFC7546CF527311654EB4BCA2`. Výstup obsahuje sestavený anglický modul; nový český text je zatím pouze ve zdrojovém překladovém katalogu. Build nebyl nasazen ani spuštěn.
 
 ## Nerekurzivní Find — 15. listopadu 2026
 

@@ -4481,6 +4481,7 @@ SLGINCOMPLETE,""
 14720,1,"Výpis priečinka bol prerušený a obnovený. Súbory sa medzitým mohli zmeniť, preto môže byť výsledný výpis neúplný. Overte ho obnovením."
 
 14721,1,"Prístup bol odmietnutý. Skopírovať tento súbor ako správca? Súbory s alternatívnymi dátovými prúdmi nie sú v tomto režime podporované."
+14722,1,"Prístup bol odmietnutý aj s oprávnením správcu. Oprávnenia tejto položky môžu obmedzovať prístup; neprístupné položky nie sú zahrnuté vo výsledku."
 
 [STRINGTABLE 199]
 14991,1,"Čítanie priradení súborov zo súborového úložiska, čakajte prosím..."

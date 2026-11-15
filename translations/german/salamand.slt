@@ -4482,6 +4482,7 @@ SLGINCOMPLETE,""
 14720,1,"Die Ordnerauflistung wurde unterbrochen und fortgesetzt. Dateien können sich zwischenzeitlich geändert haben; die Liste kann unvollständig sein. Aktualisieren Sie sie zur Überprüfung."
 
 14721,1,"Zugriff verweigert. Diese Datei als Administrator kopieren? Dateien mit alternativen Datenströmen werden in diesem Modus nicht unterstützt."
+14722,1,"Der Zugriff wurde auch mit Administratorrechten verweigert. Die Berechtigungen dieses Elements können den Zugriff einschränken; unzugängliche Elemente sind im Ergebnis nicht enthalten."
 
 [STRINGTABLE 199]
 14991,1,"Lese Dateizuordnungen aus dem Dateispeicher, bitte warten..."

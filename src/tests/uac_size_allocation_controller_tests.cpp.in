@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain denied size scans and total partial selections. | Report administrator denials and preserve lower-bound sums. | #731 | GPT-6 |
 // | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
 // | 2026-11-11 | Test approved multi-file allocation reuse. | Check selection, identity, disconnect and no extra prompt. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Exercise size consent refusal across selected roots. | Preserve individual scopes and reuse existing approvals. | #731 | GPT-6.1 Terra |
@@ -24,6 +25,9 @@ struct CQuadWord
 static CQuadWord operator+(CQuadWord a, CQuadWord b) { a.Value += b.Value; return a; }
 static CQuadWord operator-(CQuadWord a, CQuadWord b) { a.Value -= b.Value; return a; }
 static CQuadWord operator%(CQuadWord a, CQuadWord b) { a.Value %= b.Value; return a; }
+constexpr DWORD_PTR DiskDirectoryPartialSizeMarker = static_cast<DWORD_PTR>(-2);
+struct CFileData { CQuadWord Size; BOOL SizeValid = FALSE; DWORD_PTR PluginData = 0; };
+@@SELECTION_ACCUMULATOR@@
 
 static int prompts, warnings, measurements, g_prepared, waitDepth, inventories;
 static DWORD localError, g_startError, g_allocationError, g_inventoryError, prepareError, reportedError;
@@ -112,6 +116,7 @@ struct COperations
     bool SkipAllCountSizeErrors = false, CountSizeCompressionUnavailable = false, CountSizeOccupiedUnavailable = false;
     bool CountSizeIncomplete = false, CountSizeAliasSkipped = false, CountSizeUsedBroker = false;
     DWORD CountSizeFirstOmission = 0;
+    bool CountSizeFirstOmissionWasElevated = false;
     std::wstring CountSizeFirstOmissionPath;
     ULONGLONG FilesCount = 0, DirsCount = 0;
     CQuadWord TotalSize, OccupiedSpace, TotalFileSize, CompressedSize;
@@ -176,6 +181,33 @@ int main()
 {
     constexpr DWORD sparse = FILE_ATTRIBUTE_SPARSE_FILE | FILE_ATTRIBUTE_ARCHIVE;
     {
+        CQuadWord total, plugin; BOOL display = TRUE; bool partial = false;
+        CFileData first, second; first.Size.Value = 100; first.SizeValid = TRUE;
+        second.Size.Value = 40; second.PluginData = DiskDirectoryPartialSizeMarker;
+        AccumulateSelectedSize(total, display, partial, first, TRUE, TRUE, TRUE, FALSE, plugin);
+        AccumulateSelectedSize(total, display, partial, second, TRUE, TRUE, TRUE, FALSE, plugin);
+        Check(display && partial && total.Value == 140, "selected complete and partial directories contribute to a lower-bound total");
+        CFileData unknown; AccumulateSelectedSize(total, display, partial, unknown, TRUE, TRUE, TRUE, FALSE, plugin);
+        Check(!display, "an uncalculated directory still suppresses the selected-size total");
+        display = TRUE; partial = false; total.Value = 0; plugin.Value = 17;
+        AccumulateSelectedSize(total, display, partial, second, TRUE, FALSE, TRUE, TRUE, plugin);
+        Check(display && !partial && total.Value == 17, "plugin sizes keep their existing meaning");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeScanScope scope;
+        scope.Root = L"C:\\scope"; g_inventoryError = ERROR_ACCESS_DENIED;
+        Check(panel.MeasureDirectory(&sum, &scope, L"C:\\scope\\denied") == TRUE && sum.CountSizeIncomplete &&
+              sum.CountSizeFirstOmission == ERROR_ACCESS_DENIED && sum.CountSizeFirstOmissionWasElevated,
+              "a live broker's access denial is recorded as an administrator denial");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeScanScope scope;
+        scope.Root = L"C:\\scope"; scope.Session.Root = scope.Root; scope.Session.Open = true;
+        Check(panel.MeasureDirectory(&sum, &scope, L"C:\\outside\\denied") == -1 && inventories == 0 &&
+              !sum.CountSizeFirstOmissionWasElevated,
+              "a path outside the approved scope is not misreported as an administrator denial");
+    }
+    {
         Reset(); CFilesWindow panel; COperations sum; CSizeBatchConsent batch;
         batch.Parent = L"C:\\scope"; batch.Selected = {L"first", L"second"};
         CSizeScanScope first; first.Root = L"C:\\scope\\first"; first.Batch = &batch;
@@ -191,7 +223,7 @@ int main()
         CSizeScanScope first; first.Root = L"C:\\scope\\first"; first.Batch = &batch;
         CSizeScanScope second; second.Root = L"C:\\scope\\second"; second.Batch = &batch;
         Check(panel.MeasureDirectory(&sum, &first, first.Root) == TRUE && panel.MeasureDirectory(&sum, &second, second.Root) == TRUE &&
-              prompts == 1 && inventories == 0 && sum.CountSizeIncomplete,
+              prompts == 1 && inventories == 0 && sum.CountSizeIncomplete && !sum.CountSizeFirstOmissionWasElevated,
               "declining elevation suppresses the prompt for the rest of the selected batch");
     }
     {

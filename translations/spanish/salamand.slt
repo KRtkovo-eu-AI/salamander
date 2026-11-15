@@ -4481,6 +4481,7 @@ SLGINCOMPLETE,""
 14720,1,"La lista de la carpeta se interrumpió y se reanudó. Los archivos pudieron cambiar; la lista puede estar incompleta. Actualícela para comprobarla."
 
 14721,1,"Acceso denegado. ¿Copiar este archivo como administrador? Este modo no admite archivos con flujos de datos alternativos."
+14722,0,"Access was denied even with administrator rights. The item's permissions may restrict access; inaccessible items are excluded from the result."
 
 [STRINGTABLE 199]
 14991,1,"Leyendo asociaciones del almacenamiento de archivos, espere por favor..."

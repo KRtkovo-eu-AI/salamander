@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Stop execution and editing of entries from a listing-only archive. | Require a future authorized extraction path. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain denied size scans and total partial selections. | Report administrator denials and preserve lower-bound sums. | #731 | GPT-6 |
 // | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
 // | 2026-11-14 | Admit ordinary protected CopyAttrs sources to the thin worker. | Preserve the native F5 attribute option after denied source discovery. | #731 | GPT-6 |
 // | 2026-11-13 | Initialize experimental copy-plan custody before dispatch. | Reject allocation failure before publishing work to the worker. | #731 | GPT-6 |
@@ -3035,11 +3036,12 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                     std::wstring firstSkipped;
                     if (choice == IDOK && !inventoryError)
                     {
-                        inventoryError = session->IsOpen() ? session->Inventory(path, inventory, onlySize ? nullptr : &details, &firstSkipped)
-                                                          : ERROR_BROKEN_PIPE;
+                        const bool canRequest = session->Contains(path);
+                        inventoryError = canRequest ? session->Inventory(path, inventory, onlySize ? nullptr : &details, &firstSkipped) :
+                                         session->IsOpen() ? ERROR_ACCESS_DENIED : ERROR_BROKEN_PIPE;
                         // A live broker denied this selected subtree. Record it
                         // and continue, just as for a denied descendant.
-                        if (inventoryError == ERROR_ACCESS_DENIED && session->IsOpen())
+                        if (inventoryError == ERROR_ACCESS_DENIED && canRequest && session->IsOpen())
                         {
                             inventory.firstOmission = inventoryError;
                             inventoryError = ERROR_SUCCESS;
@@ -3078,6 +3080,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                             if (!script->CountSizeFirstOmission)
                             {
                                 script->CountSizeFirstOmission = inventory.firstOmission;
+                                script->CountSizeFirstOmissionWasElevated = inventory.firstOmission == ERROR_ACCESS_DENIED;
                                 script->CountSizeFirstOmissionPath = path;
                                 if (!firstSkipped.empty())
                                     SalPathAppendW(script->CountSizeFirstOmissionPath, firstSkipped.c_str());

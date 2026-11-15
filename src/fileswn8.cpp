@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain denied size scans and total partial selections. | Report administrator denials and preserve lower-bound sums. | #731 | GPT-6 |
 // | 2026-11-11 | Explain an explicitly denied protected-folder recycle. | Keep the existing Shell result while identifying the unsupported elevated retry. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Preview permanent-delete elevation for supported native attributes. | Match the confirmation shield to the verified delete executor. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Preview verified protected F5 destinations for a plain tree. | Show the shield when the selected root is absent and creation is denied. | #731 | GPT-6.1 Sol |
@@ -573,13 +574,15 @@ static bool StartProtectedTreeCopy(std::unique_ptr<UacF7::PreparedTransfer> requ
     return false;
 }
 
-static void ShowSizeInventoryIncomplete(HWND owner, const std::wstring& path, DWORD error)
+static void ShowSizeInventoryIncomplete(HWND owner, const std::wstring& path, DWORD error, bool deniedAsAdmin)
 {
     std::string message = LoadStr(IDS_UAC_INVENTORY_INCOMPLETE);
     if (error)
     {
         message += "\n\n" + SalWideToMultiBytePath(path.c_str(), CP_UTF8) + "\n";
         message += GetErrorText(error);
+        if (error == ERROR_ACCESS_DENIED && deniedAsAdmin)
+            message += "\n\n" + std::string(LoadStr(IDS_UAC_INVENTORY_ADMIN_DENIED));
     }
     SalMessageBox(owner, message.c_str(), LoadStr(IDS_UAC_INVENTORY_TITLE), MB_OK | MB_ICONINFORMATION);
 }
@@ -620,9 +623,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                 const DWORD error = ProtectedListing->Inventory(path, inventory, &details, &firstSkipped);
                 if (error)
                 {
-                    const std::string message = SalWideToMultiBytePath(path.c_str(), CP_UTF8) + "\n\n" +
-                                                LoadStr(IDS_UAC_INVENTORY_INCOMPLETE) + "\n" + GetErrorText(error);
-                    SalMessageBox(HWindow, message.c_str(), LoadStr(IDS_UAC_INVENTORY_TITLE), MB_OK | MB_ICONEXCLAMATION);
+                    ShowSizeInventoryIncomplete(HWindow, path, error, ProtectedListing->IsOpen());
                 }
                 else if (inventory.flags & UacF7::inventoryCompatibilityAlias)
                     SalMessageBox(HWindow, LoadStr(IDS_UAC_SIZE_COMPAT_ALIAS), LoadStr(IDS_UAC_INVENTORY_TITLE),
@@ -634,7 +635,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                         auto omitted = path;
                         if (!firstSkipped.empty())
                             SalPathAppendW(omitted, firstSkipped.c_str());
-                        ShowSizeInventoryIncomplete(HWindow, omitted, inventory.firstOmission);
+                        ShowSizeInventoryIncomplete(HWindow, omitted, inventory.firstOmission, ProtectedListing->IsOpen());
                     }
                     CQuadWord size;
                     size.Value = inventory.bytes;
@@ -2028,6 +2029,8 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                         //            DirectorySizesHolder.Store(this); // store directory names and sizes
 
                         RefreshListBox(-1, -1, FocusedIndex, FALSE, FALSE); // recalculate column widths
+                        if (GetSelCount() != 0)
+                            PostMessage(HWindow, WM_USER_SELCHANGED, 0, 0); // recalculate the selected-size status
                     }
 
                     // if Salamander is active, call SetFocus on the remembered window (SetFocus does not work
@@ -2094,7 +2097,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                         {
                             if (res2 && type == atCountSize && script->CountSizeAnyIncomplete)
                                 ShowSizeInventoryIncomplete(operationOwner, script->CountSizeFirstOmissionPath,
-                                                            script->CountSizeFirstOmission);
+                                                            script->CountSizeFirstOmission, script->CountSizeFirstOmissionWasElevated);
                             if (res2 && type == atCountSize && script->CountSizeAliasSkipped)
                                 SalMessageBox(operationOwner, LoadStr(IDS_UAC_SIZE_COMPAT_ALIAS), LoadStr(IDS_UAC_INVENTORY_TITLE),
                                               MB_OK | MB_ICONINFORMATION);

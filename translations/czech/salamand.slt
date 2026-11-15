@@ -4483,6 +4483,7 @@ SLGINCOMPLETE,""
 14720,1,"Výpis adresáře byl přerušen a obnoven. Soubory se mezitím mohly změnit, proto může být sloučený výpis neúplný. Ověřte jej obnovením."
 
 14721,1,"Přístup byl odepřen. Zkopírovat tento soubor jako správce? Soubory s alternativními datovými proudy nejsou v tomto režimu podporovány."
+14722,1,"Přístup byl odepřen i s oprávněním správce. Oprávnění této položky mohou přístup omezovat; nepřístupné položky nejsou zahrnuty do výsledku."
 
 [STRINGTABLE 199]
 14991,1,"Čtení přidružení souborů ze souborového úložiště, čekejte prosím..."
