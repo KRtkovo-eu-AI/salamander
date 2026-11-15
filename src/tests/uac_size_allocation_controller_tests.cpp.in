@@ -34,12 +34,14 @@ struct CFileData { CQuadWord Size; BOOL SizeValid = FALSE; DWORD_PTR PluginData 
 #define TRACE_E(message) ((void)0)
 @@STATUS_PARSER@@
 @@SIZE_LINK_POLICY@@
+@@SIZE_ALLOCATION_POLICY@@
 
 static int prompts, warnings, measurements, g_prepared, waitDepth, inventories;
 static DWORD localError, g_startError, g_allocationError, g_inventoryError, prepareError, reportedError;
 static ULONGLONG localValue, brokerValue;
 static int nextChoice;
 static bool exactPrompt;
+static std::wstring declinedPreparePath, promptedPath;
 static bool offer = true;
 static DWORD QueryLocal(const wchar_t*, DWORD* high)
 {
@@ -48,10 +50,27 @@ static DWORD QueryLocal(const wchar_t*, DWORD* high)
     return static_cast<DWORD>(localValue);
 }
 #define GetCompressedFileSizeW QueryLocal
+namespace UacListing
+{
+constexpr DWORD inventoryRequest = 0x80000000, contentRequest = 0x20000000, leafIdentityRequest = 0x10000000;
+constexpr DWORD fileAllocationRequest = 0x00800000, pagedListingRequest = 0x00400000;
+}
 namespace UacF7
 {
+enum class Operation { FindList, FindContent, FindFlatList, FindFlatContent, FindFile, Inventory, FileAllocation };
+static bool IsFlatFindScope(Operation operation) { return operation == Operation::FindFlatList || operation == Operation::FindFlatContent; }
+static bool IsFindDirectoryScope(Operation operation) { return operation == Operation::FindList || operation == Operation::FindContent || IsFlatFindScope(operation); }
+struct RoutingProbe
+{
+    struct { Operation operation = Operation::FindList; } prepared;
+    std::wstring root;
+    std::vector<std::unique_ptr<RoutingProbe>> readScopes;
+    size_t FindReadScope(const std::wstring& path, DWORD flags) const;
+};
+@@READ_ROUTING@@
 @@BRANCH_ERRORS@@
 @@QUERY@@
+struct SizeSelectionItem { std::wstring path; bool directory; };
 struct FileAllocationRequest { ULONGLONG size = 0; DWORD attrs = 0; };
 struct DirectoryInventory { ULONGLONG bytes = 0, files = 0, directories = 0; DWORD firstOmission = 0, flags = 0; };
 struct DirectorySizeDetails { struct { ULONGLONG compressed = 0, occupied = 0; } disk; std::vector<ULONGLONG> fileSizes; };
@@ -69,17 +88,21 @@ struct ListingSession
     bool Open = false;
     bool Exact = false;
     bool CloseDuringPrepare = false;
-    std::vector<std::wstring> Selected;
-    bool Contains(const std::wstring& path) const {
-        if (!Open || !(path == Root || (!Exact && path.size() > Root.size() && path.compare(0, Root.size(), Root) == 0 && path[Root.size()] == L'\\'))) return false;
-        if (Selected.empty()) return true;
-        for (const auto& name : Selected) { const auto prefix = Root + L"\\" + name; if (path == prefix || (path.size() > prefix.size() && path.compare(0, prefix.size(), prefix) == 0 && path[prefix.size()] == L'\\')) return true; }
-        return false;
+    std::vector<SizeSelectionItem> Selected;
+    bool ContainsPrepared(const std::wstring& path) const {
+        if (!Selected.empty()) {
+            for (const auto& item : Selected)
+                if (path == item.path || (item.directory && path.size() > item.path.size() &&
+                    path.compare(0, item.path.size(), item.path) == 0 && path[item.path.size()] == L'\\')) return true;
+            return false;
+        }
+        return path == Root || (!Exact && path.size() > Root.size() && path.compare(0, Root.size(), Root) == 0 && path[Root.size()] == L'\\');
     }
+    bool Contains(const std::wstring& path) const { return Open && ContainsPrepared(path); }
     bool IsOpen() const { return Open; }
     const std::wstring& GetRoot() const { return Root; }
     bool PrepareInventory(const std::wstring& root) { Root = root; return true; }
-    bool PrepareInventorySelection(const std::wstring& root, const std::vector<std::wstring>& names) { Root = root; Selected = names; return true; }
+    bool PrepareSizeSelection(const std::vector<SizeSelectionItem>& items) { for (const auto& item : items) if (item.path != declinedPreparePath) Selected.push_back(item); if (Selected.empty()) return false; Root = Selected[0].path; return true; }
     bool PrepareAllocationFile(const std::wstring& root, const PreparedLeaf&) { Root = root; Exact = true; return true; }
     DWORD PrepareViewer(const std::wstring&, PreparedLeaf&, DWORD) { ++g_prepared; if (CloseDuringPrepare) Open = false; return prepareError; }
     DWORD MeasureFileAllocation(const std::wstring&, const FileAllocationRequest&, ULONGLONG& size)
@@ -90,9 +113,10 @@ struct ListingSession
 static bool CanOfferElevation() { return offer; }
 }
 @@BATCH_SCOPE@@
-static int ConfirmProtectedSize(HWND, const std::wstring&, UacF7::ListingSession& session, DWORD& error, bool exact = false)
+static int ConfirmProtectedSize(HWND, const std::wstring& path, UacF7::ListingSession& session, DWORD& error, bool exact = false)
 {
     ++prompts;
+    promptedPath = path;
     exactPrompt = exact;
     error = nextChoice == IDOK ? g_startError : ERROR_CANCELLED;
     if (nextChoice == IDOK && !error) session.Open = true;
@@ -148,10 +172,12 @@ public:
     struct SelectedFile { std::wstring path; };
     std::wstring GetItemFullPathW(const SelectedFile& item) const { return item.path; }
     BOOL MeasureSelected(COperations* script, int selCount, const wchar_t* fileNameW,
-                         const std::wstring& selectedPath, ULONGLONG logical, DWORD sourceFileAttr)
+                         const std::wstring& selectedPath, ULONGLONG logical, DWORD sourceFileAttr, CSizeBatchConsent* shared = nullptr)
     {
         const bool countSize = true;
-        CSizeBatchConsent sizeBatchConsent;
+        (void)selCount;
+        CSizeBatchConsent localBatch;
+        CSizeBatchConsent* batch = shared ? shared : &localBatch;
         SelectedFile item{selectedPath}; const auto* oneFile = &item;
 @@SELECTED_SCOPE@@
         return Measure(script, selectedSizeScope ? &*selectedSizeScope : nullptr, fileNameW, logical, sourceFileAttr);
@@ -182,10 +208,29 @@ static void Reset()
 {
     prompts = warnings = measurements = g_prepared = waitDepth = inventories = 0;
     localError = ERROR_ACCESS_DENIED; g_startError = g_allocationError = g_inventoryError = prepareError = reportedError = ERROR_SUCCESS;
-    localValue = brokerValue = 0; nextChoice = IDOK; offer = true; exactPrompt = false;
+    localValue = brokerValue = 0; nextChoice = IDOK; offer = true; exactPrompt = false; declinedPreparePath.clear(); promptedPath.clear();
 }
 int main()
 {
+    {
+        UacF7::RoutingProbe selection;
+        auto broad = std::make_unique<UacF7::RoutingProbe>(); broad->root = L"C:\\scope"; broad->prepared.operation = UacF7::Operation::FindContent;
+        auto nested = std::make_unique<UacF7::RoutingProbe>(); nested->root = L"C:\\scope\\nested"; nested->prepared.operation = UacF7::Operation::FindContent;
+        auto exact = std::make_unique<UacF7::RoutingProbe>(); exact->root = L"C:\\scope\\nested\\file"; exact->prepared.operation = UacF7::Operation::FindFile;
+        selection.readScopes.push_back(std::move(broad)); selection.readScopes.push_back(std::move(nested)); selection.readScopes.push_back(std::move(exact));
+        Check(selection.FindReadScope(L"C:\\scope\\nested\\child", UacListing::pagedListingRequest) == 1 &&
+              selection.FindReadScope(L"C:\\scope\\nested\\file", UacListing::contentRequest) == 2 &&
+              selection.FindReadScope(L"C:\\other", UacListing::contentRequest) == SIZE_MAX &&
+              selection.FindReadScope(L"C:\\scope\\nested\\file\\child", UacListing::contentRequest) == 1,
+              "actual scope routing chooses the narrowest authorized root and exact files cannot include children");
+    }
+    Check(!SizeMayNeedProtectedAllocation(FILE_ATTRIBUTE_NORMAL, true, false) &&
+          !SizeMayNeedProtectedAllocation(FILE_ATTRIBUTE_SPARSE_FILE, false, false) &&
+          !SizeMayNeedProtectedAllocation(FILE_ATTRIBUTE_COMPRESSED, true, true) &&
+          !SizeMayNeedProtectedAllocation(FILE_ATTRIBUTE_SPARSE_FILE | FILE_ATTRIBUTE_REPARSE_POINT, true, false) &&
+          SizeMayNeedProtectedAllocation(FILE_ATTRIBUTE_SPARSE_FILE, true, false) &&
+          SizeMayNeedProtectedAllocation(FILE_ATTRIBUTE_COMPRESSED, true, false),
+          "the size consent selection includes only files eligible for the original worker's elevated allocation query");
     constexpr DWORD link = FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT;
     Check(!SkipSizeDirectoryLink(FILE_ATTRIBUTE_DIRECTORY, false, true, false), "ordinary folder remains in the batch");
     Check(SkipSizeDirectoryLink(link, false, true, false), "configured skipped link is excluded");
@@ -194,20 +239,19 @@ int main()
     Check(!SkipSizeDirectoryLink(link, true, true, true), "protected panel compatibility link retains its verification path");
     {
         Reset(); CFilesWindow panel; COperations sum; CSizeBatchConsent batch;
-        batch.Parent = L"C:\\scope";
         const struct { const wchar_t* name; DWORD attributes; bool compatibility; } items[] = {
             {L"compatibility", link, true}, {L"first", FILE_ATTRIBUTE_DIRECTORY, false},
             {L"second", FILE_ATTRIBUTE_DIRECTORY, false}};
         for (const auto& item : items)
             if (!SkipSizeDirectoryLink(item.attributes, false, false, item.compatibility))
-                batch.Selected.emplace_back(item.name);
+                batch.Selected.push_back({std::wstring(L"C:\\scope\\") + item.name, true});
         CSizeScanScope first, second; first.Batch = second.Batch = &batch;
         first.Root = L"C:\\scope\\first"; second.Root = L"C:\\scope\\second";
         brokerValue = 9;
-        Check(batch.Selected.size() == 2 && batch.Selected[0] == L"first" && batch.Selected[1] == L"second" &&
+        Check(batch.Selected.size() == 2 && batch.Selected[0].path == L"C:\\scope\\first" && batch.Selected[1].path == L"C:\\scope\\second" &&
               panel.MeasureDirectory(&sum, &first, first.Root) == TRUE &&
               panel.MeasureDirectory(&sum, &second, second.Root) == TRUE && prompts == 1 &&
-              batch.Session.Selected == batch.Selected && sum.TotalSize.Value == 18,
+              batch.Session.Selected.size() == batch.Selected.size() && sum.TotalSize.Value == 18,
               "skipped alias does not prevent one exact consent for eligible sibling folders");
     }
     Check(UacF7::IsSkippableSizeBranchError(ERROR_ACCESS_DENIED) &&
@@ -281,7 +325,21 @@ int main()
     }
     {
         Reset(); CFilesWindow panel; COperations sum; CSizeBatchConsent batch;
-        batch.Parent = L"C:\\scope"; batch.Selected = {L"first", L"second"};
+        batch.Selected = {{L"C:\\scope\\first", true}, {L"C:\\scope\\second", true}};
+        declinedPreparePath = L"C:\\scope\\first";
+        CSizeScanScope first, second; first.Root = batch.Selected[0].path; second.Root = batch.Selected[1].path;
+        first.Batch = second.Batch = &batch; brokerValue = 11;
+        Check(panel.MeasureDirectory(&sum, &first, first.Root) == TRUE && sum.CountSizeIncomplete &&
+              sum.CountSizeFirstOmission == ERROR_ACCESS_DENIED && !sum.CountSizeFirstOmissionWasElevated &&
+              promptedPath.empty() && prompts == 0 && inventories == 0,
+              "an unprepared first root is marked incomplete without prompting for other roots");
+        Check(panel.MeasureDirectory(&sum, &second, second.Root) == TRUE && prompts == 1 &&
+              promptedPath == second.Root && !exactPrompt && inventories == 1 && sum.TotalSize.Value == 11,
+              "the prepared second root requests its own scope once and contributes");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeBatchConsent batch;
+        batch.Selected = {{L"C:\\scope\\first", true}, {L"C:\\scope\\second", true}};
         CSizeScanScope first; first.Root = L"C:\\scope\\first"; first.Batch = &batch;
         CSizeScanScope second; second.Root = L"C:\\scope\\second"; second.Batch = &batch;
         brokerValue = 11;
@@ -291,7 +349,7 @@ int main()
     }
     {
         Reset(); CFilesWindow panel; COperations sum; CSizeBatchConsent batch;
-        batch.Parent = L"C:\\scope"; batch.Selected = {L"first", L"second"}; g_startError = ERROR_CANCELLED;
+        batch.Selected = {{L"C:\\scope\\first", true}, {L"C:\\scope\\second", true}}; g_startError = ERROR_CANCELLED;
         CSizeScanScope first; first.Root = L"C:\\scope\\first"; first.Batch = &batch;
         CSizeScanScope second; second.Root = L"C:\\scope\\second"; second.Batch = &batch;
         Check(panel.MeasureDirectory(&sum, &first, first.Root) == TRUE && panel.MeasureDirectory(&sum, &second, second.Root) == TRUE &&
@@ -319,23 +377,47 @@ int main()
               "closed panel pipe after identity preparation never triggers a new consent");
     }
     {
-        Reset(); CFilesWindow panel; COperations sum;
+        Reset(); CFilesWindow panel; COperations sum; CSizeBatchConsent batch;
         panel.ProtectedListing = std::make_unique<UacF7::ListingSession>();
         panel.ProtectedListing->Root = L"C:\\other"; panel.ProtectedListing->Open = true;
-        Check(panel.MeasureSelected(&sum, 2, L"outside", L"C:\\scope\\outside", 100, sparse) &&
-              prompts == 0 && measurements == 0 && g_prepared == 0 && warnings == 1 &&
-              reportedError == ERROR_ACCESS_DENIED && sum.CountSizeCompressionUnavailable,
-              "selection outside the approved panel scope never prepares or requests a new grant");
+        batch.Selected = {{L"C:\\scope\\outside", false}, {L"C:\\scope\\second", false}};
+        brokerValue = 13;
+        Check(panel.MeasureSelected(&sum, 2, L"outside", L"C:\\scope\\outside", 100, sparse, &batch) &&
+              panel.MeasureSelected(&sum, 2, L"second", L"C:\\scope\\second", 200, sparse, &batch) &&
+              prompts == 1 && measurements == 2 && !batch.Session.Contains(L"C:\\scope\\unselected") &&
+              !batch.Session.Contains(L"C:\\scope\\outside\\child") && sum.CompressedSize.Value == 26,
+              "selected files outside the panel reuse one exact-file batch and exclude siblings");
     }
     {
         Reset(); CFilesWindow panel; COperations sum; brokerValue = 11;
         Check(panel.MeasureSelected(&sum, 1, L"single", L"C:\\scope\\single", 100, sparse) &&
               prompts == 1 && measurements == 1 && sum.CompressedSize.Value == 11,
               "single selected file retains its existing exact-file UAC flow");
-        Reset(); COperations multiple;
-        Check(panel.MeasureSelected(&multiple, 2, L"ordinary", L"C:\\scope\\ordinary", 100, sparse) &&
-              prompts == 0 && measurements == 0 && g_prepared == 0 && multiple.CountSizeCompressionUnavailable,
-              "multiple files in an ordinary panel do not create a wider authorization");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeBatchConsent batch;
+        batch.Selected = {{L"C:\\scope\\first", false}, {L"C:\\scope\\second", false}};
+        g_startError = ERROR_CANCELLED;
+        Check(panel.MeasureSelected(&sum, 2, L"first", L"C:\\scope\\first", 100, sparse, &batch) &&
+              panel.MeasureSelected(&sum, 2, L"second", L"C:\\scope\\second", 200, sparse, &batch) &&
+              prompts == 1 && measurements == 0 && sum.CountSizeCompressionUnavailable && batch.ElevationDeclined,
+              "declining an exact-file batch suppresses subsequent prompts while retaining logical sizes");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeBatchConsent batch;
+        batch.Selected = {{L"C:\\scope\\tree", true}, {L"C:\\scope\\file", false}};
+        CSizeScanScope tree; tree.Root = L"C:\\scope\\tree"; tree.Batch = &batch;
+        brokerValue = 7;
+        Check(panel.MeasureDirectory(&sum, &tree, tree.Root) == TRUE &&
+              panel.MeasureSelected(&sum, 2, L"file", L"C:\\scope\\file", 50, sparse, &batch) &&
+              prompts == 1 && inventories == 1 && measurements == 1 &&
+              batch.Session.Contains(L"C:\\scope\\tree\\nested") &&
+              !batch.Session.Contains(L"C:\\scope\\unselected") && !batch.Session.Contains(L"C:\\scope\\file\\child"),
+              "selected directory and file share a single scope with distinct subtree and exact-file boundaries");
+        batch.Session.Open = false;
+        Check(panel.MeasureSelected(&sum, 2, L"file", L"C:\\scope\\file", 50, sparse, &batch) &&
+              prompts == 1 && measurements == 1 && reportedError == ERROR_BROKEN_PIPE,
+              "lost batch session is reported without another consent");
     }
     {
         Reset(); CFilesWindow panel; COperations sum; CSizeBatchConsent batch;

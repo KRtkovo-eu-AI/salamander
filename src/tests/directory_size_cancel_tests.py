@@ -54,7 +54,9 @@ def main():
         assert 'IsDanglingDirectoryLinkForSize(sourcePath)' in production[scan_start:start]
         action = read('src/fileswn8.cpp')
         assert 'disableMainWindow = type != atCountSize' in action
-        direct_denial = protected.index('if (canRequest && session->IsOpen() && UacF7::IsSkippableSizeBranchError(inventoryError))')
+        direct_denial = protected.index('if ((canRequest || batchSelection) && session->IsOpen() && UacF7::IsSkippableSizeBranchError(inventoryError))')
+        assert 'brokerRequested = canRequest;' in protected
+        assert 'brokerRequested && inventory.firstOmission == ERROR_ACCESS_DENIED' in protected
         assert direct_denial < protected.index('inventory.firstOmission = inventoryError;', direct_denial)
         assert direct_denial < protected.index('inventoryError = ERROR_SUCCESS;', direct_denial)
         assert direct_denial < protected.index('err = inventoryError;')

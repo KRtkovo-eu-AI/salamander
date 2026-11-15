@@ -67,8 +67,15 @@ def main() -> int:
             "WM_USER_VIEWFILE")
     require("MAX_PATH" not in view, "F3 must not truncate the selected Find path")
     publish = function_body(find_cpp, "void PublishCandidate(")
-    ordered(publish, "maxViewerSnapshotBytes", "ActiveSession().PrepareViewer(filePath",
-            "AddFoundItem(", "std::move(foundView)")
+    ordered(publish, "FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT |",
+            "FILE_ATTRIBUTE_ENCRYPTED | FILE_ATTRIBUTE_OFFLINE", "if (!foundView && !(file.dwFileAttributes & excluded))",
+            "ActiveSession().PrepareViewer(filePath", "identity->MatchesFileIdentity(*listedIdentity)",
+            "foundView = std::move(identity)", "AddFoundItem(", "std::move(foundView)")
+    require("maxViewerSnapshotBytes" not in publish and "file.nFileSizeHigh" not in publish.split("if (!foundView", 1)[1].split("AddFoundItem(", 1)[0],
+            "capturing Refine identity must not be restricted by viewer snapshot size")
+    snapshot_source = (ROOT / "src" / "uacbroker" / "uacbroker.cpp").read_text(encoding="utf-8-sig")
+    snapshot = function_body(snapshot_source, "DWORD ListingSession::ReadViewerSnapshot(")
+    ordered(snapshot, "expected.MatchesReadSource(revision)", "size > maxViewerSnapshotBytes", "snapshot.resize(")
     require("foundView = singleFile ? knownFile : nullptr" in publish,
             "retained refine results must keep their captured identity after refusal")
     host = (ROOT / "src" / "fileswn5.cpp").read_text(encoding="utf-8-sig")
@@ -227,12 +234,12 @@ def main() -> int:
     require(grep.index("RequestFindResultsRefresh(data);") < grep.index("protectedQueue.Finish(duplicateCandidates);"),
             "ordinary hits must be published before waiting for administrator consent")
     require(grep.index("protectedQueue.Finish(duplicateCandidates);") <
-            grep.index("duplicateCandidates->Examine(data, protectedSessions, protectedQueue.HadProtectedRequests() ? 0 : 1);"),
+            grep.index("duplicateCandidates->Examine(data, protectedSessions,"),
             "protected candidates must join ordinary candidates before grouping and hashing")
     queue_add = function_body(find_cpp, "FindQueueResult AddPath(CGrepData* search, std::wstring path")
-    require("if (count == 0) started = requests.back()->Start()" in queue_add and "count == requests.size()" not in queue_add,
+    require("if (count == 0) started = requests.back()->Start(selection.get())" in queue_add and "count == requests.size()" not in queue_add,
             "only the first consent may begin during traversal and requests must not be limited to a fixed count")
-    require("pathIndex.find(path)" in queue_add and queue_add.index("sessions.push_back(nullptr)") < queue_add.index("requests.back()->Start()"),
+    require("pathIndex.find(path)" in queue_add and queue_add.index("sessions.push_back(nullptr)") < queue_add.index("requests.back()->Start(selection.get())"),
             "deduplication must use the path index and the session slot must be owned before starting consent")
     request_finish = function_body(find_cpp, "UacF7::ListingSession* Finish(CDuplicateCandidates* candidates)")
     request_process = function_body(find_cpp, "UacF7::ListingSession* Process(CDuplicateCandidates* candidates)")
@@ -277,7 +284,7 @@ def main() -> int:
             "protectedSession->CloseContent()" in digest and
             digest.index("protectedSession->CloseContent()") < digest.index("context.finalize()"),
             "protected duplicate digests must use and validate the authorized content stream")
-    require("AuthorizeFindFile(data, searchRoot, digestSession, recursive)" in digest and
+    require("AuthorizeFindFile(data, searchRoot, digestSession, recursive, preparedSelection)" in digest and
             "remainingFileConsents" in digest,
             "a denied ordinary duplicate read must have a bounded exact-file fallback")
     require("std::string(GetErrorText(error))" in digest and "IDS_FINDLOG_SKIP" not in digest,

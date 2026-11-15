@@ -347,10 +347,11 @@ public:
                     UacF7::ArchiveRevision revision;
                     ExactAllocationScope exact;
                     std::vector<SelectedInventoryEntry> selected;
+                    std::vector<SelectedReadScope> selectedReads;
                     auto deadline = GetTickCount64() + timeoutMs;
                     dispatchError = ReceiveRequest(install, peer.get(), GetCurrentProcess(), GetCurrentProcessId(), deadline,
                         result, exactRoot, snapshot, view, zip, scope, archive, revision, nullptr, nullptr, &exact,
-                        nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, &selected);
+                        nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, &selected, &selectedReads);
                     if (!dispatchError)
                         dispatchError = TransferRequest(peer.get(), &result, sizeof(result), true, deadline);
                     if (!dispatchError && view && result == ERROR_SUCCESS)
@@ -363,6 +364,9 @@ public:
                     if (!dispatchError && exactRoot)
                         dispatchError = ServeListings(peer.get(), GetCurrentProcess(), GetCurrentProcessId(), exactRoot.get(), scope, &exact,
                                                       scope == Operation::InventorySelection ? &selected : nullptr);
+                    if (!dispatchError && !selectedReads.empty())
+                        dispatchError = ServeListings(peer.get(), GetCurrentProcess(), GetCurrentProcessId(), nullptr,
+                                                      Operation::ReadSelection, nullptr, nullptr, &selectedReads, &install);
                     return;
                 }
                 UacCopyLeaf::Detail::activePause = copyPause;
@@ -847,6 +851,23 @@ public:
     {
         return !TransferRequest(server.get(), &range, sizeof(range), true, GetTickCount64() + timeoutMs) &&
                EndedWithoutFindReply();
+    }
+
+    bool StartReadSelection(RequestHeader header, const std::wstring& payload, DWORD& result)
+    {
+        const auto deadline = GetTickCount64() + timeoutMs;
+        return !TransferRequest(server.get(), &header, sizeof(header), true, deadline) &&
+               !TransferRequest(server.get(), const_cast<wchar_t*>(payload.data()),
+                                static_cast<DWORD>(payload.size() * sizeof(wchar_t)), true, deadline) &&
+               !TransferRequest(server.get(), &result, sizeof(result), false, deadline);
+    }
+
+    bool SelectRead(DWORD index, DWORD expected)
+    {
+        const auto deadline = GetTickCount64() + timeoutMs;
+        DWORD status = ERROR_GEN_FAILURE;
+        return !TransferRequest(server.get(), &index, sizeof(index), true, deadline) &&
+               !TransferRequest(server.get(), &status, sizeof(status), false, deadline) && status == expected;
     }
 
 private:
@@ -2228,6 +2249,186 @@ void CheckFlatFindScope(const Directory& source)
     Check(names.Open(nullptr, root.handle.get(), Operation::FindFlatList) &&
               names.RejectFindRequest(UacListing::contentRequest | 1),
           "flat metadata Find rejects content reads");
+}
+
+void CheckSelectedReadScope(const Directory& source)
+{
+    Directory first, second;
+    const auto firstPath = source.File(L"selection-first");
+    const auto secondPath = source.File(L"selection-second");
+    if (!first.Open(firstPath.c_str()) || !second.Open(secondPath.c_str()) ||
+        !WriteByte(first.File(L"first.txt"), 1) || !WriteByte(second.File(L"second.txt"), 2))
+    {
+        Check(false, "prepare selected read scope fixtures");
+        return;
+    }
+    const auto headerFor = [](const Directory& directory) {
+        RequestHeader header{};
+        header.serial = directory.identity.file.VolumeSerialNumber;
+        header.parentId = directory.identity.file.FileId;
+        header.operation = Operation::FindList;
+        header.relativeLength = static_cast<DWORD>(directory.relative.size());
+        header.leafLength = ARRAYSIZE(UacListing::marker) - 1;
+        return header;
+    };
+    const auto bodyFor = [](const Directory& directory) {
+        return directory.identity.volume + directory.relative + UacListing::marker;
+    };
+    const auto append = [](std::wstring& manifest, const RequestHeader& header, const std::wstring& body) {
+        const size_t offset = manifest.size();
+        manifest.resize(offset + sizeof(header) / sizeof(wchar_t));
+        std::memcpy(manifest.data() + offset, &header, sizeof(header));
+        manifest += body;
+    };
+    const auto firstHeader = headerFor(first);
+    const auto secondHeader = headerFor(second);
+    const auto firstBody = bodyFor(first);
+    const auto secondBody = bodyFor(second);
+    const auto run = [&](RequestHeader other, bool valid) {
+        std::wstring manifest;
+        append(manifest, firstHeader, firstBody);
+        append(manifest, other, secondBody);
+        RequestHeader start = firstHeader;
+        start.operation = Operation::ReadSelection;
+        start.sourceLength = static_cast<DWORD>(manifest.size());
+        JobPipe job;
+        DWORD result = ERROR_GEN_FAILURE;
+        if (!job.Open(nullptr, nullptr, Operation::FindContent, nullptr, true)) return false;
+        const bool started = job.StartReadSelection(start, firstBody + manifest, result);
+        if (!valid) return !started && job.Finish() == ERROR_INVALID_DATA;
+        const bool ok = started && result == ERROR_SUCCESS && job.SelectRead(1, ERROR_FILE_INVALID) &&
+                        job.SelectRead(2, ERROR_ACCESS_DENIED) && job.SelectRead(0, ERROR_SUCCESS) &&
+                        job.PlainList({}, L"first.txt");
+        job.Finish();
+        return ok;
+    };
+    RequestHeader changed = secondHeader;
+    changed.parentId.Identifier[0] ^= 1;
+    Check(run(changed, true), "one failed selected root and an unselected index do not block a verified sibling");
+    changed = secondHeader;
+    changed.operation = Operation::Delete;
+    Check(run(changed, false), "the selected read manifest rejects a mutating operation");
+    changed = secondHeader;
+    changed.operation = Operation::FindContent;
+    Check(run(changed, false), "metadata-only consent cannot be mixed with content access");
+    for (const bool reserved : {false, true})
+    {
+        std::wstring manifest;
+        append(manifest, firstHeader, firstBody);
+        RequestHeader start = firstHeader;
+        start.operation = Operation::ReadSelection;
+        start.sourceLength = static_cast<DWORD>(manifest.size());
+        if (reserved) start.targetSerial = 1;
+        else start.parentId.Identifier[0] ^= 1;
+        JobPipe job;
+        DWORD result = ERROR_GEN_FAILURE;
+        const bool rejected = job.Open(nullptr, nullptr, Operation::FindContent, nullptr, true) &&
+            !job.StartReadSelection(start, firstBody + manifest, result) && job.Finish() == ERROR_INVALID_DATA;
+        Check(rejected, reserved ? "selected bootstrap rejects reserved target fields" :
+                                  "selected bootstrap rejects a mismatched first identity");
+    }
+    {
+        std::wstring manifest;
+        append(manifest, firstHeader, firstBody);
+        append(manifest, secondHeader, secondBody);
+        RequestHeader start = firstHeader;
+        start.operation = Operation::ReadSelection;
+        start.sourceLength = static_cast<DWORD>(manifest.size());
+        JobPipe job;
+        DWORD result = ERROR_GEN_FAILURE;
+        UacF7::MoveFileIdentity identity{first.identity.file.VolumeSerialNumber};
+        std::memcpy(identity.id, first.identity.file.FileId.Identifier, sizeof(identity.id));
+        UacListing::PagedListingReply reply{};
+        std::vector<UacF7::PagedListingEntry> page;
+        ULONGLONG token = 0;
+        const bool opened = job.Open(nullptr, nullptr, Operation::FindContent, nullptr, true) &&
+            job.StartReadSelection(start, firstBody + manifest, result) && result == ERROR_SUCCESS &&
+            job.SelectRead(0, ERROR_SUCCESS) &&
+            job.PageRequest(UacListing::PagedListingOp::Open, {}, &identity, reply, page, &token) && !reply.error;
+        const bool crossRejected = opened && job.SelectRead(1, ERROR_SUCCESS) &&
+            job.PageRequest(UacListing::PagedListingOp::Next, {}, nullptr, reply, page, &token) &&
+            reply.error == ERROR_INVALID_STATE;
+        const bool originalWorks = crossRejected && job.SelectRead(0, ERROR_SUCCESS) &&
+            job.PageRequest(UacListing::PagedListingOp::Next, {}, nullptr, reply, page, &token) && !reply.error &&
+            job.SelectRead(1, ERROR_SUCCESS) && job.PlainList({}, L"second.txt");
+        Check(originalWorks, "selected read cursors stay bound to their original root while both roots remain usable");
+        job.Finish();
+    }
+    {
+        const auto file = Adopt(CreateFileW(second.File(L"second.txt").c_str(), FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+            FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+        FILE_ID_INFO fileIdentity{};
+        if (!file || !GetFileInformationByHandleEx(file.get(), FileIdInfo, &fileIdentity, sizeof(fileIdentity)))
+            Check(false, "capture selected exact-file identity");
+        else
+        {
+            auto contentRoot = firstHeader;
+            contentRoot.operation = Operation::FindContent;
+            RequestHeader exact = secondHeader;
+            exact.operation = Operation::FindFile;
+            exact.sourceId = fileIdentity.FileId;
+            exact.leafLength = static_cast<DWORD>(wcslen(L"second.txt"));
+            const auto exactBody = second.identity.volume + second.relative + L"second.txt";
+            std::wstring manifest;
+            append(manifest, contentRoot, firstBody);
+            append(manifest, exact, exactBody);
+            RequestHeader start = contentRoot;
+            start.operation = Operation::ReadSelection;
+            start.sourceLength = static_cast<DWORD>(manifest.size());
+            JobPipe job;
+            DWORD result = ERROR_GEN_FAILURE;
+            const bool ok = job.Open(nullptr, nullptr, Operation::FindContent, nullptr, true) &&
+                job.StartReadSelection(start, firstBody + manifest, result) && result == ERROR_SUCCESS &&
+                job.SelectRead(1, ERROR_SUCCESS) && job.OpenFindContent({}) && job.ReadAndCloseFindContent(2) &&
+                job.SelectRead(0, ERROR_SUCCESS) && job.PlainList({}, L"first.txt");
+            Check(ok, "a selected exact file and a content-search subtree share one scoped dispatcher");
+            job.Finish();
+        }
+    }
+    {
+        const auto file = Adopt(CreateFileW(second.File(L"second.txt").c_str(), GENERIC_WRITE | FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+            FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+        DWORD returned = 0;
+        FILE_ID_INFO identity{};
+        FILE_ATTRIBUTE_TAG_INFO attributes{};
+        if (!file || !DeviceIoControl(file.get(), FSCTL_SET_SPARSE, nullptr, 0, nullptr, 0, &returned, nullptr) ||
+            !GetFileInformationByHandleEx(file.get(), FileIdInfo, &identity, sizeof(identity)) ||
+            !GetFileInformationByHandleEx(file.get(), FileAttributeTagInfo, &attributes, sizeof(attributes)))
+            Check(false, "prepare selected sparse-file identity");
+        else
+        {
+            auto inventoryRoot = firstHeader;
+            inventoryRoot.operation = Operation::Inventory;
+            RequestHeader exact = secondHeader;
+            exact.operation = Operation::FileAllocation;
+            exact.sourceId = identity.FileId;
+            exact.leafLength = static_cast<DWORD>(wcslen(L"second.txt"));
+            const auto exactBody = second.identity.volume + second.relative + L"second.txt";
+            std::wstring manifest;
+            append(manifest, inventoryRoot, firstBody);
+            append(manifest, exact, exactBody);
+            RequestHeader start = inventoryRoot;
+            start.operation = Operation::ReadSelection;
+            start.sourceLength = static_cast<DWORD>(manifest.size());
+            UacF7::FileAllocationRequest request{};
+            request.serial = identity.VolumeSerialNumber;
+            std::memcpy(request.parentId, second.identity.file.FileId.Identifier, sizeof(request.parentId));
+            std::memcpy(request.fileId, identity.FileId.Identifier, sizeof(request.fileId));
+            request.logicalSize = 1;
+            request.attributes = attributes.FileAttributes;
+            JobPipe job;
+            DWORD result = ERROR_GEN_FAILURE;
+            ULONGLONG allocation = MAXULONGLONG;
+            const bool ok = job.Open(nullptr, nullptr, Operation::FindContent, nullptr, true) &&
+                job.StartReadSelection(start, firstBody + manifest, result) && result == ERROR_SUCCESS &&
+                job.SelectRead(0, ERROR_SUCCESS) && job.Inventory({}, ERROR_SUCCESS, 1) &&
+                job.SelectRead(1, ERROR_SUCCESS) && job.Allocation({}, request, ERROR_SUCCESS, &allocation);
+            Check(ok, "one selected read session measures a directory and one exact sparse file");
+            job.Finish();
+        }
+    }
 }
 
 void CheckExactFindScope(const Directory& source)
@@ -5605,6 +5806,7 @@ int wmain(int argc, wchar_t** argv)
     CheckComparisonListing(source);
     CheckStoppedFindReply();
     CheckFlatFindScope(source);
+    CheckSelectedReadScope(source);
     CheckExactFindScope(source);
     CheckInventoryScope(source);
     CheckFileAllocation(source);

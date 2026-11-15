@@ -160,7 +160,7 @@ struct Predicates {
 };
 struct FindProtectedRequest {
     CGrepData* data; FakeSession session; UacF7::PreparedLeaf capturedFile; std::shared_ptr<const UacF7::PreparedLeaf> knownFile; std::shared_ptr<CFindIgnore> ignoreSnapshot;
-    int rootLength = 0; bool includeSubDirs = true, singleFile = false, startOk = true; int starts = 0;
+    int rootLength = 0; bool includeSubDirs = true, singleFile = false, verifyCapturedFile = false, startOk = true; int starts = 0;
     HANDLE launchThread = nullptr; std::optional<Consent> consent; Predicates predicates;
     std::wstring path = L"C:\\root"; std::vector<std::pair<std::wstring, DWORD>> logs;
     std::vector<std::wstring> published; bool stopOnCandidate = false, closeOnCandidate = false, discardCandidates = false; size_t candidateCount = 0;

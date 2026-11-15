@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Share Find and Refine read scopes across one consent. | Preserve exact selected roots and stop scope preparation on cancellation. | #731 | GPT-6 |
+// | 2026-11-15 | Retain large protected result identities for Refine. | Decouple identity capture from the viewer snapshot limit. | #731 | GPT-6 |
 // | 2026-11-15 | Clarify late Find consent accounting. | Distinguish the duplicate pass from the removed queue capacity. | #731 | GPT-6 |
 // | 2026-11-15 | Document protected Find access and session ownership. | Explain authorization scope and the lifetime of verified results. | #731 | GPT-6 |
 // | 2026-11-15 | Remove the fixed protected Find queue capacity. | Keep one scoped consent across large searches. | #731 | GPT-6 |
@@ -997,13 +999,15 @@ struct FindConsent
 
 // Duplicate hashing can discover denied content after traversal has ended.
 // Prepare the actual search root so later eligible candidates share this grant.
-DWORD AuthorizeFindFile(CGrepData* data, const std::wstring& path, UacF7::ListingSession& session, bool recursive)
+DWORD AuthorizeFindFile(CGrepData* data, const std::wstring& path, UacF7::ListingSession& session, bool recursive,
+                        bool preparedSelection = false)
 {
     if (data->StopSearch)
         return ERROR_CANCELLED;
-    if (!session.PrepareFind(path, true, recursive))
+    if (!preparedSelection && !session.PrepareFind(path, true, recursive))
         return ERROR_ACCESS_DENIED;
-    FindConsent consent{data, path, session, FindConsentScope::Content};
+    const auto& description = preparedSelection ? session.GetSelectionDescription() : path;
+    FindConsent consent{data, description, session, FindConsentScope::Content};
     HANDLE thread = HANDLES(CreateThread(nullptr, 0, FindConsent::Launch, &consent, 0, nullptr));
     if (!thread)
         return ERROR_NOT_ENOUGH_MEMORY;
@@ -1126,7 +1130,8 @@ public:
     // - removing single files
     // - setting the Group variable
     // - setting the Different flag
-    void Examine(CGrepData* data, const FindProtectedSessions& protectedSessions, size_t remainingFileConsents);
+    void Examine(CGrepData* data, const FindProtectedSessions& protectedSessions, size_t remainingFileConsents,
+                 UacF7::ListingSession* preparedSelection);
 protected:
     // compares two records using criteria byName, bySize and byMD5
     // byPath is a criterium with the lowest priority and is used only for clearer output
@@ -1162,7 +1167,7 @@ protected:
     BOOL GetMD5Digest(CGrepData* data, CFoundFilesData* file,
                       int* progress, CQuadWord* readSize, const CQuadWord* totalSize,
                       UacF7::ListingSession* protectedSession, size_t& remainingFileConsents,
-                      ProtectedFindPredicates& predicates, UacF7::ListingSession& digestSession);
+                      ProtectedFindPredicates& predicates, UacF7::ListingSession& digestSession, bool preparedSelection);
 };
 
 int CDuplicateCandidates::CompareFunc(CFoundFilesData* f1, CFoundFilesData* f2,
@@ -1301,7 +1306,8 @@ static std::wstring FindSearchRootForFile(CGrepData* data, const std::wstring& f
 BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
                                         int* progress, CQuadWord* readSize, const CQuadWord* totalSize,
                                         UacF7::ListingSession* protectedSession, size_t& remainingFileConsents,
-                                        ProtectedFindPredicates& predicates, UacF7::ListingSession& digestSession)
+                                        ProtectedFindPredicates& predicates, UacF7::ListingSession& digestSession,
+                                        bool preparedSelection)
 {
     bool scoped = file->ProtectedScope != 0;
     const std::wstring fullPath = file->GetFullNameW();
@@ -1365,7 +1371,7 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
                     --remainingFileConsents;
                     bool recursive = false;
                     const auto searchRoot = FindSearchRootForFile(data, fullPath, recursive);
-                    error = searchRoot.empty() ? ERROR_ACCESS_DENIED : AuthorizeFindFile(data, searchRoot, digestSession, recursive);
+                    error = searchRoot.empty() ? ERROR_ACCESS_DENIED : AuthorizeFindFile(data, searchRoot, digestSession, recursive, preparedSelection);
                     if (!error)
                     {
                         protectedSession = &digestSession;
@@ -1560,7 +1566,7 @@ void CDuplicateCandidates::SetGroupByDifferentFlag()
 }
 
 void CDuplicateCandidates::Examine(CGrepData* data, const FindProtectedSessions& protectedSessions,
-                                   size_t remainingFileConsents)
+                                   size_t remainingFileConsents, UacF7::ListingSession* preparedSelection)
 {
     if (Count == 0)
         return;
@@ -1571,7 +1577,8 @@ void CDuplicateCandidates::Examine(CGrepData* data, const FindProtectedSessions&
     BOOL byName = (data->FindDupFlags & FIND_DUPLICATES_NAME) != 0;
     BOOL bySize = (data->FindDupFlags & FIND_DUPLICATES_SIZE) != 0;
     const bool byContent = FindDuplicateContent(*data);
-    UacF7::ListingSession digestSession;
+    UacF7::ListingSession localDigestSession;
+    auto& digestSession = preparedSelection ? *preparedSelection : localDigestSession;
 
     // search completed, preparing results (MD5 computation may still follow)
     data->SearchingText->Set(LoadStr(IDS_FIND_DUPS_RESULTS));
@@ -1652,7 +1659,7 @@ void CDuplicateCandidates::Examine(CGrepData* data, const FindProtectedSessions&
                 Delete(i);
                 continue;
             }
-            if (!GetMD5Digest(data, file, &progress, &readSize, &totalSize, session, remainingFileConsents, predicates, digestSession))
+            if (!GetMD5Digest(data, file, &progress, &readSize, &totalSize, session, remainingFileConsents, predicates, digestSession, preparedSelection != nullptr))
             {
                 if (data->StopSearch)
                 {
@@ -2128,7 +2135,8 @@ public:
         // Metadata-only searches must not acquire content access; refined
         // exact-file requests instead retain their earlier viewer identity.
         readContent = singleFile || search->Grep || search->Criteria.HasTags() || FindDuplicateContent(*search);
-        if (singleFile && !searchRoot.empty() && !capturedFile.PrepareView(path))
+        verifyCapturedFile = singleFile && !searchRoot.empty();
+        if (verifyCapturedFile && !capturedFile.PrepareView(path))
             return false;
         const auto& root = search->ProtectedRoot;
         const std::wstring& consentRoot = searchRoot.empty() ? path : searchRoot;
@@ -2173,10 +2181,13 @@ public:
         return true;
     }
 
-    bool Start()
+    bool Start(UacF7::ListingSession* selection = nullptr)
     {
-        const bool exactFile = singleFile && session.GetRoot() == path;
-        consent.emplace(FindConsent{data, session.GetRoot(), session, exactFile ? FindConsentScope::File :
+        borrowedSession = selection;
+        auto& approved = ActiveSession();
+        const bool exactFile = singleFile && !selection && approved.GetRoot() == path;
+        const auto& description = selection ? selection->GetSelectionDescription() : approved.GetRoot();
+        consent.emplace(FindConsent{data, description, approved, exactFile ? FindConsentScope::File :
                                     readContent ? FindConsentScope::Content : FindConsentScope::Metadata});
         launchThread = HANDLES(CreateThread(NULL, 0, FindConsent::Launch, &*consent, 0, nullptr));
         return launchThread != nullptr;
@@ -2243,12 +2254,12 @@ public:
         return ActiveSession().IsOpen() && !data->Refine && FindDuplicateContent(*data) ? &ActiveSession() : nullptr;
     }
 
-    DWORD BatchFailure() const
+    DWORD BatchFailure()
     {
         if (data->StopSearch) return ERROR_CANCELLED;
         if (!consent) return ERROR_NOT_ENOUGH_MEMORY;
         if (consent->result != ERROR_SUCCESS) return consent->result;
-        return session.IsOpen() ? ERROR_SUCCESS : ERROR_BROKEN_PIPE;
+        return ActiveSession().IsOpen() ? ERROR_SUCCESS : ERROR_BROKEN_PIPE;
     }
 
     void OmitAfterFailure(DWORD error)
@@ -2298,7 +2309,7 @@ private:
         // listing or captured identity that produced this result.
         if (size != listedSize.Value || CompareFileTime(&modified, &file.ftLastWriteTime) != 0 ||
             !FindListedIdentityMatches(listedIdentity, revision) ||
-            (singleFile && ActiveSession().GetRoot() != filePath && !capturedFile.MatchesReadSource(revision)) ||
+            (verifyCapturedFile && !capturedFile.MatchesReadSource(revision)) ||
             (knownFile && !knownFile->MatchesReadSource(revision)))
             error = ERROR_FILE_INVALID;
         const bool match = !error && predicates.Match(data, ActiveSession(), filePath, pathText, listedSize, error);
@@ -2490,11 +2501,11 @@ private:
             duplicateIdentity = std::make_shared<UacF7::MoveFileIdentity>(*listedIdentity);
         constexpr DWORD excluded = FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT |
                                    FILE_ATTRIBUTE_ENCRYPTED | FILE_ATTRIBUTE_OFFLINE;
-        // Save a verified viewer identity with eligible results before the
-        // search session closes; the result itself remains useful without it.
+        // Save the verified identity before the session closes for F3 and
+        // Refine. Snapshot size is checked when F3 reads, not when Refine
+        // captures an identity for streaming content.
         std::shared_ptr<const UacF7::PreparedLeaf> foundView = singleFile ? knownFile : nullptr;
-        if (!foundView && !(file.dwFileAttributes & excluded) && !file.nFileSizeHigh &&
-            file.nFileSizeLow <= UacF7::maxViewerSnapshotBytes)
+        if (!foundView && !(file.dwFileAttributes & excluded))
         {
             try
             {
@@ -2502,8 +2513,8 @@ private:
                 SalPathAppendW(filePath, file.cFileName);
                 auto identity = std::make_shared<UacF7::PreparedLeaf>();
                 const bool prepared = singleFile ?
-                    (ActiveSession().GetRoot() == filePath ? ActiveSession().PrepareExactFindViewer(filePath, file.dwFileAttributes, *identity) :
-                                                             !ActiveSession().PrepareViewer(filePath, *identity, file.dwFileAttributes)) :
+                    (ActiveSession().PrepareExactFindViewer(filePath, file.dwFileAttributes, *identity) ||
+                     !ActiveSession().PrepareViewer(filePath, *identity, file.dwFileAttributes)) :
                     !ActiveSession().PrepareViewer(filePath, *identity, file.dwFileAttributes);
                 if (prepared && (!listedIdentity || identity->MatchesFileIdentity(*listedIdentity)))
                     foundView = std::move(identity);
@@ -2554,6 +2565,7 @@ private:
     bool includeSubDirs = false;
     bool readContent = false;
     bool singleFile = false;
+    bool verifyCapturedFile = false;
 };
 
 // Defer protected work while ordinary traversal continues. The first request
@@ -2561,6 +2573,56 @@ private:
 class FindProtectedQueue
 {
 public:
+    // Freeze the user's complete set of search roots before the first denied
+    // branch can start consent; ordinary traversal can then continue in parallel.
+    void PrepareSearchSelection(CGrepData* search)
+    {
+        try
+        {
+            std::vector<std::unique_ptr<UacF7::ListingSession>> scopes;
+            const bool content = search->Grep || search->Criteria.HasTags() || FindDuplicateContent(*search);
+            for (int i = 0; i < search->Data->Count && !search->StopSearch; ++i)
+            {
+                const auto* item = search->Data->At(i);
+                std::wstring root = SalPathRemoveExtendedPrefixW(
+                    SalMultiByteToWidePath(item->Dir.c_str(), IsValidPathUtf8Text(item->Dir.c_str()) ? CP_UTF8 : CP_ACP).c_str());
+                if (root.size() > 3 && root.back() == L'\\') root.pop_back();
+                auto scope = std::make_unique<UacF7::ListingSession>();
+                const bool ready = !root.empty() && (search->ProtectedRoot && root == search->ProtectedRoot->path ?
+                    scope->PrepareFindRoot(*search->ProtectedRoot, content, item->IncludeSubDirs != FALSE) :
+                    scope->PrepareFind(root, content, item->IncludeSubDirs != FALSE));
+                if (ready) scopes.push_back(std::move(scope));
+                else unavailableScopes.push_back(std::move(root));
+            }
+            if (!search->StopSearch) PrepareSelection(std::move(scopes));
+        }
+        catch (const std::bad_alloc&) { selection.reset(); }
+    }
+
+    // Refine approves only the exact files from its original results, retaining
+    // the captured protected identity instead of trusting a later pathname.
+    void PrepareRefineSelection(CGrepData* search)
+    {
+        try
+        {
+            std::vector<std::unique_ptr<UacF7::ListingSession>> scopes;
+            const int refineCount = search->FoundFilesListView->GetDataForRefineCount();
+            for (int i = 0; i < refineCount && !search->StopSearch; ++i)
+            {
+                const auto* item = search->FoundFilesListView->GetDataForRefine(i);
+                if (item->IsDir || (item->Attr & FILE_ATTRIBUTE_REPARSE_POINT)) continue;
+                const auto path = item->GetFullNameW();
+                auto scope = std::make_unique<UacF7::ListingSession>();
+                const bool ready = item->FoundView ? scope->PrepareFileFromView(path, *item->FoundView) :
+                    !item->ProtectedOrigin && scope->PrepareFile(path);
+                if (ready) scopes.push_back(std::move(scope));
+                else unavailableScopes.push_back(path);
+            }
+            if (!search->StopSearch) PrepareSelection(std::move(scopes));
+        }
+        catch (const std::bad_alloc&) { selection.reset(); }
+    }
+
     FindQueueResult Add(CGrepData* search, const std::wstring& deniedPath, CMaskGroup* masks,
              BOOL recursive, int rootLength, const std::shared_ptr<CFindIgnore>& ignore,
              const WIN32_FIND_DATAW* file = nullptr, const std::wstring& searchRoot = {}, bool scopeRecursive = true)
@@ -2612,6 +2674,7 @@ public:
     }
 
     bool HadProtectedRequests() const { return count != 0; }
+    UacF7::ListingSession* PreparedSelection() const { return selection.get(); }
 
     const FindProtectedSessions& Finish(CDuplicateCandidates* candidates)
     {
@@ -2643,12 +2706,27 @@ public:
     }
 
 private:
+    void PrepareSelection(std::vector<std::unique_ptr<UacF7::ListingSession>>&& scopes)
+    {
+        if (scopes.empty()) return;
+        auto prepared = std::make_unique<UacF7::ListingSession>();
+        if (prepared->PrepareReadSelection(std::move(scopes))) selection = std::move(prepared);
+    }
+
     FindQueueResult AddPath(CGrepData* search, std::wstring path, CMaskGroup* masks, BOOL recursive, int rootLength,
                  const std::shared_ptr<CFindIgnore>& ignore, const WIN32_FIND_DATAW* file, const std::wstring& searchRoot,
                  std::shared_ptr<const UacF7::PreparedLeaf> known, bool scopeRecursive)
     {
         if (search->StopSearch)
             return FindQueueResult::Stopped;
+        // An unprepared selected root cannot be replaced by a wider ancestor
+        // or silently authorized as a separate operation.
+        const auto& scopePath = searchRoot.empty() ? path : searchRoot;
+        if (!selection || std::find(unavailableScopes.begin(), unavailableScopes.end(), scopePath) != unavailableScopes.end())
+        {
+            search->IncompleteReasons |= FindIncompleteProtectedFailure;
+            return FindQueueResult::Failed;
+        }
         // Index exact paths without merging distinct masks or protected
         // identities; each retained entry still receives its own scope index.
         if (!known)
@@ -2679,7 +2757,7 @@ private:
         catch (...) { requests.pop_back(); inserted.first->second.pop_back(); if (inserted.first->second.empty()) pathIndex.erase(inserted.first); throw; }
         // Let ordinary traversal continue during the first consent.
         bool started = true;
-        try { if (count == 0) started = requests.back()->Start(); }
+        try { if (count == 0) started = requests.back()->Start(selection.get()); }
         catch (...)
         {
             sessions.pop_back(); requests.pop_back(); inserted.first->second.pop_back();
@@ -2697,8 +2775,10 @@ private:
         return FindQueueResult::Added;
     }
 
+    std::unique_ptr<UacF7::ListingSession> selection;
     std::vector<std::unique_ptr<FindProtectedRequest>> requests;
     FindProtectedSessions sessions;
+    std::vector<std::wstring> unavailableScopes;
     std::map<std::wstring, std::vector<size_t>> pathIndex;
     size_t count = 0;
 };
@@ -2866,6 +2946,8 @@ void RefineData(CMaskGroup* masksGroup, CGrepData* data)
     int refineCount = data->FoundFilesListView->GetDataForRefineCount();
     int oldProgress = -1;
     FindProtectedQueue protectedQueue;
+    if (data->Grep || data->Criteria.HasTags())
+        protectedQueue.PrepareRefineSelection(data);
 
     int i;
     for (i = 0; i < refineCount && !data->StopSearch; i++)
@@ -3016,6 +3098,7 @@ unsigned GrepThreadFBody(void* ptr)
     else
     {
         FindProtectedQueue protectedQueue;
+        protectedQueue.PrepareSearchSelection(data);
         // if we search for duplicates, data are primarily placed into this array
         // after scanning all directories, the array is sorted (by name or by size)
         // if content is checked, MD5 is calculated for ambiguous cases
@@ -3098,7 +3181,9 @@ unsigned GrepThreadFBody(void* ptr)
         if (duplicateCandidates != NULL)
         {
             if (!data->StopSearch)
-                duplicateCandidates->Examine(data, protectedSessions, protectedQueue.HadProtectedRequests() ? 0 : 1);
+                duplicateCandidates->Examine(data, protectedSessions,
+                    protectedQueue.HadProtectedRequests() || !protectedQueue.PreparedSelection() ? 0 : 1,
+                    protectedQueue.PreparedSelection());
             delete duplicateCandidates;
         }
     }

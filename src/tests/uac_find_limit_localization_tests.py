@@ -27,6 +27,20 @@ IDS = {"IDS_UAC_FIND_SCOPE_LIMIT": 14700, "IDS_FIND_ACTIVITY_INCOMPLETE": 14701,
 
 
 class FindLimitLocalizationTests(unittest.TestCase):
+    def test_find_consent_describes_listed_locations(self):
+        resources = (ROOT / "src/lang/texts.rc2").read_text(encoding="utf-8-sig")
+        czech = (ROOT / "translations/czech/salamand.slt").read_text(encoding="utf-8-sig")
+        for name in ("IDS_UAC_FIND_CONFIRM", "IDS_UAC_FIND_CONTENT_CONFIRM"):
+            text = re.findall(r'^\s*' + name + r',\s*"([^"\r\n]*)"\s*$', resources, re.M)
+            self.assertEqual(len(text), 1, name)
+            self.assertIn("the listed locations", text[0])
+        for number in (14660, 14683):
+            text = re.findall(r'^' + str(number) + r',1,"([^"\r\n]*)"\s*$', czech, re.M)
+            self.assertEqual(len(text), 1, number)
+            self.assertIn("uvedených umístěních", text[0])
+        self.assertIn("Read the listed file", resources)
+        self.assertIn("Přečíst uvedený soubor", czech)
+
     def test_all_uac_messages_are_translated_with_matching_formats(self):
         header = (ROOT / "src/texts.rh2").read_text(encoding="utf-8-sig")
         resources = (ROOT / "src/lang/texts.rc2").read_text(encoding="utf-8-sig")

@@ -47,6 +47,7 @@ struct InstallLocation {
     bool OpenImage(const wchar_t*) { return true; }
 };
 using UacF7::Operation;
+@@REQUEST_HEADER@@
 @@RENAME_KIND@@
 @@OPEN_ROOT@@
 @@OPEN_PARENT@@
@@ -56,6 +57,14 @@ namespace UacF7 {
 ListingSession::~ListingSession() {}
 @@PREPARE@@
 @@PREPARE_FILE@@
+@@PREPARE_DIRECTORY@@
+@@PREPARE_INVENTORY@@
+@@PREPARE_ALLOCATION@@
+@@PREPARE_READ_SELECTION@@
+@@PREPARE_SIZE_SELECTION@@
+@@READ_ROUTING@@
+@@PREPARED_ROUTING@@
+@@LIVE_ROUTING@@
 @@EXACT_VIEW@@
 }
 
@@ -117,6 +126,32 @@ int wmain(int argc, wchar_t** argv)
           exact.operation == Operation::FindFile && exact.serial == fileId.VolumeSerialNumber &&
           !std::memcmp(exact.sourceId, &fileId.FileId, sizeof(exact.sourceId)),
           "actual FindFile preparation captures the exact denied child from its readable parent");
+    const auto sizeDirectory = root + L"\\size-selected";
+    const auto missingDirectory = root + L"\\size-missing";
+    if (!CreateDirectoryW(sizeDirectory.c_str(), nullptr)) return 2;
+    {
+        UacF7::ListingSession partial;
+        const std::vector<UacF7::SizeSelectionItem> items{
+            {missingDirectory, true}, {sizeDirectory, true}, {deniedFile, false}};
+        Check(partial.PrepareSizeSelection(items) && partial.GetRoot() == sizeDirectory &&
+              partial.readScopes.size() == 2 && partial.readScopes[0]->root == sizeDirectory &&
+              partial.readScopes[1]->root == deniedFile &&
+              partial.GetSelectionDescription().find(missingDirectory) == std::wstring::npos &&
+              partial.GetSelectionDescription().find(sizeDirectory) != std::wstring::npos &&
+              partial.GetSelectionDescription().find(deniedFile) != std::wstring::npos &&
+              partial.ContainsPrepared(sizeDirectory) && partial.ContainsPrepared(deniedFile) &&
+              !partial.ContainsPrepared(missingDirectory) && !partial.Contains(sizeDirectory) &&
+              !std::memcmp(partial.readScopes[1]->prepared.sourceId, fileId.FileId.Identifier, sizeof(fileId.FileId)),
+              "an unidentifiable selected item does not block exact prepared siblings or enter their consent");
+        UacF7::ListingSession empty;
+        Check(!empty.PrepareSizeSelection({{missingDirectory, true}}) && empty.GetRoot().empty() && empty.readScopes.empty(),
+              "a selection without a captured identity never creates a broader scope");
+        UacF7::ListingSession missingFile;
+        Check(missingFile.PrepareSizeSelection({{root + L"\\missing-file", false}, {sizeDirectory, true}}) &&
+              missingFile.readScopes.size() == 1 && missingFile.ContainsPrepared(sizeDirectory) &&
+              !missingFile.ContainsPrepared(root + L"\\missing-file"),
+              "an unidentifiable file does not exclude the next captured directory");
+    }
     UacF7::ListingSession exactSession;
     UacF7::PreparedLeaf viewer;
     Check(exactSession.PrepareFile(deniedFile) && !exactSession.PrepareExactFindViewer(deniedFile, 0, viewer),
@@ -159,6 +194,23 @@ int wmain(int argc, wchar_t** argv)
           "a different operation cannot be converted into an exact Find viewer");
     exactSession.prepared.operation = Operation::FindFile;
     exactSession.pipe = nullptr;
+    UacF7::ListingSession selection;
+    auto otherMember = std::make_unique<UacF7::ListingSession>();
+    otherMember->root = root + L"\\other.txt";
+    otherMember->prepared.operation = Operation::FindFile;
+    auto exactMember = std::make_unique<UacF7::ListingSession>();
+    Check(exactMember->PrepareFile(deniedFile), "prepare the second exact member");
+    selection.readScopes.push_back(std::move(otherMember));
+    selection.readScopes.push_back(std::move(exactMember));
+    selection.prepared.operation = Operation::ReadSelection;
+    selection.root = root + L"\\other.txt";
+    selection.pipe = reinterpret_cast<HANDLE>(1);
+    UacF7::PreparedLeaf selectedViewer, outsideViewer;
+    Check(selection.PrepareExactFindViewer(deniedFile, 0, selectedViewer) &&
+          selectedViewer.serial == exact.serial && !std::memcmp(selectedViewer.sourceId, exact.sourceId, sizeof(exact.sourceId)) &&
+          !selection.PrepareExactFindViewer(root + L"\\outside.txt", 0, outsideViewer),
+          "the exact second member provides its own verified identity and rejects unselected files");
+    selection.pipe = nullptr;
     Check(fileAcl.Restore(), "restore only the fixture file DACL");
     UacDirectoryLeaf::ParentIdentity viewerParent{};
     viewerParent.volume = viewer.volume; viewerParent.file.VolumeSerialNumber = viewer.serial;

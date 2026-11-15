@@ -42,11 +42,17 @@ def main():
     helper = 'template<class Query>\n' + block(read('src/uacbroker/f7pilot.h'), 'DWORD QueryCompressedSize(')
     generated = read('src/tests/uac_size_allocation_controller_tests.cpp.in')
     generated = generated.replace('@@SIZE_LINK_POLICY@@', block(source, 'static bool SkipSizeDirectoryLink('))
+    generated = generated.replace('@@SIZE_ALLOCATION_POLICY@@', block(source, 'static bool SizeMayNeedProtectedAllocation('))
     batch_start = source.index('    if (countSize && selCount > 1 && !IsBranchView())')
     batch_end = source.index('    char* useName', batch_start)
     batch_setup = source[batch_start:batch_end]
     assert 'SkipSizeDirectoryLink(item.Attr, verifyListedAlias, Configuration.CountSizeStayOnFileSystem, compatibilityLink)' in batch_setup
-    assert batch_setup.index('if (SkipSizeDirectoryLink(') < batch_setup.index('sizeBatchConsent.Selected.emplace_back(')
+    assert batch_setup.index('if (SkipSizeDirectoryLink(') < batch_setup.index('sizeBatchConsent.Selected.push_back({full, true})')
+    assert 'if (SizeMayNeedProtectedAllocation(item.Attr, FileBasedCompression != FALSE, onlySize != FALSE))' in batch_setup
+    assert 'sizeBatchConsent.Selected.push_back({full, false})' in batch_setup
+    assert 'FileBasedCompression && !onlySize' in branch
+    assert '(sourceFileAttr & (FILE_ATTRIBUTE_COMPRESSED | FILE_ATTRIBUTE_SPARSE_FILE))' in branch
+    assert '!(sourceFileAttr & FILE_ATTRIBUTE_REPARSE_POINT)' in branch
     generated = generated.replace('@@BRANCH_ERRORS@@', block(read('src/uacbroker/f7pilot.h'), 'inline bool IsSkippableSizeBranchError('))
     start = status.index('const int prefix = partialSelectedSize')
     end = status.index('ExpandPluralBytesFilesDirs(text + prefix', start)
@@ -54,14 +60,16 @@ def main():
     generated = generated.replace('@@STATUS_PARSER@@', block(read('src/salamdr4.cpp'), 'BOOL LookForSubTexts('))
     generated = generated.replace('@@SELECTION_ACCUMULATOR@@', block(read('src/fileswnb.cpp'), 'static void AccumulateSelectedSize('))
     generated = generated.replace('@@QUERY@@', helper).replace('@@COUNT_SIZE@@', branch)
+    routing = block(read('src/uacbroker/uacbroker.cpp'), 'size_t ListingSession::FindReadScope(')
+    generated = generated.replace('@@READ_ROUTING@@', routing.replace('ListingSession::', 'RoutingProbe::'))
     batch = block(source, 'struct CSizeBatchConsent', ';')
     scope = block(source, 'struct CSizeScanScope', ';')
     scope = scope.replace('std::wstring Root;', 'std::wstring Root = L"C:\\\\scope";')
-    generated = generated.replace('@@BATCH_SCOPE@@', batch + '\n' + scope)
+    generated = generated.replace('@@BATCH_SCOPE@@', batch + '\n' + scope + '\n' + block(source, 'static bool IsSizeSelectionFile('))
     generated = generated.replace('@@DIRECTORY_SIZE@@', block(source, 'if (wideSizeScan && err == ERROR_ACCESS_DENIED'))
     selection = source.index('                    std::optional<CSizeScanScope> selectedSizeScope;')
     selection_end = source.index('                    if (!BuildScriptFile(', selection)
-    generated = generated.replace('@@SELECTED_SCOPE@@', source[selection:selection_end])
+    generated = generated.replace('@@SELECTED_SCOPE@@', source[selection:selection_end].replace('&sizeBatchConsent', 'batch'))
     if '@@' in generated:
         raise AssertionError('unexpanded fixture')
     env = compiler_environment()

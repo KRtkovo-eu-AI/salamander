@@ -23,10 +23,19 @@ def main():
         'OPEN_PARENT': block(source, 'DWORD OpenRequestParent('),
         'FOREGROUND_LOCK': block(source, 'class ListingForegroundLock', ';'),
         'RENAME_KIND': block(source, 'UacRenameLeaf::MoveKind RenameKind('),
+        'REQUEST_HEADER': block(source, 'struct RequestHeader', ';'),
         'DESTRUCTOR': block(source, 'PreparedLeaf::~PreparedLeaf('),
         'PREPARE': block(source, 'bool PreparedLeaf::PrepareTarget('),
         'PREPARE_FILE': block(source, 'bool ListingSession::PrepareFile('),
+        'PREPARE_DIRECTORY': block(source, 'bool ListingSession::PrepareDirectory('),
+        'PREPARE_INVENTORY': block(source, 'bool ListingSession::PrepareInventory('),
+        'PREPARE_ALLOCATION': block(source, 'bool ListingSession::PrepareAllocationFile('),
+        'PREPARE_READ_SELECTION': block(source, 'bool ListingSession::PrepareReadSelection('),
+        'PREPARE_SIZE_SELECTION': block(source, 'bool ListingSession::PrepareSizeSelection('),
         'EXACT_VIEW': block(source, 'bool ListingSession::PrepareExactFindViewer('),
+        'READ_ROUTING': block(source, 'size_t ListingSession::FindReadScope('),
+        'PREPARED_ROUTING': block(source, 'bool ListingSession::ContainsPrepared('),
+        'LIVE_ROUTING': block(source, 'bool ListingSession::Contains('),
     }
     template = (ROOT / 'src/tests/find_identity_preparation_tests.cpp.in').read_text(encoding='utf-8')
     for name, value in pieces.items():

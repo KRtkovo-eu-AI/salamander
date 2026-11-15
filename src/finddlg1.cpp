@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Keep the protected Find F3 snapshot limit before consent. | Retain large-file identities for Refine without prompting for an unsupported view. | #731 | GPT-6 |
 // | 2026-11-15 | Document protected Find dialog handoffs. | Explain consent ownership and verified viewer access. | #731 | GPT-6 |
 // | 2026-11-11 | Retain protected Find provenance through viewing and refinement. | Refuse pathname-only reads when identity cannot be preserved. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Display each incomplete Find reason without losing its origin. | Keep bounded logs and carried results truthful. | #731 | GPT-6.1 Terra |
@@ -3162,9 +3163,10 @@ void CFindDialog::OnViewFile(BOOL alternate)
     const CFoundFilesData* result = FoundFilesListView->At(viewedIndex);
     if (result->IsDir)
         return;
-    // A protected Find result cannot be viewed safely by pathname when its
-    // captured identity is unavailable, even if the row remains visible.
-    if (result->ProtectedOrigin && !result->FoundView)
+    // A retained Refine identity does not make an oversized viewer snapshot
+    // available; preserve the existing early error before offering consent.
+    if (result->ProtectedOrigin && (!result->FoundView || result->Size.HiDWord != 0 ||
+                                   result->Size.LoDWord > UacF7::maxViewerSnapshotBytes))
     {
         SalMessageBox(HWindow, LoadStr(IDS_UAC_FIND_VIEW_IDENTITY_UNAVAILABLE), LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
         return;

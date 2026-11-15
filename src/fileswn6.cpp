@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Stop execution and editing of entries from a listing-only archive. | Require a future authorized extraction path. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Share size consent across exactly selected files and trees. | Reuse one authenticated scope without authorizing siblings. | #731 | GPT-6 |
 // | 2026-11-15 | Clarify protected size and tree planning. | Document batch scope, denied scans and transfer eligibility. | #731 | GPT-6 |
 // | 2026-11-15 | Explain shared size consent and protected copy scanning. | Document scope lifetime and the normal-worker fallback. | #731 | GPT-6 |
 // | 2026-11-15 | Exclude skipped links from size consent selections. | Let eligible sibling directories share their exact approved scope. | #731 | GPT-6 |
@@ -1368,12 +1369,19 @@ static bool SkipSizeDirectoryLink(DWORD attributes, bool verifyListedAlias, bool
            (stayOnFileSystem || compatibilityLink);
 }
 
+// Only sparse or compressed files can reach the worker's protected allocation
+// query; excluding other files avoids blocking consent on irrelevant identities.
+static bool SizeMayNeedProtectedAllocation(DWORD attributes, bool fileBasedCompression, bool onlySize)
+{
+    return fileBasedCompression && !onlySize && !(attributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)) &&
+           (attributes & (FILE_ATTRIBUTE_COMPRESSED | FILE_ATTRIBUTE_SPARSE_FILE));
+}
+
 // One batch owns the actual broker session and remembers refusal across all selected roots.
 struct CSizeBatchConsent
 {
     bool ElevationDeclined = false;
-    std::wstring Parent;
-    std::vector<std::wstring> Selected;
+    std::vector<UacF7::SizeSelectionItem> Selected;
     UacF7::ListingSession Session;
     std::optional<DWORD> StartResult;
 };
@@ -1387,7 +1395,6 @@ struct CSizeScanScope
     bool Scanned = false;
     bool ElevationDeclined = false;
     bool ExactFile = false;
-    bool ReuseOnly = false;
     CSizeBatchConsent* Batch = nullptr;
 
     bool WasElevationDeclined() const { return ElevationDeclined || (Batch && Batch->ElevationDeclined); }
@@ -1397,6 +1404,14 @@ struct CSizeScanScope
         if (Batch) Batch->ElevationDeclined = true;
     }
 };
+
+// The first prepared item may differ from the item that triggered consent.
+static bool IsSizeSelectionFile(const CSizeBatchConsent& batch, const std::wstring& root)
+{
+    for (const auto& item : batch.Selected)
+        if (item.path == root) return !item.directory;
+    return false;
+}
 
 // Capture a denied leaf through the live listing for the delete worker.
 // Record preparation failures rather than retrying an unverified name.
@@ -1624,16 +1639,22 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
     BOOL countSize = (type == atCountSize);
     CQuadWord oldTotalSize;
 
-    // Build one bounded selection of sibling directories for the size batch;
-    // skipped links must not consume or widen the later consent scope.
+    // Bind the batch to exactly the selected files and subtrees; skipped links
+    // must not consume or widen the later consent scope.
     if (countSize && selCount > 1 && !IsBranchView())
     {
         for (int selected = 0; selected < selCount; ++selected)
         {
             const CFileData& item = selection[selected] < Dirs->Count ? Dirs->At(selection[selected]) :
                                         Files->At(selection[selected] - Dirs->Count);
-            if (!(item.Attr & FILE_ATTRIBUTE_DIRECTORY)) continue;
+            const bool directory = (item.Attr & FILE_ATTRIBUTE_DIRECTORY) != 0;
             const std::wstring full = SalPathRemoveExtendedPrefixW(GetItemFullPathW(item).c_str());
+            if (!directory)
+            {
+                if (SizeMayNeedProtectedAllocation(item.Attr, FileBasedCompression != FALSE, onlySize != FALSE))
+                    sizeBatchConsent.Selected.push_back({full, false});
+                continue;
+            }
             const bool verifyListedAlias = UacListing::HasCompatibilityLinkAttributes(item.Attr) &&
                                            ProtectedListing && ProtectedListing->Contains(full);
             const bool compatibilityLink = (item.Attr & FILE_ATTRIBUTE_REPARSE_POINT) && !verifyListedAlias &&
@@ -1642,12 +1663,7 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                                            IsCompatibilityLinkForSize(SalWideToMultiBytePath(full.c_str(), CP_UTF8).c_str());
             if (SkipSizeDirectoryLink(item.Attr, verifyListedAlias, Configuration.CountSizeStayOnFileSystem, compatibilityLink))
                 continue;
-            const auto slash = full.find_last_of(L'\\');
-            if (slash == std::wstring::npos || slash + 1 >= full.size()) { sizeBatchConsent.Selected.clear(); break; }
-            const auto parent = full.substr(0, slash == 2 ? 3 : slash);
-            if (sizeBatchConsent.Parent.empty()) sizeBatchConsent.Parent = parent;
-            if (sizeBatchConsent.Parent != parent) { sizeBatchConsent.Selected.clear(); break; }
-            sizeBatchConsent.Selected.emplace_back(full.substr(slash + 1));
+            sizeBatchConsent.Selected.push_back({full, true});
         }
     }
 
@@ -1947,10 +1963,9 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                     const DWORD itemFlags = srcAndTgtPathsFlags |
                                             (script->AllowTransferPilot ? OPFL_UAC_TRANSFER_ELIGIBLE : 0);
                     std::optional<CSizeScanScope> selectedSizeScope;
-                    if (countSize && (selCount <= 1 || ProtectedListing))
+                    if (countSize)
                     {
                         selectedSizeScope.emplace();
-                        selectedSizeScope->ReuseOnly = selCount > 1;
                         selectedSizeScope->Batch = &sizeBatchConsent;
                         selectedSizeScope->Root = SalPathRemoveExtendedPrefixW(GetItemFullPathW(*oneFile).c_str());
                         selectedSizeScope->ExactFile = true;
@@ -2146,7 +2161,8 @@ static int ConfirmProtectedSize(HWND owner, const std::wstring& path,
 {
     std::string message = std::string(LoadStr(exactFile ? IDS_UAC_SIZE_FILE_CONFIRM : IDS_UAC_SIZE_CONFIRM)) + "\n\n" +
                                 SalWideToMultiBytePath(path.c_str(), CP_UTF8);
-    if (session.GetRoot() != path)
+    // Show the whole approved selection even when the first denied path is its first root.
+    if (!session.GetSelectionDescription().empty() || session.GetRoot() != path)
         message += std::string("\n\n") + LoadStr(IDS_UAC_SIZE_CONSENT_SCOPE) + "\n" +
                    SalWideToMultiBytePath((session.GetSelectionDescription().empty() ? session.GetRoot() : session.GetSelectionDescription()).c_str(), CP_UTF8);
     const std::string aliases = std::to_string(IDYES) + "\t" + LoadStr(IDS_MSGBOXBTN_SKIP) +
@@ -3043,7 +3059,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                 const bool canElevate = !verifyListedAlias && !session && sizeScope && !sizeScope->WasElevationDeclined() &&
                     (scopedSession->IsOpen() || UacF7::CanOfferElevation());
                 const bool scoped = ownSession || (canElevate &&
-                    (!scopedSession->GetRoot().empty() || (batchSelection ? scopedSession->PrepareInventorySelection(sizeScope->Batch->Parent, sizeScope->Batch->Selected) :
+                    (!scopedSession->GetRoot().empty() || (batchSelection ? scopedSession->PrepareSizeSelection(sizeScope->Batch->Selected) :
                                                                             scopedSession->PrepareInventory(sizeScope->Root))));
                 if (scoped)
                     session = scopedSession;
@@ -3057,6 +3073,20 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                 }
                 if (session)
                 {
+                    // A root absent from the frozen selection must not launch
+                    // consent for unrelated roots that may need no elevation.
+                    if (batchSelection && session == scopedSession && !session->ContainsPrepared(path))
+                    {
+                        *sourceEnd = 0;
+                        if (targetEnd != NULL) *targetEnd = 0;
+                        script->CountSizeIncomplete = true;
+                        if (!script->CountSizeFirstOmission)
+                        {
+                            script->CountSizeFirstOmission = ERROR_ACCESS_DENIED;
+                            script->CountSizeFirstOmissionPath = path;
+                        }
+                        return TRUE;
+                    }
                     ShowSafeWaitWindow(FALSE);
                     DWORD inventoryError = ERROR_SUCCESS;
                     int choice = IDOK;
@@ -3065,7 +3095,8 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                         inventoryError = **startResult;
                     else if (!session->IsOpen())
                     {
-                        choice = ConfirmProtectedSize(HWindow, path, *session, inventoryError);
+                        choice = ConfirmProtectedSize(HWindow, batchSelection ? session->GetRoot() : path, *session,
+                                                      inventoryError, batchSelection && IsSizeSelectionFile(*sizeScope->Batch, session->GetRoot()));
                         consentDeclined = choice == IDOK && inventoryError == ERROR_CANCELLED;
                         if (scoped && choice == IDOK)
                             *startResult = inventoryError;
@@ -3074,14 +3105,16 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                     UacF7::DirectoryInventory inventory;
                     UacF7::DirectorySizeDetails details;
                     std::wstring firstSkipped;
+                    bool brokerRequested = false;
                     if (choice == IDOK && !inventoryError)
                     {
                         const bool canRequest = session->Contains(path);
+                        brokerRequested = canRequest;
                         inventoryError = canRequest ? session->Inventory(path, inventory, onlySize ? nullptr : &details, &firstSkipped) :
                                          session->IsOpen() ? ERROR_ACCESS_DENIED : ERROR_BROKEN_PIPE;
                         // A live broker could not read this selected subtree.
                         // Continue the batch, while retaining the omission.
-                        if (canRequest && session->IsOpen() && UacF7::IsSkippableSizeBranchError(inventoryError))
+                        if ((canRequest || batchSelection) && session->IsOpen() && UacF7::IsSkippableSizeBranchError(inventoryError))
                         {
                             inventory.firstOmission = inventoryError;
                             inventoryError = ERROR_SUCCESS;
@@ -3120,7 +3153,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                             if (!script->CountSizeFirstOmission)
                             {
                                 script->CountSizeFirstOmission = inventory.firstOmission;
-                                script->CountSizeFirstOmissionWasElevated = inventory.firstOmission == ERROR_ACCESS_DENIED;
+                                script->CountSizeFirstOmissionWasElevated = brokerRequested && inventory.firstOmission == ERROR_ACCESS_DENIED;
                                 script->CountSizeFirstOmissionPath = path;
                                 if (!firstSkipped.empty())
                                     SalPathAppendW(script->CountSizeFirstOmissionPath, firstSkipped.c_str());
@@ -4190,7 +4223,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                     // Never authorize a differently reconstructed path under it.
                     const bool exactPathMatches = !sizeScope->ExactFile || path == sizeScope->Root;
                     DWORD preparationError = exactPathMatches ? ERROR_SUCCESS : ERROR_FILE_INVALID;
-                    const bool prepared = exactPathMatches && (!sizeScope->ReuseOnly || listed) && (listed ?
+                    const bool prepared = exactPathMatches && (listed ?
                         ((preparationError = ProtectedListing->IsOpen() ?
                             ProtectedListing->PrepareViewer(path, file, sourceFileAttr) : ERROR_BROKEN_PIPE) == ERROR_SUCCESS) :
                         file.PrepareView(nameW));
@@ -4202,9 +4235,9 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                         UacF7::ListingSession* session = listed ? ProtectedListing.get() : nullptr;
                         if (!session && ownSession)
                             session = scopedSession;
-                        if (!session && !sizeScope->ReuseOnly && !sizeScope->WasElevationDeclined() && UacF7::CanOfferElevation() &&
+                        if (!session && !sizeScope->WasElevationDeclined() && UacF7::CanOfferElevation() &&
                             (!scopedSession->GetRoot().empty() ||
-                             (batchSelection ? scopedSession->PrepareInventorySelection(sizeScope->Batch->Parent, sizeScope->Batch->Selected) :
+                             (batchSelection ? scopedSession->PrepareSizeSelection(sizeScope->Batch->Selected) :
                               sizeScope->ExactFile ? scopedSession->PrepareAllocationFile(sizeScope->Root, file) :
                                                      scopedSession->PrepareInventory(sizeScope->Root))))
                             session = scopedSession;
@@ -4214,13 +4247,18 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                             int choice = IDOK;
                             bool consentDeclined = false;
                             ShowSafeWaitWindow(FALSE);
-                            if (!session->IsOpen() && sizeScope->ReuseOnly)
+                            // A vanished panel session cannot be restarted as a fresh consent.
+                            if (batchSelection && session == scopedSession && !session->ContainsPrepared(path))
+                                allocationError = ERROR_ACCESS_DENIED;
+                            else if (!session->IsOpen() && session != scopedSession)
                                 allocationError = ERROR_BROKEN_PIPE;
-                            else if (!session->IsOpen() && session == scopedSession && startResult->has_value())
+                            else if (!session->IsOpen() && startResult->has_value())
                                 allocationError = **startResult ? **startResult : ERROR_BROKEN_PIPE;
                             else if (!session->IsOpen())
                             {
-                                choice = ConfirmProtectedSize(HWindow, sizeScope->Root, *session, allocationError, sizeScope->ExactFile);
+                                choice = ConfirmProtectedSize(HWindow, batchSelection ? session->GetRoot() : sizeScope->Root,
+                                                              *session, allocationError,
+                                                              batchSelection ? IsSizeSelectionFile(*sizeScope->Batch, session->GetRoot()) : sizeScope->ExactFile);
                                 consentDeclined = choice == IDOK && allocationError == ERROR_CANCELLED;
                                 if (session == scopedSession && choice == IDOK)
                                     *startResult = allocationError;

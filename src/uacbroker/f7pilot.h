@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Scope one read session to multiple captured selections. | Reuse one consent without granting unselected paths. | #731 | GPT-6 |
 | 2026-11-15 | Clarify grouped UAC capability contracts. | Document foreground, file modes and scoped read sessions. | #731 | GPT-6 |
 | 2026-11-15 | Explain UAC request and session boundaries. | Document identity, operation scopes, and ownership for review. | #731 | GPT-6 |
 | 2026-11-15 | Report authenticated listing startup denial. | Distinguish a broker response from a launch failure. | #731 | GPT-6 |
@@ -184,7 +185,7 @@ bool CanOfferElevation();
 
 // Wire operation IDs distinguish the approved capability; a read-only scope
 // must not be interpreted as permission for content reads or mutations.
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26, MoveAcrossVolume = 27, FinishCrossVolumeMove = 28, MoveCompressed = 29, CopyCompressedSecurity = 30, RenameDirectory = 31, DeleteDirectory = 32, Inventory = 33, CompareList = 34, CompareContent = 35, MoveDirectory = 36, CopyDirectoryEntry = 37, MergeCopyTree = 38, ListCopyTreeSource = 39, PlanCopyTree = 40, MoveOverwrite = 41, MoveAcrossVolumeOverwrite = 42, FileAllocation = 43, CopyOverwriteIgnoreAds = 44, ProbeOverwrite = 45, ProbeOverwriteIgnoreAds = 46, AbortOverwriteProbe = 47, ThinOpenSource = 49, ThinTargetCreate = 50, ThinTargetRetry = 51, ThinTargetProbe = 52, ThinDiscardTarget = 53, ThinTargetRelease = 54, ThinTargetOverwrite = 55, ThinTargetOverwriteScan = 56, FindList = 57, InventorySelection = 58, FindFlatList = 59, FindFlatContent = 60 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26, MoveAcrossVolume = 27, FinishCrossVolumeMove = 28, MoveCompressed = 29, CopyCompressedSecurity = 30, RenameDirectory = 31, DeleteDirectory = 32, Inventory = 33, CompareList = 34, CompareContent = 35, MoveDirectory = 36, CopyDirectoryEntry = 37, MergeCopyTree = 38, ListCopyTreeSource = 39, PlanCopyTree = 40, MoveOverwrite = 41, MoveAcrossVolumeOverwrite = 42, FileAllocation = 43, CopyOverwriteIgnoreAds = 44, ProbeOverwrite = 45, ProbeOverwriteIgnoreAds = 46, AbortOverwriteProbe = 47, ThinOpenSource = 49, ThinTargetCreate = 50, ThinTargetRetry = 51, ThinTargetProbe = 52, ThinDiscardTarget = 53, ThinTargetRelease = 54, ThinTargetOverwrite = 55, ThinTargetOverwriteScan = 56, FindList = 57, InventorySelection = 58, FindFlatList = 59, FindFlatContent = 60, ReadSelection = 61 };
 
 inline constexpr bool IsFlatFindScope(Operation operation)
 {
@@ -203,7 +204,7 @@ inline constexpr bool IsComparisonScope(Operation operation)
 
 inline constexpr bool IsDirectoryReadScope(Operation operation)
 {
-    return operation == Operation::List || IsFindDirectoryScope(operation) || operation == Operation::Inventory || operation == Operation::InventorySelection ||
+    return operation == Operation::List || IsFindDirectoryScope(operation) || operation == Operation::Inventory || operation == Operation::InventorySelection || operation == Operation::ReadSelection ||
            IsComparisonScope(operation);
 }
 
@@ -1192,6 +1193,13 @@ struct FindRootIdentity
     FILE_ID_128 id{};
 };
 
+// Each size root authorizes either its own subtree or one exact file.
+struct SizeSelectionItem
+{
+    std::wstring path;
+    bool directory;
+};
+
 // A listing session confines read requests to its prepared root and operation;
 // callers must not treat a stopped or disconnected pipe as ongoing consent.
 class ListingSession
@@ -1213,6 +1221,8 @@ public:
     bool PrepareInventory(const std::wstring& path);
     // The session is scoped to the selected children, not every child of their common parent.
     bool PrepareInventorySelection(const std::wstring& parent, const std::vector<std::wstring>& names);
+    bool PrepareSizeSelection(const std::vector<SizeSelectionItem>& items);
+    bool PrepareReadSelection(std::vector<std::unique_ptr<ListingSession>>&& scopes);
     const std::wstring& GetSelectionDescription() const { return selectionDescription; }
     bool PrepareComparison(const std::wstring& path, bool contents);
     static bool CaptureDirectoryIdentity(const std::wstring& path, MoveFileIdentity& identity);
@@ -1230,6 +1240,9 @@ public:
     DWORD CloseContent();
     DWORD ReadViewerSnapshot(const std::wstring& path, const PreparedLeaf& expected, std::vector<BYTE>& snapshot);
     bool Contains(const std::wstring& path) const;
+    // This checks only the frozen requested scope; it does not imply consent
+    // or a live broker and must not be used to perform a privileged read.
+    bool ContainsPrepared(const std::wstring& path) const;
     bool TryContains(const std::wstring& path, bool& contains) const
     {
         contains = Contains(path);
@@ -1260,15 +1273,19 @@ private:
                       PreparedLeaf& request, const MetadataChange* change = nullptr,
                       DWORD expectedAttributes = INVALID_FILE_ATTRIBUTES, HANDLE callStop = nullptr);
     DWORD Transfer(void* buffer, DWORD length, bool send, ULONGLONG deadline, HANDLE callStop = nullptr);
-    DWORD SendPath(const std::wstring& path, DWORD flags, ULONGLONG deadline, HANDLE callStop = nullptr);
+    DWORD SendPath(const std::wstring& path, DWORD flags, ULONGLONG deadline, HANDLE callStop = nullptr, size_t forcedScope = SIZE_MAX);
+    size_t FindReadScope(const std::wstring& path, DWORD flags) const;
     void Close();
     PreparedLeaf prepared;
     std::wstring root;
     std::wstring selectionWire, selectionDescription;
+    std::vector<std::unique_ptr<ListingSession>> readScopes;
+    std::unique_ptr<PreparedLeaf> retainedAllocationIdentity;
     HANDLE pipe = nullptr;
     HANDLE stopEvent = nullptr; // borrowed until the Find worker joins
     bool contentOpen = false;
     std::array<ULONGLONG, maxPagedDirectoryCursors> directoryCursorLeases{};
+    std::array<size_t, maxPagedDirectoryCursors> directoryCursorScopes{};
     bool starting = false;
     mutable std::recursive_mutex mutex;
     std::atomic<bool> publishedOpen{false};

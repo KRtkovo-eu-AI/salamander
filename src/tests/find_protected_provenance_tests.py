@@ -17,6 +17,7 @@ def main():
     parser.add_argument('--configuration', choices=('Debug', 'Release', 'Both'), default='Both')
     args = parser.parse_args()
     source, dialog = read('src/find.cpp'), read('src/finddlg1.cpp')
+    broker_header = read('src/uacbroker/f7pilot.h')
     dialog2 = read('src/finddlg2.cpp')
     start_search = block(dialog, 'void CFindDialog::StartSearch(')
     append_case = start_search.split('case CM_FIND_APPEND:', 1)[1].split('case CM_FIND_DUPLICATES:', 1)[0]
@@ -30,12 +31,16 @@ def main():
     pieces = {
         'ADD': block(source, 'BOOL AddFoundItem('),
         'PUBLISH': block(source, 'void PublishCandidate('),
+        'ACTIVE_SESSION': block(source, 'UacF7::ListingSession& ActiveSession()'),
+        'MATCH_FILE_IDENTITY': block(broker_header, 'bool MatchesFileIdentity('),
+        'QUEUE_RESULT': block(source, 'enum class FindQueueResult', ';'),
+        'ADD_REFINED': block(source, 'FindQueueResult AddRefined('),
         'REFINE': refine[start:end],
         'REFINE_RESULT': block(source, 'bool IncludeRefinedFindResult('),
         'MERGE': block(dialog2, 'static bool CanMergeFindDuplicate('),
         'DEDUPE': block(dialog2, 'void CFindDialog::OnHideDuplicateNamesSorted('),
         'REFINE_PUBLISH': block(refine, 'if (!data->StopSearch && IncludeRefinedFindResult('),
-        'F3_GUARD': block(on_view, 'if (result->ProtectedOrigin && !result->FoundView)'),
+        'F3_GUARD': block(on_view, 'if (result->ProtectedOrigin &&'),
         'WITH_GUARD': block(on_with, 'if (FoundFilesListView->At(viewedIndex)->ProtectedOrigin)'),
     }
     for key, value in pieces.items():
