@@ -80,7 +80,8 @@ struct DeniedAttributes {
     SECURITY_DESCRIPTOR_CONTROL control{};
     DWORD revision = 0;
     ~DeniedAttributes() { Restore(); if (original) LocalFree(original); }
-    bool Prepare(const std::wstring& path, bool directory, FILE_ID_INFO& identity) {
+    bool Prepare(const std::wstring& path, bool directory, FILE_ID_INFO& identity,
+                 const wchar_t* descriptor = L"D:P(D;;0x00100080;;;WD)(A;;FA;;;WD)") {
         file = Adopt(CreateFileW(path.c_str(), READ_CONTROL | WRITE_DAC | FILE_READ_ATTRIBUTES,
             FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
             FILE_FLAG_OPEN_REPARSE_POINT | (directory ? FILE_FLAG_BACKUP_SEMANTICS : 0), nullptr));
@@ -88,7 +89,7 @@ struct DeniedAttributes {
             GetSecurityInfo(file.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION, nullptr, nullptr, &oldDacl, nullptr, &original) ||
             !GetSecurityDescriptorControl(original, &control, &revision)) return false;
         PSECURITY_DESCRIPTOR raw = nullptr;
-        if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(L"D:P(D;;0x00100080;;;WD)(A;;FA;;;WD)",
+        if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(descriptor,
                                                                    SDDL_REVISION_1, &raw, nullptr)) return false;
         const std::unique_ptr<void, decltype(&LocalFree)> daclOwner(raw, LocalFree);
         BOOL present = FALSE, defaulted = FALSE;
@@ -111,6 +112,30 @@ int wmain(int argc, wchar_t** argv)
 {
     if (argc != 2) return 2;
     const std::wstring root(argv[1]);
+    const auto listOnlyParent = root + L"\\list-without-traverse";
+    const auto deniedChild = listOnlyParent + L"\\protected-child";
+    if (!CreateDirectoryW(listOnlyParent.c_str(), nullptr) || !CreateDirectoryW(deniedChild.c_str(), nullptr)) return 2;
+    {
+        FILE_ID_INFO parentId{}, childId{};
+        DeniedAttributes childAcl, parentAcl;
+        if (!childAcl.Prepare(deniedChild, true, childId) ||
+            !parentAcl.Prepare(listOnlyParent, true, parentId, L"D:P(D;;0x20;;;WD)(A;;FA;;;WD)")) return 2;
+        const auto readableParent = Adopt(CreateFileW(listOnlyParent.c_str(), FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr));
+        const auto deniedTraversal = Adopt(CreateFileW(listOnlyParent.c_str(), FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES |
+            FILE_TRAVERSE | SYNCHRONIZE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+            FILE_FLAG_BACKUP_SEMANTICS, nullptr));
+        const DWORD traversalError = deniedTraversal ? ERROR_SUCCESS : GetLastError();
+        Check(readableParent && !deniedTraversal && traversalError == ERROR_ACCESS_DENIED,
+              "the parent permits listing but denies explicit traversal");
+        UacF7::ListingSession directorySession;
+        Check(directorySession.PrepareDirectory(deniedChild, Operation::List) &&
+              !std::memcmp(directorySession.prepared.fileId, childId.FileId.Identifier, sizeof(directorySession.prepared.fileId)),
+              "protected directory identity is captured from a listable parent without traversal permission");
+        Check(parentAcl.Restore() && childAcl.Restore(), "restore isolated parent and child ACLs");
+    }
+    Check(RemoveDirectoryW(deniedChild.c_str()) && RemoveDirectoryW(listOnlyParent.c_str()),
+          "remove isolated traversal fixture");
     const auto deniedFile = root + L"\\denied-\u6771.txt";
     auto file = Adopt(CreateFileW(deniedFile.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, 0, nullptr));
     if (!file) return 2;

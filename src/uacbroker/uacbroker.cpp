@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Avoid unnecessary traversal access for listed directory identity. | Offer UAC when a readable parent denies explicit traversal. | #731 | GPT-6 |
 | 2026-11-15 | Dispatch one approved set of exact read scopes. | Share consent without broadening access to unrelated siblings. | #731 | GPT-6 |
 | 2026-11-15 | Clarify remaining broker operation boundaries. | Document scoped identities, transport validation and session ownership. | #731 | GPT-6 |
 | 2026-11-15 | Explain broker security and transport boundaries. | Document peer verification, scoped dispatch, and lifetime rules. | #731 | GPT-6 |
@@ -5540,7 +5541,9 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, 
         }
         else
         {
-            if (OpenRequestParent(root.get(), parentPath.substr(0, separator), opened, snapshot, FILE_LIST_DIRECTORY))
+            // Listing the verified parent does not require explicit traversal access.
+            if (OpenRequestParent(root.get(), parentPath.substr(0, separator), opened, snapshot, FILE_LIST_DIRECTORY,
+                                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, false))
                 return false;
             visibleEnd = 3 + separator;
         }
