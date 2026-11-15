@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Record the reported size scan error 4393. | Distinguish skipped reparse points from actual Windows errors. | #731 | GPT-6 |
 | 2026-11-15 | Correct partial-size status markup. | Record the reported extra angle brackets and the parser fix. | #731 | GPT-6 |
 | 2026-11-15 | Record incomplete size reporting and selected totals. | Distinguish administrator denial from a lower-bound sum. | #731 | GPT-6 |
 | 2026-11-15 | Restrict nonrecursive Find grants. | Distinguish direct files from descendant access in the broker. | #731 | GPT-6 |
@@ -630,6 +631,7 @@
 
 ## Neúplné velikosti a odmítnutí správcem — 15. listopadu 2026
 
+- **Uživatelské hlášení, dosud neověřeno:** při výpočtu podsložek `C:\Samandarin\build` po elevaci vyskočila chyba 4393 poblíž `uac-deep-accedd\listed-delete-selection\protected`. Elevovaná inventura sama používá 4393 i jako zástupný důvod přeskočení neověřeného reparse bodu; není tedy doloženo, že jej v této situaci vrátil Windows nebo že je položka poškozená. Kód existující inventury zaznamená vynechání a pokračuje, poté upozorní na neúplnost; běžný výpočet pracuje s odkazy podle nastavení a při skutečné chybě čtení nabízí Skip/Skip All. Prověřit hlášení a soulad chování bez procházení neověřených cílů; uživatelské potvrzení chování čeká.
 - **Uživatelské hlášení:** build `f64d212d` při výpočtu `C:\ProgramData` zobrazil součet ve tvaru `>= <6 448 185 601> bytes`; závorky jsou nechtěné značky zvýraznění. Příčinou je neescapované `>` v novém prefixu, které předčasně ukončí zpracování značek. Oprava escapuje prefix před stávajícím parserem; opětovné uživatelské ověření čeká.
 - **Automatické ověření opravy:** test skutečného parseru a řadiče velikostí prošel v Debug i Release (61 kontrol v každé konfiguraci), včetně výsledného textu a pozice zvýrazněného čísla. Release x64 host byl sestaven do `C:\Samandarin\builds\uac-size-status-fix-20261115\salamander\Release_x64` (SHA-256 `5FB2013B82E106BF614270DCFDD61022B02E890441D5BB023673234969E2DD3F`). Jde o výstup hosta, nikoli kompletní nasazený testovací balík; interaktivní ověření čeká.
 - **Uživatelské hlášení:** při výpočtu `C:\Windows` byla ohlášena chyba u `C:\Windows\CSC`; výběr více složek s velikostí zobrazenou jako `>=` neukázal jejich součet. Jde o uživatelské pozorování před opravou, nikoli o vlastní ověření konkrétního ACL CSC.
