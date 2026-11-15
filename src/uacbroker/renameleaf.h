@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Permit identified hard links in same-volume file moves. | Preserve native F6 behavior without changing other mutation checks. | #731 | GPT-6 |
 | 2026-11-12 | Add replacement exception checkpoints to the test seam. | Exercise uncertainty before journal write and during rollback. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Apply exact case-only lookup to verified links. | Rename reparse entries in sensitive directories without following their targets. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Handle exact case-only renames in case-sensitive directories. | Preserve the anchored identity and no-replace operation without changing case-insensitive behavior. | #731 | GPT-6 (Codex) |
@@ -179,7 +180,8 @@ inline DWORD CheckJunction(HANDLE source)
     return bytes <= capacity ? CheckJunctionData(data.data(), bytes) : ERROR_INVALID_REPARSE_DATA;
 }
 
-inline DWORD ReadSourceIdentity(HANDLE source, FILE_ID_INFO& identity, MoveKind kind = MoveKind::RenameFile)
+inline DWORD ReadSourceIdentity(HANDLE source, FILE_ID_INFO& identity, MoveKind kind = MoveKind::RenameFile,
+                                bool allowFileHardLinks = false)
 {
     FILE_ATTRIBUTE_TAG_INFO attributes{};
     FILE_STANDARD_INFO standard{};
@@ -197,7 +199,9 @@ inline DWORD ReadSourceIdentity(HANDLE source, FILE_ID_INFO& identity, MoveKind 
     const DWORD tag = (attributes.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) ? attributes.ReparseTag : 0;
     if (tag != expectedTag || (tag == 0 && (attributes.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)))
         return ERROR_REPARSE_TAG_INVALID;
-    if ((standard.Directory != FALSE) != directory || standard.NumberOfLinks != 1 || standard.DeletePending)
+    if ((standard.Directory != FALSE) != directory ||
+        (standard.NumberOfLinks != 1 && !(allowFileHardLinks && !directory && standard.NumberOfLinks > 1)) ||
+        standard.DeletePending)
         return ERROR_NOT_SUPPORTED;
     return junction ? CheckJunction(source) : ERROR_SUCCESS;
 }
@@ -340,7 +344,7 @@ inline DWORD MoveVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIdent
     if (error != ERROR_SUCCESS)
         return error;
     FILE_ID_INFO actualSource{};
-    error = Detail::ReadSourceIdentity(source, actualSource, kind);
+    error = Detail::ReadSourceIdentity(source, actualSource, kind, kind == MoveKind::OrdinaryFile);
     if (error == ERROR_SUCCESS && !Detail::SameSource(actualSource, expectedSource))
         error = ERROR_FILE_INVALID;
     if (error == ERROR_SUCCESS && caseOnly)

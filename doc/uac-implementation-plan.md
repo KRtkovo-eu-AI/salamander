@@ -1,5 +1,7 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Fix one reproduced F6 error 50 for hard-linked files. | Preserve a safe same-volume move while distinguishing the unconfirmed user report. | #731 | GPT-6 |
+| 2026-11-15 | Record a protected F6 error 50 without a UAC prompt. | Distinguish the observed failure from unverified preparation conditions. | #731 | GPT-6 |
 | 2026-11-15 | Complete UAC message translations. | Ship current messages in all supported language modules. | #731 | GPT-6 |
 | 2026-11-15 | Explain denied elevated directory listings. | Distinguish verified broker refusal from launch and consent failures. | #731 | GPT-6 |
 | 2026-11-15 | Remove fixed protected Find queue capacity. | Continue large searches within one approved scope. | #731 | GPT-6 |
@@ -636,6 +638,15 @@
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
+
+## F6 z chráněného panelu hlásí chybu 50 — 15. listopadu 2026
+
+- **Uživatelské hlášení:** přesun `deployment.lock` z chráněné složky v `ProgramData` do kořene `C:\` skončil chybou 50 bez nabídky UAC. Otevřený dialog Move Error a chráněný panel byly následně ověřeny pomocí Computer Use; soubor měl v panelu atributy HSA. Soubor nebyl přesouván ani měněn.
+- **Provenience:** host i broker spuštěného pilotu mají shodné SHA-256 s posledním lokalizovaným testovacím buildem. Běžný proces při dotazu na metadata zdroje obdržel Access Denied; cílový `C:\deployment.lock` nebyl nalezen.
+- **Analýza kódu:** cesta pro zdroj z chráněného výpisu nebo odložený cíl může před spuštěním pomocníka nastavit `ERROR_NOT_SUPPORTED` a zobrazit jej, pokud příprava přenosu není dostupná. Kořen disku není obecně zakázaný cíl. Konkrétní odmítnutá podmínka v tomto běhu zatím nebyla určena; chyba 50 sama neprokazuje, že operaci odmítla Windows.
+- **Reprodukce a implementace:** izolovaný soubor s atributy HSA a dvěma pevnými odkazy vrátil chybu 50 při `ReadSourceIdentity`, přestože běžný `MoveFileW` uspěl a druhý odkaz zachoval. Výpis nyní může zjistit identitu i takového běžného souboru a ověřený F6 na stejném svazku může přesunout jeho konkrétní jméno. Kontroly rodičů, identity, typu, cílové kolize a rozsahu zůstávají; jiné mutace, F2 a přesun mezi svazky ponechávají svá původní omezení.
+- **Automatické ověření:** Release x64 host i broker se sestavily; testy `uac_native_copy_tests.py`, `uac_directory_leaf_tests.py` a `uacbroker_transport_tests.py` prošly. Ověřují i dva pevné odkazy, zachování identity a atributů, kolizi, identitu z výpisu přes pipe a následný F6 přes dispatcher i původní odmítnutí F2. Reálná výzva UAC ani skutečný chráněný soubor se nezkoušely.
+- **Zbývá:** počet pevných odkazů ani úplné atributy uživatelova `deployment.lock` se nepodařilo bez další elevace přečíst. Nelze proto tvrdit, že popsaná oprava řeší právě jeho chybu; přesná příčina tohoto konkrétního běhu a uživatelské ověření zůstávají otevřené.
 
 ## Lokalizace zpráv UAC — 15. listopadu 2026
 

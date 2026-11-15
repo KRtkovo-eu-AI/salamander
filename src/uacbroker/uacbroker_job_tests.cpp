@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Capture a hard-linked file from a protected listing. | Prepare same-volume F6 without granting mutation through the listing. | #731 | GPT-6 |
 // | 2026-11-15 | Restrict nonrecursive Find consent. | Keep the broker inside the user-requested search depth. | #731 | GPT-6 |
 // | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
 // | 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
@@ -898,6 +899,14 @@ void CheckListedLeafIdentity(const Directory& source)
               !std::memcmp(&identity.parent, &source.identity.file.FileId, sizeof(identity.parent)) &&
               !std::memcmp(&identity.file, &fileId.FileId, sizeof(identity.file)),
           "the protected listing returns the exact parent and file IDs without granting content");
+    constexpr wchar_t alias[] = L"viewer-hardlink.txt";
+    const bool linked = CreateHardLinkW(source.File(alias).c_str(), source.File(leaf).c_str(), nullptr) != FALSE;
+    UacListing::LeafIdentity hardlink{};
+    Check(linked && job.QueryLeafIdentity(leaf, ERROR_SUCCESS, hardlink) &&
+              !std::memcmp(&hardlink.parent, &source.identity.file.FileId, sizeof(hardlink.parent)) &&
+              !std::memcmp(&hardlink.file, &fileId.FileId, sizeof(hardlink.file)),
+          "the protected listing returns the exact identity for a hard-linked file");
+    if (linked) Check(DeleteFileW(source.File(alias).c_str()) != FALSE, "remove the owned hard-link fixture");
     Check(job.QueryLeafIdentity(L"..\\viewer-\u6771.txt", ERROR_INVALID_NAME, identity),
           "a viewer identity request cannot escape the approved listing root");
     Check(job.RejectFindRequest(UacListing::contentRequest | UacListing::leafIdentityRequest),
@@ -905,6 +914,42 @@ void CheckListedLeafIdentity(const Directory& source)
     JobPipe find;
     Check(find.Open(nullptr, source.handle.get()) && find.RejectFindRequest(UacListing::leafIdentityRequest),
           "the Find scope rejects the panel-only identity request");
+}
+
+void CheckListedHardLinkMove(const Directory& source, const Directory& target)
+{
+    constexpr wchar_t leaf[] = L"listed-hardlink-move.lock";
+    constexpr wchar_t alias[] = L"listed-hardlink-alias.lock";
+    const auto sourcePath = source.File(leaf);
+    const auto aliasPath = source.File(alias);
+    const auto targetPath = target.File(leaf);
+    {
+        const auto file = Adopt(CreateFileW(sourcePath.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW,
+                                            FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM, nullptr));
+        if (!file) { Check(false, "create the isolated empty hard-linked source"); return; }
+    }
+    if (!CreateHardLinkW(aliasPath.c_str(), sourcePath.c_str(), nullptr))
+    { Check(false, "create the isolated hard-link alias"); return; }
+    JobPipe listing;
+    UacListing::LeafIdentity identity{};
+    const bool listed = listing.Open(nullptr, source.handle.get(), Operation::List) &&
+                        listing.QueryLeafIdentity(leaf, ERROR_SUCCESS, identity);
+    Check(listed, "read the hard-linked F6 source identity through the listing pipe");
+    DWORD result = ERROR_GEN_FAILURE;
+    JobPipe move;
+    const bool moved = listed && move.Open() && move.Request(Operation::Move, source, leaf, result, &target,
+        nullptr, nullptr, false, nullptr, nullptr, 0, {}, &identity.file) && !result;
+    const auto aliasFile = Adopt(CreateFileW(aliasPath.c_str(), FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+    const auto targetFile = Adopt(CreateFileW(targetPath.c_str(), FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+    FILE_ID_INFO aliasId{}, targetId{};
+    Check(moved && IsAbsent(sourcePath) && aliasFile && targetFile &&
+              GetFileInformationByHandleEx(aliasFile.get(), FileIdInfo, &aliasId, sizeof(aliasId)) &&
+              GetFileInformationByHandleEx(targetFile.get(), FileIdInfo, &targetId, sizeof(targetId)) &&
+              UacListing::Detail::SameId(aliasId.FileId, identity.file) &&
+              UacListing::Detail::SameId(targetId.FileId, identity.file),
+          "the scoped F6 dispatcher moves only the listed name and preserves its alias and identity");
 }
 
 void CheckListedArchiveIdentity(const Directory& source, const Directory& outside)
@@ -5547,6 +5592,7 @@ int wmain(int argc, wchar_t** argv)
 #endif
     CheckThinCleanupContract(source, target);
     CheckListedLeafIdentity(source);
+    CheckListedHardLinkMove(source, target);
     CheckListedArchiveIdentity(source, outside);
     CheckPanelPreparationPaths(source, outside);
     CheckPanelPreparationFlags(source);

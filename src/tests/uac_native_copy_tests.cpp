@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Exercise same-volume moves of a hard-linked file. | Preserve the other link and identity while retaining collision checks. | #731 | GPT-6 |
 | 2026-11-11 | Exercise read-only F6 publication, rollback and interrupted source retirement. | Preserve exact source identities and attributes across ordinary and guarded moves. | | GPT-6.1 Sol |
 | 2026-11-11 | Verify read-only copies with exact protected security and publication cancellation. | Cover combined DACL preservation and cleanup through the real NTFS primitive. | | GPT-6.1 Sol |
 | 2026-11-11 | Exercise streamed native copies and ordinary attributes on NTFS. | Verify large data, read-only rollback and guarded source retirement with real files. | | GPT-6.1 Sol |
@@ -288,6 +289,48 @@ bool SameVolumeMoveCase(CopyFixture& fixture)
           AttributesMatch(target, attributes) && PatternMatches(target, 37, 0x32),
           "move a hidden/system native file on the same volume without changing identity or contents", error);
     return !error;
+}
+
+bool SameVolumeHardLinkMoveCase(CopyFixture& fixture)
+{
+    const auto source = fixture.source + L"\\hardlinked-source.lock";
+    const auto alias = fixture.source + L"\\hardlinked-alias.lock";
+    const auto target = fixture.target + L"\\hardlinked-target.lock";
+    constexpr DWORD attributes = FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_ARCHIVE;
+    if (!WritePattern(source, 0, 0) || !SetFileAttributesW(source.c_str(), attributes) ||
+        !CreateHardLinkW(alias.c_str(), source.c_str(), nullptr)) return false;
+    FILE_ID_INFO id{}, aliasId{}, targetId{};
+    {
+        const auto file = Open(source, FILE_READ_ATTRIBUTES);
+        if (!file || !GetFileInformationByHandleEx(file.get(), FileIdInfo, &id, sizeof(id))) return false;
+        Check(UacRenameLeaf::Detail::ReadSourceIdentity(file.get(), targetId) == ERROR_NOT_SUPPORTED,
+              "other operations still reject a multiply linked source");
+    }
+    FILE_ID_INFO stale = id;
+    stale.FileId.Identifier[0] ^= 1;
+    DWORD error = UacRenameLeaf::MoveVerifiedFile(fixture.from.get(), fixture.fromId, stale, L"hardlinked-source.lock",
+        fixture.to.get(), fixture.toId, L"hardlinked-target.lock");
+    Check(error == ERROR_FILE_INVALID && Present(source) && Present(alias) && !Present(target),
+          "hard-linked move rejects the wrong source identity without changing either link", error);
+    if (!WritePattern(target, 1, 0x55)) return false;
+    error = UacRenameLeaf::MoveVerifiedFile(fixture.from.get(), fixture.fromId, id, L"hardlinked-source.lock",
+        fixture.to.get(), fixture.toId, L"hardlinked-target.lock");
+    Check((error == ERROR_ALREADY_EXISTS || error == ERROR_FILE_EXISTS) && Present(source) && Present(alias) &&
+          PatternMatches(target, 1, 0x55), "hard-linked move collision preserves both links and the target", error);
+    if (!DeleteFileW(target.c_str())) return false;
+    error = UacRenameLeaf::MoveVerifiedFile(fixture.from.get(), fixture.fromId, id, L"hardlinked-source.lock",
+        fixture.to.get(), fixture.toId, L"hardlinked-target.lock");
+    const auto moved = Open(target, FILE_READ_ATTRIBUTES);
+    const auto linked = Open(alias, FILE_READ_ATTRIBUTES);
+    FILE_STANDARD_INFO standard{};
+    Check(!error && !Present(source) && moved && linked &&
+          GetFileInformationByHandleEx(moved.get(), FileIdInfo, &targetId, sizeof(targetId)) &&
+          GetFileInformationByHandleEx(linked.get(), FileIdInfo, &aliasId, sizeof(aliasId)) &&
+          GetFileInformationByHandleEx(moved.get(), FileStandardInfo, &standard, sizeof(standard)) &&
+          standard.NumberOfLinks == 2 && UacRenameLeaf::Detail::SameSource(id, targetId) &&
+          UacRenameLeaf::Detail::SameSource(id, aliasId) && AttributesMatch(target, attributes),
+          "same-volume hard-linked move preserves the other name, both IDs and attributes", error);
+    return !error && failures == 0;
 }
 
 Local Security(const std::wstring& sddl)
@@ -738,7 +781,7 @@ int wmain(int argc, wchar_t** argv)
     }
     if (mode != L"--run") return 2;
     if (!SelectionCases() || !CopyCases(fixture) || !SparseCase(fixture) || !CompressedCase(fixture) ||
-        !SameVolumeMoveCase(fixture) || !ReadOnlySecurityCase(fixture) || !MoveCase(fixture) ||
+        !SameVolumeMoveCase(fixture) || !SameVolumeHardLinkMoveCase(fixture) || !ReadOnlySecurityCase(fixture) || !MoveCase(fixture) ||
         !ReadOnlySameVolume(root) || !GuardedAttributeMove(root, L"guarded") || !GuardedAttributeMove(root, L"compressed", true) ||
         !GuardedAttributeMove(root, L"normal-no-archive", false, FILE_ATTRIBUTE_NORMAL) ||
         !GuardedAttributeMove(root, L"readonly-sparse", false, ordinaryAttributes | FILE_ATTRIBUTE_SPARSE_FILE) ||

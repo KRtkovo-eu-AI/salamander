@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Read hard-linked file identities from a protected panel. | Permit safe same-volume F6 preparation without granting mutation access. | #731 | GPT-6 |
 | 2026-11-15 | Distinguish authenticated listing startup denial. | Report a broker refusal separately from failure to launch. | #731 | GPT-6 |
 | 2026-11-15 | Restrict nonrecursive Find consent. | Keep the broker inside the user-requested search depth. | #731 | GPT-6 |
 | 2026-11-15 | Reuse saved Find identities in refinement. | Preserve exact protected-file authorization on repeat searches. | #731 | GPT-6 |
@@ -4115,7 +4116,7 @@ DWORD ReadListedLeafIdentity(HANDLE root, std::wstring_view relative, bool paren
         error = UacRenameLeaf::Detail::OpenSource(parent.get(), leaf, raw, 0,
                                                 FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE);
         if (!error)
-            error = UacRenameLeaf::Detail::ReadSourceIdentity(raw, fileIdentity);
+            error = UacRenameLeaf::Detail::ReadSourceIdentity(raw, fileIdentity, UacRenameLeaf::MoveKind::RenameFile, true);
     }
     const auto object = Adopt(raw);
     if (error)
