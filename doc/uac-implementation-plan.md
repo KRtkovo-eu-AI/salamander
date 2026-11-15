@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Record the large size scan test build. | Associate user testing with the protected deployed binaries. | #731 | GPT-6 |
 | 2026-11-15 | Stream large protected size inventories. | Remove fixed count and depth limits while preserving scoped checks and cancellation. | #731 | GPT-6 |
 | 2026-11-15 | Record the paged panel test build. | Associate future user feedback with the deployed binaries. | #731 | GPT-6 |
 | 2026-11-15 | Remove large-parent identity and panel listing limits. | Reuse scoped pages without weakening object checks. | #731 | GPT-6 |
@@ -674,6 +675,7 @@ Tento přehled je závazný pro současnou práci. Následující časové zázn
 - **Automaticky ověřeno:** neinteraktivní test skutečného klienta a dispatcheru v Debug i Release ověřil 4 105 souborů a 40 úrovní, přesné součty s detaily i bez nich, sdílenou relaci a odmítnutí mimo schválený rozsah. Zahrnul i zpoždění potvrzení rámce o 5,5 s, zrušení uprostřed běhu bez zveřejnění součtů a pokračování dalšího požadavku ve stejné relaci. Řízený peer (23 kontrol v každé konfiguraci) ověřil navíc zrušení před odesláním požadavku i po závěrečném rámci a odmítnutí nesprávného součtu. `uac_directory_leaf_tests.py` prošel s 413 kontrolami a `uac_listing_page_tests.py` se 45 kontrolami v každé konfiguraci, bez přeskočení; dekodér ověřil, že nulový reparse tag dál selže v běžném režimu a ve výpočtu se položka pouze vynechá bez následování. Test controlleru ověřil hranice přetečení a potvrzené i odmítnuté zrušení; `directory_size_cancel_tests.py` po aktualizaci zastaralé textové kontroly prošel v obou konfiguracích (332 kontrol v každé). Úplný brokerový transport/job test prošel v Debug i Release (513 kontrol v každé); v obou byl jeden scénář záměny rodiče přeskočen kvůli omezení sdílení.
 - **Hranice důkazu:** přímá fixture odepřené větve selhává při prvním otevření; není samostatně deterministicky ověřena změna přístupu až mezi prvním otevřením a opětovným otevřením kurzoru. V obou místech je chyba obsluhována jako vynechání podle stejné klasifikace; testovací injekce do produkce nebyla přidána.
 - **Sestavení a uživatelské ověření:** Release x64 host a broker jsou v `C:\Samandarin\builds\uac-size-unlimited-20261115`, s ověřenými rolemi a protokolem 52. SHA-256 hosta `9CDD34A36C400F492C0CBB7381DE38E403739AB9B6E0D3501F7DF60CD2AA77DA`, brokeru `8DE377AA5D64CBEB503EE6C5214296DF4D043DA5CF452B542F37052FE10B831D`. Nejde o kompletní nasazenou instalaci; skutečná UAC výzva ani GUI se při této práci nezkoušely a potvrzení uživatelem čeká.
+- **Testovací instalace:** na žádost uživatele byla tato dvojice z revize `e2333ea84` nasazena do `C:\Program Files\Samandarin UAC Test e2333ea8`. Nezávislé ověření potvrdilo všech 418 souborů, 27 jazykových modulů a ochranu složky, hosta a brokeru. Uživatelské ověření funkce čeká.
 
 ## Velké adresáře: identita souborů a chráněný panel — 15. listopadu 2026
 
