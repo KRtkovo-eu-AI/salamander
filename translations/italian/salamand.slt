@@ -4376,7 +4376,7 @@ SLGINCOMPLETE,""
 14628,1,"La connessione con il processo ausiliario si è interrotta prima della conferma del risultato. Controllare gli attributi e le date del file prima di riprovare."
 14629,1,"Accesso negato. Eliminare definitivamente questo file come amministratore?"
 14630,1,"La connessione con il processo ausiliario si è interrotta prima della conferma dell’eliminazione. Verificare se il file esiste ancora prima di riprovare."
-14631,0,"Access was denied. Read and list this folder and its subfolders as an administrator?"
+14631,1,"Accesso negato. Leggere ed elencare questa cartella e le relative sottocartelle come amministratore?"
 14632,1,"Elenco amministratore"
 14633,1,"Accesso negato. Copiare questo file e i relativi flussi di dati alternativi come amministratore?"
 14634,1,"Non è stato possibile confermare il completamento della copia. Controllare la destinazione prima di riprovare."
@@ -4442,10 +4442,13 @@ SLGINCOMPLETE,""
 [STRINGTABLE 197]
 14688,1,"Accesso negato. Spostare questo file nel proprio Cestino come amministratore?"
 14689,1,"Accesso negato. Copiare questo file come amministratore mantenendo la compressione NTFS, il proprietario, il gruppo e le autorizzazioni esplicite?"
+14690,1,"Accesso negato. Eliminare definitivamente questa cartella vuota come amministratore?"
+14691,1,"Accesso negato. Rinominare questa cartella come amministratore? Viene mostrato prima il percorso corrente, poi quello nuovo."
 14694,1,"Questa autorizzazione si applica anche alle cartelle protette in:"
 14695,1,"Accesso negato. Leggere come amministratore il contenuto dei file in questo percorso per questo confronto?"
 14696,1,"Questo collegamento di compatibilità di Windows è stato ignorato. Contribuisce al totale con 0 byte."
 
+14697,1,"Accesso negato. Leggere lo spazio su disco allocato a questo file come amministratore?"
 14698,1,"Non è stato possibile confermare il completamento dell’operazione. Potrebbero rimanere un backup di lavoro o un registro. Controllare la sorgente, la destinazione e gli eventuali backup prima di riprovare."
 
 14699,1,"Accesso negato. Sostituire questo file come amministratore mantenendo le autorizzazioni di destinazione? Il file sostitutivo non conterrà flussi di dati alternativi."
@@ -4481,8 +4484,8 @@ SLGINCOMPLETE,""
 14720,1,"L’elenco della cartella è stato interrotto e ripreso. I file potrebbero essere cambiati; l’elenco potrebbe essere incompleto. Aggiornarlo per verificare."
 
 14721,1,"Accesso negato. Copiare questo file come amministratore? In questa modalità non sono supportati i file con flussi di dati alternativi."
-14722,0,"Access was denied even with administrator rights. The item's permissions may restrict access; inaccessible items are excluded from the result."
-14723,0,"Access was denied even with administrator rights. The folder's permissions may restrict access."
+14722,1,"Accesso negato anche con i diritti di amministratore. Le autorizzazioni dell’elemento potrebbero limitare l’accesso; gli elementi inaccessibili sono esclusi dal risultato."
+14723,1,"Accesso negato anche con i diritti di amministratore. Le autorizzazioni della cartella potrebbero limitare l’accesso."
 
 [STRINGTABLE 199]
 14991,1,"Lettura associazioni dall'archiviazione file, attendere..."

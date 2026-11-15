@@ -4376,7 +4376,7 @@ SLGINCOMPLETE,""
 14628,1,"Le processus auxiliaire s’est déconnecté avant la confirmation du résultat. Vérifiez les attributs et les dates du fichier avant de réessayer."
 14629,1,"Accès refusé. Supprimer définitivement ce fichier en tant qu’administrateur ?"
 14630,1,"Le processus auxiliaire s’est déconnecté avant la confirmation de la suppression. Vérifiez si le fichier existe toujours avant de réessayer."
-14631,0,"Access was denied. Read and list this folder and its subfolders as an administrator?"
+14631,1,"Accès refusé. Lire et afficher ce dossier et ses sous-dossiers en tant qu’administrateur ?"
 14632,1,"Liste administrateur"
 14633,1,"Accès refusé. Copier ce fichier et ses flux de données alternatifs en tant qu’administrateur ?"
 14634,1,"Impossible de confirmer que la copie est terminée. Vérifiez la destination avant de réessayer."
@@ -4442,10 +4442,13 @@ SLGINCOMPLETE,""
 [STRINGTABLE 197]
 14688,1,"Accès refusé. Déplacer ce fichier vers votre Corbeille en tant qu’administrateur ?"
 14689,1,"Accès refusé. Copier ce fichier en conservant sa compression NTFS, son propriétaire, son groupe et ses autorisations explicites en tant qu’administrateur ?"
+14690,1,"Accès refusé. Supprimer définitivement ce dossier vide en tant qu’administrateur ?"
+14691,1,"Accès refusé. Renommer ce dossier en tant qu’administrateur ? Le chemin actuel est affiché en premier, suivi du nouveau chemin."
 14694,1,"Cette autorisation couvre aussi les dossiers protégés sous :"
 14695,1,"Accès refusé. Lire le contenu des fichiers sous ce chemin en tant qu’administrateur pour cette comparaison ?"
 14696,1,"Ce lien de compatibilité Windows a été ignoré. Il compte pour 0 octet dans le total."
 
+14697,1,"Accès refusé. Lire l’espace disque alloué à ce fichier en tant qu’administrateur ?"
 14698,1,"La fin de l’opération n’a pas pu être confirmée. Une sauvegarde de travail ou un journal peut subsister. Vérifiez la source, la destination et toute sauvegarde avant de réessayer."
 
 14699,1,"Accès refusé. Remplacer ce fichier en tant qu’administrateur en conservant les autorisations de destination ? Le fichier de remplacement ne contiendra aucun flux de données alternatif."
@@ -4481,8 +4484,8 @@ SLGINCOMPLETE,""
 14720,1,"La liste du dossier a été interrompue puis reprise. Les fichiers ont pu changer entre-temps ; la liste peut être incomplète. Actualisez-la pour vérifier."
 
 14721,1,"Accès refusé. Copier ce fichier en tant qu’administrateur ? Les fichiers avec des flux de données alternatifs ne sont pas pris en charge dans ce mode."
-14722,0,"Access was denied even with administrator rights. The item's permissions may restrict access; inaccessible items are excluded from the result."
-14723,0,"Access was denied even with administrator rights. The folder's permissions may restrict access."
+14722,1,"L’accès a été refusé même avec les droits d’administrateur. Les autorisations de cet élément peuvent restreindre l’accès ; les éléments inaccessibles sont exclus du résultat."
+14723,1,"L’accès a été refusé même avec les droits d’administrateur. Les autorisations de ce dossier peuvent restreindre l’accès."
 
 [STRINGTABLE 199]
 14991,1,"Lecture des associations depuis le stockage de fichiers, veuillez patienter..."

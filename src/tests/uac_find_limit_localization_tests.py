@@ -1,16 +1,21 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-15 | Check all UAC catalog format strings. | Keep translated administrator messages complete across supported languages. | #731 | GPT-6 |
+# | 2026-11-15 | Validate all 26 shipped language catalogs. | Keep Find omission translations complete. | #731 | GPT-6 |
 # | 2026-11-11 | Check all typed Find omission messages. | Preserve every locale, resource block and format contract. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Check protected Find limit translations. | Keep every locale and the format argument consistent. | #731 | GPT-6.1 Terra |
 """Validate exact IDs, the protected-item placeholder and all shipped SLT locales."""
 import re
 import unittest
+from collections import Counter, defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-LOCALES = {"chinesesimplified", "czech", "dutch", "french", "german",
-           "hungarian", "italian", "romanian", "russian", "slovak", "spanish"}
+LOCALES = {"arabic", "bulgarian", "chinesesimplified", "chinesetraditional", "croatian",
+           "czech", "dutch", "french", "german", "greek", "hebrew", "hungarian",
+           "indonesian", "italian", "japanese", "korean", "polish", "portuguese",
+           "romanian", "russian", "slovak", "spanish", "swedish", "turkish", "ukrainian", "vietnamese"}
 IDS = {"IDS_UAC_FIND_SCOPE_LIMIT": 14700, "IDS_FIND_ACTIVITY_INCOMPLETE": 14701,
        "IDS_UAC_FIND_SCOPE_LIMIT_CARRIED": 14702,
        "IDS_FIND_ACTIVITY_INCOMPLETE_OTHER": 14704,
@@ -22,6 +27,29 @@ IDS = {"IDS_UAC_FIND_SCOPE_LIMIT": 14700, "IDS_FIND_ACTIVITY_INCOMPLETE": 14701,
 
 
 class FindLimitLocalizationTests(unittest.TestCase):
+    def test_all_uac_messages_are_translated_with_matching_formats(self):
+        header = (ROOT / "src/texts.rh2").read_text(encoding="utf-8-sig")
+        resources = (ROOT / "src/lang/texts.rc2").read_text(encoding="utf-8-sig")
+        ids = {int(number): name for name, number in re.findall(
+            r'^#define\s+(IDS_(?:UAC|FIND_INCOMPLETE|FIND_ACTIVITY_INCOMPLETE)[A-Z0-9_]*)\s+(\d+)', header, re.M)}
+        ids.update({14005: 'IDS_AS_ADMIN_TITLE', 14716: 'IDS_BRANCH_IDENTITY_UNAVAILABLE',
+                    14717: 'IDS_BRANCH_LIST_LIMIT', 14719: 'IDS_BRANCH_MERGE_UNCERTAIN',
+                    14720: 'IDS_BRANCH_MERGE_UNCERTAIN_DETAIL'})
+        english = dict(re.findall(r'^\s*(IDS_[A-Z0-9_]+),\s*"(.*)"\s*$', resources, re.M))
+        format_token = re.compile(r'%(?:%|(?:\d+\$)?[-+#0 ]*(?:\d+|\*)?(?:\.(?:\d+|\*))?(?:I64|ll|l|h|z|t|j)?[diuoxXfFeEgGaAcCsSpn])')
+        self.assertTrue(ids)
+        for path in (ROOT / 'translations').glob('*/salamand.slt'):
+            rows = defaultdict(list)
+            for number, state, text in re.findall(r'^(\d+),([01]),"(.*)"\s*$', path.read_text(encoding='utf-8-sig'), re.M):
+                if int(number) in ids:
+                    rows[int(number)].append((state, text))
+            for number, name in ids.items():
+                with self.subTest(locale=path.parent.name, number=number):
+                    self.assertIn(name, english)
+                    self.assertEqual(len(rows[number]), 1)
+                    self.assertEqual(rows[number][0][0], '1')
+                    self.assertEqual(Counter(format_token.findall(rows[number][0][1])), Counter(format_token.findall(english[name])))
+
     def test_resource_ids_and_english(self):
         header = (ROOT / "src/texts.rh2").read_text(encoding="utf-8-sig")
         resources = (ROOT / "src/lang/texts.rc2").read_text(encoding="utf-8-sig")

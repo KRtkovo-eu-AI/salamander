@@ -4376,7 +4376,7 @@ SLGINCOMPLETE,""
 14628,1,"De verbinding met het hulpproces werd verbroken voordat het resultaat was bevestigd. Controleer de kenmerken en tijden van het bestand voordat u het opnieuw probeert."
 14629,1,"Toegang geweigerd. Dit bestand als administrator permanent verwijderen?"
 14630,1,"De verbinding met het hulpproces werd verbroken voordat het verwijderen was bevestigd. Controleer of het bestand nog bestaat voordat u het opnieuw probeert."
-14631,0,"Access was denied. Read and list this folder and its subfolders as an administrator?"
+14631,1,"Toegang geweigerd. Deze map en de submappen als administrator lezen en weergeven?"
 14632,1,"Administratorweergave"
 14633,1,"Toegang geweigerd. Dit bestand met de alternatieve gegevensstromen als beheerder kopiëren?"
 14634,1,"De voltooiing van het kopiëren kon niet worden bevestigd. Controleer de bestemming voordat u het opnieuw probeert."
@@ -4442,10 +4442,13 @@ SLGINCOMPLETE,""
 [STRINGTABLE 197]
 14688,1,"Toegang geweigerd. Dit bestand als beheerder naar uw Prullenbak verplaatsen?"
 14689,1,"Toegang geweigerd. Dit bestand als beheerder kopiëren met behoud van NTFS-compressie, eigenaar, groep en expliciete machtigingen?"
+14690,1,"Toegang geweigerd. Deze lege map als administrator definitief verwijderen?"
+14691,1,"Toegang geweigerd. Deze map als administrator hernoemen? Eerst wordt het huidige pad getoond, daarna het nieuwe pad."
 14694,1,"Deze toestemming geldt ook voor beschermde mappen onder:"
 14695,1,"Toegang geweigerd. Bestandsinhoud onder dit pad als administrator lezen voor deze vergelijking?"
 14696,1,"Deze Windows-compatibiliteitskoppeling is overgeslagen. Ze telt voor 0 bytes mee in het totaal."
 
+14697,1,"Toegang geweigerd. De schijftoewijzing van dit bestand als administrator lezen?"
 14698,1,"De bewerking kon niet als voltooid worden bevestigd. Er kan een werkback-up of journaal zijn achtergebleven. Controleer de bron, de bestemming en eventuele back-up voordat u opnieuw probeert."
 
 14699,1,"Toegang geweigerd. Dit bestand als administrator vervangen met behoud van de doelmachtigingen? Het vervangende bestand bevat geen alternatieve gegevensstromen."
@@ -4481,8 +4484,8 @@ SLGINCOMPLETE,""
 14720,1,"De maplijst is onderbroken en hervat. Bestanden kunnen intussen zijn gewijzigd; de lijst kan onvolledig zijn. Vernieuw om dit te controleren."
 
 14721,1,"Toegang geweigerd. Dit bestand als beheerder kopiëren? Bestanden met alternatieve gegevensstromen worden in deze modus niet ondersteund."
-14722,0,"Access was denied even with administrator rights. The item's permissions may restrict access; inaccessible items are excluded from the result."
-14723,0,"Access was denied even with administrator rights. The folder's permissions may restrict access."
+14722,1,"Ook met administratorrechten is de toegang geweigerd. De machtigingen kunnen de toegang beperken; ontoegankelijke items zijn niet in het resultaat opgenomen."
+14723,1,"Ook met administratorrechten is de toegang geweigerd. De machtigingen van de map kunnen de toegang beperken."
 
 [STRINGTABLE 199]
 14991,1,"Associaties worden uit de bestandopslag gelezen, even geduld..."

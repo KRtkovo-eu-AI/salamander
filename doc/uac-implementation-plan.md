@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Complete UAC message translations. | Ship current messages in all supported language modules. | #731 | GPT-6 |
 | 2026-11-15 | Explain denied elevated directory listings. | Distinguish verified broker refusal from launch and consent failures. | #731 | GPT-6 |
 | 2026-11-15 | Remove fixed protected Find queue capacity. | Continue large searches within one approved scope. | #731 | GPT-6 |
 | 2026-11-15 | Record user-reported protected Find scope limit. | Track incomplete results and the work needed to remove the fixed cap. | #731 | GPT-6 |
@@ -635,6 +636,12 @@
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
+
+## Lokalizace zpráv UAC — 15. listopadu 2026
+
+- **Implementováno:** doplněny chybějící překlady všech 92 identifikovaných zpráv UAC a souvisejícího stavu Findu ve 26 jazykových katalozích, včetně dříve chybějícího řetězce `14697`. Ověřeno a podle potřeby doplněno také tlačítko správce a čtyři související zprávy Branch View. Ostatní, s UAC nesouvisející nepřeložené prostředky nejsou tímto krokem označeny za dokončené.
+- **Automaticky ověřeno:** kontrola všech 97 souvisejících ID v každém z 26 katalogů, příznaků překladu, duplicit a formátovacích značek; existující testy lokalizace Findu, Koše a identity prohlížeče prošly. Všech 26 jazykových modulů bylo sestaveno z aktuální kostry, přičemž všech 2 522 relevantních řetězců v sestavených modulech odpovídá katalogům. Nezávislá cílená kontrola porovnala 65 bezpečnostně významných překladů v pěti jazycích; nejde o rodilou jazykovou revizi všech textů.
+- **Sestavení a uživatelské ověření:** do samostatného testovacího balíku byly připraveny odpovídající host a broker předchozí revize `3d55ee7d8` a jazykové moduly; skutečné zobrazení jednotlivých jazyků v UI v tomto kroku nebylo ověřeno. Uživatel může vybrat jazyk v nastavení aplikace.
 
 ## Vstup do složky odepřený i správci — 15. listopadu 2026
 

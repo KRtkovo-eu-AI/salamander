@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-15 | Validate all 26 shipped language catalogs. | Keep Recycle Bin explanations complete. | #731 | GPT-6 |
 # | 2026-11-11 | Check the protected directory Recycle Bin explanation. | Keep all locales and the placeholder-free message aligned. | #731 | GPT-6.1 Terra |
 """Validate the protected directory Recycle Bin message in every shipped locale."""
 import re
@@ -8,8 +9,10 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-LOCALES = {"chinesesimplified", "czech", "dutch", "french", "german",
-           "hungarian", "italian", "romanian", "russian", "slovak", "spanish"}
+LOCALES = {"arabic", "bulgarian", "chinesesimplified", "chinesetraditional", "croatian",
+           "czech", "dutch", "french", "german", "greek", "hebrew", "hungarian",
+           "indonesian", "italian", "japanese", "korean", "polish", "portuguese",
+           "romanian", "russian", "slovak", "spanish", "swedish", "turkish", "ukrainian", "vietnamese"}
 RESOURCE = "IDS_UAC_RECYCLE_DIRECTORY_UNSUPPORTED"
 NUMBER = 14703
 ENGLISH = "Moving a protected folder to the Recycle Bin with administrator privileges is not supported yet."

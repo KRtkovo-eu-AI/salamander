@@ -4376,7 +4376,7 @@ SLGINCOMPLETE,""
 14628,1,"Conexiunea cu procesul auxiliar s-a întrerupt înainte de confirmarea rezultatului. Verificați atributele și marcajele de timp ale fișierului înainte de a încerca din nou."
 14629,1,"Acces refuzat. Ștergeți definitiv acest fișier ca administrator?"
 14630,1,"Conexiunea cu procesul auxiliar s-a întrerupt înainte de confirmarea ștergerii. Verificați dacă fișierul mai există înainte de a încerca din nou."
-14631,0,"Access was denied. Read and list this folder and its subfolders as an administrator?"
+14631,1,"Acces refuzat. Se citesc și se afișează acest folder și subfolderele sale ca administrator?"
 14632,1,"Listare ca administrator"
 14633,1,"Acces refuzat. Copiați acest fișier și fluxurile sale de date alternative ca administrator?"
 14634,1,"Finalizarea copierii nu a putut fi confirmată. Verificați destinația înainte de a încerca din nou."
@@ -4442,10 +4442,13 @@ SLGINCOMPLETE,""
 [STRINGTABLE 197]
 14688,1,"Acces refuzat. Mutați acest fișier în Coșul dvs. de reciclare ca administrator?"
 14689,1,"Acces refuzat. Copiați acest fișier ca administrator, păstrând compresia NTFS, proprietarul, grupul și permisiunile explicite?"
+14690,1,"Acces refuzat. Se șterge definitiv acest folder gol ca administrator?"
+14691,1,"Acces refuzat. Se redenumește acest folder ca administrator? Este afișată mai întâi calea curentă, urmată de cea nouă."
 14694,1,"Această aprobare se aplică și folderelor protejate din:"
 14695,1,"Acces refuzat. Citiți ca administrator conținutul fișierelor de sub această cale pentru această comparație?"
 14696,1,"Această legătură de compatibilitate Windows a fost omisă. Contribuie cu 0 octeți la total."
 
+14697,1,"Acces refuzat. Se citește spațiul pe disc alocat acestui fișier ca administrator?"
 14698,1,"Finalizarea operației nu a putut fi confirmată. Este posibil să fi rămas o copie de lucru sau un jurnal. Verificați sursa, destinația și orice copie de rezervă înainte de a reîncerca."
 
 14699,1,"Acces refuzat. Înlocuiți acest fișier ca administrator, păstrând permisiunile destinației? Fișierul de înlocuire nu va conține fluxuri de date alternative."
@@ -4481,8 +4484,8 @@ SLGINCOMPLETE,""
 14720,1,"Listarea folderului a fost întreruptă și reluată. Fișierele se pot fi schimbat între timp, deci lista poate fi incompletă. Reîmprospătați pentru verificare."
 
 14721,1,"Acces refuzat. Copiați acest fișier ca administrator? Fișierele cu fluxuri de date alternative nu sunt acceptate în acest mod."
-14722,0,"Access was denied even with administrator rights. The item's permissions may restrict access; inaccessible items are excluded from the result."
-14723,0,"Access was denied even with administrator rights. The folder's permissions may restrict access."
+14722,1,"Accesul a fost refuzat și cu drepturi de administrator. Permisiunile elementului pot restricționa accesul; elementele inaccesibile sunt excluse din rezultat."
+14723,1,"Accesul a fost refuzat și cu drepturi de administrator. Permisiunile folderului pot restricționa accesul."
 
 [STRINGTABLE 199]
 14991,1,"Citesc asocierile din stocarea fișierelor, vă rugăm așteptați..."

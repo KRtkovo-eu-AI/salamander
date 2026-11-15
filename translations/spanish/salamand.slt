@@ -4376,7 +4376,7 @@ SLGINCOMPLETE,""
 14628,1,"La conexión con el proceso auxiliar se interrumpió antes de confirmar el resultado. Compruebe los atributos y las fechas del archivo antes de volver a intentarlo."
 14629,1,"Acceso denegado. ¿Eliminar permanentemente este archivo como administrador?"
 14630,1,"La conexión con el proceso auxiliar se interrumpió antes de confirmar la eliminación. Compruebe si el archivo sigue existiendo antes de volver a intentarlo."
-14631,0,"Access was denied. Read and list this folder and its subfolders as an administrator?"
+14631,1,"Acceso denegado. ¿Leer y mostrar esta carpeta y sus subcarpetas como administrador?"
 14632,1,"Listado de administrador"
 14633,1,"Acceso denegado. ¿Copiar este archivo y sus flujos de datos alternativos como administrador?"
 14634,1,"No se pudo confirmar que la copia se completara. Compruebe el destino antes de volver a intentarlo."
@@ -4442,10 +4442,13 @@ SLGINCOMPLETE,""
 [STRINGTABLE 197]
 14688,1,"Acceso denegado. ¿Mover este archivo a su Papelera de reciclaje como administrador?"
 14689,1,"Acceso denegado. ¿Copiar este archivo como administrador conservando su compresión NTFS, propietario, grupo y permisos explícitos?"
+14690,1,"Acceso denegado. ¿Eliminar permanentemente esta carpeta vacía como administrador?"
+14691,1,"Acceso denegado. ¿Cambiar el nombre de esta carpeta como administrador? Primero se muestra la ruta actual y después la nueva."
 14694,1,"Esta autorización también cubre las carpetas protegidas en:"
 14695,1,"Acceso denegado. ¿Leer como administrador el contenido de los archivos de esta ruta para esta comparación?"
 14696,1,"Se omitió este vínculo de compatibilidad de Windows. Aporta 0 bytes al total."
 
+14697,1,"Acceso denegado. ¿Consultar el espacio en disco asignado a este archivo como administrador?"
 14698,1,"No se pudo confirmar que la operación terminara. Puede quedar una copia de trabajo o un registro. Compruebe el origen, el destino y cualquier copia de seguridad antes de volver a intentarlo."
 
 14699,1,"Acceso denegado. ¿Reemplazar este archivo como administrador conservando los permisos del destino? El archivo de reemplazo no contendrá flujos de datos alternativos."
@@ -4481,8 +4484,8 @@ SLGINCOMPLETE,""
 14720,1,"La lista de la carpeta se interrumpió y se reanudó. Los archivos pudieron cambiar; la lista puede estar incompleta. Actualícela para comprobarla."
 
 14721,1,"Acceso denegado. ¿Copiar este archivo como administrador? Este modo no admite archivos con flujos de datos alternativos."
-14722,0,"Access was denied even with administrator rights. The item's permissions may restrict access; inaccessible items are excluded from the result."
-14723,0,"Access was denied even with administrator rights. The folder's permissions may restrict access."
+14722,1,"El acceso se ha denegado incluso con derechos de administrador. Los permisos del elemento pueden restringir el acceso; los elementos inaccesibles se excluyen del resultado."
+14723,1,"El acceso se ha denegado incluso con derechos de administrador. Los permisos de la carpeta pueden restringir el acceso."
 
 [STRINGTABLE 199]
 14991,1,"Leyendo asociaciones del almacenamiento de archivos, espere por favor..."

@@ -4376,7 +4376,7 @@ SLGINCOMPLETE,""
 14628,1,"A segédfolyamattal megszakadt a kapcsolat az eredmény megerősítése előtt. Újrapróbálkozás előtt ellenőrizd a fájl attribútumait és időbélyegeit."
 14629,1,"A hozzáférés megtagadva. Véglegesen törlöd ezt a fájlt rendszergazdaként?"
 14630,1,"A segédfolyamattal megszakadt a kapcsolat a törlés megerősítése előtt. Újrapróbálkozás előtt ellenőrizd, hogy a fájl még létezik-e."
-14631,0,"Access was denied. Read and list this folder and its subfolders as an administrator?"
+14631,1,"A hozzáférés megtagadva. Olvassa be és listázza ezt a mappát és almappáit rendszergazdaként?"
 14632,1,"Rendszergazdai lista"
 14633,1,"A hozzáférés megtagadva. Másolja ezt a fájlt az alternatív adatfolyamaival együtt rendszergazdaként?"
 14634,1,"A másolás befejezését nem sikerült megerősíteni. Újrapróbálkozás előtt ellenőrizze a célhelyet."
@@ -4442,10 +4442,13 @@ SLGINCOMPLETE,""
 [STRINGTABLE 197]
 14688,1,"A hozzáférés megtagadva. Áthelyezi ezt a fájlt a saját Lomtárába rendszergazdaként?"
 14689,1,"A hozzáférés megtagadva. Másolja ezt a fájlt rendszergazdaként az NTFS-tömörítés, a tulajdonos, a csoport és a kifejezetten megadott engedélyek megőrzésével?"
+14690,1,"A hozzáférés megtagadva. Véglegesen törli ezt az üres könyvtárat rendszergazdaként?"
+14691,1,"A hozzáférés megtagadva. Átnevezi ezt a könyvtárat rendszergazdaként? Először a jelenlegi, majd az új elérési út látható."
 14694,1,"Az engedély az alábbi útvonalon található védett mappákra is vonatkozik:"
 14695,1,"A hozzáférés megtagadva. Rendszergazdaként olvassa be az ezen az útvonalon található fájlok tartalmát ehhez az összehasonlításhoz?"
 14696,1,"A Windows kompatibilitási hivatkozás kimaradt. A teljes mérethez 0 bájttal járul hozzá."
 
+14697,1,"A hozzáférés megtagadva. Lekérdezi e fájl lefoglalt lemezterületét rendszergazdaként?"
 14698,1,"A művelet befejezése nem erősíthető meg. Egy munkamásolat vagy napló megmaradhatott. Újrapróbálkozás előtt ellenőrizze a forrást, a célhelyet és az esetleges biztonsági másolatot."
 
 14699,1,"Hozzáférés megtagadva. Lecseréli ezt a fájlt rendszergazdaként a cél jogosultságainak megtartásával? A helyettesítő fájl nem fog alternatív adatfolyamokat tartalmazni."
@@ -4481,8 +4484,8 @@ SLGINCOMPLETE,""
 14720,1,"A mappa listázása megszakadt, majd folytatódott. A fájlok közben módosulhattak, ezért a lista hiányos lehet. Ellenőrzéshez frissítse."
 
 14721,1,"A hozzáférés megtagadva. Másolja ezt a fájlt rendszergazdaként? Ez a mód nem támogatja az alternatív adatfolyamokat tartalmazó fájlokat."
-14722,0,"Access was denied even with administrator rights. The item's permissions may restrict access; inaccessible items are excluded from the result."
-14723,0,"Access was denied even with administrator rights. The folder's permissions may restrict access."
+14722,1,"A hozzáférés rendszergazdai jogosultsággal is megtagadva. Az elem jogosultságai korlátozhatják a hozzáférést; a nem elérhető elemek nem szerepelnek az eredményben."
+14723,1,"A hozzáférés rendszergazdai jogosultsággal is megtagadva. A mappa jogosultságai korlátozhatják a hozzáférést."
 
 [STRINGTABLE 199]
 14991,1,"Társítások beolvasása fájltárolóból, kérem várjon..."
