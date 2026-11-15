@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Identify explicit panel refresh commands. | Prompt for a fresh archive read only on user refresh. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain protected panel refresh. | Keep background notifications noninteractive. | #731 | GPT-6 |
 // | 2026-11-07 | Track the temporary Find notice separately from the normal caption. | Preserve custom and detached-window titles. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
@@ -667,6 +668,7 @@ public:
     void EnsurePanelAutomaticRefresh(CFilesWindow* panel);
     void EnsurePanelRefreshAndRequest(CFilesWindow* panel, bool rebuildDriveBars,
                                       bool postRefreshMessage = false);
+    // Only explicit refresh may request a new protected archive read.
     void RequestPanelRefresh(CFilesWindow* panel, bool rebuildDriveBars,
                              bool postRefreshMessage = false, bool explicitRefresh = false);
     std::wstring GetPanelTabDisplayText(CFilesWindow* panel) const;

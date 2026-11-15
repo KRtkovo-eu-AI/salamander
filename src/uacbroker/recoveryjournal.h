@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain private recovery records. | Document durability and ownership requirements for broker recovery. | | GPT-6 |
 // | 2026-11-08 | Share private recovery journal primitives. | Verify owner and DACL and flush records before mutating a name. | | GPT-6.1 Sol (Codex) |
 #pragma once
 
@@ -11,6 +12,8 @@
 
 namespace UacRecoveryJournal
 {
+// Callers flush the recovery record before mutating names so an interrupted
+// privileged operation does not rely on an unwritten in-memory decision.
 template <class Record>
 inline DWORD WriteRecord(HANDLE journal, const Record& record)
 {
@@ -30,6 +33,8 @@ inline DWORD ClearRecord(HANDLE journal)
     return ERROR_SUCCESS;
 }
 
+// Recovery metadata is trusted only when its owner and protected DACL match
+// the private descriptor expected by the operation.
 inline DWORD CheckPrivate(HANDLE object, PSECURITY_DESCRIPTOR expected)
 {
     PACL expectedDacl = nullptr;

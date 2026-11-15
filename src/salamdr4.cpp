@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain partial-size and protected tag reads. | Document lower bounds and the stream-based property handler. | #731 | GPT-6 |
 // | 2026-11-11 | Render the private disk size marker in the size column. | Preserve the released shared file data. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Show partial directory sizes as lower bounds. | Distinguish incomplete totals from complete sizes in the panel. | #731 | GPT-6.1 Sol |
 // | 2026-11-08 | Read file keywords through a stream-capable Windows property handler. | Keep the same tag semantics for the protected and ordinary paths. | | GPT-6.1 Sol (Codex) |
@@ -2368,6 +2369,8 @@ void WINAPI InternalGetDosName()
 
 void WINAPI InternalGetSize()
 {
+    // An incomplete disk scan retains its measured byte count with a private
+    // marker; render it as a lower bound rather than as an exact size or DIR.
     const bool partial = TransferIsDir == 1 && !TransferFileData->SizeValid &&
                          TransferPanelWindow && TransferPanelWindow->Is(ptDisk) &&
                          TransferFileData->PluginData == DiskDirectoryPartialSizeMarker;
@@ -2800,6 +2803,8 @@ HRESULT ReadFileTagsW(const wchar_t* path, std::vector<std::wstring>& tags)
     return hr;
 }
 
+// Protected Find reads through its approved stream. Initialize the normal
+// property handler from that stream instead of reopening the inaccessible path.
 HRESULT ReadFileTagsFromStreamW(const wchar_t* path, IStream* stream, std::vector<std::wstring>& tags)
 {
     tags.clear();

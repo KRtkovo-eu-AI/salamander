@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain UAC integration boundaries. | Document scope, lifetime and native workflow decisions. | #731 | GPT-6 |
 // | 2026-11-14 | Explain uncertain thin-copy cleanup in terminal errors. | Tell users to check a retained destination without weakening identity checks. | #731 | GPT-6 |
 // | 2026-11-13 | Identify accepted thin batch scope. | Preserve consent only when the scope was actually displayed. | #731 | GPT-6 |
 // | 2026-11-13 | Report transfer prompt allocation failures. | Distinguish low memory from a user's refusal. | #731 | GPT-6 |
@@ -175,6 +176,7 @@ BOOL CChangeAttrDialog::GetAndValidateTime(CTransferInfo* ti, int resIDDate, int
     return TRUE;
 }
 
+// Preview the requested metadata changes without granting access or changing the native dialog flow.
 void CChangeAttrDialog::UpdateElevationShield()
 {
     if (!ElevationShieldProbe)
@@ -1019,6 +1021,7 @@ void NotifyNativeBrokerActivity(HWND dialog, bool active)
 
 void CProgressDialog::SetBrokerActive(bool active)
 {
+    // Restore the original caption icon when the privileged part of the operation ends.
     if (active == BrokerShieldVisible)
         return;
     if (active)
@@ -2038,6 +2041,7 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 else if (prompt.kind == UacF7::TransferPromptKind::ThinPlainCopy && !moving && !tree)
                     confirmText = IDS_UAC_THIN_COPY_CONFIRM;
     #endif
+                // Tell the user when this consent also covers eligible items in the same job.
                 const bool shareJob = Script->Count > 1 && prompt.request.CanShareJob();
                 std::string message = std::string(LoadStr(confirmText)) + "\n\n" +
                                       prompt.sourcePath + "\n -> " + prompt.targetPath;

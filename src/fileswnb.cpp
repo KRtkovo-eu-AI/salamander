@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain partial directory selection totals. | Distinguish lower bounds from unknown sizes. | #731 | GPT-6 |
 // | 2026-11-15 | Escape the partial-size prefix in status text. | Preserve highlighted number formatting for lower bounds. | #731 | GPT-6 |
 // | 2026-11-15 | Explain denied size scans and total partial selections. | Report administrator denials and preserve lower-bound sums. | #731 | GPT-6 |
 // | 2026-11-10 | Return the result of preparing Find editor elevation. | Release the caller before any consent dialog. | #731 | GPT-6.1 Sol |
@@ -100,6 +101,7 @@ enum
     TREEVIEW_SPLITTER_WIDTH = 4
 };
 
+// A partial disk-directory size contributes a lower bound; an unmeasured item keeps the total unknown.
 static void AccumulateSelectedSize(CQuadWord& total, BOOL& display, bool& partialTotal,
                                    const CFileData& item, BOOL isDir, BOOL isDisk,
                                    BOOL sizeValid, BOOL pluginSizeValid, const CQuadWord& pluginSize)

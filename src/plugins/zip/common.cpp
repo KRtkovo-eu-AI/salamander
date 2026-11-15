@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain protected ZIP range reads. | Document validation and access through the approved source. | #731 | GPT-6 |
 // | 2026-11-08 | Open verified range sources for ZIP entry reads. | Bound ZIP64 extra-field reads by the actual header. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Read ZIP metadata through a bounded callback. | Validate ZIP64 offsets and keep protected listing on one file. | | GPT-6.1 Sol (Codex) |
 
@@ -521,6 +524,8 @@ CZipCommon::~CZipCommon()
         free(Comment);
 }
 
+// Reuse the normal parser on a broker-backed, single-volume source without
+// giving the plugin a handle to the protected archive.
 DWORD CZipCommon::OpenReadSource(const SalZipReadSourceV1& source)
 {
     Extract = false; // Never search for or open additional volumes.
@@ -599,6 +604,7 @@ int CZipCommon::Read(CFile* file, void* buffer, unsigned bytesToRead,
             toRead = unsigned(file->Size - file->FilePointer);
     else
         toRead = 0;
+    // Protected reads use the scoped callback while preserving parser offsets.
     if (RangeSource && file == ZipFile)
     {
         if (toRead != bytesToRead && !bytesRead)
@@ -1335,6 +1341,7 @@ int CZipCommon::FindZip64EOCentrDirLocator()
     if (zip64Locator.Signature != SIG_ZIP64LOCATOR)
         return 0;
 
+    // A protected source cannot follow another volume or an out-of-range ZIP64 record.
     if (RangeSource && (zip64Locator.Zip64StartDisk || zip64Locator.TotalDisks != 1 ||
                         ZipFile->FilePointer < sizeof(zip64Locator) + sizeof(CZip64EOCentrDirRecord) ||
                         zip64Locator.Zip64Offset > ZipFile->FilePointer - sizeof(zip64Locator) - sizeof(CZip64EOCentrDirRecord)))
@@ -1618,6 +1625,7 @@ void CZipCommon::ProcessHeader(CFileHeader* fileHeader, CFileInfo* fileInfo)
         unsigned iterator = sizeof(CFileHeader) + fileHeader->NameLen;
 
         // locate the Zip64 extra header
+        // Bound every extra field before reading ZIP64 values from archive bytes.
         const unsigned extraEnd = sizeof(CFileHeader) + fileHeader->NameLen + fileHeader->ExtraLen;
         BOOL found = FALSE;
         WORD fieldSize = 0;

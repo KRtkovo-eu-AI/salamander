@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Explain protected copy lifetime and staging. | Document the broker's existing I/O and publication boundaries. | | GPT-6 |
 | 2026-11-11 | Keep verified move copies pending with their exact attributes and destination security. | Share read-only rollback and staged publication with F6 overwrite. | | GPT-6.1 Sol |
 | 2026-11-11 | Stream large attributed overwrite inputs and their named streams. | Remove native overwrite snapshot limits without changing ZIP extraction. | | GPT-6.1 Sol |
 | 2026-11-11 | Stream native copies beyond the snapshot budget and preserve ordinary attributes. | Keep read-only staging rollback armed without widening ZIP or EFS contracts. | | GPT-6.1 Sol |
@@ -147,6 +148,8 @@ inline DWORD CheckCancelled(HANDLE cancel, HANDLE connection, ULONGLONG deadline
     return result == WAIT_OBJECT_0 ? ERROR_CANCELLED : ERROR_INVALID_HANDLE;
 }
 
+// Keep the OVERLAPPED and its buffer alive until cancellation has actually
+// completed, including when the host disconnects during the transfer.
 inline DWORD FinishOverlappedCopyIo(HANDLE file, OVERLAPPED& io, BOOL completed,
                                     DWORD& bytes, HANDLE cancel, HANDLE connection, ULONGLONG deadline)
 {
@@ -573,6 +576,8 @@ inline DWORD CopyOverwriteStreams(HANDLE source, const CopySourceLocation& locat
     return ERROR_SUCCESS;
 }
 
+// The brokered copy path stages data under a verified parent before publishing
+// it; move callers may retain the staged handle for their own publication step.
 inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_view targetName,
                             HANDLE cancel, HANDLE connection, ULONGLONG deadline, ULONGLONG expectedSize,
                             FILE_BASIC_INFO& basic, FILE_ID_INFO* created = nullptr,

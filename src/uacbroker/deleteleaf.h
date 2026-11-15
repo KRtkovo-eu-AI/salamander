@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Explain verified privileged deletion. | Document object identity and cleanup boundaries. | #731 | GPT-6 |
 | 2026-11-11 | Retire a read-only copied source only while its exact destination is pinned. | Keep F6 receipt identity checks and avoid clearing source attributes. | | GPT-6.1 Sol |
 | 2026-11-11 | Delete verified objects with common attributes without clearing ReadOnly. | Use atomic disposition and retain strict copied-source retirement. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Classify supported links from their attributes and reparse tag. | Share link type validation between listing and deletion. | #731 | GPT-6.1 Sol |
@@ -19,6 +20,8 @@
 
 namespace UacDeleteLeaf
 {
+// A reparse entry is detached only through its supported link-specific operation;
+// its target is never substituted for the selected leaf.
 inline UacF7::Operation LinkOperation(DWORD attributes, DWORD tag)
 {
     using UacF7::Operation;
@@ -95,6 +98,8 @@ inline DWORD DeleteOpenedLeaf(HANDLE file, const FILE_ID_INFO& expectedSource, U
         ? ERROR_SUCCESS : GetLastError();
 }
 
+// Keep the verified destination open while retiring the exact copied source.
+// Missing or replaced objects must not be treated as a successful move.
 inline DWORD DeleteCopiedSource(const std::wstring& source, const std::wstring& target,
                                 const FILE_ID_INFO& expectedSource, const FILE_ID_INFO& expectedTarget)
 {
@@ -137,6 +142,8 @@ inline DWORD DeleteCopiedSource(const std::wstring& source, const std::wstring& 
     return DeleteOpenedLeaf(sourceHandle.get(), expectedSource, UacF7::Operation::Delete, true);
 }
 
+// Confirm the approved parent, then open and delete the named leaf by handle.
+// Recursive traversal and user confirmations remain the worker's responsibility.
 inline DWORD DeleteVerifiedLeaf(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expectedParent,
                                 const FILE_ID_INFO& expectedSource, std::wstring_view leaf,
                                 UacF7::Operation operation = UacF7::Operation::Delete)

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Document protected Find dialog handoffs. | Explain consent ownership and verified viewer access. | #731 | GPT-6 |
 // | 2026-11-11 | Retain protected Find provenance through viewing and refinement. | Refuse pathname-only reads when identity cannot be preserved. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Display each incomplete Find reason without losing its origin. | Keep bounded logs and carried results truthful. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Preserve typed incomplete Find reasons across searches. | Keep different omissions distinct without changing current reports. | #731 | GPT-6.1 Terra |
@@ -2546,6 +2547,8 @@ void CFindDialog::BuildSerchForData()
     } while (*end != 0);
 }
 
+// Refine and append retain prior results, so their previous omissions must
+// remain visible instead of being mistaken for a complete new search.
 static unsigned RetainFindIncomplete(WORD command, unsigned reasons)
 {
     return command == CM_FIND_APPEND || command == CM_FIND_INTERSECT || command == CM_FIND_SUBTRACT ? reasons : FindIncompleteNone;
@@ -3159,6 +3162,8 @@ void CFindDialog::OnViewFile(BOOL alternate)
     const CFoundFilesData* result = FoundFilesListView->At(viewedIndex);
     if (result->IsDir)
         return;
+    // A protected Find result cannot be viewed safely by pathname when its
+    // captured identity is unavailable, even if the row remains visible.
     if (result->ProtectedOrigin && !result->FoundView)
     {
         SalMessageBox(HWindow, LoadStr(IDS_UAC_FIND_VIEW_IDENTITY_UNAVAILABLE), LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
@@ -3224,6 +3229,8 @@ void CFindDialog::OnEditFile()
     else if (openData.UntrustedEditor)
         SalMessageBox(HWindow, LoadStr(IDS_UAC_EDIT_ADMIN_UNTRUSTED), LoadStr(IDS_UAC_EDIT_ADMIN_TITLE),
                       MB_OK | MB_ICONEXCLAMATION);
+    // An external editor needs a separate consent; the Find read session does
+    // not grant an editor write access or elevate arbitrary programs.
     else if (openData.NeedsConsent)
     {
         const auto document = SalPathRemoveExtendedPrefixW(path.c_str());
@@ -3240,6 +3247,8 @@ void CFindDialog::OnViewFileWith()
     char* longName = fullName.data();
     if (fullName.empty())
         return;
+    // View With can launch an arbitrary external handler and cannot transfer
+    // the verified Find identity or its narrowly scoped read authorization.
     if (FoundFilesListView->At(viewedIndex)->ProtectedOrigin)
     {
         SalMessageBox(HWindow, LoadStr(IDS_UAC_FIND_VIEW_WITH_UNAVAILABLE), LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
@@ -5234,12 +5243,16 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
         break;
     }
 
+    // Foreground restoration belongs to the Find window's UI thread, not the
+    // worker which waited for the system consent dialog.
     case UacF7::restoreConsentForegroundMessage:
         UacF7::RestoreConsentForeground(HWindow, reinterpret_cast<HWND>(wParam), static_cast<DWORD>(lParam));
         return TRUE;
 
     case WM_USER_FIND_PROTECTED_CONSENT:
     {
+        // Run the prompt on its owning Find dialog and describe the actual
+        // read capability requested by the search worker.
         const auto scope = static_cast<FindConsentScope>(lParam);
         const int prompt = scope == FindConsentScope::File ? IDS_UAC_FIND_FILE_CONFIRM :
                            scope == FindConsentScope::Content ? IDS_UAC_FIND_CONTENT_CONFIRM : IDS_UAC_FIND_CONFIRM;

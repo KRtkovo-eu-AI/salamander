@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Document protected Find result provenance. | Clarify read scope and the lifetime of captured identities. | #731 | GPT-6 |
 // | 2026-11-15 | Expand protected Find session indices. | Retain the exact session for large searches. | #731 | GPT-6 |
 // | 2026-11-12 | Retain paged duplicate identities. | Revalidate the same protected file when hashing later. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Retain protected Find provenance through viewing and refinement. | Refuse pathname-only reads when identity cannot be preserved. | #731 | GPT-6.1 Terra |
@@ -239,6 +240,8 @@ struct CGrepData
     DWORD AttributesValue; // then compare
     CFilterCriteria Criteria;
     // control and data
+    // A protected panel contributes its captured root identity, not a blanket
+    // grant to other roots, external programs or write operations.
     std::shared_ptr<const UacF7::FindRootIdentity> ProtectedRoot;
     HWND ConsentWindow = nullptr; // owner of protected access prompts
     HANDLE StopEvent = nullptr; // owned by the dialog until the search worker has joined
@@ -597,6 +600,8 @@ struct CFoundFilesData
     CQuadWord Size;
     DWORD Attr;
     FILETIME LastWrite;
+    // Retain the captured identities beyond the search session so follow-up
+    // viewer and duplicate reads cannot trust a pathname alone.
     std::shared_ptr<const UacF7::PreparedLeaf> FoundView; // exact file identity from a protected search
     std::shared_ptr<const UacF7::MoveFileIdentity> ProtectedListedIdentity; // retained only for deferred protected duplicate reads
 

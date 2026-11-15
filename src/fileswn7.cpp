@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Prevent copying and deleting from the protected archive pilot. | Keep the archive listing read-only. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain protected ZIP operation boundaries. | Clarify bounded extraction and staged updates. | #731 | GPT-6 |
 // | 2026-11-11 | Compare the portable file-list exclusion identity. | Keep both the volume serial and all 128 identity bits. | #731 | GPT-6.1 Sol |
 // | 2026-11-11 | Exclude a pinned workspace by its exact directory identity. | Prevent recursive file lists from including their own private staging tree. | #731 | GPT-6.1 Sol |
 // | 2026-11-08 | Remove the standalone ZIP recovery action. | Keep recovery mechanics internal to archive publication. | | GPT-6.1 Sol (Codex) |
@@ -873,6 +874,7 @@ static void RemoveEmptyUnpackDirectoriesW(const std::wstring& root)
 
 namespace
 {
+// Build a bounded selection from the approved ZIP reader before requesting a protected destination write.
 class ProtectedZipSelection
 {
 public:
@@ -951,6 +953,7 @@ private:
 };
 }
 
+// Preserve the selected archive entries and destination in one scoped extraction request.
 static BOOL UnpackProtectedZipSelection(CFilesWindow* panel, const CPanelTmpEnumData& data,
                                        const char* archiveRoot, const char* directory)
 {
@@ -1139,6 +1142,7 @@ bool CFilesWindow::CanEditProtectedZip()
     return plugin && plugin->GetPluginDLL() && GetProcAddress(plugin->GetPluginDLL(), "SalamanderEditZipStageV1");
 }
 
+// Edit a staged archive through the ZIP plugin, then ask the broker to publish the prepared replacement.
 bool CFilesWindow::EditProtectedZip(const char* sourcePath, SalEnumSelection2 add, SalEnumSelection remove, void* context,
                                     const char* archiveRoot)
 try
@@ -1244,6 +1248,7 @@ catch (const std::bad_alloc&)
 void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const char* tgtPath,
                                     BOOL* changeTargetRequested)
 {
+    // Protected extraction uses the archive session already owned by this panel.
     const bool protectedZip = IsProtectedZip();
     if (protectedZip && deleteOp && !CanEditProtectedZip())
         return;

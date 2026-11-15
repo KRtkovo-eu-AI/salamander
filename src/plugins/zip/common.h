@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain state for protected ZIP reads. | Document callback ownership and selected-entry offsets. | #731 | GPT-6 |
 // | 2026-11-08 | Keep the verified central-directory offset in ZIP listing data. | Avoid rescanning preceding entries during protected extraction. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Share ZIP range-source validation between listing and entry reads. | Keep the ordinary file-based entry points. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Accept a private ZIP range source. | Keep existing file-backed ZIP paths intact. | | GPT-6.1 Sol (Codex) |
@@ -41,7 +44,7 @@ public:
     ~CZIPFileData() { free(OwnedNameW); }
 
     QWORD PackedSize;
-    QWORD CentralOffset;
+    QWORD CentralOffset; // Exact central record retained for protected entry reads.
     int ItemNumber; // # of item in Cetral Directory, not offset
     BOOL Unix;
     // The legacy directory callback does not adopt CFileData::NameW. Keep its
@@ -173,6 +176,8 @@ struct SalZipReadSourceV1;
 class CZipCommon
 {
 public:
+    // Borrow the host-owned source only for this parser's lifetime; errors
+    // propagate back to the caller rather than opening an archive by path.
     const SalZipReadSourceV1* RangeSource = nullptr;
     DWORD RangeError = ERROR_SUCCESS;
     CFile* ZipFile;             //zip file hanndle

@@ -2,12 +2,15 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Declare the private panel listing export. | Pass the standard directory and plugin data within the host process. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain the private ZIP callback contract. | Keep scoped access inside the host without changing the plugin SDK. | #731 | GPT-6 |
 // | 2026-11-08 | Declare the private ZIP entry reader. | Stream verified output to a host-owned destination. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Define the private ZIP range reader interface. | Keep the public plugin SDK unchanged. | | GPT-6.1 Sol (Codex) |
 #pragma once
 
 #include <windows.h>
 
+// The host owns the approved archive and supplies bounded reads; the ZIP
+// parser receives neither an elevated token nor a protected file handle.
 struct SalZipReadSourceV1
 {
     ULONGLONG Size;
@@ -18,6 +21,8 @@ struct SalZipReadSourceV1
 
 class CSalamanderDirectoryAbstract;
 class CPluginDataInterfaceAbstract;
+// These private entry points keep normal plugin-owned panel rows and stream
+// selected output to a host-owned destination without extending the public ABI.
 using SalListZipPanelV1 = DWORD(WINAPI*)(const SalZipReadSourceV1*, CSalamanderDirectoryAbstract*,
                                        CPluginDataInterfaceAbstract**);
 

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain shielded prompt layout and safety. | Keep the complete authorization text and explicit action visible. | #731 | GPT-6 |
 // | 2026-11-09 | Scroll oversized administrator prompts. | Keep the complete path and Cancel within reach. | | Codex |
 // | 2026-11-09 | Keep explicit message-box line breaks when sizing and drawing. | Display the complete UAC destination path. | | Codex |
 // | 2026-11-07 | Put the UAC shield on the explicit OK button when requested. | Allow Cancel to retain default focus. | | GPT-6.1 Sol (Codex) |
@@ -727,6 +728,8 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
 
 
+        // Long consent descriptions must remain readable without pushing the
+        // confirmation and cancellation controls off the available screen.
         const int workHeight = clipRect.bottom - clipRect.top;
         const bool oversizedConsent = !scrollableText && (Flags & MSGBOXEX_SHIELDONOKBTN) &&
                                       workHeight > 0 && tR.bottom > workHeight / 2;
@@ -1051,6 +1054,8 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                          HWindow, (HMENU)(INT_PTR)IDS_MSGBOX_URL, HInstance, NULL);
             SendMessage(hEdit, WM_SETFONT, SendMessage(HWindow, WM_GETFONT, 0, 0), TRUE);
             const BOOL textSet = SetWindowTextW(hEdit, scrollableBodyText.c_str());
+            // Do not request approval if the protected path or scope was
+            // truncated while creating the scrollable description.
             if (oversizedConsent && (!textSet || GetWindowTextLengthW(hEdit) != (int)scrollableBodyText.size()))
             {
                 EndDialog(HWindow, IDCANCEL);
@@ -1127,6 +1132,8 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         if (WindowsVistaAndLater)
         {
+            // The explicit privileged action may differ from the default
+            // button, which can remain Cancel for safe keyboard behavior.
             const int shieldButton = (Flags & MSGBOXEX_SHIELDONOKBTN) ? IDOK :
                                      ((flagsEx & MSGBOXEX_SHIELDONDEFBTN) ? btnID[defIndex] : 0);
             if (shieldButton != 0)

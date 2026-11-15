@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain protected ZIP edit handling. | Describe staging and publication decisions. | #731 | GPT-6 |
 // | 2026-11-08 | Edit the prepared ZIP in place with standard ZIP options. | Report no-op deletion and truncation failure before publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 
@@ -83,6 +84,7 @@ int CZipPack::PackToArchive(BOOL move, const char* sourcePath,
 
     flags |= (noexist ? PD_NEWARCHIVE : 0) | (Removable ? PD_REMOVALBE : 0);
 
+    // The broker publishes the completed stage; avoid a second ZIP backup.
     if (StagedEdit)
     {
         Options = DefOptions;
@@ -103,6 +105,7 @@ int CZipPack::PackToArchive(BOOL move, const char* sourcePath,
     if (*(SourcePath + SourceLen - 1) == '\\')
         SourceLen--;
     SkipAllIOErrors = false;
+    // A staged update must never move the user's original input files.
     Move = !StagedEdit && move;
     Pack = true;
 
@@ -196,6 +199,7 @@ int CZipPack::DeleteFromArchive(SalEnumSelection next, void* param)
                     {
                         MatchedTotalSize = CQuadWord(0, 0);
                         ErrorID = CZipCommon::MatchFiles(DelFiles, delNames, dirs, NewCentrDir);
+                        // A stage with no matching entries must not be published as an update.
                         if (StagedEdit && !ErrorID && !DelFiles.Count)
                             NothingToDo = true;
                         if (!ErrorID && DelFiles.Count)
@@ -264,6 +268,7 @@ int CZipPack::DeleteFromArchive(SalEnumSelection next, void* param)
                                                 {
                                                     if (!Flush(TempFile, TempFile->OutputBuffer, TempFile->BufferPosition, NULL))
                                                     {
+                                                        // A failed truncation makes the staged archive unsuitable for publication.
                                                         if (!SetEndOfFile(TempFile->File) && StagedEdit)
                                                             ErrorID = IDS_ERRWRITE;
                                                     }

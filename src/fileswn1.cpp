@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-15 | Explain protected panel path marking. | Identify the path component covered by the active session. | #731 | GPT-6 |
 // | 2026-11-08 | Mark protected archive paths with the existing administrator shield. | Keep the path and folder navigation familiar. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Mark the panel while it displays an approved protected listing. | Make the read-only scope visible throughout navigation. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Replace the protected-listing suffix with a shield. | Keep the status separate from the displayed path. | | GPT-6.1 Sol (Codex) |
@@ -3530,6 +3531,7 @@ void CFilesWindow::DirectoryLineSetText()
     if (path == NULL)
         return;
 
+    // Mark the authorized root or ZIP leaf without changing the displayed path or navigation.
     int administratorPathStart = -1;
     if (Is(ptDisk) && ProtectedListing && ProtectedListing->Contains(GetPathW()))
     {

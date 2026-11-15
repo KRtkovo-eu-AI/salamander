@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Carry manual protected ZIP refresh into archive navigation. | Keep the existing refresh rollback behavior. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain protected archive refresh intent. | Keep interactive reads tied to explicit user refresh. | #731 | GPT-6 |
 // | 2026-11-11 | Route Escape through the explicit Branch Stop action. | Preserve first-scan results while keeping Quick Search priority. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Carry the disk directory size marker across refresh. | Restrict private row metadata to disk listings. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Retain the partial size marker on a refresh. | Preserve a visibly partial directory total. | #731 | GPT-6.1 Sol |
@@ -2796,6 +2797,7 @@ void CFilesWindow::RefreshDirectory(BOOL probablyUselessRefresh, BOOL forceReloa
 
     case ptZIPArchive:
     {
+        // Forward explicit refresh intent so protected ZIP reads can reuse their session.
         result = ChangePathToArchive(GetZIPArchive(), GetZIPPath(), -1, NULL, TRUE, &noChange,
                                      FALSE, NULL, TRUE, FALSE, FALSE, NULL, explicitProtectedZip);
 

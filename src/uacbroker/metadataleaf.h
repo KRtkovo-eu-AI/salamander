@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Explain scoped metadata changes. | Document selected identity and attribute checks. | #731 | GPT-6 |
 | 2026-11-11 | Allow verified timestamps on special NTFS files. | Preserve their compression, sparse and encryption state without changing attributes. | #731 | GPT-6.1 Terra |
 | 2026-11-08 | Allow basic attributes on one verified directory. | Keep directory changes in the same bounded metadata update. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Allow timestamps on one verified directory. | Restrict directory metadata to the selected timestamps. | | GPT-6.1 Sol (Codex) |
@@ -31,6 +32,8 @@ inline bool IsDirectory(const UacF7::MetadataChange& change)
     return (change.expectedAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
 }
 
+// Only the approved basic attributes and timestamps are accepted here.
+// Special file types may receive timestamps without changing their attributes.
 inline bool IsValid(const UacF7::MetadataChange& change)
 {
     const bool validExpected = IsDirectory(change)
@@ -52,6 +55,8 @@ inline DWORD CheckAttributes(HANDLE file, const UacF7::MetadataChange& change)
     return ERROR_SUCCESS;
 }
 
+// Bind the update to the approved parent and object before applying one basic-info change.
+// The handle requests metadata access, not data access.
 inline DWORD SetVerifiedMetadata(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expectedParent,
                                  const FILE_ID_INFO& expectedSource, std::wstring_view leaf,
                                  const UacF7::MetadataChange& change)

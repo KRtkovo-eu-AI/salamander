@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain protected ZIP listing integration. | Describe bounded parsing and panel metadata. | #731 | GPT-6 |
 // | 2026-11-08 | Record each ZIP entry offset from the ordinary parser. | Let protected selection reads seek directly to their records. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Use the common verified range-source initializer. | Share ZIP64 and single-volume checks. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Build protected listings through the regular ZIP directory parser. | Keep invalid paths out of the browsable tree. | | GPT-6.1 Sol (Codex) |
@@ -54,6 +57,8 @@ static wchar_t* DupZipUtf8NameW(const char* name, int nameLen)
     return nameW;
 }
 
+// Enumerate the approved archive with the normal parser; the callback receives
+// entry names rather than a handle to the protected archive.
 DWORD CZipList::ListSource(const SalZipReadSourceV1& source)
 {
     const DWORD openError = OpenReadSource(source);
@@ -194,6 +199,7 @@ START_LIST:
                 break;
             }
             readSize += s;
+            // Protected panel rows must stay inside the validated archive and virtual tree.
             if (RangeSource)
             {
                 if (readSize > CentrDirSize || cnt >= EOCentrDir.TotalEntries)
@@ -260,6 +266,7 @@ START_LIST:
 #undef new
 #define ZIP_LIST_RESTORE_DEBUG_NEW
 #endif
+            // Retain the record offset so protected extraction can verify the selected row.
             file.PluginData = (DWORD_PTR) new (std::nothrow) CZIPFileData(fileInfo.CompSize, readOffset - s, cnt, Unix);
 #ifdef ZIP_LIST_RESTORE_DEBUG_NEW
 #define new new (_NORMAL_BLOCK, __FILE__, __LINE__)

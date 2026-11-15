@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain protected EFS publication checks. | Verify the encrypted payload before releasing cleanup. | #731 | GPT-6 |
 // | 2026-11-09 | Gate EFS publication against a simultaneous overwrite. | Keep the encrypted stage private until the destination can be published. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Expose EFS publication checkpoints to the native test only. | Test abrupt process loss before and after publication commits. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Verify EFS data and metadata after publication. | Keep guarded deletion active until the final encrypted object is confirmed. | | GPT-6.1 Sol (Codex) |
@@ -90,6 +91,8 @@ inline DWORD VerifyStreams(HANDLE file, const std::vector<UacCopyLeaf::Detail::D
     return actual == expected ? ERROR_SUCCESS : ERROR_FILE_INVALID;
 }
 
+// Do not accept publication unless encryption, size, requested timestamps and
+// the recorded alternate streams still match the approved source.
 inline DWORD VerifyPublishedPayload(HANDLE file, ULONGLONG expectedSize, const FILE_BASIC_INFO& metadata,
                                     const std::vector<UacCopyLeaf::Detail::DataStream>* streams)
 {

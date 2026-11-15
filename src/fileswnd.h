@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Track protected archive mode on the panel. | Distinguish manual refresh from background refresh. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain panel-owned UAC sessions. | Clarify session lifetime across panel navigation. | #731 | GPT-6 |
 // | 2026-11-11 | Store file-list exclusion identity in the portable host type. | Avoid a Windows SDK type dependency in every panel consumer. | #731 | GPT-6.1 Sol |
 // | 2026-11-11 | Pass an identity-bound file-list exclusion. | Avoid listing a private staging directory inside the selected tree. | #731 | GPT-6.1 Sol |
 // | 2026-11-11 | Distinguish an explicit Branch Stop from internal cancellation. | Preserve initial partial results without publishing abandoned generations. | #731 | GPT-6.1 Terra |
@@ -923,6 +924,7 @@ public:
     ULONGLONG PanelTabId;
 
     CBranchViewState* BranchView; // core-owned disk collection, NULL for ordinary panels
+    // Each panel owns its scoped read sessions; a cancelled path change retains the previous listing.
     bool ProtectedZip = false;
     std::unique_ptr<UacF7::ArchiveReadSession> ProtectedZipSession;
     std::unique_ptr<UacF7::ListingSession> ProtectedListing;
@@ -1590,6 +1592,7 @@ public:
     void CreateDir(CFilesWindow* target);
     void RenameFile(int specialIndex = -1);
     void RenameFileInternal(CFileData* f, const char* formatedFileName, BOOL isDir, BOOL* mayChange, BOOL* tryAgain);
+    // Only a shielded confirmation carries consent to the elevated rename retry.
     enum class RenameDialogConsent { None, Plain, Shielded };
     void RenameFileInternalW(CFileData* f, const std::wstring& newNameW, BOOL isDir, BOOL* mayChange, BOOL* tryAgain,
                              RenameDialogConsent consent = RenameDialogConsent::None);
@@ -1652,6 +1655,7 @@ public:
     // 'forceReloadThumbnails' is TRUE when all thumbnails need to be regenerated again (not only those
     // of changed files); 'isInactiveRefresh' is TRUE when refreshing an inactive window-we load
     // only visible icons/thumbnails/overlays; others are loaded once the main window becomes active
+    // These archive actions use the protected session owned by this panel.
     bool IsProtectedZip() { return Is(ptZIPArchive) && ProtectedZip; }
     bool CanEditProtectedZip();
     bool EditProtectedZip(const char* sourcePath, SalEnumSelection2 add, SalEnumSelection remove, void* context,

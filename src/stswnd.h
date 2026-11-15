@@ -1,8 +1,10 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Explain protected listing indicator state. | Keep its path highlight and shield separate from connection security. | #731 | GPT-6 |
 | 2026-11-07 | Track the start of the protected path. | Use the panel selection colors for the approved part. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Show a UAC shield for protected directory listings. | Keep the shield separate from the path and the connection security icon. | | GPT-6.1 Sol (Codex) |
 */
@@ -93,6 +95,8 @@ protected:
     char* ThrobberTooltip;         // Tooltip; if NULL, nothing is displayed
     int ThrobberID;                // identifier of the throbber (-1 = invalid)
 
+    // This indicates the panel's approved listing scope, not elevation of the
+    // whole process or the state of the connection-security indicator.
     int AdministratorPathStart = -1; // Byte offset in Text, or -1 for an ordinary path
     HICON AdministratorShield = NULL;
     RECT AdministratorShieldRect{};

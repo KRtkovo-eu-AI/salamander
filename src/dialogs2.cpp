@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain UAC integration boundaries. | Document scope, lifetime and native workflow decisions. | #731 | GPT-6 |
 // | 2026-11-08 | Estimate occupied space only from a complete set of logical file sizes. | Keep estimates correct for empty files and arbitrary cluster sizes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Keep the same full size results dialog for protected totals. | Preserve the layout and leave unavailable values disabled. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Show protected totals in the compact size dialog. | Use the Ctrl+Q layout for measured values and omit allocation controls. | | GPT-6.1 Sol (Codex) |
@@ -490,6 +491,7 @@ void CSizeResultsDlg::UpdateEstimate()
     SendDlgItemMessage(HWindow, IDC_EST_CLUSTER, WM_GETTEXT, 11, (LPARAM)buf);
     int bytesPerCluster = atoi(buf);
 
+    // Partial protected scans cannot provide a reliable per-file allocation estimate.
     bool complete = Sizes != NULL && Sizes->IsGood() && Sizes->Count == Files && bytesPerCluster > 0;
     CQuadWord estimated(0, 0);
     if (complete)

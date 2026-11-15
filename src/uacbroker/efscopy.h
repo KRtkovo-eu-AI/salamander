@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain protected EFS copy. | Describe the verified encrypted transfer boundary. | #731 | GPT-6 |
 // | 2026-11-09 | Forward the EFS publication gate. | Share the overwrite interlock without adding it to raw export and import. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Publish encrypted import progress. | Use the exported raw buffer size without estimating plaintext work. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Preserve and verify EFS alternate data streams. | Keep the source stream inventory consistent through encrypted export and publication. | | GPT-6.1 Sol (Codex) |
@@ -13,6 +14,8 @@
 
 namespace UacEfsWorkspace
 {
+// Keep EFS data encrypted: verify both parents and the source, export through
+// a private alias, then import and publish only the verified encrypted payload.
 inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::ParentIdentity& expectedSourceParent,
                               const FILE_ID_INFO& expectedSource, std::wstring_view sourceLeaf,
                               HANDLE target, const UacDirectoryLeaf::ParentIdentity& expectedTarget,

@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain staged ZIP completion. | Reject an incomplete stage before protected publication. | #731 | GPT-6 |
 // | 2026-11-08 | Check staged ZIP truncation after packing. | Do not publish if the normal ZIP writer could not finish. | | GPT-6.1 Sol (Codex) |
 
 #include "precomp.h"
@@ -1906,6 +1909,7 @@ int CZipPack::FinishPack(int reason)
         {
             if (!Flush(TempFile, TempFile->OutputBuffer, TempFile->BufferPosition, NULL))
             {
+                // A failed stage truncation must prevent the host from publishing it.
                 if (!SetEndOfFile(TempFile->File) && StagedEdit)
                     errorID = IDS_ERRWRITE;
             }

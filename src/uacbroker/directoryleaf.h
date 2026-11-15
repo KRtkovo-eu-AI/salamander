@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Explain anchored directory operations. | Document identity checks and scoped traversal. | #731 | GPT-6 |
 | 2026-11-10 | Allow create-only operations to retain a pinned directory. | Anchor subsequent requests to the newly created destination root. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Expose the access needed by the final nested destination handle. | Keep named-stream move verification on the same handle used for publication. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Allow transfer callers to pin an existing destination. | Reject renames while creating a verified missing suffix. | #731 | GPT-6.1 Sol |
@@ -31,6 +32,8 @@ inline bool Equal(std::wstring_view a, std::wstring_view b)
            CompareStringOrdinal(a.data(), static_cast<int>(a.size()), b.data(), static_cast<int>(b.size()), TRUE) == CSTR_EQUAL;
 }
 
+// Restrict each privileged relative open to one ordinary Windows name.
+// Separators, stream syntax, traversal and DOS device names are not accepted.
 inline bool IsComponent(std::wstring_view name)
 {
     if (name.empty() || name.size() > maxComponent || name.back() == L' ' || name.back() == L'.')
@@ -55,6 +58,8 @@ struct ParentIdentity
     std::wstring volume;
 };
 
+// Bind a parent handle to an NTFS volume and file ID instead of trusting its path.
+// Reject reparse points before the handle is used as an authority for child opens.
 inline DWORD ReadParentIdentity(HANDLE parent, ParentIdentity& identity)
 {
     FILE_ATTRIBUTE_TAG_INFO attr{};
@@ -102,6 +107,8 @@ inline bool SameParent(const ParentIdentity& a, const ParentIdentity& b)
 
 namespace Detail
 {
+// Resolve relative to the supplied handle with reparse traversal disabled.
+// The caller chooses only the access and sharing needed for its operation.
 inline DWORD NativeDirectory(HANDLE root, std::wstring_view name, ULONG disposition, HANDLE& directory,
                              ACCESS_MASK extraAccess = 0, PSECURITY_DESCRIPTOR security = nullptr,
                              ULONG sharing = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, ULONG options = 0,

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Refuse drag-and-drop writes into a protected ZIP listing. | Keep the pilot read-only. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain protected ZIP drag-and-drop limits. | Avoid transferring a scoped session to an unrelated operation. | #731 | GPT-6 |
 // | 2026-11-08 | Separate the directory timestamp criterion. | Keep the ordinary copy option check unchanged. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-05 | Persist Copy/Move transfer, conflict, and wait defaults with CCriteriaData. | Save options as defaults ignored the newer dialog settings. | https://github.com/KRtkovo-eu-AI/salamander/issues/734 | Composer |
 // CommentsTranslationProject: TRANSLATED
@@ -852,6 +853,7 @@ void CFilesWindow::RefreshVisibleItemsArray()
 
 void CFilesWindow::DragDropToArcOrFS(CTmpDragDropOperData* data)
 {
+    // Drag-and-drop cannot transfer the protected archive session to its target operation.
     if (IsProtectedZip())
         return;
     CALL_STACK_MESSAGE1("CFilesWindow::DragDropToArcOrFS()");

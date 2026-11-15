@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 //
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain UAC integration boundaries. | Document scope, lifetime and native workflow decisions. | #731 | GPT-6 |
 // | 2026-11-12 | Model identity-bound partial listing merges. | Prevent duplicate rows and detect replacements without assuming atomic snapshots. | #731 | GPT-6.1 Terra |
 // | 2026-11-12 | Retry denied Branch listings after scoped consent. | Keep partial results and verify listed directory identities. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Track an explicitly stopped initial scan until its partial snapshot is published. | Preserve discovered results without affecting replacement and refresh cancellation. | #731 | GPT-6.1 Terra |
@@ -292,6 +293,7 @@ public:
     bool Preparing = false;
     bool CompletionPending = false;
     bool StoppingInitial = false;
+    // Distinguish a panel-session scan from a retry of denied directories after a local scan.
     bool UseProtectedListing = false;
     bool PanelScopePending = false;
     bool RetryingProtected = false;

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain ZIP selection validation. | Document the boundary between decoded entries and privileged publication. | | GPT-6 |
 // | 2026-11-08 | Validate and publish a bounded ZIP selection. | Bind every output component to a verified destination handle. | | GPT-6.1 Sol (Codex) |
 #pragma once
 
@@ -29,6 +30,8 @@ struct EntryNameLess
     }
 };
 
+// Treat the host's decoded selection as untrusted: require parent directories
+// to precede their children and reject invalid or duplicate path components.
 inline DWORD Decode(const std::vector<BYTE>& bytes, std::vector<Entry>& entries)
 {
     if (bytes.empty() || bytes.size() > UacF7::maxZipSelectionBytes)

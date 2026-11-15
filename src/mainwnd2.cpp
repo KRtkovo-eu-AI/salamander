@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain protected panel startup fallback. | Document how the readable ancestor is selected without consent. | #731 | GPT-6 |
 // | 2026-11-10 | Restore protected saved panel paths to a readable ancestor. | Do not prompt for elevation while starting the application. | #731 | GPT-6.1 Sol |
 // | 2026-11-09 | Save and load the Change Drive block order. | Keep the chosen Plugin/Hot Paths ordering across restarts. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
 // | 2026-11-09 | Load and save custom association handlers with the active configuration. | Resolve custom association IDs against the selected viewer/editor catalog after restart. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -2874,6 +2875,8 @@ static BOOL RestoreDeniedSavedPanelPath(CFilesWindow* panel, const char* path)
             return FALSE;
         denied = true;
 
+        // Once a denial is observed, restore the nearest enumerable ancestor;
+        // an empty directory is also a usable saved-panel destination.
         if (error == ERROR_SUCCESS || error == ERROR_FILE_NOT_FOUND)
         {
             const auto readable = SalWideToMultiBytePath(candidate.c_str(), CP_UTF8);

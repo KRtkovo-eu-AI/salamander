@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain workspace sealing and cleanup. | Clarify the protected file-list handoff and object lifetime. | #731 | GPT-6 |
 // | 2026-11-11 | Isolate native file-list workspace implementation. | Keep newer Windows identity types and NT headers out of the host PCH. | #731 | GPT-6.1 Sol |
 #undef _WIN32_WINNT
 #define _WIN32_WINNT 0x0A00
@@ -122,6 +123,8 @@ public:
     }
 #endif
 
+    // Close the writer and retain a verified read handle before consent. The
+    // ID, length, and digest checks bind the later copy to the generated list.
     DWORD Seal()
     {
         if (writer_ == INVALID_HANDLE_VALUE || directory_ == INVALID_HANDLE_VALUE) return ERROR_INVALID_HANDLE;

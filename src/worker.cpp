@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain UAC paths in the native worker. | Document approval, handle ownership, and error boundaries. | #731 | GPT-6 |
 // | 2026-11-14 | Preserve native CopyAttrs handling on scoped file handles. | Reuse the F5 worker for attribute-aware copies. | #731 | GPT-6 |
 // | 2026-11-14 | Preserve the requested archive attribute on scoped completion. | Match native CopyAttrs semantics before enabling the option. | #731 | GPT-6 |
 // | 2026-11-14 | Observe broker loss while paused during F5 completion. | Preserve uncertain targets even when cancellation coincides with disconnection. | #731 | GPT-6 |
@@ -1047,6 +1048,8 @@ BOOL COperations::GetConflictSnapshot(int index, CCopyMoveConflictSnapshot& conf
     return found;
 }
 
+// Capture the item and its target identity under the same lock so a dialog
+// response can be rejected if a scan changes the conflict while it is open.
 BOOL COperations::GetConflictDecisionSnapshot(int index, CCopyMoveConflictDecisionSnapshot& conflict)
 {
     HANDLES(EnterCriticalSection(&ConflictCS));
@@ -2334,6 +2337,8 @@ struct CProgressDlgData
     HANDLE WorkerNotSuspended;
     BOOL* CancelWorker;
     HANDLE CancelWorkerEvent;
+    // Keep approved helper jobs with this operation so compatible items reuse
+    // the same scoped session and teardown closes every connection.
     std::list<UacF7::TransferJobSession> TransferJobs;
 #ifdef SAM_UAC_THIN_COPY_TEST
     // The experimental handle transport stays out of the production build.
@@ -5879,6 +5884,9 @@ enum CCopy_ForceOp
     fopWriting  // forced to write
 };
 
+// The original asynchronous block scheduler also owns I/O issued through
+// delegated handles; their buffers and OVERLAPPED state remain valid until
+// pending operations have completed or cancellation has been drained.
 struct CCopy_Context
 {
     CAsyncCopyParams* AsyncPar;
@@ -7184,6 +7192,8 @@ void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, vo
 #endif
 }
 
+// Broker transfers report through the existing progress dialog so cancellation
+// and visible progress remain coordinated with the native worker.
 static UacF7::Result ExecuteWithNativeTransferProgress(const UacF7::PreparedTransfer& request, HWND progress,
                                                        HANDLE cancel, UacF7::TransferJobSession* job,
                                                        const COperation& op, COperations& script,
@@ -7251,6 +7261,8 @@ struct CreateOnlySourceReceipt
     ULONGLONG opening = 0;
 };
 
+// Reuse only a compatible job-scoped broker session and keep its lifetime in
+// the operation script, rather than granting the whole application elevation.
 static bool ExecuteWorkerTransfer(HWND progress, const COperation& op, COperations& script,
                                   CQuadWord& totalDone, CProgressDlgData& dlgData, BOOL& success,
                                   UacF7::PreparedTransfer& request, DWORD& error, bool targetDenied = false,
@@ -7412,6 +7424,8 @@ static bool ExecuteWorkerTransfer(HWND progress, const COperation& op, COperatio
     return true;
 }
 
+// The UI-side listing records a request per source path. Reuse that exact
+// request on the worker thread without passing the panel's listing pipe here.
 static const COperations::ProtectedFileSource* ListedTransferSource(const COperation& op, const COperations& script)
 {
     if (!(op.OpFlags & OPFL_UAC_TRANSFER_LISTED) || !script.ProtectedFileSources)
@@ -8005,6 +8019,8 @@ void CThinCopyWorker::ReleaseTargetPin()
 }
 #endif
 
+// A denied native transfer can be retried only when the source, destination,
+// options, and any listing-derived identity fit a supported broker operation.
 static bool TryTransferWithBroker(HWND progress, const COperation& op, COperations& script,
                               CQuadWord& totalDone, CProgressDlgData& dlgData, BOOL& success, DWORD& error,
                               HANDLE* input = nullptr, bool targetDenied = false, CreateOnlySourceReceipt* receipt = nullptr)
@@ -8087,6 +8103,8 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
     return ExecuteWorkerTransfer(progress, op, script, totalDone, dlgData, success, request, error, targetDenied, receipt);
 }
 
+// Capture the target for the native conflict decision before asking a broker
+// to replace it; access approval is not itself an overwrite confirmation.
 static bool PrepareWorkerOverwrite(const COperation& op, COperations& script,
                                    const CProgressDlgData& dlgData, UacF7::PreparedTransfer& request)
 {
@@ -8317,6 +8335,8 @@ static SourceOverwriteResult ConfirmBrokerOverwriteAttributes(HWND progress, con
     return answer == IDB_SKIP || answer == IDB_SKIPALL ? Outcome::Skipped : Outcome::Cancelled;
 }
 
+// A denied source still uses the native overwrite and attribute decisions;
+// only an identity-bound approved replacement is passed to the helper.
 static SourceOverwriteResult TryOverwriteDeniedSource(HWND progress, COperation& op, COperations& script,
                                                       CQuadWord& totalDone, CProgressDlgData& dlgData,
                                                       UacF7::OverwriteApproval& approval, DWORD& error, bool targetDenied = false,
@@ -8450,6 +8470,9 @@ BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
     UacF7::OverwriteApproval approvedOverwrite{};
     CreateOnlySourceReceipt createOnlyReceipt{};
     bool previousNativeOverwriteConfirmed = false;
+    // The source may already be known only through a protected panel, or the
+    // destination may still need privileged creation. Either case must enter
+    // the scoped transfer path before the ordinary worker opens those names.
     const bool deferred = script->DeferredTransferTarget.has_value();
     if (originalTransfer && (deferred || (op->OpFlags & OPFL_UAC_TRANSFER_SOURCE) != 0))
     {
@@ -8701,6 +8724,8 @@ COPY_AGAIN:
                         }
                     }
 #endif
+                    // Only a denied destination enters the scoped helper path;
+                    // all other open failures retain the native error handling.
                     if (originalTransfer && out == INVALID_HANDLE_VALUE && !invalidTgtName &&
                         (!copyAsEncrypted || UacF7::IsEncryptedCopyFile(op->Attr)) &&
                         !dlgData.SkipAllFileOpenOut && GetLastError() == ERROR_ACCESS_DENIED)
@@ -10352,6 +10377,8 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
     BOOL invalidName = FileNameIsInvalid(op->SourceName, TRUE, dir) ||
                        FileNameIsInvalid(op->TargetName, TRUE, dir && ignInvalidName);
 
+    // A listing-derived source cannot be reopened by the ordinary path, so the
+    // worker routes it through the shared protected-transfer error handling.
     if (script->DeferredTransferTarget ||
         (!dir && (op->OpFlags & OPFL_UAC_TRANSFER_LISTED)))
         return DoCopyFile(op, hProgressDlg, buffer, script, totalDone, clearReadonlyMask, nullptr,
@@ -10585,6 +10612,8 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
                         goto NORMAL_ERROR;
                     }
                 }
+                // Retry an eligible denied move through the scoped helper,
+                // retaining the worker's cancellation and Skip All decisions.
                 if (err == ERROR_ACCESS_DENIED && !invalidName && !*novellRenamePatch && !dlgData.SkipAllMoveErrors)
                 {
                     DWORD transferError = ERROR_SUCCESS;
@@ -11617,6 +11646,8 @@ BOOL DoCreateDir(HWND hProgressDlg, char* name, DWORD attr,
                 if (attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_DIRECTORY))
                     err = ERROR_ALREADY_EXISTS;
             }
+            // A tree entry can reuse the approved copy scope, but the helper
+            // still verifies its listed source and destination before creation.
             if (err == ERROR_ACCESS_DENIED && (op.OpFlags & OPFL_UAC_TREE_ENTRY) && !dlgData.SkipAllDirCreateErr)
             {
                 BOOL success = FALSE;
@@ -12603,6 +12634,8 @@ static LONGLONG MetadataFileTime(const FILETIME& time)
     return static_cast<LONGLONG>(value.QuadPart);
 }
 
+// Metadata and delete retries use a prepared object identity so an accepted
+// dialog cannot silently act on a different entry that replaced the selection.
 static BOOL ExecuteVerifiedWorkerLeaf(HWND progress, const COperation& op, const UacF7::PreparedLeaf* request,
                                       CProgressDlgData& dlgData, WPARAM promptKind, int errorTitle,
                                       bool shieldedOk = false, bool* nonEmptyDirectory = nullptr,
@@ -12653,6 +12686,8 @@ static BOOL ExecuteVerifiedWorkerLeaf(HWND progress, const COperation& op, const
     }
 }
 
+// Retry eligible permanent deletions against the selected or listing-derived
+// identity; ordinary and incomplete directory paths keep their native flow.
 static bool TryDeleteVerifiedLeaf(HWND progress, const COperation& op, COperations& script,
                                   CProgressDlgData& dlgData, BOOL& success, bool* nonEmptyDirectory,
                                   bool accessDenied)
@@ -12755,6 +12790,8 @@ bool BuildBasicMetadataChange(DWORD expected, DWORD desired, const CChangeAttrsD
     return true;
 }
 
+// Only eligible basic attributes and times are retried through the helper;
+// unsupported metadata remains on the original error and retry path.
 static bool TryChangeBasicMetadata(HWND progress, COperation& op, const CChangeAttrsData& input,
                                    CProgressDlgData& dlgData, BOOL& success, UacF7::PreparedLeaf* protectedRequest)
 {
@@ -13427,6 +13464,8 @@ static BOOL CanUseParallelCopy(const COperations* script, const COperation* oper
            !FileNameIsInvalid(operation->SourceName, TRUE) && !FileNameIsInvalid(operation->TargetName, TRUE);
 }
 
+// Scan-ahead decisions must still refer to the same target before a worker
+// applies an injected overwrite decision to a broker-mediated operation.
 static BOOL ValidateInjectedTargetIdentity(COperation* operation, CProgressDlgData& dialogData)
 {
     if (!dialogData.ConflictDecisionInjected || !dialogData.InjectedTargetIdentityValid) return TRUE;
@@ -14638,6 +14677,8 @@ unsigned ThreadWorkerBody(void* parameter)
 
             switch (op->Opcode)
             {
+            // A protected tree request obtains its own consent and reports
+            // completion or uncertainty through the existing progress dialog.
             case ocCopyProtectedTree:
             {
                 WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE);

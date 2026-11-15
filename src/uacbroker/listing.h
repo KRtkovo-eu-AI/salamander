@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Explain protected listing and identity checks. | Document bounded reads and partial results. | #731 | GPT-6 |
 | 2026-11-15 | Continue size scans after individual branch errors. | Preserve verified partial totals and other accessible branches. | #731 | GPT-6 |
 | 2026-11-15 | Restrict nonrecursive Find consent. | Keep the broker inside the user-requested search depth. | #731 | GPT-6 |
 | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
@@ -89,6 +90,8 @@ struct LeafIdentity
 static_assert(sizeof(LeafIdentity) == 40);
 constexpr ULONGLONG contentBudget = 64ULL * 1024 * 1024 * 1024;
 
+// A listing session grants only the request forms associated with its operation.
+// In particular, enumeration alone does not authorize file-content reads.
 inline bool ValidRequestScope(UacF7::Operation scope, DWORD pathLength, bool inventory, bool content)
 {
     if (scope == UacF7::Operation::Inventory || scope == UacF7::Operation::InventorySelection)
@@ -126,6 +129,8 @@ inline bool ValidAllocationScope(UacF7::Operation scope, DWORD pathLength)
            (pathLength != 0 && (scope == UacF7::Operation::List || scope == UacF7::Operation::Inventory || scope == UacF7::Operation::InventorySelection));
 }
 
+// Match the opened object and the listed special-file properties before using
+// the filesystem allocation rather than its logical size.
 inline DWORD MeasureOpenedFileAllocation(HANDLE file, const UacF7::FileAllocationRequest& expected, ULONGLONG& bytes)
 {
     constexpr DWORD special = FILE_ATTRIBUTE_COMPRESSED | FILE_ATTRIBUTE_SPARSE_FILE;
@@ -453,6 +458,8 @@ struct SubtreeManifest
 
 namespace Detail
 {
+// Retain the first omission and its relative path so a partial size result
+// is distinguishable from a complete inventory.
 inline void RecordOmission(SubtreeManifest& manifest, DWORD error, size_t parent, std::wstring_view leaf,
                            std::wstring* firstSkipped)
 {
@@ -665,6 +672,8 @@ inline DWORD CaptureManifest(HANDLE directory, ULONGLONG deadline, SubtreeManife
     return CaptureTree(directory, deadline, manifest, nullptr, false);
 }
 
+// Compare a fresh traversal with the captured root and entries; a manifest
+// does not itself authorize later reads or writes.
 inline DWORD VerifyManifest(HANDLE directory, ULONGLONG deadline, const SubtreeManifest& expected)
 {
     SubtreeManifest current;

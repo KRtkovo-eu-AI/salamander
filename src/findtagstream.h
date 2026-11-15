@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Document scoped Find property streams. | Clarify shared lifetime and bounded broker reads. | #731 | GPT-6 |
 // | 2026-11-08 | Expose scoped Find bytes as a read-only COM stream. | Read keywords in the host without copying protected files. | | GPT-6.1 Sol (Codex) |
 #pragma once
 
@@ -13,6 +14,8 @@
 #include <new>
 #include <utility>
 
+// Property handlers read protected metadata through this read-only adapter;
+// the callback uses the approved session rather than elevating the handler.
 class CFindTagStream final : public IStream
 {
 public:
@@ -34,6 +37,8 @@ public:
 
     DWORD Detach()
     {
+        // Clones share Source: detach revokes all of them before the caller's
+        // session/context goes away and preserves any error the handler ignored.
         std::lock_guard<std::mutex> lock(source->mutex);
         source->read = nullptr;
         source->context = nullptr;
@@ -209,7 +214,7 @@ private:
         ReadBlock read;
         void* context;
         DWORD error = ERROR_SUCCESS;
-        DWORD remaining = 64 * 1024 * 1024;
+        DWORD remaining = 64 * 1024 * 1024; // shared across clones, not a per-clone allowance
         std::mutex mutex;
     };
 

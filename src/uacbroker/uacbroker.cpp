@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Explain broker security and transport boundaries. | Document peer verification, scoped dispatch, and lifetime rules. | #731 | GPT-6 |
 | 2026-11-15 | Read hard-linked file identities from a protected panel. | Permit safe same-volume F6 preparation without granting mutation access. | #731 | GPT-6 |
 | 2026-11-15 | Distinguish authenticated listing startup denial. | Report a broker refusal separately from failure to launch. | #731 | GPT-6 |
 | 2026-11-15 | Restrict nonrecursive Find consent. | Keep the broker inside the user-requested search depth. | #731 | GPT-6 |
@@ -433,6 +434,8 @@ bool LiveInSession(HANDLE peer, DWORD pid)
            ProcessIdToSessionId(pid, &peerSession) && selfSession == peerSession;
 }
 
+// Bind the named pipe endpoint to the process handle and logon session already
+// validated by the launcher; the pipe name alone is not a peer identity.
 bool ExpectedPipePeer(HANDLE pipe, HANDLE process, DWORD pid, bool server)
 {
     ULONG actual = 0;
@@ -452,6 +455,8 @@ bool TrustedSid(PSID sid, PSID installer)
            EqualSid(sid, installer);
 }
 
+// Reject reparse points and untrusted ownership/ACLs before treating a local
+// install object as part of the broker's protected executable boundary.
 bool ProtectedObject(HANDLE handle, bool directory, bool namespaceOnly)
 {
     FILE_ATTRIBUTE_TAG_INFO info{};
@@ -521,6 +526,8 @@ bool ProtectedObject(HANDLE handle, bool directory)
     return marker[0] == protocolVersion && marker[1] == expectedRole;
 }
 
+// Pin the installation directory and expected images while checking their
+// identities and permissions, so launch does not rely on a mutable path alone.
 class InstallLocation
 {
 public:
@@ -702,6 +709,8 @@ UacRenameLeaf::MoveKind RenameKind(Operation operation)
     return UacRenameLeaf::MoveKind::RenameFile;
 }
 
+// The header binds wire payload lengths and operation type to captured parent
+// and source identities; the receiver validates both framing and semantics.
 struct RequestHeader
 {
     ULONGLONG serial;
@@ -917,6 +926,7 @@ bool ReadTreeVolume(std::wstring_view path, std::wstring& volume)
     return true;
 }
 
+// Registration is trusted only after validating its protected file and volume identity.
 bool ReadTreeRegistration(const InstallLocation& install, UacDirectoryLeaf::ParentIdentity& registered,
                           std::wstring& relative)
 {
@@ -946,6 +956,7 @@ bool ReadTreeRegistration(const InstallLocation& install, UacDirectoryLeaf::Pare
     return true;
 }
 
+// Reject malformed or unprotected registrations before using them as authorization anchors.
 bool ReadTreeSlot(const InstallLocation& install, unsigned slot, RegisteredTreeTarget& registered)
 {
     HANDLE raw = nullptr;
@@ -1027,6 +1038,7 @@ Handle OpenThinSourceRoot(std::wstring_view volume, std::wstring_view relative)
 }
 #endif
 
+// Resolve parents relative to the approved root, retaining a handle and identity for later operations.
 DWORD OpenRequestParent(HANDLE root, std::wstring_view relative, Handle& parent, UacDirectoryLeaf::ParentIdentity& identity,
                         ACCESS_MASK extraAccess = 0, ULONG sharing = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                         bool requestTraverse = true)
@@ -1414,6 +1426,7 @@ DWORD TransferZipSelection(HANDLE pipe, std::vector<BYTE>& bytes, bool send, ULO
 #endif
 
 #if defined(SAM_UAC_BROKER) || defined(SAM_UAC_F7_HOST)
+// Pin and verify every protected directory in the registered tree before accepting its identity.
 DWORD OpenProtectedTree(HANDLE volume, std::wstring_view relative, std::vector<Handle>& pinned,
                         UacDirectoryLeaf::ParentIdentity& identity)
 {
@@ -1790,6 +1803,7 @@ struct ReplacementSecurity
     }
 };
 
+// Bind replacement preparation to the reviewed object and carry its security onto the staged file.
 DWORD PrepareReplacementFiles(HANDLE parent, std::wstring_view leaf, const UacF7::ArchiveRevision& revision,
                               UacZipUpdate::Handle& original, Handle& stage, ReplacementSecurity& security,
                               UacZipUpdate::ReplacementKind kind, std::wstring* preparedName = nullptr)
@@ -2272,6 +2286,7 @@ struct TreeCopyPins
 
 // Probe requests carry only source/target names and caller-verified identities.
 // They never run recovery, create a stage, or mutate the filesystem.
+// Probe only within the established transfer scope; keep the captured result for the subsequent decision.
 DWORD ReceiveOverwriteProbe(const RequestHeader& header, HANDLE pipe, HANDLE host, DWORD hostPid,
                             ULONGLONG deadline, DWORD& result, UacF7::TransferJobScope& scope,
                             PendingOverwriteProbe& pending, UacF7::OverwriteProbeReply& reply)
@@ -3323,6 +3338,7 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     const bool inTreeCopy = jobScope && jobScope->IsTreeCopy();
     const bool creatingRoot = inTreeCopy && jobScope->NeedsTreeRoot() && copyDirectory;
     const bool transfer = copy || move || tree || copyDirectory || openTree;
+    // Tree jobs admit only their planned entry operations, not arbitrary uses of the authenticated pipe.
     if (listTreeSource ? (!inTreeCopy || !treePins || !treePins->source || !treePins->target)
                        : (inTreeCopy && !copyDirectory && header.operation != Operation::Copy && header.operation != Operation::CopyOverwrite))
         return ERROR_ACCESS_DENIED;
@@ -3351,6 +3367,7 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
             return error ? error : TransferRequest(state.pipe, &update, sizeof(update), true, deadline);
         }, &sender};
     const auto* progress = header.reportProgress ? &progressSink : nullptr;
+    // Reject inconsistent operation fields and lengths before allocating or reading the path payload.
     if (header.relativeLength > UacDirectoryLeaf::maxNativeName || !header.leafLength ||
         header.leafLength > UacDirectoryLeaf::maxComponent || header.sourceLength > (selection ? 1048576u : UacDirectoryLeaf::maxComponent) ||
         (!rename && !mkdir && !setMetadata && !deleteFile && !list && !transfer && !view && !allocationFile &&
@@ -3984,6 +4001,7 @@ DWORD ServeArchive(HANDLE pipe, Handle file, ULONGLONG size)
     }
 }
 
+// Report per-file open failures separately from pipe failures so Find can continue with other results.
 DWORD ServeFindContent(HANDLE pipe, HANDLE root, std::wstring_view relative, ULONGLONG& budget,
                        ULONGLONG deadline, bool singleFile)
 {
@@ -4058,6 +4076,7 @@ DWORD ServeFindContent(HANDLE pipe, HANDLE root, std::wstring_view relative, ULO
     }
 }
 
+// Capture the child and parent identity beneath the approved root without treating its name as authority.
 DWORD ReadListedLeafIdentity(HANDLE root, std::wstring_view relative, bool parentOnly, bool directoryLeaf,
                              bool linkLeaf, UacListing::LeafIdentity& reply)
 {
@@ -4147,6 +4166,8 @@ DWORD MeasureExactAllocation(const ExactAllocationScope& scope, const UacF7::Fil
     return UacListing::MeasureFileAllocation(current.get(), scope.leaf, expected, bytes);
 }
 
+// Keep read operations on the authenticated connection and dispatch each
+// request against the root and read capability approved for that session.
 DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operation scope,
                     const ExactAllocationScope* exactAllocation = nullptr,
                     const std::vector<SelectedInventoryEntry>* selectedInventory = nullptr)
@@ -4183,6 +4204,7 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operat
                     UacListing::leafIdentityRequest | UacListing::parentIdentityRequest |
                     UacListing::directoryIdentityRequest | UacListing::verifiedListingRequest | UacListing::linkIdentityRequest |
                     UacListing::fileAllocationRequest | UacListing::pagedListingRequest);
+        // A session grants only its declared read capability; incompatible request flags terminate the exchange.
         const bool canReadIdentity = scope == Operation::List ||
                                      (UacF7::IsFindDirectoryScope(scope) && !parentOnly) ||
                                      (scope == Operation::CompareContent && !parentOnly && !directoryLeaf);
@@ -4211,6 +4233,7 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operat
             return ERROR_ACCESS_DENIED;
         std::vector<Handle> selectionPins;
         DWORD selectionError = ERROR_SUCCESS;
+        // A multi-selection inventory must stay under an explicitly selected, identity-checked child.
         if (scope == Operation::InventorySelection)
         {
             const auto end = relative.find(L'\\');
@@ -4427,6 +4450,8 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operat
     }
 }
 
+// A transfer connection is a job, not a general administrator service: each
+// subsequent item must still match the established operation and endpoint scope.
 DWORD ServeTransferJob(const InstallLocation& install, HANDLE pipe, HANDLE host, DWORD hostPid, ULONGLONG deadline)
 {
     UacF7::TransferJobScope scope;
@@ -4486,6 +4511,8 @@ DWORD ServeTransferJob(const InstallLocation& install, HANDLE pipe, HANDLE host,
     return ERROR_SUCCESS;
 }
 
+// Before processing requests, authenticate the elevated process, host image,
+// protocol role, logon session, and the actual process behind the pipe endpoint.
 int RunBroker(const InstallLocation& install, const wchar_t* pipeName, DWORD hostPid
 #ifdef SAM_UAC_THIN_COPY_TEST
               , bool thinUnelevatedTest = false
@@ -4730,6 +4757,8 @@ private:
 #include "thin_launch_access_probe.h"
 #endif
 
+// The host side establishes the pipe and performs the corresponding handshake;
+// an approved long-lived operation may transfer ownership of that pipe to a session.
 int RunProbe(const InstallLocation& install, bool drop, bool badVersion
 #ifdef SAM_UAC_F7_HOST
              , HWND owner, RequestHeader* request, std::wstring* payload, UacF7::MetadataChange* metadata, UacF7::Result* result,
@@ -5789,6 +5818,8 @@ DWORD ElevatedEditor::Launch(HWND owner, const std::wstring& document) const
     return error;
 }
 
+// A protected panel can supply a captured child identity instead of reopening
+// an inaccessible path. Accept it only for the matching transfer operation.
 bool PreparedTransfer::PrepareSource(const std::wstring& sourcePath, Operation operation, const PreparedLeaf* listedSource)
 {
     if (!listedSource)
@@ -5844,6 +5875,8 @@ bool PreparedTransfer::Prepare(const std::wstring& sourcePath, const std::wstrin
     return PrepareImpl(sourcePath, targetPath, expectedSize, operation, listedSource, deferred);
 }
 
+// Prepare source and target independently before a prompt. Same-volume and
+// cross-volume moves have different supported operations and cleanup rules.
 bool PreparedTransfer::PrepareImpl(const std::wstring& sourcePath, const std::wstring& targetPath,
                                    ULONGLONG expectedSize, Operation operation, const PreparedLeaf* listedSource,
                                    const DeferredTransferTarget* deferred)
@@ -7355,6 +7388,7 @@ bool ListingSession::PrepareInventory(const std::wstring& path)
     return PrepareDirectory(path, Operation::Inventory);
 }
 
+// Carry every selected directory identity into the single approved inventory request.
 bool ListingSession::PrepareInventorySelection(const std::wstring& parent, const std::vector<std::wstring>& names)
 {
     if (parent.empty() || names.empty()) return false;
@@ -7484,6 +7518,7 @@ bool ListingSession::PrepareFile(const std::wstring& path)
     return true;
 }
 
+// Reuse a captured viewer identity only when the supplied path still names the same prepared volume and leaf.
 bool ListingSession::PrepareFileFromView(const std::wstring& path, const PreparedLeaf& file)
 {
     ListingForegroundLock lock(mutex, foregroundWaiters);
@@ -7583,6 +7618,7 @@ DWORD ListingSession::Start(HWND owner, HANDLE stop, bool* brokerDenied)
     {
         // Never hold the session mutex across consent or other UI dispatch.
         const int probeResult = RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, &candidate, stop);
+        // Distinguish a broker-reported access denial from failure to launch or authenticate the broker.
         if (brokerDenied && probeResult == Ok && result.error == ERROR_ACCESS_DENIED)
             *brokerDenied = true;
     }
@@ -7641,6 +7677,8 @@ DWORD ListingSession::Transfer(void* buffer, DWORD length, bool send, ULONGLONG 
                            callStop ? callStop : stopEvent);
 }
 
+// Check each request against the live session's scope before sending a
+// relative path; a stale or disconnected pipe cannot convey read authority.
 DWORD ListingSession::SendPath(const std::wstring& path, DWORD flags, ULONGLONG deadline, HANDLE callStop)
 {
     if (contentOpen || !Contains(path) ||
@@ -7709,6 +7747,8 @@ DWORD ListingSession::PrepareDeleteLeaf(const std::wstring& path, DWORD attribut
     return PrepareLeaf(path, operation, {}, request, nullptr, attributes);
 }
 
+// Resolve a child through the live scoped listing and bind its parent and file
+// IDs to the prepared request; no panel-owned pipe is transferred to a worker.
 DWORD ListingSession::PrepareLeaf(const std::wstring& path, Operation operation, const std::wstring& renameTo,
                                   PreparedLeaf& request, const MetadataChange* change, DWORD expectedAttributes,
                                   HANDLE callStop)

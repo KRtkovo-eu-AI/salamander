@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Explain protected listing page ownership. | Document cursor identity and pending I/O lifetime. | #731 | GPT-6 |
 | 2026-11-12 | Enumerate bounded identity-bearing directory pages. | Retain one verified handle, original row IDs and native short names. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Retain pending I/O across unexpected wait failures. | The kernel may still own the status block and buffer. | #731 | GPT-6 (Codex) |
 */
@@ -244,6 +245,8 @@ public:
         }
     }
 
+    // Keep uncommitted rows local until the entire page has passed decoding.
+    // A failed page closes the cursor instead of exposing a partial page.
     DWORD Next(std::vector<UacF7::PagedListingEntry>& entries, bool& done)
     {
         entries.clear();

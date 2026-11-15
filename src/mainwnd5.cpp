@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain protected comparison state. | Document per-side consent and content identity. | #731 | GPT-6 |
 // | 2026-11-14 | Format comparison errors without interpreting input. | Preserve localized messages while avoiding format-string injection. | #731 | GPT-6 |
 // | 2026-11-10 | Hand off comparison activation before closing progress. | Keep a foreground comparison with its owner after UAC. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Retry denied nested comparisons in one rooted session. | Keep the grant across both passes and compare accessible siblings. | #731 | GPT-6.1 Sol |
@@ -310,6 +311,8 @@ public:
         return Listing && IsCurrent() ? Listing->List(path, entries) : ERROR_INVALID_HANDLE;
     }
 
+    // A denied nested listing is retried under this side's approved root,
+    // using its captured identity when available instead of widening the grant.
     DWORD RetryList(HWND owner, const std::wstring& path, std::vector<WIN32_FIND_DATAW>& entries)
     {
         UacF7::MoveFileIdentity identity{};
@@ -356,6 +359,8 @@ public:
     UacF7::ListingSession& ContentSession() { return Content; }
 
 private:
+    // One comparison side owns one scoped read session. Preserve its start
+    // failure so a later protected sibling does not trigger repeated consent.
     DWORD AuthorizeJob(HWND owner, const std::wstring& path)
     {
         if (!IsCurrent())
@@ -403,6 +408,8 @@ private:
     DWORD ContentStartError = ERROR_SUCCESS;
 };
 
+// Use the native handle when accessible; otherwise read bounded blocks through
+// the approved session and close its content stream when comparison finishes.
 class CCompareFileInput
 {
 public:
@@ -456,6 +463,8 @@ public:
         ULARGE_INTEGER writeTime{};
         writeTime.LowPart = ExpectedWriteTime.dwLowDateTime;
         writeTime.HighPart = ExpectedWriteTime.dwHighDateTime;
+        // Bind the protected open to the selected row whose size and time were
+        // captured before its content read was approved.
         if (!Identity.MatchesReadSource(revision) || Size != ExpectedSize ||
             static_cast<ULONGLONG>(revision.modified) != writeTime.QuadPart)
         {

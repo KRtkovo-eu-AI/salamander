@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain the private EFS workspace. | Tie temporary names and cleanup to verified object identities. | #731 | GPT-6 |
 // | 2026-11-08 | Share the private journal helpers with move recovery. | Keep access-control checks and durable writes consistent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reuse the anchored hard link helper. | Apply one component-validation boundary to NTFS aliases. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Journal the EFS workspace and its exact objects. | Recover interrupted raw copies without following replacement paths. | | GPT-6.1 Sol (Codex) |
@@ -21,6 +22,7 @@ using UacRecoveryJournal::CheckPrivate;
 using UacRecoveryJournal::ClearRecord;
 using UacRecoveryJournal::WriteRecord;
 
+// Record the exact workspace objects so cleanup cannot follow a replacement name.
 struct Record
 {
     ULONGLONG version = 1;
@@ -134,6 +136,8 @@ inline DWORD Recover(HANDLE parent, const FILE_ID_INFO& parentId, HANDLE journal
     return ClearRecord(journal);
 }
 
+// The private directory owns an alias to the verified encrypted source and a
+// separate import payload; its lifetime is limited to the scoped request.
 class Workspace
 {
 public:

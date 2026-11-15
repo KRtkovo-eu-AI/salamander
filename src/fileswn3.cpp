@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain buffered protected panel listings. | Preserve the ordinary panel rendering path after authorization. | #731 | GPT-6 |
 // | 2026-11-11 | Initialize disk rows with the private data marker. | Leave archive and plugin rows on the released ABI. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Initialize partial disk size state. | A new listing starts without an observed size. | #731 | GPT-6.1 Sol |
 // | 2026-11-07 | Render the verified broker listing through the existing disk panel. | Use exact wide names and keep preview providers out of protected listings. | | GPT-6.1 Sol (Codex) |
@@ -827,6 +828,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
     //  TRACE_I("ReadDirectory: begin");
 
     //  MainWindow->ReleaseMenuNew();  // in case of it's about this directory
+    // A live protected session supplies buffered rows to the same panel renderer as local enumeration.
     const bool branchListing = IsBranchView() != FALSE;
     const bool protectedListing = ProtectedListing && ProtectedListing->Contains(GetPathW());
     const bool bufferedListing = branchListing || protectedListing;
@@ -883,6 +885,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         CIconSizeEnum iconSize = GetIconSizeForCurrentViewMode();
         IconCache->SetIconSize(iconSize, GetIconSize(iconSize));
 
+        // External thumbnail providers cannot use the panel's scoped broker session.
         BOOL readThumbnails = !protectedListing && GetViewMode() == vmThumbnails;
 
         CALL_STACK_MESSAGE1("CFilesWindow::ReadDirectory::disk1");
@@ -985,6 +988,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         }
         }
 
+        // Avoid reopening protected entries through the system icon provider.
         if (protectedListing)
             UseSystemIcons = FALSE;
 

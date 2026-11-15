@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain protected operation interfaces. | Document scoped panel reads and deferred destinations. | #731 | GPT-6 |
 // | 2026-11-12 | Carry owned protected panel viewer state. | Validate the source after modal dispatch. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Expose optional deferral after a target directory create denial. | Keep plugin and ordinary target parsing on their existing path. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Return Find editor preparation to its window thread. | Keep the synchronous request free of cross-thread consent dialogs. | #731 | GPT-6.1 Sol |
@@ -455,6 +456,8 @@ BOOL SalParsePath(HWND parent, char* path, int& type, BOOL& isDir, char*& second
 // se focus) a aktualni cesta je windowsova (cesta je v 'curDiskPath'); 'mask' je na vystupu
 // ukazatel na operacni masku do bufferu 'path'; pokud je v ceste chyba, vraci metoda FALSE,
 // problem uz byl uzivateli ohlasen
+// The caller may defer an inaccessible destination to the scoped UAC transfer;
+// ordinary path parsing continues to use its existing behavior by default.
 using SalDeferredDirectory = bool (*)(void*, const char*, size_t);
 BOOL SalSplitWindowsPath(HWND parent, const char* title, const char* errorTitle, int selCount,
                          char* path, char* secondPart, BOOL pathIsDir, BOOL backslashAtEnd,
@@ -667,6 +670,8 @@ void RemoveEmptyDirs(const char* dir);
 // vykona rutina pro otevirani vieweru - pouziva se v CFilesWindow::ViewFile a
 // CSalamanderForViewFileOnFS::OpenViewer; dalsi vyuziti se neocekava, proto nejsou
 // popsany parametry a navratove hodnoty
+// Optional viewer context keeps the selected protected identity and its
+// listing session tied to the invoking panel or Find result.
 namespace UacF7 { class ElevatedEditor; class ListingSession; class PreparedLeaf; }
 
 BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, BOOL returnLock,
@@ -1062,6 +1067,7 @@ struct COpenViewerData
     char* FileName;
     int EnumFileNamesSourceUID;
     int EnumFileNamesLastFileIndex;
+    // Carry the Find owner and selected identity through synchronous UI dispatch.
     HWND FindOwner = nullptr;
     DWORD FoundAttributes = INVALID_FILE_ATTRIBUTES;
     const UacF7::PreparedLeaf* FoundView = nullptr;

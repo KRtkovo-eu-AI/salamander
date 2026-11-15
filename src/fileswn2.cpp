@@ -9,6 +9,7 @@
 // | 2026-11-08 | Offer a protected ZIP listing after ordinary read denial. | Reuse the internal viewer for read-only output. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Route disk navigation and refresh through the approved listing session. | Reuse consent inside the root and release it on exit. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain protected panel and ZIP listing boundaries. | Clarify session ownership and privileged read failures. | #731 | GPT-6 |
 // | 2026-11-15 | Explain administrator listing denial. | Distinguish denied elevated access from launch errors and cancellation. | #731 | GPT-6 |
 // | 2026-11-12 | Keep the file panel visible during shell launch. | Parent the transparent shell helper beside the owner-drawn list instead of over it. | | openai/gpt-6-luna-pro |
 // CommentsTranslationProject: TRANSLATED
@@ -2973,6 +2974,7 @@ BOOL CFilesWindow::ChangePathToDiskW(HWND parent, const wchar_t* path, int sugge
                             refreshListBox, canForce, isRefresh, failReason, shorterPathWarning, tryCloseReason);
 }
 
+// Only an authenticated broker refusal may be described as denial after elevation.
 static void ShowProtectedListingError(HWND parent, DWORD error, bool deniedAsAdmin)
 {
     std::string message = GetErrorText(error);
@@ -3077,6 +3079,7 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
         std::unique_ptr<UacF7::ListingSession> newProtectedListing;
         std::vector<WIN32_FIND_DATAW> newProtectedEntries;
         const std::wstring requestedWide = SalMultiByteToWidePath(changedPath, IsValidPathUtf8Text(changedPath) ? CP_UTF8 : CP_ACP);
+        // Reuse the panel session only within its approved root.
         if (ProtectedListing && ProtectedListing->Contains(requestedWide))
         {
             const DWORD listError = ProtectedListing->List(requestedWide, newProtectedEntries);
@@ -3471,6 +3474,7 @@ static HANDLE OpenArchiveFileForRead(const char* archive, DWORD flagsAndAttribut
 
 namespace
 {
+// Feed the normal ZIP parser from bounded reads on the approved archive handle.
 struct ProtectedZipListing
 {
     UacF7::ArchiveReadSession& session;
@@ -3507,6 +3511,7 @@ struct ProtectedZipListing
 
 };
 
+// Keep archive parsing in the ZIP plugin; the broker supplies only protected bytes.
 DWORD ReadProtectedZip(HWND owner, const char* archive, CSalamanderDirectory& directory,
                        CPluginData*& plugin, CPluginDataInterfaceAbstract*& pluginData,
                        CQuadWord& size, FILETIME& date, UacF7::ArchiveReadSession* session,
@@ -3766,6 +3771,7 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
             if (PackerFormatConfig.PackIsArchive(archive) || pluginForOpen != NULL) // is it an archive?
             {
                 // retrieve file info (does it exist?, size, date & time)
+                // Reuse only the session for this archive; otherwise try an ordinary open.
                 auto* existingZipSession = sameProtectedZip ? ProtectedZipSession.get() : nullptr;
                 const bool reuseZipSession = existingZipSession && existingZipSession->IsOpen();
                 DWORD err2 = NO_ERROR;
@@ -3865,6 +3871,7 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
                         DirectoryLine->HideThrobberAndSecurityIcon();
 
                     SetPanelType(ptZIPArchive);
+                    // Commit the archive and its session together after listing succeeds.
                     ProtectedZip = protectedZip;
                     ProtectedZipSession = std::move(newZipSession);
                     SetPath(path);

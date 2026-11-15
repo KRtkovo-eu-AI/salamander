@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain UAC integration boundaries. | Document scope, lifetime and native workflow decisions. | #731 | GPT-6 |
 // | 2026-11-12 | Guard thin F5 completion against reentrant handoff. | Avoid duplicate queue completion. | #731 | GPT-6 |
 // | 2026-11-12 | Track scoped thin F5 foreground return. | Avoid restoring focus after later user input. | #731 | GPT-6 |
 // | 2026-11-12 | Track validity of a worker-owned overwrite prompt. | Keep this UAC slice reviewable and fail closed. | #731 | GPT-6 (Codex) |
@@ -80,6 +81,7 @@ protected:
     BOOL NameAutoCompleteMode;
     int SelectionEnd;
     int SelectionEndChars;
+    // The shield is a preview of the current path, not an elevation or a grant.
     bool ElevationShield = false;
     bool ElevationShieldShown = false;
     bool (*ElevationShieldProbe)(const wchar_t*, void*) = nullptr;
@@ -412,6 +414,7 @@ BOOL StartProgressDialog(COperations* script, const char* caption,
 class CProgressDialog : public CCommonDialog
 {
     friend class CConflictPromptPresentationGuard;
+    // Approved sessions and refusals belong to this operation, not to the application globally.
     std::list<UacF7::TransferJobSession> TransferJobs;
     std::vector<UacF7::TransferJobScope> DeclinedDeleteScopes;
 
@@ -472,6 +475,7 @@ protected:
     COperations* Script;
     std::string Caption;
     std::string SchedulingTitleSuffix;
+    // Retain the previous small icon so the temporary progress shield can be undone.
     HICON BrokerShieldIcon = NULL;
     HICON PreviousSmallIcon = NULL;
     bool BrokerShieldVisible = false;

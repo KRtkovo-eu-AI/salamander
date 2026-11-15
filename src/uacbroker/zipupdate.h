@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain staged ZIP revision checks. | Document which archive version is authorized for replacement. | | GPT-6 |
 // | 2026-11-12 | Preserve replacement evidence on allocation failure. | Report uncertain publication without discarding its durable journal. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Preserve legacy disk journals after interruption. | Avoid claiming security-descriptor recovery without durable proof. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Prepare a default-stream-only replacement stage. | Keep ignored source streams out of a protected overwrite stage. | | GPT-6.1 Terra |
@@ -51,6 +52,8 @@ inline void SetRevision(Revision& revision, const FILE_ID_INFO& id, const FILE_B
     revision.attributes = basic.FileAttributes;
 }
 
+// Capture the original archive's identity and fixed metadata while it is open;
+// publication later checks the same revision before replacing its name.
 inline DWORD ReadRevision(HANDLE file, Revision& revision)
 {
     FILE_ID_INFO id{};

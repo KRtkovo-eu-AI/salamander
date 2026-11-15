@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain UAC worker state and dispatch. | Document ownership, consent scope, and incomplete results. | #731 | GPT-6 |
 // | 2026-11-15 | Explain denied size scans and total partial selections. | Report administrator denials and preserve lower-bound sums. | #731 | GPT-6 |
 // | 2026-11-13 | Guard experimental planned copy custody. | Reject reentrant item access to a checked-out session. | #731 | GPT-6 |
 // | 2026-11-13 | Distinguish pre-transfer prompt errors. | Respect cancellation without suppressing uncertain broker results. | #731 | GPT-6 |
@@ -101,6 +102,8 @@ void InitWorker();
 void ReleaseWorker();
 void NotifyNativeBrokerActivity(HWND dialog, bool active);
 
+// These message IDs marshal broker-related decisions to the existing progress
+// dialog thread; the worker must not display modal consent from its I/O thread.
 constexpr WPARAM WORKER_DIALOG_UAC_METADATA = 18;
 constexpr WPARAM WORKER_DIALOG_UAC_DELETE = 14;
 constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER = 15;
@@ -506,6 +509,8 @@ public:
 
     DWORD ClearReadonlyMask; // for automatically clearing the read-only flag from CD-ROMs
     BOOL InvertRecycleBin;   // invert Recycle Bin usage
+    // Prepared requests bind a confirmed shield to the original object rather
+    // than authorizing any later item that happens to use the same name.
     BOOL AllowPermanentDeletePilot;
     std::unique_ptr<UacF7::PreparedLeaf> PreparedDeleteRequest;
     std::wstring PreparedDeletePath;
@@ -519,6 +524,8 @@ public:
         volatile LONG Claim = 0;
     };
 #endif
+    // The transfer job owns its scoped broker session across eligible entries;
+    // a declined elevation must not be retried for each remaining source.
     struct CopySourcePlan
     {
         std::wstring Root, Destination;
@@ -532,12 +539,16 @@ public:
     };
     std::optional<CopySourcePlan> CopySource;
     bool TransferFromProtectedListing = false;
+    // Keep each listing-derived identity, or its preparation error, with the
+    // script item so an unidentifiable row cannot authorize another object.
     struct ProtectedFileSource
     {
         std::unique_ptr<UacF7::PreparedLeaf> Request;
         DWORD Error = ERROR_SUCCESS;
     };
     std::optional<std::map<std::wstring, ProtectedFileSource>> ProtectedFileSources;
+    // Carry the reviewed destination or deferred ancestor with the script;
+    // the worker must not broaden that approval to an unrelated target.
     std::optional<UacF7::MoveFileIdentity> ShieldedTransferTarget;
     std::optional<UacF7::DeferredTransferTarget> DeferredTransferTarget;
     BOOL IgnoreTransferAds;
@@ -637,6 +648,8 @@ public:
     BOOL FastMoveUsed;     // is at least one file or directory being "renamed"? (then the total moved data size would be misleading)
     BOOL ChangeSpeedLimit; // TRUE = the speed limit might change (the worker should reach a state where changing it is easy)
 
+    // Preserve readable totals while distinguishing an incomplete row from a
+    // complete zero-sized directory and from omissions elsewhere in the batch.
     bool CountSizeIncomplete = false; // current top-level directory
     bool CountSizeAnyIncomplete = false; // at least one top-level directory was incomplete
     bool CountSizeAliasSkipped = false;

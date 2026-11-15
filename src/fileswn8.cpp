@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain protected transfer previews and incomplete sizes. | Keep consent and reporting tied to the active operation. | #731 | GPT-6 |
 // | 2026-11-15 | Explain denied size scans and total partial selections. | Report administrator denials and preserve lower-bound sums. | #731 | GPT-6 |
 // | 2026-11-11 | Explain an explicitly denied protected-folder recycle. | Keep the existing Shell result while identifying the unsupported elevated retry. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Preview permanent-delete elevation for supported native attributes. | Match the confirmation shield to the verified delete executor. | #731 | GPT-6.1 Sol |
@@ -281,6 +282,7 @@ BOOL CFilesWindow::DeleteThroughRecycleBin(int* selection, int selCount, CFileDa
         const bool queued = SUCCEEDED(result);
         if (queued)
             result = operation->PerformOperations();
+        // Retry elevation only for a confirmed source-access denial; do not reinterpret cancellation.
         const bool deniedByShell = queued && progress.SourceAccessDenied(result);
         const bool explicitDirectoryDenial = queued && progress.ExplicitSourceAccessDenied(result);
         BOOL aborted = TRUE;
@@ -401,6 +403,7 @@ static bool CanMoveDirectoryToParent(const char* source, const std::wstring& anc
            HasTheSameRootPathAndVolume(source, target.c_str());
 }
 
+// Preview the entered destination and its identity for the existing copy/move dialog's shield.
 struct TransferElevationPreview
 {
     const wchar_t* basePath;
@@ -507,6 +510,7 @@ struct DeferredTransferContext
     const char* directoryMoveSource;
 };
 
+// Anchor a missing destination chain to the verified existing ancestor until the approved job creates it.
 static bool DeferProtectedTransferTarget(void* context, const char* path, size_t ancestorLength)
 {
     auto& state = *static_cast<DeferredTransferContext*>(context);
@@ -574,6 +578,7 @@ static bool StartProtectedTreeCopy(std::unique_ptr<UacF7::PreparedTransfer> requ
     return false;
 }
 
+// Retain the first omission while making clear that the displayed total may be only a lower bound.
 static void ShowSizeInventoryIncomplete(HWND owner, const std::wstring& path, DWORD error, bool deniedAsAdmin)
 {
     std::string message = LoadStr(IDS_UAC_INVENTORY_INCOMPLETE);
@@ -607,6 +612,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
     if ((type == atCopy || type == atMove) && target == NULL)
         return;
 
+    // Reuse the approved panel listing for one selected directory size request.
     if (type == atCountSize && countSizeMode == 0 && Is(ptDisk) && ProtectedListing &&
         !FilesActionInProgress && GetSelCount() == 1)
     {
@@ -1023,6 +1029,8 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
             ExpandPluralFilesDirs(expanded, 200, files, count - files, epfdmNormal, FALSE);
         }
 
+        // Preview only the directly selected item for the confirmation shield.
+        // Descendants are handled during the normal recursive operation.
         const bool permanentDelete = type == atDelete && recycle == 0 && canUseRecycleBin;
         std::unique_ptr<UacF7::PreparedLeaf> preparedDelete;
         std::wstring preparedDeletePath;
@@ -1246,6 +1254,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                     continue;
                 if (Configuration.CopyMoveConflictPreference == CMCP_KEEP_LAST)
                     Configuration.CopyMoveLastConflictMode = conflictMode;
+                // Reject options the prepared protected-source transfer cannot represent.
                 if (protectedTransferSource && (!filesOnly || criteria.HasOptionsOtherThanDirectoryTimes() ||
                                                 conflictMode != CMCM_CURRENT))
                 {
@@ -1959,6 +1968,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                     script->InvertRecycleBin = invertRecycleBin;
                     script->CanUseRecycleBin = canUseRecycleBin;
                     script->AllowPermanentDeletePilot = permanentDelete;
+                    // Carry the prepared request and confirmed scope into the script.
                     script->PreparedDeleteRequest = std::move(preparedDelete);
                     script->PreparedDeletePath = std::move(preparedDeletePath);
                     script->PreparedDeleteAttrs = preparedDeleteAttrs;

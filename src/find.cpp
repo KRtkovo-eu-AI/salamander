@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Document protected Find access and session ownership. | Explain authorization scope and the lifetime of verified results. | #731 | GPT-6 |
 // | 2026-11-15 | Remove the fixed protected Find queue capacity. | Keep one scoped consent across large searches. | #731 | GPT-6 |
 // | 2026-11-15 | Restrict nonrecursive Find consent. | Keep the broker inside the user-requested search depth. | #731 | GPT-6 |
 // | 2026-11-15 | Reuse saved Find identities in refinement. | Preserve exact protected-file authorization on repeat searches. | #731 | GPT-6 |
@@ -961,6 +962,8 @@ static void ReportFindScopeLimit(CGrepData* data, const char* path)
 
 namespace
 {
+// A separate launch thread lets the ordinary search keep running while the
+// Find dialog owns the consent prompt; the mutex prevents overlapping prompts.
 struct FindConsent
 {
     CGrepData* data;
@@ -989,6 +992,8 @@ struct FindConsent
     }
 };
 
+// Duplicate hashing can discover denied content after traversal has ended.
+// Prepare the actual search root so later eligible candidates share this grant.
 DWORD AuthorizeFindFile(CGrepData* data, const std::wstring& path, UacF7::ListingSession& session, bool recursive)
 {
     if (data->StopSearch)
@@ -1014,6 +1019,8 @@ static bool FindDuplicateContent(const CGrepData& data)
 BOOL TestFileContentAux(BOOL& ok, CQuadWord& fileOffset, const CQuadWord& totalSize,
                         DWORD viewSize, const char* path, char* txt, CGrepData* data);
 
+// Apply the same search criteria to broker-backed content without giving the
+// property handler an elevated process or exposing files outside the session.
 class ProtectedFindPredicates
 {
 public:
@@ -1085,6 +1092,8 @@ private:
 
     bool MatchTags(CGrepData* data, UacF7::ListingSession& session, const std::wstring& filePath, ULONGLONG size, DWORD& error)
     {
+        // Keep the property handler in the host: only its bounded stream reads
+        // are serviced by the approved broker session.
         TagRead request{data, session};
         auto* stream = CFindTagStream::Create(size, UacF7::archiveReadBlock, ReadTagBlock, &request);
         if (!stream)
@@ -1264,6 +1273,8 @@ static bool FindListedIdentityMatches(const UacF7::MoveFileIdentity* identity,
 
 static std::wstring FindSearchRootForFile(CGrepData* data, const std::wstring& fullPath, bool& recursive)
 {
+    // A later duplicate-content read may only request a root the user searched;
+    // use the most specific matching root and preserve nonrecursive searches.
     std::wstring searchRoot;
     for (int rootIndex = 0; rootIndex < data->Data->Count; ++rootIndex)
     {
@@ -1331,6 +1342,8 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
                 else
                     verifyDeniedFile = true;
                 if (!verifyDeniedFile) { /* preserve the original error path without opening another object */ }
+                // Prefer a live session covering this candidate before asking
+                // for the remaining operation's one content-read consent.
                 else if (digestSession.IsOpen() && digestSession.Contains(fullPath))
                 {
                     protectedSession = &digestSession;
@@ -1362,6 +1375,8 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
     bool match = true;
     if (scoped)
     {
+        // Check size and timestamp, and recheck any captured listing or local
+        // identity, before applying predicates or hashing broker bytes.
         FILETIME modified{};
         UacF7::ArchiveRevision revision{};
         error = protectedSession ? protectedSession->OpenContent(fullPath, size, modified, revision) : ERROR_ACCESS_DENIED;
@@ -1620,6 +1635,8 @@ void CDuplicateCandidates::Examine(CGrepData* data, const FindProtectedSessions&
             CFoundFilesData* file = At(i);
             const size_t scope = file->ProtectedScope;
             auto* session = scope && scope <= protectedSessions.size() ? protectedSessions[scope - 1] : nullptr;
+            // Ordinary traversal can find a file within a separately approved
+            // subtree; reuse that scope only if it actually contains the path.
             if (!scope)
             {
                 const auto path = file->GetFullNameW();
@@ -2023,6 +2040,8 @@ BOOL AddFoundItem(const char* path, const char* name, DWORD sizeLow, DWORD sizeH
                                : foundData->Set(path, name, size, attr, lastWrite, isDir);
         if (good)
         {
+            // Carry verified provenance with the result so later View and
+            // Refine actions do not silently reopen a replacement by pathname.
             foundData->FoundView = std::move(foundView);
             foundData->ProtectedListedIdentity = std::move(listedIdentity);
             foundData->ProtectedOrigin = protectedOrigin;
@@ -2082,6 +2101,8 @@ bool IncludeRefinedFindResult(int mode, bool match)
     return (mode == 1 && match) || (mode == 2 && !match);
 }
 
+// Each deferred request retains its own path, criteria and captured identity;
+// the queue may later lend it the first request's already-approved session.
 class FindProtectedRequest
 {
 public:
@@ -2101,6 +2122,8 @@ public:
     {
         path = std::move(deniedPath);
         singleFile = file != nullptr;
+        // Metadata-only searches must not acquire content access; refined
+        // exact-file requests instead retain their earlier viewer identity.
         readContent = singleFile || search->Grep || search->Criteria.HasTags() || FindDuplicateContent(*search);
         if (singleFile && !searchRoot.empty() && !capturedFile.PrepareView(path))
             return false;
@@ -2190,6 +2213,8 @@ public:
 
     UacF7::ListingSession* FinishWithSession(UacF7::ListingSession& approved, CDuplicateCandidates* candidates)
     {
+        // A shared consent is not a global administrator grant: never process
+        // a queued path that is outside the first session's approved scope.
         if (!approved.Contains(path))
         {
             OmitAfterFailure(ERROR_ACCESS_DENIED);
@@ -2266,6 +2291,8 @@ private:
             return false;
         }
 
+        // Apply all predicates to the opened file only after binding it to the
+        // listing or captured identity that produced this result.
         if (size != listedSize.Value || CompareFileTime(&modified, &file.ftLastWriteTime) != 0 ||
             !FindListedIdentityMatches(listedIdentity, revision) ||
             (singleFile && ActiveSession().GetRoot() != filePath && !capturedFile.MatchesReadSource(revision)) ||
@@ -2303,6 +2330,8 @@ private:
         return false;
     }
 
+    // Capture the starting directory identity before walking brokered pages;
+    // the cursor checks it before enumerating that directory.
     void Scan(const std::wstring& directory, unsigned depth, CDuplicateCandidates* candidates)
     {
         if (data->StopSearch) return;
@@ -2376,6 +2405,8 @@ private:
             else { data->IncompleteReasons |= FindIncompleteProtectedFailure; Log(directory, error); }
             return;
         }
+        // Pin each paged directory to its listed identity and release the
+        // broker cursor on every exit, including cancellation or read errors.
         struct CursorGuard
         {
             UacF7::ListingSession& session;
@@ -2391,6 +2422,8 @@ private:
             if (!error && done) lease = 0;
             if (error)
             {
+                // Restart through the older listing only before publishing a
+                // page; otherwise restarting would duplicate visible results.
                 if (!data->StopSearch && !publishedPage &&
                     (error == ERROR_NOT_SUPPORTED || error == ERROR_INVALID_FUNCTION || error == ERROR_INVALID_PARAMETER))
                 {
@@ -2454,6 +2487,8 @@ private:
             duplicateIdentity = std::make_shared<UacF7::MoveFileIdentity>(*listedIdentity);
         constexpr DWORD excluded = FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT |
                                    FILE_ATTRIBUTE_ENCRYPTED | FILE_ATTRIBUTE_OFFLINE;
+        // Save a verified viewer identity with eligible results before the
+        // search session closes; the result itself remains useful without it.
         std::shared_ptr<const UacF7::PreparedLeaf> foundView = singleFile ? knownFile : nullptr;
         if (!foundView && !(file.dwFileAttributes & excluded) && !file.nFileSizeHigh &&
             file.nFileSizeLow <= UacF7::maxViewerSnapshotBytes)
@@ -2518,6 +2553,8 @@ private:
     bool singleFile = false;
 };
 
+// Defer protected work while ordinary traversal continues. The first request
+// owns the sole approved session until duplicate content checks are finished.
 class FindProtectedQueue
 {
 public:
@@ -2575,6 +2612,8 @@ public:
 
     const FindProtectedSessions& Finish(CDuplicateCandidates* candidates)
     {
+        // Refusal or a lost session applies to the remaining requests; do not
+        // restart the broker or turn a partial search into a complete result.
         DWORD batchFailure = ERROR_SUCCESS;
         UacF7::ListingSession* approved = nullptr;
         for (size_t i = 0; i < count; ++i)
@@ -2607,6 +2646,8 @@ private:
     {
         if (search->StopSearch)
             return FindQueueResult::Stopped;
+        // Index exact paths without merging distinct masks or protected
+        // identities; each retained entry still receives its own scope index.
         if (!known)
         {
             const auto previous = pathIndex.find(path);
@@ -2703,6 +2744,8 @@ void SearchDirectory(std::wstring directory, int startPathLen, CMaskGroup* masks
                 if (raw == INVALID_HANDLE_VALUE)
                 {
                     DWORD error = GetLastError();
+                    // Preserve ordinary traversal and defer only the denied
+                    // subtree for a consent scoped to this search root.
                     if (error == ERROR_ACCESS_DENIED)
                     {
                         const auto queued = protectedQueue.Add(data, directory, masksGroup, includeSubDirs, startPathLen, ignoreList, nullptr, searchRoot, includeSubDirs != FALSE);
@@ -3026,6 +3069,8 @@ unsigned GrepThreadFBody(void* ptr)
                     TRACE_E(LOW_MEMORY); // the algorithm will run even without the ignore list
                 }
 
+                // A protected panel supplied a captured root identity; start
+                // through that root rather than losing it in path traversal.
                 if (findInPanelRoot)
                 {
                     const auto queued = protectedQueue.AddPanelRoot(data, mg, includeSubDirs, len, ignoreList);

@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain protected Find tag matching. | Apply the existing match mode to streamed properties. | #731 | GPT-6 |
 // | 2026-11-08 | Expose the active keyword match mode. | Apply the same filter to keywords read through a stream. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
@@ -105,6 +108,7 @@ public:
     BOOL Test(DWORD attributes, const CQuadWord* size, const FILETIME* modified);
     BOOL HasTags() const { return UseTags && TagsText[0] != 0; }
     const char* GetTagsText() const { return TagsText; }
+    // Protected property streams use the same match mode as ordinary path reads.
     CFileTagsMatchMode GetTagsMode() const { return TagsMode; }
     BOOL TestTags(const wchar_t* path) const;
 

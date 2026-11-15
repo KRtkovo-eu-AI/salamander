@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain same-volume move publication. | Distinguish the verified rename from a cross-volume copy. | | GPT-6 |
 // | 2026-11-11 | Request target attribute writes only for read-only retirement. | Avoid unnecessary access denial for otherwise deletable ordinary targets. | #731 | GPT-6.1 Sol |
 // | 2026-11-11 | Share NTFS backup rename attribute normalization. | Recover a normal target when closing the renamed backup sets Archive. | #731 | GPT-6.1 Sol |
 // | 2026-11-11 | Replace a verified move target without copying a same-volume source. | Preserve source identity and security, and recover only the recorded exact objects. | #731 | GPT-6.1 Sol |
@@ -199,6 +200,8 @@ inline DWORD RecoverSameVolume(HANDLE sourceParent, const ParentIdentity& expect
     return error;
 }
 
+// Preserve the source object on same-volume moves: record and rename the old
+// target aside before renaming the verified source into its final name.
 inline Result MoveSameVolume(HANDLE sourceParent, const ParentIdentity& expectedSourceParent,
                               const FILE_ID_INFO& sourceId, std::wstring_view sourceLeaf,
                               HANDLE targetParent, const ParentIdentity& expectedTargetParent,

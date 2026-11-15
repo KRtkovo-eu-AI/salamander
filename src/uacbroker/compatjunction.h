@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain compatibility-link detection. | Document the metadata checks used by protected scans. | #731 | GPT-6 |
 // | 2026-11-10 | Recognize Windows compatibility links by metadata and ACL. | Avoid counting aliases or stopping the size scan at a deliberate list denial. | #731 | GPT-6.1 Sol |
 #pragma once
 
@@ -34,6 +35,8 @@ inline bool IsCompatibilityLink(HANDLE link)
     const std::unique_ptr<void, decltype(&LocalFree)> descriptor(raw, LocalFree);
     if (error || !acl)
         return false;
+    // Only an explicit deny to Everyone identifies this compatibility pattern;
+    // inherited or inherit-only entries do not establish it for this link.
     for (DWORD index = 0; index < acl->AceCount; ++index)
     {
         void* entry = nullptr;

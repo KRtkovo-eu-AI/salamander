@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain deferred destination creation. | Preserve native path confirmation before scoped UAC handling. | #731 | GPT-6 |
 // | 2026-11-10 | Pass a denied missing destination back to the disk transfer controller. | Preserve path confirmation and packed mask before starting a scoped transfer. | #731 | GPT-6.1 Sol |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
@@ -1104,6 +1105,8 @@ BOOL SalSplitWindowsPath(HWND parent, const char* title, const char* errorTitle,
                     newDirsW = SalMultiByteToWidePath(newDirs, CP_ACP);
                 if (invalidPath || !(newDirsW.empty() ? CreateDirectory(newDirs, NULL) : SalCreateDirectoryExW(newDirsW.c_str(), NULL)))
                 {
+                    // Let the transfer controller prepare an exact protected
+                    // destination after the native creation attempt is denied.
                     if (!invalidPath && GetLastError() == ERROR_ACCESS_DENIED && defer &&
                         (selCount <= 1 || strcmp(mask, "*.*") == 0))
                     {

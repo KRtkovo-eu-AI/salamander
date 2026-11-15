@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain protected file-list workspace ownership. | Document the generated source's lifecycle and identity. | #731 | GPT-6 |
 // | 2026-11-11 | Hide native file-list workspace details behind a host interface. | Avoid SDK identity and header-order requirements in panel consumers. | #731 | GPT-6.1 Sol |
 // | 2026-11-11 | Isolate a generated file-list source. | Bind its eventual copy and cleanup to the created NTFS objects. | #731 | GPT-6.1 Sol |
 #pragma once
@@ -10,6 +11,8 @@
 
 namespace UacFileList
 {
+// Owns a private generated-list workspace until the brokered create finishes.
+// The returned identities bind the copy and cleanup to the objects created here.
 class Workspace
 {
 public:

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain UAC integration boundaries. | Document scope, lifetime and native workflow decisions. | #731 | GPT-6 |
 // | 2026-11-10 | Refresh Copy/Move OK after destination edits. | Leave the existing path parser and options intact. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Track the shield shown on the native operation dialog. | Preserve consent intent across the local attempt and deny fallback. | #731 | Codex |
 // | 2026-11-10 | Set the native OK shield in F7 and F2. | Follow the current target without changing the consent or dialog layout. | #731 | GPT-6 (Codex) |
@@ -994,6 +995,7 @@ void CCopyMoveDialog::SetSelectionEnd(int selectionEnd)
     }
 }
 
+// Re-evaluate the shield for the edited destination; actual access is checked by the worker.
 void CCopyMoveDialog::UpdateElevationShield()
 {
     bool required = ElevationShield;
@@ -1824,6 +1826,7 @@ CCopyMoveMoreDialog::ManageHiddenShortcuts(const MSG *msg)
 }
 */
 
+// The expanded dialog uses the same live-path preview as the compact dialog.
 void CCopyMoveMoreDialog::UpdateElevationShield()
 {
     if (!ElevationShieldProbe)

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Explain protected tree staging. | Document the existing rollback and publication boundary. | | GPT-6 |
 | 2026-11-09 | Report verified tree bytes. | Aggregate file progress against the captured manifest. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Honor tree cancel at every existing publication checkpoint. | Roll back owned staging before returning cancellation. | | GPT-6.1 Sol (Codex) |
@@ -185,6 +186,8 @@ inline DWORD RecoverStage(HANDLE journal, HANDLE target, const FILE_ID_INFO& tar
     return Remove(root.get());
 }
 
+// Keep staged directories and their source identities together so an
+// uncommitted tree can be rolled back without deleting unrelated entries.
 class Stage
 {
 public:

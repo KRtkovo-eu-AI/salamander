@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Explain UAC request and session boundaries. | Document identity, operation scopes, and ownership for review. | #731 | GPT-6 |
 | 2026-11-15 | Report authenticated listing startup denial. | Distinguish a broker response from a launch failure. | #731 | GPT-6 |
 | 2026-11-15 | Classify per-branch size scan errors. | Continue accessible results without masking session or identity failures. | #731 | GPT-6 |
 | 2026-11-15 | Restrict nonrecursive Find consent. | Keep the broker inside the user-requested search depth. | #731 | GPT-6 |
@@ -178,6 +179,8 @@ private:
 void RestoreConsentForeground(HWND owner, HWND foreground, DWORD lastInput);
 bool CanOfferElevation();
 
+// Wire operation IDs distinguish the approved capability; a read-only scope
+// must not be interpreted as permission for content reads or mutations.
 enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26, MoveAcrossVolume = 27, FinishCrossVolumeMove = 28, MoveCompressed = 29, CopyCompressedSecurity = 30, RenameDirectory = 31, DeleteDirectory = 32, Inventory = 33, CompareList = 34, CompareContent = 35, MoveDirectory = 36, CopyDirectoryEntry = 37, MergeCopyTree = 38, ListCopyTreeSource = 39, PlanCopyTree = 40, MoveOverwrite = 41, MoveAcrossVolumeOverwrite = 42, FileAllocation = 43, CopyOverwriteIgnoreAds = 44, ProbeOverwrite = 45, ProbeOverwriteIgnoreAds = 46, AbortOverwriteProbe = 47, ThinOpenSource = 49, ThinTargetCreate = 50, ThinTargetRetry = 51, ThinTargetProbe = 52, ThinDiscardTarget = 53, ThinTargetRelease = 54, ThinTargetOverwrite = 55, ThinTargetOverwriteScan = 56, FindList = 57, InventorySelection = 58, FindFlatList = 59, FindFlatContent = 60 };
 
 inline constexpr bool IsFlatFindScope(Operation operation)
@@ -245,6 +248,8 @@ struct ZipSelectionEntry
 };
 static_assert(sizeof(ZipSelectionEntry) == 24);
 
+// A name alone is not an authorization: the serial and file ID bind a later
+// privileged operation to the object that was observed before consent.
 struct MoveFileIdentity
 {
     ULONGLONG serial = 0;
@@ -280,6 +285,8 @@ bool CaptureMoveFileIdentity(HANDLE file, MoveFileIdentity& identity, bool requi
 DWORD DeleteCopiedMoveSource(const std::wstring& sourcePath, const std::wstring& targetPath,
                              const MoveFileIdentity& source, const MoveFileIdentity& target);
 
+// Revision data travels with overwrite decisions so the broker can compare
+// the opened target with the object used to prepare that decision.
 struct ArchiveRevision
 {
     ULONGLONG serial = 0;
@@ -578,6 +585,8 @@ struct FileAllocationRequest;
 
 using BrokerActivity = void (*)(HWND owner, bool active);
 
+// Owns the prepared parent/source anchors and describes a single typed leaf
+// operation. Destruction releases its handles; the path is not a reusable grant.
 class PreparedLeaf
 {
 public:
@@ -733,6 +742,8 @@ inline bool CanContinueTransferJob(DWORD error)
     return error != ERROR_PARTIAL_COPY && error != ERROR_CANCELLED;
 }
 
+// Batch reuse is limited by operation family and the verified source/target
+// anchors; a successful UAC prompt does not authorize unrelated paths.
 struct TransferJobScope
 {
     Operation operation = Operation::Mkdir;
@@ -765,6 +776,7 @@ struct TransferJobScope
         return operation == Operation::CopyDirectoryEntry || operation == Operation::MergeCopyTree || NeedsTreeRoot();
     }
 
+    // Preserve the planned relative mapping when reusing one tree-copy authorization.
     bool MatchesTreeEntry(const TransferJobScope& entry, std::wstring_view leaf, std::wstring_view targetLeaf) const
     {
         if (!IsTreeCopy() || source.serial != entry.source.serial || target.serial != entry.target.serial ||
@@ -817,6 +829,8 @@ struct TreeCopySourceEntry
 };
 static_assert(sizeof(TreeCopySourceEntry) == 608);
 
+// Owns the authenticated pipe for an eligible transfer batch. Closing it ends
+// further broker requests, while already returned results remain caller-owned.
 class TransferJobSession
 {
 public:
@@ -885,6 +899,8 @@ struct DeferredTransferTarget
     MoveFileIdentity identity{};
 };
 
+// Carries both verified endpoints and the selected transfer operation through
+// consent. The worker retains conflict decisions and visible progress.
 class PreparedTransfer
 {
 public:
@@ -1086,6 +1102,8 @@ struct TransferPrompt
 #endif
 };
 
+// Counts may represent only the readable prefix. firstOmission preserves the
+// first reason so callers can label and explain an incomplete total.
 struct DirectoryInventory
 {
     ULONGLONG bytes = 0;
@@ -1094,6 +1112,7 @@ struct DirectoryInventory
     DWORD firstOmission = 0;
     DWORD flags = 0;
 };
+// Skipping one inaccessible branch must not conceal a broken session, invalid identity, or cancellation.
 inline bool IsSkippableSizeBranchError(DWORD error)
 {
     switch (error)
@@ -1160,6 +1179,8 @@ struct FindRootIdentity
     FILE_ID_128 id{};
 };
 
+// A listing session confines read requests to its prepared root and operation;
+// callers must not treat a stopped or disconnected pipe as ongoing consent.
 class ListingSession
 {
 public:
@@ -1177,6 +1198,7 @@ public:
     bool PrepareFindRoot(const FindRootIdentity& identity, bool readContent, bool recursive = true);
     DWORD CaptureFindRoot(const std::wstring& path, FindRootIdentity& identity, HANDLE stop = nullptr);
     bool PrepareInventory(const std::wstring& path);
+    // The session is scoped to the selected children, not every child of their common parent.
     bool PrepareInventorySelection(const std::wstring& parent, const std::vector<std::wstring>& names);
     const std::wstring& GetSelectionDescription() const { return selectionDescription; }
     bool PrepareComparison(const std::wstring& path, bool contents);

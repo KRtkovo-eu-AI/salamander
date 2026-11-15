@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain scoped viewer reads. | Document identity validation and snapshot limits. | #731 | GPT-6 |
 // | 2026-11-08 | Open a scoped content file relative to a verified directory. | Share read-only validation with the viewer and ZIP. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Share verified file opening with archive reads. | Keep the snapshot limit specific to the viewer. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Read one verified file into a bounded viewer snapshot. | Release the elevated file before the viewer opens. | | GPT-6.1 Sol (Codex) |
@@ -13,6 +14,8 @@
 
 namespace UacViewLeaf
 {
+// Open a single leaf for read-only access relative to an already validated parent.
+// When supplied, the listed identity must match the opened object.
 inline DWORD OpenRead(HANDLE parent, const FILE_ID_INFO* expectedSource, std::wstring_view leaf,
                               ULONGLONG deadline, HANDLE& opened, LARGE_INTEGER& size, FILE_BASIC_INFO& initial)
 {
@@ -60,6 +63,7 @@ inline DWORD OpenVerifiedRead(HANDLE parent, const UacDirectoryLeaf::ParentIdent
     return OpenRead(parent, &expectedSource, leaf, deadline, opened, size, initial);
 }
 
+// A scoped read may descend from its approved root, but cannot follow reparse points.
 inline DWORD OpenScopedRead(HANDLE root, std::wstring_view relative, ULONGLONG deadline,
                             HANDLE& opened, LARGE_INTEGER& size, FILE_BASIC_INFO& initial)
 {
@@ -82,6 +86,8 @@ inline DWORD OpenScopedRead(HANDLE root, std::wstring_view relative, ULONGLONG d
     return OpenRead(parent.get(), nullptr, relative.substr(split + 1), deadline, opened, size, initial);
 }
 
+// Publish a snapshot only after the complete bounded read and metadata recheck.
+// On failure the caller receives no partial snapshot.
 inline DWORD ReadVerifiedSnapshot(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expectedParent,
                                   const FILE_ID_INFO& expectedSource, std::wstring_view leaf,
                                   ULONGLONG deadline, std::vector<BYTE>& snapshot)

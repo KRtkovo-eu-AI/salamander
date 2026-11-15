@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain guarded move-source lifetime. | Document why the source remains pinned during publication. | | GPT-6 |
 // | 2026-11-12 | Add a test-only stream-lock allocation checkpoint. | Exercise source recovery after a move job throws. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Retire read-only move sources through their guarded handles. | Keep attributes intact during publication, cancellation and unlink of the recovery alias. | | GPT-6.1 Sol |
 // | 2026-11-09 | Report bytes during guarded move copy. | Reuse the staged file transfer progress source. | | GPT-6.1 Sol (Codex) |
@@ -214,6 +215,8 @@ private:
 #ifdef SAM_UAC_MOVE_SOURCE_FAULT_TEST
 void AfterMoveLinkClosedForTest(DWORD remainingLinks);
 #endif
+// Hold the source and its stream locks through publication and retirement;
+// releasing them earlier could allow writes through another name mid-move.
 class SourceGuard
 {
 public:

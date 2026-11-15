@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Keep clipboard transfer disabled for the protected ZIP pilot. | Preserve the listing-only boundary. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain the protected ZIP clipboard boundary. | Keep clipboard operations within the supported archive paths. | #731 | GPT-6 |
 // | 2026-11-10 | Retain staged clipboard files until archive/FS paste completes. | Clipboard lifetime can end before queued archive or plugin FS uploads read their sources. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-10 | Recognize this instance's archive clipboard data through OLE proxies. | Private marker formats can be hidden, which sent Ctrl+V through the fake directory path. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-05 | Survive faulty shell extension SEH in SafeInvokeCommand. | Shell InvokeCommand failures must degrade instead of terminating. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
@@ -477,6 +478,7 @@ BOOL CFilesWindow::ClipboardPaste(BOOL onlyLinks, BOOL onlyTest, const char* pas
 
 BOOL CFilesWindow::ClipboardPasteToArcOrFS(BOOL onlyTest, DWORD* pasteDefEffect)
 {
+    // Protected ZIP clipboard transfers cannot preserve the approved archive session here.
     if (IsProtectedZip())
         return FALSE;
     CALL_STACK_MESSAGE2("CFilesWindow::ClipboardPasteToArcOrFS(%d,)", onlyTest);
@@ -604,6 +606,7 @@ BOOL CFilesWindow::ClipboardPasteToArcOrFS(BOOL onlyTest, DWORD* pasteDefEffect)
 
 void CFilesWindow::ClipboardCopy()
 {
+    // Archive entries use the explicit protected extraction path, not a clipboard file source.
     if (IsProtectedZip())
         return;
     CALL_STACK_MESSAGE1("CFilesWindow::ClipboardCopy()");
@@ -612,6 +615,7 @@ void CFilesWindow::ClipboardCopy()
 
 void CFilesWindow::ClipboardCut()
 {
+    // A protected archive session cannot be transferred to the clipboard's deferred cut operation.
     if (IsProtectedZip())
         return;
     CALL_STACK_MESSAGE1("CFilesWindow::ClipboardCut()");

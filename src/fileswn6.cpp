@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Stop execution and editing of entries from a listing-only archive. | Require a future authorized extraction path. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain shared size consent and protected copy scanning. | Document scope lifetime and the normal-worker fallback. | #731 | GPT-6 |
 // | 2026-11-15 | Exclude skipped links from size consent selections. | Let eligible sibling directories share their exact approved scope. | #731 | GPT-6 |
 // | 2026-11-15 | Preserve partial results for size scan branch errors. | Continue accessible items and report the actual omission. | #731 | GPT-6 |
 // | 2026-11-15 | Explain denied size scans and total partial selections. | Report administrator denials and preserve lower-bound sums. | #731 | GPT-6 |
@@ -1359,12 +1360,14 @@ void CFilesWindow::DropCopyMove(BOOL copy, char* targetPath, CCopyMoveData* data
 
 static bool IsCompatibilityLinkForSize(const char* path);
 
+// Use the same link policy when preparing the consent scope and when scanning the selected tree.
 static bool SkipSizeDirectoryLink(DWORD attributes, bool verifyListedAlias, bool stayOnFileSystem, bool compatibilityLink)
 {
     return (attributes & FILE_ATTRIBUTE_REPARSE_POINT) && !verifyListedAlias &&
            (stayOnFileSystem || compatibilityLink);
 }
 
+// One batch owns the actual broker session and remembers refusal across all selected roots.
 struct CSizeBatchConsent
 {
     bool ElevationDeclined = false;
@@ -1374,6 +1377,7 @@ struct CSizeBatchConsent
     std::optional<DWORD> StartResult;
 };
 
+// Each selected root retains its own progress while sharing only the batch's approved scope.
 struct CSizeScanScope
 {
     std::wstring Root;
@@ -1393,6 +1397,8 @@ struct CSizeScanScope
     }
 };
 
+// Capture a denied leaf through the live listing for the delete worker.
+// Record preparation failures rather than retrying an unverified name.
 static bool PrepareListedDeleteSource(COperations& script, UacF7::ListingSession& listing,
                                       const std::wstring& path, DWORD attributes)
 {
@@ -1769,6 +1775,7 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                         oneFile->SizeValid = 0;
                         oneFile->PluginData = DiskItemNoPluginData;
                     }
+                    // Each selected root keeps its own result while the batch shares consent.
                     std::optional<CSizeScanScope> sizeScope;
                     std::string unicodeName;
                     if (countSize)
@@ -2052,6 +2059,7 @@ void GetADSStreamsNames(char* listBuf, int bufSize, char* fileName, BOOL isDir)
     }
 }
 
+// Start the prepared session from the existing dialog for this operation.
 class CProtectedOperationConsentDialog : public CMessageBox
 {
     UacF7::ListingSession* Session = nullptr;
@@ -2149,6 +2157,7 @@ static int ConfirmProtectedSize(HWND owner, const std::wstring& path,
     return choice;
 }
 
+// Feed verified protected entries back into the original operation planner rather than bypassing its decisions.
 static int ReadProtectedCopyDirectory(HWND owner, COperations& script, const std::wstring& path,
                                        std::vector<UacF7::TreeCopySourceEntry>& rows, DWORD& error)
 {
@@ -2960,6 +2969,8 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
         std::vector<UacF7::TreeCopySourceEntry> copyRows;
         bool copyListing = false;
         DWORD copyListError = listError;
+        // A denied tree enumeration can use its prepared protected listing.
+        // Preserve the worker's normal skip and cancel decisions.
         if (copyTreeEntry && !ErrListDirSkipAll && sourceDirAttr == FILE_ATTRIBUTE_DIRECTORY &&
             (reviewedCopySource || (search == INVALID_HANDLE_VALUE && listError == ERROR_ACCESS_DENIED)))
         {
@@ -3011,6 +3022,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                 (!(sourceDirAttr & FILE_ATTRIBUTE_REPARSE_POINT) || verifyListedAlias))
             {
                 const auto path = sizePath();
+                // Prefer an existing panel or batch session; do not reprompt after refusal.
                 UacF7::ListingSession temporary;
                 auto* session = ProtectedListing && ProtectedListing->Contains(path) ? ProtectedListing.get() : nullptr;
                 const bool batchSelection = sizeScope && sizeScope->Batch && !sizeScope->Batch->Selected.empty();
@@ -3049,6 +3061,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                         if (scoped && choice == IDOK)
                             *startResult = inventoryError;
                     }
+                    // A verified inventory can still contain omissions and a partial total.
                     UacF7::DirectoryInventory inventory;
                     UacF7::DirectorySizeDetails details;
                     std::wstring firstSkipped;
@@ -3762,6 +3775,8 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
         {
             op.OpFlags &= ~OPFL_AS_ENCRYPTED;
         }
+        // Bind protected transfer sources to listing identity before running the worker.
+        // Locally accessible items may remain on the ordinary path.
         const auto listedPath = ProtectedListing && (script->TransferFromProtectedListing ||
                                                         ((op.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) && IsBranchView()))
             ? SalPathRemoveExtendedPrefixW(op.SourceNameW.c_str()) : std::wstring{};

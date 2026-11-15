@@ -1,8 +1,10 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Explain protected listing rendering. | Document the independent shield and scoped path highlight. | #731 | GPT-6 |
 | 2026-11-08 | Retain the directory bar background for the protected path. | Highlight only the foreground using the selection color. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Highlight the approved path suffix with the selection palette. | Preserve readability and existing path hit-testing. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Show a UAC shield for protected directory listings. | Paint the system shield after the visible path and reuse the localized tooltip. | | GPT-6.1 Sol (Codex) |
@@ -543,6 +545,8 @@ void CStatusWindow::SetThrobberTooltip(const char* throbberTooltip)
         ThrobberTooltip = DupStr(throbberTooltip);
 }
 
+// The panel supplies the approved path's byte offset; the stock shield is a
+// separate visual indicator from the connection-security icon.
 void CStatusWindow::SetAdministratorListing(int pathStart)
 {
     if (pathStart == AdministratorPathStart)

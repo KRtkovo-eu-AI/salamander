@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain bounded EFS raw callbacks. | Preserve encrypted data and stop on cancellation or disconnect. | #731 | GPT-6 |
 // | 2026-11-09 | Count bytes supplied to the EFS import. | Reuse the bounded transfer progress callback. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Check the host connection during EFS transfer. | Stop raw callbacks after a disconnect. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Wrap bounded EFS Raw transfers. | Keep encrypted bytes intact and isolate the path-dependent open from transfer. | | GPT-6.1 Sol (Codex) |
@@ -41,6 +42,7 @@ public:
         return error;
     }
 
+    // Raw export remains bounded and is discarded if the scoped connection fails.
     DWORD Read(std::vector<BYTE>& bytes, size_t maximum, ULONGLONG deadline, HANDLE connection = nullptr)
     {
         bytes.clear();
@@ -60,6 +62,7 @@ public:
         return error;
     }
 
+    // Import exactly the exported encrypted stream and report progress without decrypting it.
     DWORD Write(const std::vector<BYTE>& bytes, ULONGLONG deadline, HANDLE connection = nullptr,
                 const UacCopyLeaf::Detail::CopyProgress* progress = nullptr)
     {

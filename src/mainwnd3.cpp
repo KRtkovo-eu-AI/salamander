@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Route explicit Refresh to protected archives. | Leave background refresh noninteractive. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain administrator shell foreground ownership. | Keep cancellation separate from successful shell activation. | #731 | GPT-6 |
+// | 2026-11-15 | Explain explicit protected ZIP refresh. | Avoid starting an interactive read from background refresh. | #731 | GPT-6 |
 // | 2026-11-12 | Handle thin F5 focus handoff on the main UI thread. | Complete foreground activation before progress closes. | #731 | GPT-6 |
 // | 2026-11-12 | Gate laboratory copy dispatch by explicit mode and scope. | Exercise native F5 in isolated sync and async peer tests. | #731 | GPT-6 |
 // | 2026-11-12 | Reject repeated test-only copy dispatch. | Prevent reentrant or duplicate test requests from invoking F5 twice. | #731 | GPT-6 |
@@ -473,6 +475,8 @@ void CMainWindow::RequestPanelRefresh(CFilesWindow* panel, bool rebuildDriveBars
     int refreshId = MyTimeCounter++;
     HANDLES(LeaveCriticalSection(&TimeCounterSection));
 
+    // Only an explicit refresh may initiate a protected ZIP read; background
+    // notifications must not unexpectedly ask the user for elevation.
     if (explicitRefresh && panel->IsProtectedZip())
         panel->RefreshDirectory(FALSE, FALSE, FALSE, true);
     else if (postRefreshMessage)
@@ -8843,6 +8847,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 memset(&sei, 0, sizeof(sei));
                 sei.cbSize = sizeof(sei);
                 sei.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC;
+                // Associate Windows consent with the invoking window so a
+                // cancelled elevation can restore that window's foreground.
                 const UacF7::ConsentForeground foreground(HWindow);
                 sei.hwnd = foreground.Owner();
                 sei.lpVerb = "runas";

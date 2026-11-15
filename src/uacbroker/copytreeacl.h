@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Explain staged-tree integrity labels. | Clarify the protection applied while retaining inherited access rules. | | GPT-6 |
 | 2026-11-08 | Define a mandatory integrity profile for tree staging. | Protect working objects while retaining the target's inherited DACL. | | GPT-6.1 Sol (Codex) |
 */
 #pragma once
@@ -15,6 +16,8 @@ namespace UacCopyTree
 {
 namespace Detail
 {
+// Stage objects use a verified mandatory label while the destination's DACL
+// remains inherited; reject label layouts this staging path cannot preserve.
 class StageProtection
 {
 public:

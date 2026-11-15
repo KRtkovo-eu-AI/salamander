@@ -10,6 +10,7 @@
 // | 2026-11-07 | Offer one-file broker rename in the shared panel rename path. | Keep ordinary rename and overwrite semantics while adding explicit consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Connect native F7 to the protected mkdir pilot. | Offer elevation only for a verified existing parent. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain UAC previews and panel identity guards. | Clarify when the normal dialogs may offer elevation. | #731 | GPT-6 |
 // | 2026-11-14 | Reuse approved panel reads for internal F3. | Avoid a second consent for files already within the live panel scope. | #731 | GPT-6 |
 // | 2026-11-11 | Bind protected Find viewing to its captured identity. | Reject readable replacements and pathname-only handlers. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Separate trusted editor preparation from the Find prompt. | Avoid blocking the Find window during the application consent dialog. | #731 | GPT-6.1 Sol |
@@ -1334,6 +1335,7 @@ static BOOL PrepareNtfsConfirmation(CFilesWindow* panel, int textID, int count, 
     return text.SetW(format.c_str(), identity.c_str());
 }
 
+// A shield is only a preview: the operation still prepares and verifies its exact target after confirmation.
 struct MetadataElevationPreview
 {
     std::wstring path;
@@ -1614,6 +1616,8 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
             {
                 UpdateWindow(MainWindow->HWindow);
 
+                // The protected shortcut supports one nonrecursive metadata change.
+                // Recheck the selected row after the dialog has pumped messages.
                 constexpr DWORD metadataAttributes = UacF7::basicAttributes | FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_DIRECTORY;
                 const bool basicChanged =
                     (chDlg.Archive != 2 && chDlg.Archive != !!(attr & FILE_ATTRIBUTE_ARCHIVE)) ||
@@ -1800,6 +1804,7 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                     if (singleSpecialTimes)
                         dlgData.BasicMetadataSet = dlgData.BasicMetadataClear = 0;
 
+                    // Carry shielded OK and the exact metadata policy into the worker request.
                     const bool shieldedOk = dlgData.AllowBasicMetadataPilot && chDlg.AcceptedShieldedOk();
                     DWORD metadataPreparationError = ERROR_SUCCESS;
                     if (protectedMetadata || shieldedOk)
@@ -1846,6 +1851,7 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                                                indexes, f, &attrsData, NULL, FALSE, NULL);
                     if (script->Count == 0 || (branchAttributes && !branchSelection.IsCurrent(this)))
                         res = FALSE;
+                    // Consent applies only to the same single operation the script built.
                     if (res && (script->ProtectedMetadataRequest || shieldedOk || singleSpecialTimes))
                     {
                         const bool sameItem = script->Count == 1 && script->At(0).Opcode == ocChangeAttrs &&
@@ -1955,6 +1961,7 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
 void CFilesWindow::FindFile()
 {
     CALL_STACK_MESSAGE1("CFilesWindow::FindFile()");
+    // Bind Find to the approved panel root before opening its dialog.
     std::shared_ptr<const UacF7::FindRootIdentity> protectedRoot;
     if (Is(ptDisk))
     {
@@ -2063,6 +2070,7 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
             SalMessageBox(HWindow, GetErrorText(error), LoadStr(IDS_VIEWERTITLE), MB_OK | MB_ICONEXCLAMATION);
         return;
     }
+    // Defer the local path check for internal F3 within the approved panel scope.
     const bool panelF3 = name == NULL && Is(ptDisk) && !altView && handlerID == 0xFFFFFFFF;
     const bool deferredPathCheck = panelF3 && ProtectedListing &&
                                    ProtectedListing->Contains(SalPathRemoveExtendedPrefixW(GetPathW()));
@@ -2837,6 +2845,7 @@ static bool NeedsAdministratorForEdit(const std::wstring& path)
     return false;
 }
 
+// External editors require separate consent; a panel read session is not transferred.
 BOOL ConfirmElevatedFileEdit(HWND owner, const std::wstring& document, const UacF7::ElevatedEditor& editor)
 {
     const std::wstring details = document + L"\n\n" + editor.GetExecutable();
@@ -2859,6 +2868,7 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID, COpenEditorData* found)
         return;
     }
 
+    // Let a protected panel item reach editor preparation before the ordinary path check.
     const bool panelF4 = name == NULL && Is(ptDisk) && handlerID == 0xFFFFFFFF;
     const bool deferredPathCheck = panelF4 && ProtectedListing && ProtectedListing->IsOpen() &&
                                    ProtectedListing->Contains(SalPathRemoveExtendedPrefixW(GetPathW()));
@@ -3379,6 +3389,7 @@ BOOL CFilesWindow::FillViewWithData(TDirectArray<CViewerMasksItem*>* items)
     return TRUE;
 }
 
+// Check that the source panel and listing remain current while the protected viewer is prepared.
 struct ProtectedPanelViewerGuard
 {
     CMainWindow* main = nullptr;
@@ -3759,6 +3770,7 @@ static LocalDirectoryCreateResult CreateLocalDirectoryLeaf(const char* path, con
     return {created, error};
 }
 
+// Probe with the caller's token; access-denied may justify a shield but never grants authority itself.
 DWORD ProbeLocalElevationAccess(const std::wstring& path, DWORD access, bool directory)
 {
     const std::wstring absolute = SalPathRemoveExtendedPrefixW(path.c_str());
@@ -3781,6 +3793,7 @@ DWORD ProbeLocalElevationAccess(const std::wstring& path, DWORD access, bool dir
     return ERROR_SUCCESS;
 }
 
+// Recheck the destination as it changes so the shield describes the currently entered parent.
 struct MkdirElevationPreview
 {
     std::wstring directory;
@@ -3909,6 +3922,7 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
                     goto CREATE_AGAIN;
                 lstrcpyn(checkPath, path, parentPath.Capacity());
                 CutDirectory(checkPath);
+                // When the parent is protected, prepare the exact mkdir request through its approved listing.
                 const std::wstring listedPath = ProtectedListing ? SalPathRemoveExtendedPrefixW(pathW.c_str()) : std::wstring{};
                 const bool inProtectedListing = ProtectedListing && ProtectedListing->Contains(listedPath) &&
                                                 listedPath != ProtectedListing->GetRoot();
@@ -3953,6 +3967,7 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
                     LocalDirectoryCreateResult result = CreateLocalDirectoryLeaf(path, pathW);
                     if (!result.Created && result.Error == ERROR_ACCESS_DENIED && !createdParent)
                     {
+                        // Prepare the exact parent and leaf before privileged creation.
                         UacF7::PreparedLeaf request;
                         const bool prepared = inProtectedListing ?
                             (ProtectedListing && ProtectedListing->PrepareMkdir(listedPath, request) == ERROR_SUCCESS) :
@@ -4395,6 +4410,7 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
     const bool directoryRename = isDir && !link;
     if (err == ERROR_ACCESS_DENIED && (!isDir || link || directoryRename))
     {
+        // Bind rename consent to the selected item, not an unverified path.
         UacF7::PreparedLeaf request;
         bool prepared = false;
         const std::wstring listedSource = SalPathRemoveExtendedPrefixW(srcPath.c_str());
@@ -4898,6 +4914,7 @@ void CFilesWindow::RenameFile(int specialIndex)
                 dlg.SetSelectionEnd(selectionEnd);
             }
 
+            // Probe the selected object and its parent before showing the rename dialog's shield.
             std::wstring shieldedSource;
             if ((f->Attr & FILE_ATTRIBUTE_REPARSE_POINT) == 0 && UacF7::CanOfferElevation())
             {

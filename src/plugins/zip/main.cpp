@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain private protected ZIP entry points. | Document stage publication and panel metadata ownership. | #731 | GPT-6 |
 // | 2026-11-08 | Expose strict private ZIP stage editing. | Publish only a completed ZIP update and never move the ordinary source files. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Export the ZIP entry reader privately. | Keep the public plugin ABI and ordinary unpacking intact. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Export the standard protected ZIP panel listing. | Return normal plugin-owned metadata and discard partial failures. | | GPT-6.1 Sol (Codex) |
@@ -1025,6 +1028,8 @@ void CPluginDataInterface::ColumnWidthWasChanged(BOOL leftPanel, const CColumn* 
 // CPluginInterfaceForArchiver
 //
 
+// Build ordinary plugin-owned rows from the scoped source and discard partial
+// rows if the protected listing fails.
 DWORD WINAPI SalamanderListZipPanelV1(const SalZipReadSourceV1* source, CSalamanderDirectoryAbstract* dir,
                                       CPluginDataInterfaceAbstract** pluginData)
 {
@@ -1062,6 +1067,7 @@ DWORD WINAPI SalamanderListZipPanelV1(const SalZipReadSourceV1* source, CSalaman
     return error;
 }
 
+// Read only the requested listed entry through the host's approved callback.
 DWORD WINAPI SalamanderReadZipEntryV1(const SalZipReadSourceV1* source, const char* name, const CFileData* file,
                                       ULONGLONG maxBytes, SalZipWrite write, void* context)
 {
@@ -1188,6 +1194,8 @@ BOOL CPluginInterfaceForArchiver::UnpackOneFile(CSalamanderForOperationsAbstract
     return TRUE;
 }
 
+// Edit the broker-prepared stage with the normal packer; the host decides
+// whether a successful stage may replace the protected archive.
 DWORD WINAPI SalamanderEditZipStageV1(CSalamanderForOperationsAbstract* salamander, const char* stage,
                                       const char* archiveRoot, const char* sourcePath,
                                       SalEnumSelection2 add, SalEnumSelection remove, void* context)

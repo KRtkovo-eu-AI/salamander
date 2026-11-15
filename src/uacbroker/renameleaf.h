@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Explain verified rename and move. | Document parent, object and connection checks. | #731 | GPT-6 |
 | 2026-11-15 | Permit identified hard links in same-volume file moves. | Preserve native F6 behavior without changing other mutation checks. | #731 | GPT-6 |
 | 2026-11-12 | Add replacement exception checkpoints to the test seam. | Exercise uncertainty before journal write and during rollback. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Apply exact case-only lookup to verified links. | Rename reparse entries in sensitive directories without following their targets. | #731 | GPT-6 (Codex) |
@@ -52,6 +53,7 @@ inline bool ValidRenameNames(std::wstring_view from, std::wstring_view to)
 
 namespace Detail
 {
+// Rename the already-opened object into a pinned parent without replacing a target.
 inline DWORD NativeRename(HANDLE source, HANDLE targetParent, std::wstring_view leaf)
 {
     if (!UacDirectoryLeaf::IsComponent(leaf))
@@ -180,6 +182,8 @@ inline DWORD CheckJunction(HANDLE source)
     return bytes <= capacity ? CheckJunctionData(data.data(), bytes) : ERROR_INVALID_REPARSE_DATA;
 }
 
+// Check object type and reparse tag together with its stable file ID.
+// Multiple file links require explicit opt-in; other callers retain the single-link rule.
 inline DWORD ReadSourceIdentity(HANDLE source, FILE_ID_INFO& identity, MoveKind kind = MoveKind::RenameFile,
                                 bool allowFileHardLinks = false)
 {
@@ -208,6 +212,8 @@ inline DWORD ReadSourceIdentity(HANDLE source, FILE_ID_INFO& identity, MoveKind 
 
 inline constexpr BYTE transferCancelSignal = 1;
 
+// Stop before the next privileged step if the request timed out, disconnected,
+// or received the sole recognized cancellation byte.
 inline DWORD CheckTransferConnection(HANDLE connection, ULONGLONG deadline)
 {
     if (GetTickCount64() >= deadline)

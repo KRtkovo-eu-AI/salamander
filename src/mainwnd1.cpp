@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Disable entry content actions for the protected listing. | Keep metadata and navigation available. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain protected ZIP command availability. | Keep unsupported archive actions outside the approved path. | #731 | GPT-6 |
 // | 2026-11-12 | Observe F5 panel readiness in test builds. | Coordinate the isolated real-worker acceptance test without changing commands. | #731 | GPT-6 |
 // | 2026-11-08 | Enable archive deletion for an open protected ZIP with a verified editor. | Preserve ordinary archive capability checks. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Enable extraction from the protected archive panel. | Keep archive mutations disabled. | | GPT-6.1 Sol (Codex) |
@@ -6762,6 +6763,7 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
         if (archive)
         {
             int format = PackerFormatConfig.PackIsArchive(activePanel->GetZIPArchive());
+            // Protected ZIP edits require the dedicated verified stage editor.
             if (activePanel->IsProtectedZip())
                 archiveEdit = activePanel->CanEditProtectedZip();
             else if (format != 0)
@@ -6873,6 +6875,7 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
     obj->CheckAndSet(&EnablerFiles, files);
     obj->CheckAndSet(&EnablerFileOnDisk, file && onDisk);
     obj->CheckAndSet(&EnablerFileOrDirLinkOnDisk, (file || linkOnDisk) && onDisk);
+    // Generic archive commands cannot assume direct file access to a protected ZIP.
     const bool archiveContentsAvailable = archive && !activePanel->IsProtectedZip();
     obj->CheckAndSet(&EnablerFileOnDiskOrArchive, file && (onDisk || archiveContentsAvailable));
     obj->CheckAndSet(&EnablerFilesOnDisk, onDisk && files);

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain move recovery validation. | Document the identity boundary before restoring a source. | | GPT-6 |
 // | 2026-11-12 | Retire failed unsealed recovery records. | Avoid blocking later moves after a failed journal preparation. | #731 | GPT-6 (Codex) |
 // | 2026-11-12 | Coordinate allocation failure with source recovery. | Avoid losing the recovery attempt when a move job throws. | #731 | GPT-6 (Codex) |
 // | 2026-11-12 | Report allocation failures during source recovery. | Preserve the journal when recovery has only partly completed. | #731 | GPT-6 (Codex) |
@@ -496,6 +497,8 @@ enum class RecoveryExceptionPoint { BeforeRecord, AfterRestoreName, AfterAliasRe
 void InjectRecoveryException(RecoveryExceptionPoint point);
 #endif
 
+// A journal is actionable only in its verified original and private parents;
+// recovery must not restore or remove a different object with the same name.
 inline DWORD Recover(HANDLE parent, HANDLE storage, HANDLE journal, PSECURITY_DESCRIPTOR security) try
 {
     using namespace Detail;

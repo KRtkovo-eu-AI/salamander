@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain UAC integration boundaries. | Document scope, lifetime and native workflow decisions. | #731 | GPT-6 |
 // | 2026-11-11 | Identify an unchanged directory only for recycle diagnostics. | Explain a verified source denial without widening the Shell operation. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Tell the Shell that recycle elevation is already requested. | Keep Windows UAC without asking twice for the same elevation. | #731 | GPT-6 (Codex) |
 // | 2026-11-09 | Recheck the account policy on every Shell retry. | Stop when a changed policy can switch accounts after application consent. | | GPT-6.1 Sol (Codex) |
@@ -254,6 +255,7 @@ struct VerifiedSource
         return ReadFileId(path.c_str(), actual, &actualPath) && SameFileId(id, actual) && actualPath == normalizedPath;
     }
 
+    // A Shell success is insufficient: bind the receipt to the original object and caller bin.
     bool ConfirmRecycled(IShellItem* receipt, const std::wstring& sid) const
     {
         RecycleFileId actual{};
@@ -323,6 +325,7 @@ public:
     ULONG STDMETHODCALLTYPE AddRef() override { return static_cast<ULONG>(InterlockedIncrement(&references)); }
     ULONG STDMETHODCALLTYPE Release() override { return static_cast<ULONG>(InterlockedDecrement(&references)); }
 
+    // Reject permanent deletion and recheck the exact source before each Shell attempt.
     HRESULT STDMETHODCALLTYPE PreDeleteItem(DWORD flags, IShellItem* item) override
     {
         if (!(flags & TSF_DELETE_RECYCLE_IF_POSSIBLE))

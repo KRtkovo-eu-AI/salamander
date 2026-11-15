@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 //
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain UAC integration boundaries. | Document scope, lifetime and native workflow decisions. | #731 | GPT-6 |
 // | 2026-11-12 | Preserve ordinary traversal of non-name-surrogate directories. | Keep readable descendants without extending the verified elevation scope. | #731 | GPT-6.1 Terra |
 // | 2026-11-12 | Detect identity and metadata changes during partial retries. | Retain previous rows without merging same-name replacements. | #731 | GPT-6.1 Terra |
 // | 2026-11-12 | Retry denied Branch listings after scoped consent. | Keep partial results and verify listed directory identities. | #731 | GPT-6.1 Terra |
@@ -563,6 +564,7 @@ bool Scan::Start(const std::wstring& root, bool hideHiddenSystem, bool increment
     }
     catch (const std::bad_alloc&) { Shared.reset(); return false; }
 }
+// Reuse the scan worker and its publication path while the listing session supplies denied directories.
 DWORD WINAPI Scan::RunProtected(void* context)
 {
     std::unique_ptr<std::shared_ptr<State>> reference(static_cast<std::shared_ptr<State>*>(context));
@@ -659,6 +661,7 @@ bool Scan::StartProtected(const std::vector<DeniedDirectory>& denied, const Prog
     catch (const std::bad_alloc&) { return false; }
 }
 
+// Page protected listings and bind retries to the directory identity observed by the ordinary scan.
 DWORD WINAPI Scan::RunProtectedPaged(void* context)
 {
     std::unique_ptr<std::shared_ptr<State>> reference(static_cast<std::shared_ptr<State>*>(context));
@@ -1238,6 +1241,7 @@ static void RetryBranchDenied(CFilesWindow* panel)
     std::vector<DeniedDirectory> denied;
     state->Worker.DrainDenied(denied);
     if (denied.empty()) return;
+    // A consent dialog can outlive a tab or refresh; recheck its generation before publishing results.
     const auto lifetime = state->PreparationLifetime;
     const auto preparation = state->Preparation;
     const ULONGLONG tab = panel->GetPanelTabId();
@@ -1269,6 +1273,7 @@ static void RetryBranchDenied(CFilesWindow* panel)
         if (!current()) return;
     }
     if (verified.empty()) return;
+    // One scoped session retries only denied directories with a verified identity.
     auto session = std::make_shared<UacF7::ListingSession>();
     const std::wstring scope = SalPathRemoveExtendedPrefixW(root.c_str());
     if (!session->PrepareComparison(scope, false))
@@ -1349,6 +1354,7 @@ static void RetryBranchDenied(CFilesWindow* panel)
 static void StartBranchViewScan(CFilesWindow* panel)
 {
     CBranchViewState& state = *panel->BranchView;
+    // Reuse the panel session only when its approved scope covers this Branch View root.
     if (state.PanelScopePending)
     {
         bool contains = false;

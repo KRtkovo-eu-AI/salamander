@@ -4,6 +4,7 @@
 // CommentsTranslationProject: TRANSLATED
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Explain protected viewer snapshots. | Document ownership and the ordinary viewer read path. | #731 | GPT-6 |
 | 2026-11-08 | Read protected viewer data from memory. | Keep parsing in the ordinary process and scope the bytes to one open document. | | GPT-6.1 Sol (Codex) |
 | 2026-11-04 | Wrap FindPreviousDecodedEOL within one logical line; invalidate line-number checkpoints on reload. | Full-file wrap replay and line scans made EOF scrolling O(n) for large Unicode files (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
 | 2026-11-05 | Chunk decoded backwards EOL scans and cache previous visual-row size. | Line-up scrolling was still slow because each step walked scalars one Prepare() at a time (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
@@ -95,6 +96,7 @@ unsigned ThreadViewerMessageLoopBody(void* parameter)
         wholeCaption = data->WholeCaption;
     }
     UINT showCmd = data->ShowCmd;
+    // Transfer the approved bytes to the viewer thread; no elevated handle is inherited.
     auto snapshot = std::move(data->Snapshot);
 
     //  TRACE_I("MoresStanislav: ThreadViewerMessageLoopBody 2");
@@ -640,6 +642,8 @@ void CViewerWindow::CodeCharacters(unsigned char* start, unsigned char* end)
                        UseCodeTable ? CodeTable : NULL);
 }
 
+// A protected document is an immutable snapshot; ordinary files still use the
+// existing file handle so both sources share the viewer's parsing and navigation.
 BOOL CViewerWindow::GetViewerSize(HANDLE file, CQuadWord& size, DWORD& error) const
 {
     if (!ProtectedSnapshot)
@@ -963,6 +967,7 @@ void CViewerWindow::OpenFile(const char* file, const char* caption, BOOL wholeCa
     CALL_STACK_MESSAGE3("CViewerWindow::OpenFile(%s, %s)", file, caption);
     CancelLogViewRetry();
     StopLogViewWatcher();
+    // Keep the approved bytes scoped to this document and disable live log watching.
     ProtectedSnapshot = std::move(snapshot);
     if (ProtectedSnapshot)
         LogViewMode = FALSE;
