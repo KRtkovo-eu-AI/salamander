@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-15 | Check dynamic protected Find scheduling. | Preserve one consent and avoid a fixed request cap. | #731 | GPT-6 |
 # | 2026-11-15 | Restrict nonrecursive Find consent. | Keep the broker inside the user-requested search depth. | #731 | GPT-6 |
 # | 2026-11-15 | Reuse saved Find identities in refinement. | Preserve exact protected-file authorization on repeat searches. | #731 | GPT-6 |
 # | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
@@ -229,8 +230,10 @@ def main() -> int:
             grep.index("duplicateCandidates->Examine(data, protectedSessions, protectedQueue.HadProtectedRequests() ? 0 : 1);"),
             "protected candidates must join ordinary candidates before grouping and hashing")
     queue_add = function_body(find_cpp, "FindQueueResult AddPath(CGrepData* search, std::wstring path")
-    require("count == 0 && !request->Start()" in queue_add and "count == requests.size()" in queue_add,
-            "only the first consent may begin during traversal and the queue must be bounded")
+    require("if (count == 0) started = requests.back()->Start()" in queue_add and "count == requests.size()" not in queue_add,
+            "only the first consent may begin during traversal and requests must not be limited to a fixed count")
+    require("pathIndex.find(path)" in queue_add and queue_add.index("sessions.push_back(nullptr)") < queue_add.index("requests.back()->Start()"),
+            "deduplication must use the path index and the session slot must be owned before starting consent")
     request_finish = function_body(find_cpp, "UacF7::ListingSession* Finish(CDuplicateCandidates* candidates)")
     request_process = function_body(find_cpp, "UacF7::ListingSession* Process(CDuplicateCandidates* candidates)")
     require("data->StopSearch || !Start()" in request_finish and

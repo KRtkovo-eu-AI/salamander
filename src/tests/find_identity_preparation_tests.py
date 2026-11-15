@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-15 | Include production Find foreground lock in fixture. | Compile identity preparation with current session locking. | #731 | GPT-6 |
 # | 2026-11-11 | Verify exact Find-to-view identity conversion. | Preserve the captured identity after session closure. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Exercise real Find preparation against denied NTFS attributes. | Bind scoped consent to captured file and directory IDs. | #731 | GPT-6.1 Terra |
 """Run the production PrepareTarget body with an isolated installation-trust seam."""
@@ -20,6 +21,7 @@ def main():
         'INCLUDES': str(ROOT / 'src/uacbroker').replace('\\', '/'),
         'OPEN_ROOT': block(source, 'Handle OpenVolumeRoot('),
         'OPEN_PARENT': block(source, 'DWORD OpenRequestParent('),
+        'FOREGROUND_LOCK': block(source, 'class ListingForegroundLock', ';'),
         'RENAME_KIND': block(source, 'UacRenameLeaf::MoveKind RenameKind('),
         'DESTRUCTOR': block(source, 'PreparedLeaf::~PreparedLeaf('),
         'PREPARE': block(source, 'bool PreparedLeaf::PrepareTarget('),

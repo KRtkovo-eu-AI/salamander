@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Remove the fixed protected Find queue capacity. | Keep one scoped consent across large searches. | #731 | GPT-6 |
 // | 2026-11-15 | Restrict nonrecursive Find consent. | Keep the broker inside the user-requested search depth. | #731 | GPT-6 |
 // | 2026-11-15 | Reuse saved Find identities in refinement. | Preserve exact protected-file authorization on repeat searches. | #731 | GPT-6 |
 // | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
@@ -54,6 +55,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <map>
 #include <vector>
 
 #include "cfgdlg.h"
@@ -896,11 +898,10 @@ BOOL CFindIgnore::Set(int index, BOOL enabled, const char* path)
 //    These get a Group variable so that sets can be distinguished in the result window.
 //
 
-constexpr size_t maxFindProtectedScopes = 32;
-static_assert(maxFindProtectedScopes < (1u << 6)); // CFoundFilesData::ProtectedScope
-using FindProtectedSessions = std::array<UacF7::ListingSession*, maxFindProtectedScopes>;
+constexpr size_t legacyFindProtectedScopes = 32; // only for historical carried incomplete results
+using FindProtectedSessions = std::vector<UacF7::ListingSession*>;
 
-enum class FindQueueResult { Added, Stopped, Limit, Failed };
+enum class FindQueueResult { Added, Stopped, Limit, Failed, OutOfMemory };
 
 static bool FindFileConsentLimit(DWORD error, DWORD attributes, size_t remaining)
 {
@@ -914,7 +915,7 @@ void FindProtectedScopeLimitText(bool carried, char* output, size_t capacity) no
         return;
     char limit[32]{};
     const int id = carried ? IDS_UAC_FIND_SCOPE_LIMIT_CARRIED : IDS_UAC_FIND_SCOPE_LIMIT;
-    if (_ultoa_s(static_cast<unsigned long>(maxFindProtectedScopes), limit, sizeof(limit), 10) != 0 ||
+    if (_ultoa_s(static_cast<unsigned long>(legacyFindProtectedScopes), limit, sizeof(limit), 10) != 0 ||
         !Salamander::LocalizedText::Write(output, capacity, LoadStr(id), limit))
         strncpy_s(output, capacity, GetErrorText(ERROR_BUFFER_OVERFLOW), _TRUNCATE);
 }
@@ -1617,7 +1618,7 @@ void CDuplicateCandidates::Examine(CGrepData* data, const FindProtectedSessions&
         for (i = Count - 1; i >= 0; i--)
         {
             CFoundFilesData* file = At(i);
-            const unsigned scope = file->ProtectedScope;
+            const size_t scope = file->ProtectedScope;
             auto* session = scope && scope <= protectedSessions.size() ? protectedSessions[scope - 1] : nullptr;
             if (!scope)
             {
@@ -2008,7 +2009,7 @@ BOOL AddFoundItem(const char* path, const char* name, DWORD sizeLow, DWORD sizeH
                   DWORD attr, const FILETIME* lastWrite, BOOL isDir, CGrepData* data,
                   CDuplicateCandidates* duplicateCandidates,
                   const wchar_t* pathW = nullptr, const wchar_t* nameW = nullptr,
-                  unsigned protectedScope = 0, std::shared_ptr<const UacF7::PreparedLeaf> foundView = nullptr,
+                  size_t protectedScope = 0, std::shared_ptr<const UacF7::PreparedLeaf> foundView = nullptr,
                   bool protectedOrigin = false, std::shared_ptr<const UacF7::MoveFileIdentity> listedIdentity = nullptr)
 {
     if (duplicateCandidates != NULL && isDir) // directories are irrelevant to us when searching for duplicates
@@ -2095,7 +2096,7 @@ public:
 
     bool Prepare(CGrepData* search, std::wstring deniedPath, CMaskGroup* masksGroup,
                  BOOL recursive, int searchRootLength, const std::shared_ptr<CFindIgnore>& ignore,
-                 unsigned scope, const WIN32_FIND_DATAW* file, const std::wstring& searchRoot = {},
+                 size_t scope, const WIN32_FIND_DATAW* file, const std::wstring& searchRoot = {},
                  std::shared_ptr<const UacF7::PreparedLeaf> known = {}, bool scopeRecursive = true)
     {
         path = std::move(deniedPath);
@@ -2511,7 +2512,7 @@ private:
     WIN32_FIND_DATAW fileEntry{};
     size_t rows = 1;
     int rootLength = 0;
-    unsigned scopeId = 0;
+    size_t scopeId = 0;
     bool includeSubDirs = false;
     bool readContent = false;
     bool singleFile = false;
@@ -2533,7 +2534,8 @@ public:
         }
         catch (const std::bad_alloc&)
         {
-            return FindQueueResult::Failed;
+            search->IncompleteReasons |= FindIncompleteProtectedFailure;
+            return FindQueueResult::OutOfMemory;
         }
     }
 
@@ -2546,7 +2548,8 @@ public:
         }
         catch (const std::bad_alloc&)
         {
-            return FindQueueResult::Failed;
+            search->IncompleteReasons |= FindIncompleteProtectedFailure;
+            return FindQueueResult::OutOfMemory;
         }
     }
 
@@ -2563,16 +2566,15 @@ public:
         }
         catch (const std::bad_alloc&)
         {
-            return FindQueueResult::Failed;
+            search->IncompleteReasons |= FindIncompleteProtectedFailure;
+            return FindQueueResult::OutOfMemory;
         }
     }
 
-    size_t Remaining() const { return requests.size() - count; }
     bool HadProtectedRequests() const { return count != 0; }
 
-    FindProtectedSessions Finish(CDuplicateCandidates* candidates)
+    const FindProtectedSessions& Finish(CDuplicateCandidates* candidates)
     {
-        FindProtectedSessions sessions{};
         DWORD batchFailure = ERROR_SUCCESS;
         UacF7::ListingSession* approved = nullptr;
         for (size_t i = 0; i < count; ++i)
@@ -2605,26 +2607,55 @@ private:
     {
         if (search->StopSearch)
             return FindQueueResult::Stopped;
-        for (size_t i = 0; i < count; ++i)
-            if (!known && requests[i]->Matches(path, masks, file != nullptr) &&
-                (!search->Refine || (file && requests[i]->MergeRefinedRow(*file))))
-                return FindQueueResult::Added;
-        if (count == requests.size())
-            return FindQueueResult::Limit;
+        if (!known)
+        {
+            const auto previous = pathIndex.find(path);
+            if (previous != pathIndex.end())
+                for (size_t i : previous->second)
+                    if (requests[i]->Matches(path, masks, file != nullptr) &&
+                        (!search->Refine || (file && requests[i]->MergeRefinedRow(*file))))
+                        return FindQueueResult::Added;
+        }
         auto request = std::make_unique<FindProtectedRequest>();
-        if (!request->Prepare(search, std::move(path), masks, recursive, rootLength, ignore,
-                              static_cast<unsigned>(count + 1), file, searchRoot, std::move(known), scopeRecursive))
+        if (!request->Prepare(search, path, masks, recursive, rootLength, ignore,
+                              count + 1, file, searchRoot, std::move(known), scopeRecursive))
+        {
+            if (!search->StopSearch) search->IncompleteReasons |= FindIncompleteProtectedFailure;
             return search->StopSearch ? FindQueueResult::Stopped : FindQueueResult::Failed;
+        }
         if (search->StopSearch)
             return FindQueueResult::Stopped;
+        // Reserve all owning structures before a launch can start an async UAC prompt.
+        auto inserted = pathIndex.try_emplace(path);
+        try { inserted.first->second.push_back(count); }
+        catch (...) { if (inserted.second) pathIndex.erase(inserted.first); throw; }
+        try { requests.push_back(std::move(request)); }
+        catch (...) { inserted.first->second.pop_back(); if (inserted.first->second.empty()) pathIndex.erase(inserted.first); throw; }
+        try { sessions.push_back(nullptr); }
+        catch (...) { requests.pop_back(); inserted.first->second.pop_back(); if (inserted.first->second.empty()) pathIndex.erase(inserted.first); throw; }
         // Let ordinary traversal continue during the first consent.
-        if (count == 0 && !request->Start())
+        bool started = true;
+        try { if (count == 0) started = requests.back()->Start(); }
+        catch (...)
+        {
+            sessions.pop_back(); requests.pop_back(); inserted.first->second.pop_back();
+            if (inserted.first->second.empty()) pathIndex.erase(inserted.first);
+            throw;
+        }
+        if (!started)
+        {
+            sessions.pop_back(); requests.pop_back(); inserted.first->second.pop_back();
+            if (inserted.first->second.empty()) pathIndex.erase(inserted.first);
+            if (!search->StopSearch) search->IncompleteReasons |= FindIncompleteProtectedFailure;
             return search->StopSearch ? FindQueueResult::Stopped : FindQueueResult::Failed;
-        requests[count++] = std::move(request);
+        }
+        ++count;
         return FindQueueResult::Added;
     }
 
-    std::array<std::unique_ptr<FindProtectedRequest>, maxFindProtectedScopes> requests;
+    std::vector<std::unique_ptr<FindProtectedRequest>> requests;
+    FindProtectedSessions sessions;
+    std::map<std::wstring, std::vector<size_t>> pathIndex;
     size_t count = 0;
 };
 }
@@ -2671,7 +2702,7 @@ void SearchDirectory(std::wstring directory, int startPathLen, CMaskGroup* masks
                 const HANDLE raw = HANDLES_Q(FindFirstFileW(pattern.c_str(), &file));
                 if (raw == INVALID_HANDLE_VALUE)
                 {
-                    const DWORD error = GetLastError();
+                    DWORD error = GetLastError();
                     if (error == ERROR_ACCESS_DENIED)
                     {
                         const auto queued = protectedQueue.Add(data, directory, masksGroup, includeSubDirs, startPathLen, ignoreList, nullptr, searchRoot, includeSubDirs != FALSE);
@@ -2682,6 +2713,8 @@ void SearchDirectory(std::wstring directory, int startPathLen, CMaskGroup* masks
                             ReportFindScopeLimit(data, display.c_str());
                             return;
                         }
+                        if (queued == FindQueueResult::OutOfMemory)
+                            error = ERROR_NOT_ENOUGH_MEMORY;
                     }
                     if (!data->StopSearch && error != ERROR_FILE_NOT_FOUND && error != ERROR_NO_MORE_FILES)
                     {
@@ -2746,6 +2779,8 @@ void SearchDirectory(std::wstring directory, int startPathLen, CMaskGroup* masks
                             const auto queued = protectedQueue.Add(data, fullPath, masksGroup, FALSE, startPathLen, ignoreList, &file, searchRoot, includeSubDirs != FALSE);
                             if (queued == FindQueueResult::Limit)
                                 ReportFindScopeLimit(data, fileText.c_str());
+                            else if (queued == FindQueueResult::OutOfMemory && !data->StopSearch)
+                                AddFindLog(data, FLI_ERROR, GetErrorText(ERROR_NOT_ENOUGH_MEMORY), fileText.c_str());
                             else if (queued == FindQueueResult::Failed && !data->StopSearch)
                                 AddFindLog(data, FLI_ERROR, GetErrorText(ERROR_ACCESS_DENIED), fileText.c_str());
                         }
@@ -2775,6 +2810,7 @@ void SearchDirectory(std::wstring directory, int startPathLen, CMaskGroup* masks
     }
     catch (const std::bad_alloc&)
     {
+        data->IncompleteReasons |= FindIncompleteProtectedFailure;
         AddFindLog(data, FLI_ERROR, GetErrorText(ERROR_NOT_ENOUGH_MEMORY), "");
     }
 }
@@ -2886,7 +2922,7 @@ void RefineData(CMaskGroup* masksGroup, CGrepData* data)
             else if (!data->StopSearch)
             {
                 const auto display = SalWideToMultiBytePath(fullPath.c_str(), CP_UTF8);
-                FIND_LOG_ITEM log{FLI_ERROR, GetErrorText(ERROR_ACCESS_DENIED), display.c_str()};
+                FIND_LOG_ITEM log{FLI_ERROR, GetErrorText(queued == FindQueueResult::OutOfMemory ? ERROR_NOT_ENOUGH_MEMORY : ERROR_ACCESS_DENIED), display.c_str()};
                 AddFindLog(data, log.Flags, log.Text, log.Path);
             }
         }
@@ -2995,9 +3031,9 @@ unsigned GrepThreadFBody(void* ptr)
                     const auto queued = protectedQueue.AddPanelRoot(data, mg, includeSubDirs, len, ignoreList);
                     if (queued == FindQueueResult::Limit)
                         ReportFindScopeLimit(data, directory.c_str());
-                    else if (queued == FindQueueResult::Failed && !data->StopSearch)
+                    else if ((queued == FindQueueResult::Failed || queued == FindQueueResult::OutOfMemory) && !data->StopSearch)
                     {
-                        const auto errorText = FormatFindError(IDS_DIRERRORFORMAT, ERROR_NOT_READY);
+                        const auto errorText = FormatFindError(IDS_DIRERRORFORMAT, queued == FindQueueResult::OutOfMemory ? ERROR_NOT_ENOUGH_MEMORY : ERROR_NOT_READY);
                         AddFindLog(data, FLI_ERROR, errorText.c_str(), directory.c_str());
                     }
                 }
@@ -3010,7 +3046,7 @@ unsigned GrepThreadFBody(void* ptr)
             }
         }
         RequestFindResultsRefresh(data); // publish ordinary results before waiting for consent
-        const auto protectedSessions = protectedQueue.Finish(duplicateCandidates);
+        const auto& protectedSessions = protectedQueue.Finish(duplicateCandidates);
         if (duplicateCandidates != NULL)
         {
             if (!data->StopSearch)

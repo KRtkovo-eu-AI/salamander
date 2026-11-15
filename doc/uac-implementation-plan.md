@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Remove fixed protected Find queue capacity. | Continue large searches within one approved scope. | #731 | GPT-6 |
 | 2026-11-15 | Record user-reported protected Find scope limit. | Track incomplete results and the work needed to remove the fixed cap. | #731 | GPT-6 |
 | 2026-11-15 | Fix skipped links in batch size consent. | Preserve elevation for eligible selected siblings. | #731 | GPT-6 |
 | 2026-11-15 | Record ProgramData multi-folder elevation regression. | Distinguish reproduced batch failure from the working single-root prompt. | #731 | GPT-6 |
@@ -637,7 +638,9 @@
 ## Limit chráněných položek Findu — 15. listopadu 2026
 
 - **Uživatelské hlášení:** při hledání v `C:\Windows` se ve Find Logu opakovaně objevuje překročení limitu 32 chráněných souborů. Kód potvrzuje pevnou kapacitu 32 chráněných požadavků, po jejímž vyčerpání se další položky neprohledají; nejde o limit Windows. Uživatelské hlášení nebylo reprodukováno pomocí Computer Use.
-- **Zbývá implementovat:** odstranit pevný limit ve frontě, evidenci relací a šestibitovém indexu výsledků, včetně navazujícího porovnávání duplicit a odmítnutí. Zachovat jediný schválený rozsah, identitu, životnost relace a pokračování běžného prohledávání; zohlednit paměť a nynější lineární vyhledávání předchozích požadavků. Změnu ověřit existujícími neinteraktivními testy včetně více než 32 položek a přesného rozsahu; uživatelské ověření po opravě čeká.
+- **Implementováno:** pevná kapacita fronty a šestibitový index byly nahrazeny dynamickou evidencí a indexem `size_t`; pro slučování požadavků se používá index cesty. První požadavek nadále vlastní schválenou relaci, další ji využívají v jejím ověřeném rozsahu. Odmítnutí ani výpadek nevyvolají další souhlasy; selhání alokace označí výsledek za neúplný. Omezení počtu dodatečných souhlasů při porovnávání duplicit zůstává zachováno.
+- **Automaticky ověřeno:** existující test produkční fronty se simulovanou relací prošel v Debug i Release (707 kontrol v každé konfiguraci): 120 požadavků, indexy nad 63, jedna sdílená relace, odmítnutí, výpadek, zpřesnění a simulovaná chyba alokace. Prošly také testy plánování hledání, neúplných chráněných výsledků a Find Logu. Release x64 host je sestaven v `C:\Samandarin\builds\uac-find-unlimited-20261115\salamander\Release_x64` s SHA-256 `0D2ED88C266BC0F1F09BCAEFA995CBF6CE27AF1D23E88FA979E1C254BD6B9535`. Uživatel opravu zatím neověřil; skutečná systémová elevace nebyla v tomto kroku spuštěna.
+- **Další ověření a omezení:** test skutečné přípravy identity prošel v Debug i Release (31 kontrol v každé). Test provenance nalezených výsledků se zatím nepřeloží: po opravě nové testovací konverze indexu mu zbývají starší neaktuální náhrady `knownFile`, `ActiveSession` a fronty zpřesnění; tento test zde není vykázán jako úspěšný. Simulace nedostatku paměti v testu fronty se týká přípravy požadavku, nikoli každé jednotlivé alokace kontejnerů.
 - **Další limity k posouzení:** velikostní inventura má 4096 položek a hloubku 32; chráněný snímek interního prohlížeče 16 MiB; ZIP výběr 4096 položek, hloubku 32 a 64 MiB, včetně 16MiB limitu položky; některé starší a EFS kopírovací cesty mají 16 MiB. Stránka Findu o 64 položkách je přenosová dávka, nikoli celkový limit výsledků. Limity analyzovat po jednotlivých cestách, nezaměňovat je s limity Windows.
 
 ## Neúplné velikosti a odmítnutí správcem — 15. listopadu 2026

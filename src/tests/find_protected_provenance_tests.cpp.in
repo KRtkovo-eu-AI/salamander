@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Widen protected Find scope IDs in the fixture. | Match production IDs beyond the former six-bit cap. | #731 | GPT-6 |
 // | 2026-11-12 | Check paged Find result identities. | Preserve exact deferred duplicate and viewer provenance. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Verify exact Find-to-view identity conversion. | Preserve the captured identity after session closure. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Test actual protected Find publication and Refine guards. | Keep provenance on optional identity allocation failure. | #731 | GPT-6.1 Terra |
@@ -25,7 +26,7 @@ static bool failIdentity, throwIdentity, allowExact;
 struct CQuadWord { DWORD LoDWord, HiDWord; CQuadWord(DWORD lo, DWORD hi) : LoDWord(lo), HiDWord(hi) {} };
 struct CFoundFilesData {
     DWORD Attr = 0; CQuadWord Size{0, 0}; FILETIME LastWrite{}; bool IsDir = false, ProtectedOrigin = false;
-    unsigned ProtectedScope = 0; const char* Path = "C:\\x"; const char* Name = "file.txt";
+    size_t ProtectedScope = 0; const char* Path = "C:\\x"; const char* Name = "file.txt";
     std::wstring PathW = L"C:\\x", NameW = L"file.txt";
     std::shared_ptr<const UacF7::PreparedLeaf> FoundView;
     std::shared_ptr<const UacF7::MoveFileIdentity> ProtectedListedIdentity;

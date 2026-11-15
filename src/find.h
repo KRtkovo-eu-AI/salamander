@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Expand protected Find session indices. | Retain the exact session for large searches. | #731 | GPT-6 |
 // | 2026-11-12 | Retain paged duplicate identities. | Revalidate the same protected file when hashing later. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Retain protected Find provenance through viewing and refinement. | Refuse pathname-only reads when identity cannot be preserved. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Display each incomplete Find reason without losing its origin. | Keep bounded logs and carried results truthful. | #731 | GPT-6.1 Terra |
@@ -609,7 +610,7 @@ struct CFoundFilesData
     bool IsDir;          // immutable after publication and read by the sort worker
     bool ProtectedOrigin; // immutable; remains true even if viewer identity preparation fails
     unsigned Selected : 1; // temporary selection state during order publication
-    unsigned ProtectedScope : 6; // one-based Find session for a protected duplicate
+    size_t ProtectedScope; // one-based Find session for a protected duplicate
     // 'Different' is used to distinguish file groups during duplicate search
     unsigned Different : 1; // 0 - item has standard white background, 1 - item uses a different one (for difference highlighting)
 

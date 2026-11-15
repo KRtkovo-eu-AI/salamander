@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Test Find with more than 32 protected requests. | Verify shared consent, cancellation and refined results beyond the former limit. | #731 | GPT-6 |
 // | 2026-11-15 | Restrict nonrecursive Find consent. | Keep the broker inside the user-requested search depth. | #731 | GPT-6 |
 // | 2026-11-15 | Reuse saved Find identities in refinement. | Preserve exact protected-file authorization on repeat searches. | #731 | GPT-6 |
 // | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
@@ -12,6 +13,7 @@
 #include <array>
 #include <atomic>
 #include <cstdio>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -20,8 +22,8 @@
 @@INCOMPLETE_REASONS@@
 @@ACTIVITY@@
 @@FINAL_ACTIVITY@@
-enum class FindQueueResult { Added, Stopped, Limit, Failed };
-constexpr size_t maxFindProtectedScopes = 32;
+@@QUEUE_RESULT@@
+constexpr size_t legacyFindProtectedScopes = 32;
 constexpr DWORD FLI_ERROR = 1;
 constexpr int IDS_UAC_FIND_SCOPE_LIMIT = 1;
 constexpr int IDS_UAC_FIND_SCOPE_LIMIT_CARRIED = 2;
@@ -152,12 +154,15 @@ namespace UacF7 {
 struct ListingSession { bool covers = false, open = true; bool IsOpen() const { return open; } bool Contains(const std::wstring&) const { return covers; } };
 struct PreparedLeaf { bool PrepareView(const std::wstring&) { return true; } };
 }
-using FindProtectedSessions = std::array<UacF7::ListingSession*, maxFindProtectedScopes>;
+@@SESSIONS_TYPE@@
 struct FixtureSize { DWORD LoDWord = 0, HiDWord = 0; };
 struct CFoundFilesData { DWORD Attr = 0; FixtureSize Size; FILETIME LastWrite{}; std::shared_ptr<const UacF7::PreparedLeaf> FoundView; };
-static bool failPrepare, stopAfterPrepare, failStart;
+static bool failPrepare, stopAfterPrepare, failStart, failAllocation;
 static DWORD finishError;
 static int starts, preparations, finishes, omitted, reused;
+static std::vector<size_t> preparedScopes;
+static UacF7::ListingSession* reusedSession;
+static bool mismatchedSession;
 static bool preparedKnownIdentity;
 struct FindProtectedRequest {
     std::wstring path;
@@ -166,8 +171,10 @@ struct FindProtectedRequest {
     DWORD attributes = 0;
     UacF7::ListingSession session;
     bool Prepare(CGrepData* data, std::wstring name, CMaskGroup* mask, BOOL, int,
-                 const std::shared_ptr<CFindIgnore>&, unsigned, const WIN32_FIND_DATAW* file, const std::wstring&,
+                 const std::shared_ptr<CFindIgnore>&, size_t scope, const WIN32_FIND_DATAW* file, const std::wstring&,
                  std::shared_ptr<const UacF7::PreparedLeaf> known, bool) {
+        if (failAllocation) throw std::bad_alloc();
+        preparedScopes.push_back(scope);
         preparedKnownIdentity = known != nullptr;
         ++preparations; path = std::move(name); masks = mask; singleFile = file != nullptr;
         attributes = file ? file->dwFileAttributes : 0;
@@ -181,7 +188,10 @@ struct FindProtectedRequest {
     bool Start() { ++starts; return !failStart; }
     UacF7::ListingSession* Finish(CDuplicateCandidates*) { ++finishes; return nullptr; }
     UacF7::ListingSession& ActiveSession() { return session; }
-    UacF7::ListingSession* FinishWithSession(UacF7::ListingSession&, CDuplicateCandidates*) { ++finishes; ++reused; return nullptr; }
+    UacF7::ListingSession* FinishWithSession(UacF7::ListingSession& approved, CDuplicateCandidates*) {
+        if (reusedSession && reusedSession != &approved) mismatchedSession = true;
+        reusedSession = &approved; ++finishes; ++reused; return nullptr;
+    }
     DWORD BatchFailure() const { return finishError; }
     void OmitAfterFailure(DWORD) { ++omitted; }
 };
@@ -235,43 +245,43 @@ int main() {
     CGrepData data;
     CMaskGroup mask;
     FindProtectedQueue queue;
-    for (int i = 0; i < 32; ++i)
+    for (int i = 0; i < 120; ++i)
         Check(queue.Add(&data, L"C:\\scope\\" + std::to_wstring(i), &mask, TRUE, 0, {}) == FindQueueResult::Added,
-              "the first 32 distinct protected scopes fit");
-    Check(starts == 1 && queue.Remaining() == 0, "only the first prompt starts while ordinary traversal continues");
+              "distinct protected scopes are admitted beyond the previous 32-item limit");
+    Check(starts == 1, "only the first prompt starts while ordinary traversal continues");
+    const int beforeDuplicate = preparations;
     Check(queue.Add(&data, L"C:\\scope\\0", &mask, TRUE, 0, {}) == FindQueueResult::Added,
-          "deduplication still succeeds when the queue is full");
-    Check(queue.Add(&data, L"C:\\scope\\32", &mask, TRUE, 0, {}) == FindQueueResult::Limit,
-          "the next distinct scope reports capacity rather than access denied");
-    ReportFindScopeLimit(&data, "C:\\scope\\32");
-    Check(data.IncompleteReasons && data.logs.size() == 1 && data.logs[0].find("32") != std::string::npos,
-          "capacity marks incomplete and reports the actual limit");
+          "duplicate request is accepted without consuming a new scope");
+    Check(preparations == beforeDuplicate, "duplicate request is not prepared twice");
     data.StopSearch = true;
-    Check(queue.Add(&data, L"C:\\scope\\33", &mask, TRUE, 0, {}) == FindQueueResult::Stopped,
-          "Stop takes precedence over a full queue");
+    Check(queue.Add(&data, L"C:\\scope\\121", &mask, TRUE, 0, {}) == FindQueueResult::Stopped,
+          "Stop takes precedence after many queued requests");
     ReportFindScopeLimit(&data, "C:\\scope\\33");
-    Check(data.logs.size() == 1, "a stopped search emits no later limit log");
+    Check(data.logs.empty(), "a stopped search emits no later limit log");
     {
         CGrepData search; FindProtectedQueue approved;
         const int previousStarts = starts;
-        Check(approved.Add(&search, L"C:\\root\\first", &mask, TRUE, 0, {}) == FindQueueResult::Added &&
-              approved.Add(&search, L"C:\\root\\second", &mask, TRUE, 0, {}) == FindQueueResult::Added,
-              "two denied siblings are queued");
-        finishError = ERROR_SUCCESS; finishes = reused = 0;
+        preparedScopes.clear();
+        for (int i = 0; i < 80; ++i)
+            Check(approved.Add(&search, L"C:\\root\\" + std::to_wstring(i), &mask, TRUE, 0, {}) == FindQueueResult::Added,
+                  "protected sibling is admitted beyond the former limit");
+        Check(preparedScopes.size() == 80 && preparedScopes.front() == 1 && preparedScopes.back() == 80,
+              "one-based request identities are retained beyond six-bit storage");
+        finishError = ERROR_SUCCESS; finishes = reused = 0; reusedSession = nullptr; mismatchedSession = false;
         approved.Finish(nullptr);
-        Check(starts == previousStarts + 1 && finishes == 2 && reused == 1,
-              "successful Find consent reuses one session for the next sibling");
+        Check(starts == previousStarts + 1 && finishes == 80 && reused == 79 && !mismatchedSession,
+              "one Find consent reuses the same approved session for every protected sibling");
     }
     {
         CGrepData search; FindProtectedQueue denied;
         const int previousStarts = starts;
-        Check(denied.Add(&search, L"C:\\root\\first", &mask, TRUE, 0, {}) == FindQueueResult::Added &&
-              denied.Add(&search, L"C:\\root\\second", &mask, TRUE, 0, {}) == FindQueueResult::Added,
-              "two denied siblings queue while ordinary search continues");
+        for (int i = 0; i < 80; ++i)
+            Check(denied.Add(&search, L"C:\\denied\\" + std::to_wstring(i), &mask, TRUE, 0, {}) == FindQueueResult::Added,
+                  "denied siblings queue while ordinary search continues");
         finishError = ERROR_CANCELLED; finishes = omitted = 0;
         denied.Finish(nullptr);
-        Check(starts == previousStarts + 1 && finishes == 1 && omitted == 1,
-              "declining first Find consent omits later siblings without starting another request");
+        Check(starts == previousStarts + 1 && finishes == 1 && omitted == 79,
+              "declining Find consent omits all later siblings without another prompt");
         finishError = ERROR_SUCCESS;
     }
     {
@@ -422,20 +432,20 @@ int main() {
     }
     {
         CGrepData refine; refine.Refine = 1; FindProtectedQueue items; CFoundFilesData row;
-        for (int i = 0; i < 32; ++i)
+        for (int i = 0; i < 120; ++i)
             Check(items.AddRefined(&refine, L"C:\\file" + std::to_wstring(i), &mask, row) == FindQueueResult::Added,
-                  "refined protected candidates are admitted until capacity");
+                  "refined protected candidates are admitted beyond the former limit");
         Check(items.AddRefined(&refine, L"C:\\file0", &mask, row) == FindQueueResult::Added,
-              "the same refined row merges at capacity");
+              "the same refined row can merge after many requests");
         row.Attr = FILE_ATTRIBUTE_HIDDEN;
-        Check(items.AddRefined(&refine, L"C:\\file0", &mask, row) == FindQueueResult::Limit,
-              "a changed refined row cannot merge into the old consent at capacity");
+        Check(items.AddRefined(&refine, L"C:\\file0", &mask, row) == FindQueueResult::Added,
+              "a changed refined row is prepared separately without reusing old metadata");
         row.Attr = 0;
-        Check(RefineDenied(&refine, items, &row, &mask, L"C:\\other") == 0 && refine.IncompleteReasons &&
-              refine.logs.size() == 1, "limited intersection omits an unverified row and reports incomplete");
-        refine.IncompleteReasons = false; refine.logs.clear(); refine.Refine = 2;
-        Check(RefineDenied(&refine, items, &row, &mask, L"C:\\other") == 1 && refine.IncompleteReasons &&
-              refine.logs.size() == 1, "limited subtraction retains the original row and reports incomplete");
+        Check(RefineDenied(&refine, items, &row, &mask, L"C:\\other") == 0 && !refine.IncompleteReasons &&
+              refine.logs.empty(), "intersection can queue another protected row without a false limit");
+        refine.Refine = 2;
+        Check(RefineDenied(&refine, items, &row, &mask, L"C:\\different") == 0 && !refine.IncompleteReasons &&
+              refine.logs.empty(), "subtraction can queue another protected row without a false limit");
         refine.IncompleteReasons = false; refine.logs.clear(); refine.StopSearch = true;
         Check(RefineDenied(&refine, items, &row, &mask, L"C:\\other") == 0 && !refine.IncompleteReasons &&
               refine.logs.empty(), "Stop prevents a new refine result or false capacity report");
@@ -450,6 +460,13 @@ int main() {
         stopAfterPrepare = false; request.StopSearch = false; failStart = true;
         Check(pending.Add(&request, L"C:\\failed-start", &mask, TRUE, 0, {}) == FindQueueResult::Failed,
               "a consent launch failure remains a distinct ordinary failure");
+        failStart = false; request.IncompleteReasons = FindIncompleteNone; failAllocation = true;
+        Check(pending.Add(&request, L"C:\\out-of-memory", &mask, TRUE, 0, {}) == FindQueueResult::OutOfMemory &&
+                  (request.IncompleteReasons & FindIncompleteProtectedFailure),
+              "allocation failure marks results incomplete without inventing a scope limit");
+        failAllocation = false;
+        Check(pending.Add(&request, L"C:\\after-oom", &mask, TRUE, 0, {}) == FindQueueResult::Added,
+              "a failed allocation does not corrupt the queue or block a later request");
     }
     std::printf("Actual protected Find queue: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;

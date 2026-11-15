@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-15 | Exercise many protected Find requests. | Check reusable consent without a fixed queue cap. | #731 | GPT-6 |
 # | 2026-11-11 | Preserve typed incomplete Find reasons across searches. | Keep different omissions distinct without changing current reports. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Test actual protected Find queue capacity. | Distinguish Stop and failure from incomplete results. | #731 | GPT-6.1 Terra |
 """Compile the actual protected queue and final activity with controlled seams."""
@@ -30,6 +31,8 @@ def main():
     digest = block(source, 'BOOL CDuplicateCandidates::GetMD5Digest(')
     fixture = read('src/tests/find_scope_capacity_tests.cpp.in')
     pieces = {
+        'SESSIONS_TYPE': source[source.index('using FindProtectedSessions ='):source.index(';', source.index('using FindProtectedSessions =')) + 1],
+        'QUEUE_RESULT': block(source, 'enum class FindQueueResult', ';'),
         'LOCALIZED_HEADER': (ROOT / 'src/common/localizedtext.h').as_posix(),
         'INCOMPLETE_REASONS': block(header, 'enum FindIncompleteReason', ';'),
         'ACTIVITY': block(header, 'enum class CFindActivity', ';'),
