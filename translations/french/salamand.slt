@@ -4482,6 +4482,7 @@ SLGINCOMPLETE,""
 
 14721,1,"Accès refusé. Copier ce fichier en tant qu’administrateur ? Les fichiers avec des flux de données alternatifs ne sont pas pris en charge dans ce mode."
 14722,0,"Access was denied even with administrator rights. The item's permissions may restrict access; inaccessible items are excluded from the result."
+14723,0,"Access was denied even with administrator rights. The folder's permissions may restrict access."
 
 [STRINGTABLE 199]
 14991,1,"Lecture des associations depuis le stockage de fichiers, veuillez patienter..."

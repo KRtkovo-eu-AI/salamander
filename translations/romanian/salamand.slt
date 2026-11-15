@@ -4482,6 +4482,7 @@ SLGINCOMPLETE,""
 
 14721,1,"Acces refuzat. Copiați acest fișier ca administrator? Fișierele cu fluxuri de date alternative nu sunt acceptate în acest mod."
 14722,0,"Access was denied even with administrator rights. The item's permissions may restrict access; inaccessible items are excluded from the result."
+14723,0,"Access was denied even with administrator rights. The folder's permissions may restrict access."
 
 [STRINGTABLE 199]
 14991,1,"Citesc asocierile din stocarea fișierelor, vă rugăm așteptați..."

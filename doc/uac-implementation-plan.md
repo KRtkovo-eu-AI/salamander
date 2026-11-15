@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Explain denied elevated directory listings. | Distinguish verified broker refusal from launch and consent failures. | #731 | GPT-6 |
 | 2026-11-15 | Remove fixed protected Find queue capacity. | Continue large searches within one approved scope. | #731 | GPT-6 |
 | 2026-11-15 | Record user-reported protected Find scope limit. | Track incomplete results and the work needed to remove the fixed cap. | #731 | GPT-6 |
 | 2026-11-15 | Fix skipped links in batch size consent. | Preserve elevation for eligible selected siblings. | #731 | GPT-6 |
@@ -634,6 +635,13 @@
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
+
+## Vstup do složky odepřený i správci — 15. listopadu 2026
+
+- **Uživatelské hlášení a reprodukce:** `C:\ProgramData\Microsoft\Windows Defender Advanced Threat Protection\Cache` po schválení UAC zobrazila pouze chybu 5. Computer Use ověřilo stejné chování v původním buildu `4d1a97be` po potvrzení uživatelem.
+- **Implementováno:** autentizovaná odpověď brokeru s chybou 5 při vytvoření relace nebo výpisu nyní doplní vysvětlení, že přístup byl odepřen i s právy správce a mohou jej omezovat oprávnění složky. Odmítnutí UAC, chyba spuštění i jiná chyba zůstávají odlišené; oprávnění se nemění. Český text je v katalogu, pilot obsahuje anglický modul.
+- **Automatické ověření:** test skutečného přechodu panelu a vytváření zprávy prošel v Debug i Release (47 kontrol v každé). Širší Release test transportu jednou selhal na sparse allocation a při opakování prošel; z prvního logu nelze příčinu určit. Sestavení Release x64 prošlo.
+- **Computer Use:** v pilotu `C:\Program Files\Samandarin UAC Test listing-denied` s hostem SHA-256 `3B04B7BA55086677B701BB72F147948A80B38D242C0390183E2757B1007AFA76` uživatel schválil UAC pro tutéž složku. Dialog následně zobrazil chybu 5 i nové vysvětlení; původní panel zůstal zachován. Opravený text v českém modulu nebyl interaktivně ověřen.
 
 ## Limit chráněných položek Findu — 15. listopadu 2026
 

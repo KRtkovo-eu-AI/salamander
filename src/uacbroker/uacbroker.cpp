@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Distinguish authenticated listing startup denial. | Report a broker refusal separately from failure to launch. | #731 | GPT-6 |
 | 2026-11-15 | Restrict nonrecursive Find consent. | Keep the broker inside the user-requested search depth. | #731 | GPT-6 |
 | 2026-11-15 | Reuse saved Find identities in refinement. | Preserve exact protected-file authorization on repeat searches. | #731 | GPT-6 |
 | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
@@ -7549,8 +7550,9 @@ bool ListingSession::PrepareAllocationFile(const std::wstring& path, const Prepa
     return true;
 }
 
-DWORD ListingSession::Start(HWND owner, HANDLE stop)
+DWORD ListingSession::Start(HWND owner, HANDLE stop, bool* brokerDenied)
 {
+    if (brokerDenied) *brokerDenied = false;
     const ComApartment com;
     InstallLocation install;
     if (FAILED(com.result) || !install.Open() ||
@@ -7579,7 +7581,9 @@ DWORD ListingSession::Start(HWND owner, HANDLE stop)
     try
     {
         // Never hold the session mutex across consent or other UI dispatch.
-        RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, &candidate, stop);
+        const int probeResult = RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, &candidate, stop);
+        if (brokerDenied && probeResult == Ok && result.error == ERROR_ACCESS_DENIED)
+            *brokerDenied = true;
     }
     catch (...)
     {

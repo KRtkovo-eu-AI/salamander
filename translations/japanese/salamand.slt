@@ -4473,6 +4473,7 @@ SLGINCOMPLETE,""
 14720,0,"A directory listing was interrupted and resumed. Files may have changed in the meantime, so the merged listing may be incomplete. Refresh to check."
 14721,0,"Access was denied. Copy this file as an administrator? Files with alternate data streams are not supported in this mode."
 14722,0,"Access was denied even with administrator rights. The item's permissions may restrict access; inaccessible items are excluded from the result."
+14723,0,"Access was denied even with administrator rights. The folder's permissions may restrict access."
 
 [STRINGTABLE 199]
 14991,1,"ファイル ストレージから関連付けを読み取り中です。お待​​ちください..."

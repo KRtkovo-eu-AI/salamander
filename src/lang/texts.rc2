@@ -1,4 +1,5 @@
-﻿// | 2026-11-13 | Localize experimental thin copy consent. | Avoid claiming support for alternate streams. | #731 | GPT-6 |
+﻿// | 2026-11-15 | Explain administrator denial when opening folders. | Distinguish a broker denial from an ordinary access error. | #731 | GPT-6 |
+// | 2026-11-13 | Localize experimental thin copy consent. | Avoid claiming support for alternate streams. | #731 | GPT-6 |
 // | 2026-11-12 | Describe uncertain partial Branch merges. | Avoid presenting a live retry as an atomic snapshot. | #731 | GPT-6.1 Terra |
 // | 2026-11-12 | Retry denied Branch listings after scoped consent. | Keep partial results and verify listed directory identities. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Explain unavailable Find result identity. | Prevent unsafe viewer fallback and suggest a new search. | #731 | GPT-6.1 Terra |
@@ -2538,6 +2539,7 @@ STRINGTABLE
  IDS_UAC_SIZE_COMPAT_ALIAS, "This Windows compatibility link was skipped. It contributes 0 bytes to the total."
  IDS_UAC_INVENTORY_INCOMPLETE, "The directory size calculation could not scan the entire tree."
  IDS_UAC_INVENTORY_ADMIN_DENIED, "Access was denied even with administrator rights. The item's permissions may restrict access; inaccessible items are excluded from the result."
+ IDS_UAC_LIST_ADMIN_DENIED, "Access was denied even with administrator rights. The folder's permissions may restrict access."
  IDS_UAC_INVENTORY_FILES, "Files: "
  IDS_UAC_INVENTORY_DIRECTORIES, "Subfolders: "
  IDS_UAC_INVENTORY_BYTES, "Logical size (bytes): "

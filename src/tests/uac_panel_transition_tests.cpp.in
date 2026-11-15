@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-15 | Test denied administrator listing messages. | Distinguish confirmed listing failures from cancelled or failed elevation. | #731 | GPT-6 |
 // | 2026-11-11 | Simulate authorization and panel-session handoff. | Test actual transition code without elevating or modifying files. | #731 | GPT-6.1 Terra |
 #include <string>
 #include <vector>
@@ -8,13 +9,16 @@
 
 using DWORD = unsigned long;
 using BOOL = int;
+using HWND = int;
 using HANDLE = void*;
 constexpr BOOL TRUE = 1, FALSE = 0;
 constexpr DWORD ERROR_SUCCESS = 0, ERROR_ACCESS_DENIED = 5, ERROR_CANCELLED = 1223;
+constexpr DWORD ERROR_BROKEN_PIPE = 109;
 constexpr DWORD FILE_LIST_DIRECTORY = 1, FILE_SHARE_READ = 1, FILE_SHARE_WRITE = 2, FILE_SHARE_DELETE = 4;
 constexpr DWORD OPEN_EXISTING = 3, FILE_FLAG_BACKUP_SEMANTICS = 0x02000000, DRIVE_FIXED = 3;
 constexpr int CP_UTF8 = 65001, CP_ACP = 0, IDOK = 1, IDCANCEL = 2;
 constexpr int IDS_UAC_LIST_CONFIRM = 1, IDS_AS_ADMIN_TITLE = 2, IDS_ERRORCHANGINGDIR = 3;
+constexpr int IDS_UAC_LIST_ADMIN_DENIED = 4;
 constexpr int MSGBOXEX_OKCANCEL = 1, MSGBOXEX_ICONQUESTION = 2, MSGBOXEX_SHIELDONDEFBTN = 4;
 constexpr int MB_OK = 0, MB_ICONEXCLAMATION = 0;
 constexpr int CHPPFR_INVALIDPATH = 1;
@@ -25,8 +29,10 @@ struct MSGBOXEX_PARAMS { int HParent{}; const char* Text{}; const char* Caption{
 enum PanelType { ptDisk, ptZIPArchive, ptPluginFS };
 struct Scenario {
     bool denied = true, prepare = true, allow = true, driveFixed = true;
+    bool brokerDenied = false;
     DWORD start = 0, list = 0;
     int prompts = 0, starts = 0, errors = 0, closeCancel = 0, closeCommit = 0;
+    std::string lastMessage;
     int entriesAtCommit = -1;
 } scenario;
 bool IsValidPathUtf8Text(const char*) { return true; }
@@ -37,10 +43,11 @@ DWORD GetDriveTypeW(const wchar_t*) { return scenario.driveFixed ? DRIVE_FIXED :
 HANDLE CreateFileW(const wchar_t*, DWORD, DWORD, void*, DWORD, DWORD, void*) { return scenario.denied ? INVALID_HANDLE_VALUE : reinterpret_cast<HANDLE>(1); }
 BOOL CloseHandle(HANDLE) { return TRUE; }
 DWORD GetLastError() { return ERROR_ACCESS_DENIED; }
-const char* LoadStr(int) { return "test"; }
+const char* LoadStr(int id) { return id == IDS_UAC_LIST_ADMIN_DENIED ? "admin-denied" : "test"; }
 const char* GetErrorText(DWORD) { return "error"; }
 int SalMessageBoxEx(MSGBOXEX_PARAMS*) { ++scenario.prompts; return scenario.allow ? IDOK : IDCANCEL; }
-int SalMessageBox(int, const char*, const char*, int) { ++scenario.errors; return IDOK; }
+int SalMessageBox(int, const char* message, const char*, int) { ++scenario.errors; scenario.lastMessage = message; return IDOK; }
+@@ERROR_HELPER@@
 void SetCursor(int) {}
 
 namespace UacF7 {
@@ -48,7 +55,12 @@ struct ListingSession {
     std::wstring root;
     bool open = false;
     bool Prepare(const std::wstring& path) { root = path; return scenario.prepare; }
-    DWORD Start(int) { ++scenario.starts; open = !scenario.start; return scenario.start; }
+    DWORD Start(int, void* = nullptr, bool* brokerDenied = nullptr) {
+        ++scenario.starts;
+        if (brokerDenied) *brokerDenied = scenario.brokerDenied;
+        open = !scenario.start;
+        return scenario.start;
+    }
     DWORD List(const std::wstring&, std::vector<WIN32_FIND_DATAW>& entries) {
         entries = {{root == L"C:\\old" ? 1 : 2}};
         return scenario.list;
@@ -102,6 +114,7 @@ int main() {
         Check(OldIntact(p), "decline preserves old session and entries");
         Check(scenario.prompts == 1 && scenario.starts == 0 && scenario.closeCancel == 1, "decline does not start broker");
         Check(p.failureReason == CHPPFR_INVALIDPATH, "decline reports failed path change");
+        Check(scenario.errors == 0, "declined consent shows no error");
     }
     for (int failure = 0; failure != 2; ++failure) {
         Panel p; p.Old(); scenario = {}; if (failure == 0) scenario.start = ERROR_ACCESS_DENIED; else scenario.list = ERROR_ACCESS_DENIED;
@@ -109,6 +122,24 @@ int main() {
         Check(OldIntact(p), "new session failure preserves old panel");
         Check(scenario.errors == 1 && scenario.closeCommit == 0, "failure reported without committing");
         Check(p.failureReason == CHPPFR_INVALIDPATH, "new session failure reports failed path change");
+        Check(scenario.lastMessage == (failure == 1 ? "error\n\nadmin-denied" : "error"),
+              "only a successful start followed by access-denied listing is an administrator denial");
+    }
+    {
+        Panel p; p.Old(); scenario = {}; scenario.start = ERROR_ACCESS_DENIED; scenario.brokerDenied = true;
+        Check(p.Change("C:\\new") == FALSE && OldIntact(p), "broker root denial keeps old panel");
+        Check(scenario.errors == 1 && scenario.lastMessage == "error\n\nadmin-denied",
+              "authenticated broker access denial during start explains administrator denial");
+    }
+    {
+        Panel p; p.Old(); scenario = {}; scenario.list = ERROR_BROKEN_PIPE;
+        Check(p.Change("C:\\new") == FALSE && OldIntact(p), "broken new session keeps old panel");
+        Check(scenario.errors == 1 && scenario.lastMessage == "error", "broken pipe is not reported as administrator denial");
+    }
+    {
+        Panel p; p.Old(); scenario = {}; scenario.start = ERROR_CANCELLED;
+        Check(p.Change("C:\\new") == FALSE && OldIntact(p), "system cancellation keeps old panel");
+        Check(scenario.errors == 0, "system cancellation shows no error");
     }
     {
         Panel p; p.Old(); scenario = {};
@@ -127,6 +158,14 @@ int main() {
         Panel p; p.Old(); scenario = {}; scenario.list = ERROR_ACCESS_DENIED;
         Check(p.Change("C:\\old\\child") == FALSE && OldIntact(p), "failure within existing scope keeps current panel");
         Check(p.failureReason == CHPPFR_INVALIDPATH && scenario.errors == 1, "existing listing failure reports failed path change");
+        Check(scenario.lastMessage == "error\n\nadmin-denied",
+              "access denied in a live reused listing is an administrator denial");
+    }
+    {
+        Panel p; p.Old(); scenario = {}; scenario.list = ERROR_BROKEN_PIPE;
+        Check(p.Change("C:\\old\\child") == FALSE && OldIntact(p), "broken reused session keeps current panel");
+        Check(scenario.errors == 1 && scenario.lastMessage == "error",
+              "broken reused session does not claim administrator denial");
     }
     {
         Panel p; p.Old(); scenario = {}; scenario.prepare = false;

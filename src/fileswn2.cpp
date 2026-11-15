@@ -9,6 +9,7 @@
 // | 2026-11-08 | Offer a protected ZIP listing after ordinary read denial. | Reuse the internal viewer for read-only output. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Route disk navigation and refresh through the approved listing session. | Reuse consent inside the root and release it on exit. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain administrator listing denial. | Distinguish denied elevated access from launch errors and cancellation. | #731 | GPT-6 |
 // | 2026-11-12 | Keep the file panel visible during shell launch. | Parent the transparent shell helper beside the owner-drawn list instead of over it. | | openai/gpt-6-luna-pro |
 // CommentsTranslationProject: TRANSLATED
 
@@ -2972,6 +2973,14 @@ BOOL CFilesWindow::ChangePathToDiskW(HWND parent, const wchar_t* path, int sugge
                             refreshListBox, canForce, isRefresh, failReason, shorterPathWarning, tryCloseReason);
 }
 
+static void ShowProtectedListingError(HWND parent, DWORD error, bool deniedAsAdmin)
+{
+    std::string message = GetErrorText(error);
+    if (error == ERROR_ACCESS_DENIED && deniedAsAdmin)
+        message += "\n\n" + std::string(LoadStr(IDS_UAC_LIST_ADMIN_DENIED));
+    SalMessageBox(parent, message.c_str(), LoadStr(IDS_ERRORCHANGINGDIR), MB_OK | MB_ICONEXCLAMATION);
+}
+
 BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggestedTopIndex,
                                     const char* suggestedFocusName, BOOL* noChange,
                                     BOOL refreshListBox, BOOL canForce, BOOL isRefresh, int* failReason,
@@ -3083,7 +3092,7 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
                     SetCursor(oldCur);
                 if (failReason != NULL)
                     *failReason = CHPPFR_INVALIDPATH;
-                SalMessageBox(parent, GetErrorText(listError), LoadStr(IDS_ERRORCHANGINGDIR), MB_OK | MB_ICONEXCLAMATION);
+                ShowProtectedListingError(parent, listError, true);
                 return FALSE;
             }
         }
@@ -3115,11 +3124,15 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
                     consent.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_ICONQUESTION | MSGBOXEX_SHIELDONDEFBTN;
                     consent.AliasBtnNames = alias.c_str();
                     DWORD listingError = ERROR_CANCELLED;
+                    bool listedAsAdmin = false;
                     if (SalMessageBoxEx(&consent) == IDOK)
                     {
-                        listingError = session->Start(parent);
+                        listingError = session->Start(parent, nullptr, &listedAsAdmin);
                         if (!listingError)
+                        {
                             listingError = session->List(requestedWide, newProtectedEntries);
+                            listedAsAdmin = session->IsOpen();
+                        }
                     }
                     if (listingError)
                     {
@@ -3130,8 +3143,7 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
                         if (failReason != NULL)
                             *failReason = CHPPFR_INVALIDPATH;
                         if (listingError != ERROR_CANCELLED)
-                            SalMessageBox(parent, GetErrorText(listingError), LoadStr(IDS_ERRORCHANGINGDIR),
-                                          MB_OK | MB_ICONEXCLAMATION);
+                            ShowProtectedListingError(parent, listingError, listedAsAdmin);
                         return FALSE;
                     }
                     newProtectedListing = std::move(session);

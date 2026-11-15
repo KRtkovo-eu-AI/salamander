@@ -4482,6 +4482,7 @@ SLGINCOMPLETE,""
 
 14721,1,"Отказано в доступе. Скопировать этот файл от имени администратора? Файлы с альтернативными потоками данных в этом режиме не поддерживаются."
 14722,0,"Access was denied even with administrator rights. The item's permissions may restrict access; inaccessible items are excluded from the result."
+14723,0,"Access was denied even with administrator rights. The folder's permissions may restrict access."
 
 [STRINGTABLE 199]
 14991,1,"Чтение ассоциаций из файлового хранилища. Пожалуйста, подождите..."

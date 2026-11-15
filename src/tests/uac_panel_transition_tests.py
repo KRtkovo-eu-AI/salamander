@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-15 | Test administrator listing denial text. | Differentiate actual denials, cancellation and broken sessions. | #731 | GPT-6 |
 # | 2026-11-11 | Exercise the protected panel transition controller. | Preserve old sessions on denial while committing only verified new listings. | #731 | GPT-6.1 Terra |
 """Compile the production panel transition with simulated filesystem and consent seams."""
 import argparse
@@ -24,6 +25,7 @@ def main():
     listing = scope[scope.index('        bool protectedPath = false;'):scope.index('        if (protectedPath)\n        {\n            err =')]
     commit = scope[scope.index('                KeepProtectedListing = protectedPath'):scope.index('                if (samePath)', scope.index('                KeepProtectedListing = protectedPath'))]
     generated = read('src/tests/uac_panel_transition_tests.cpp.in').replace('@@LISTING@@', listing).replace('@@COMMIT@@', commit)
+    generated = generated.replace('@@ERROR_HELPER@@', block(code, 'static void ShowProtectedListingError('))
     if '@@' in generated:
         raise AssertionError('unexpanded fixture')
     env = compiler_environment()

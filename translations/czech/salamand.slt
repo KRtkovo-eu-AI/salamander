@@ -4484,6 +4484,7 @@ SLGINCOMPLETE,""
 
 14721,1,"Přístup byl odepřen. Zkopírovat tento soubor jako správce? Soubory s alternativními datovými proudy nejsou v tomto režimu podporovány."
 14722,1,"Přístup byl odepřen i s oprávněním správce. Oprávnění této položky mohou přístup omezovat; nepřístupné položky nejsou zahrnuty do výsledku."
+14723,1,"Přístup byl odepřen i s oprávněním správce. Oprávnění této složky mohou přístup omezovat."
 
 [STRINGTABLE 199]
 14991,1,"Čtení přidružení souborů ze souborového úložiště, čekejte prosím..."

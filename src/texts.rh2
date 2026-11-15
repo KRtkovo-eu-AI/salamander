@@ -1,3 +1,4 @@
+// | 2026-11-15 | Explain administrator denial when opening folders. | Distinguish a broker denial from an ordinary access error. | #731 | GPT-6 |
 // | 2026-11-13 | Localize experimental thin copy consent. | Avoid claiming support for alternate streams. | #731 | GPT-6 |
 // | 2026-11-12 | Describe uncertain partial Branch merges. | Avoid presenting a live retry as an atomic snapshot. | #731 | GPT-6.1 Terra |
 // | 2026-11-12 | Retry denied Branch listings after scoped consent. | Keep partial results and verify listed directory identities. | #731 | GPT-6.1 Terra |
@@ -3403,5 +3404,6 @@
 #define IDS_BRANCH_MERGE_UNCERTAIN_DETAIL            14720
 #define IDS_UAC_THIN_COPY_CONFIRM                    14721
 #define IDS_UAC_INVENTORY_ADMIN_DENIED               14722
+#define IDS_UAC_LIST_ADMIN_DENIED                    14723
 
 #endif // __TEXTS_RH2

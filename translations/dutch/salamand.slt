@@ -4482,6 +4482,7 @@ SLGINCOMPLETE,""
 
 14721,1,"Toegang geweigerd. Dit bestand als beheerder kopiëren? Bestanden met alternatieve gegevensstromen worden in deze modus niet ondersteund."
 14722,0,"Access was denied even with administrator rights. The item's permissions may restrict access; inaccessible items are excluded from the result."
+14723,0,"Access was denied even with administrator rights. The folder's permissions may restrict access."
 
 [STRINGTABLE 199]
 14991,1,"Associaties worden uit de bestandopslag gelezen, even geduld..."

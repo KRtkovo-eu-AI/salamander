@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Report authenticated listing startup denial. | Distinguish a broker response from a launch failure. | #731 | GPT-6 |
 | 2026-11-15 | Classify per-branch size scan errors. | Continue accessible results without masking session or identity failures. | #731 | GPT-6 |
 | 2026-11-15 | Restrict nonrecursive Find consent. | Keep the broker inside the user-requested search depth. | #731 | GPT-6 |
 | 2026-11-15 | Reuse saved Find identities in refinement. | Preserve exact protected-file authorization on repeat searches. | #731 | GPT-6 |
@@ -1188,7 +1189,7 @@ public:
     DWORD PrepareRename(const std::wstring& path, const std::wstring& renameTo, PreparedLeaf& rename, bool directory);
     DWORD PrepareMetadata(const std::wstring& path, const MetadataChange& change, MetadataJobPolicy policy,
                           PreparedLeaf& request);
-    DWORD Start(HWND owner, HANDLE stop = nullptr);
+    DWORD Start(HWND owner, HANDLE stop = nullptr, bool* brokerDenied = nullptr);
     DWORD OpenContent(const std::wstring& path, ULONGLONG& size, FILETIME& modified, ArchiveRevision& revision);
     DWORD ReadContent(ULONGLONG offset, void* buffer, DWORD bytes);
     DWORD CloseContent();

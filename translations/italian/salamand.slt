@@ -4482,6 +4482,7 @@ SLGINCOMPLETE,""
 
 14721,1,"Accesso negato. Copiare questo file come amministratore? In questa modalità non sono supportati i file con flussi di dati alternativi."
 14722,0,"Access was denied even with administrator rights. The item's permissions may restrict access; inaccessible items are excluded from the result."
+14723,0,"Access was denied even with administrator rights. The folder's permissions may restrict access."
 
 [STRINGTABLE 199]
 14991,1,"Lettura associazioni dall'archiviazione file, attendere..."
