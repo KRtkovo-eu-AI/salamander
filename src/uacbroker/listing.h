@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Continue size scans after individual branch errors. | Preserve verified partial totals and other accessible branches. | #731 | GPT-6 |
 | 2026-11-15 | Restrict nonrecursive Find consent. | Keep the broker inside the user-requested search depth. | #731 | GPT-6 |
 | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
 | 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
@@ -210,8 +211,9 @@ inline bool VerifyCompatibilityAlias(HANDLE directory, std::wstring_view name, c
 }
 
 template <typename Accept, typename BeforePage>
-DWORD EnumerateRowsChecked(HANDLE directory, bool strict, Accept&& accept, BeforePage&& beforePage)
+DWORD EnumerateRowsChecked(HANDLE directory, bool strict, Accept&& accept, BeforePage&& beforePage, DWORD* ioFailure = nullptr)
 {
+    if (ioFailure) *ioFailure = ERROR_SUCCESS;
     std::vector<ULONGLONG> buffer(65536 / sizeof(ULONGLONG));
     const DWORD bytes = static_cast<DWORD>(buffer.size() * sizeof(ULONGLONG));
     auto mode = FileIdExtdDirectoryRestartInfo;
@@ -253,13 +255,14 @@ DWORD EnumerateRowsChecked(HANDLE directory, bool strict, Accept&& accept, Befor
         }
     }
     const DWORD error = GetLastError();
+    if (ioFailure && error != ERROR_NO_MORE_FILES) *ioFailure = error;
     return error == ERROR_NO_MORE_FILES ? ERROR_SUCCESS : error;
 }
 
 template <typename Accept>
-DWORD EnumerateRows(HANDLE directory, bool strict, Accept accept)
+DWORD EnumerateRows(HANDLE directory, bool strict, Accept accept, DWORD* ioFailure = nullptr)
 {
-    return EnumerateRowsChecked(directory, strict, accept, []() -> DWORD { return ERROR_SUCCESS; });
+    return EnumerateRowsChecked(directory, strict, accept, []() -> DWORD { return ERROR_SUCCESS; }, ioFailure);
 }
 }
 
@@ -538,6 +541,7 @@ inline DWORD ScanDirectory(HANDLE directory, unsigned depth, size_t parent, DWOR
         return ERROR_BUFFER_OVERFLOW;
 
     std::vector<ManifestEntry> entries;
+    DWORD ioFailure = ERROR_SUCCESS;
     DWORD error = EnumerateRows(directory, true, [&](const FILE_ID_EXTD_DIR_INFO& row, std::wstring_view name) -> DWORD {
         if (GetTickCount64() >= deadline)
             return ERROR_TIMEOUT;
@@ -549,15 +553,19 @@ inline DWORD ScanDirectory(HANDLE directory, unsigned depth, size_t parent, DWOR
             if (!sizeInventory)
                 return ERROR_REPARSE_TAG_INVALID;
             if (!VerifyCompatibilityAlias(directory, name, row))
-                RecordOmission(manifest, ERROR_REPARSE_TAG_INVALID, parent, name, firstSkipped);
+                RecordOmission(manifest, ERROR_REPARSE_POINT_ENCOUNTERED, parent, name, firstSkipped);
             return ERROR_SUCCESS;
         }
         const auto bytes = (row.FileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? 0 : row.EndOfFile.QuadPart;
         entries.push_back({parent, std::wstring(name), row.FileId, row.FileAttributes, static_cast<ULONGLONG>(bytes)});
         return ERROR_SUCCESS;
-    });
+    }, &ioFailure);
     if (error)
-        return error;
+    {
+        if (!sizeInventory || error != ioFailure || !UacF7::IsSkippableSizeBranchError(error))
+            return error;
+        RecordOmission(manifest, error, parent, {}, firstSkipped);
+    }
     std::sort(entries.begin(), entries.end(),
               [](const ManifestEntry& first, const ManifestEntry& second) { return first.name < second.name; });
     if (std::adjacent_find(entries.begin(), entries.end(), [](const ManifestEntry& first, const ManifestEntry& second) {
@@ -579,7 +587,7 @@ inline DWORD ScanDirectory(HANDLE directory, unsigned depth, size_t parent, DWOR
             UacDirectoryLeaf::ParentIdentity identity;
             error = UacDirectoryLeaf::OpenParentBelowRoot(directory, recorded.name, raw, identity,
                                                          FILE_LIST_DIRECTORY, !sizeInventory);
-            if (sizeInventory && error == ERROR_ACCESS_DENIED)
+            if (sizeInventory && error && UacF7::IsSkippableSizeBranchError(error))
             {
                 RecordOmission(manifest, error, parent, recorded.name, firstSkipped);
                 continue;
@@ -592,11 +600,6 @@ inline DWORD ScanDirectory(HANDLE directory, unsigned depth, size_t parent, DWOR
                 !SameId(identity.file.FileId, recorded.id))
                 return ERROR_FILE_INVALID;
             error = ScanDirectory(child.get(), depth + 1, index, remaining, deadline, manifest, scan, sizeInventory, firstSkipped);
-            if (sizeInventory && error == ERROR_ACCESS_DENIED)
-            {
-                RecordOmission(manifest, error, parent, manifest.entries[index].name, firstSkipped);
-                continue;
-            }
             if (error)
                 return error;
             ++inventory.directories;

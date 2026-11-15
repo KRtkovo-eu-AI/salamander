@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-15 | Verify generalized incomplete size handling. | Preserve branch errors while keeping terminal failures distinct. | #731 | GPT-6 |
 # | 2026-11-15 | Explain denied size scans and total partial selections. | Report administrator denials and preserve lower-bound sums. | #731 | GPT-6 |
 # | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
 # | 2026-11-11 | Guard batch-wide refusal and per-root size scopes. | Keep denied consent isolated to one user operation. | #731 | GPT-6.1 Terra |
@@ -53,7 +54,7 @@ def main():
         assert 'IsDanglingDirectoryLinkForSize(sourcePath)' in production[scan_start:start]
         action = read('src/fileswn8.cpp')
         assert 'disableMainWindow = type != atCountSize' in action
-        direct_denial = protected.index('if (inventoryError == ERROR_ACCESS_DENIED && canRequest && session->IsOpen())')
+        direct_denial = protected.index('if (canRequest && session->IsOpen() && UacF7::IsSkippableSizeBranchError(inventoryError))')
         assert direct_denial < protected.index('inventory.firstOmission = inventoryError;', direct_denial)
         assert direct_denial < protected.index('inventoryError = ERROR_SUCCESS;', direct_denial)
         assert direct_denial < protected.index('err = inventoryError;')

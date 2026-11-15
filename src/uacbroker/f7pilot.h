@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Classify per-branch size scan errors. | Continue accessible results without masking session or identity failures. | #731 | GPT-6 |
 | 2026-11-15 | Restrict nonrecursive Find consent. | Keep the broker inside the user-requested search depth. | #731 | GPT-6 |
 | 2026-11-15 | Reuse saved Find identities in refinement. | Preserve exact protected-file authorization on repeat searches. | #731 | GPT-6 |
 | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
@@ -1092,6 +1093,34 @@ struct DirectoryInventory
     DWORD firstOmission = 0;
     DWORD flags = 0;
 };
+inline bool IsSkippableSizeBranchError(DWORD error)
+{
+    switch (error)
+    {
+    case ERROR_SUCCESS:
+    case ERROR_CANCELLED:
+    case ERROR_OPERATION_ABORTED:
+    case ERROR_BROKEN_PIPE:
+    case ERROR_NO_DATA:
+    case ERROR_PIPE_NOT_CONNECTED:
+    case ERROR_CONNECTION_ABORTED:
+    case ERROR_NETNAME_DELETED:
+    case ERROR_PROCESS_ABORTED:
+    case ERROR_INVALID_HANDLE:
+    case ERROR_INVALID_PARAMETER:
+    case ERROR_INVALID_DATA:
+    case ERROR_INVALID_NAME:
+    case ERROR_FILE_INVALID:
+    case ERROR_NOT_ENOUGH_MEMORY:
+    case ERROR_OUTOFMEMORY:
+    case ERROR_ARITHMETIC_OVERFLOW:
+    case ERROR_BUFFER_OVERFLOW:
+    case ERROR_TIMEOUT:
+        return false;
+    default:
+        return true;
+    }
+}
 static_assert(sizeof(DirectoryInventory) == 24);
 constexpr DWORD inventoryCompatibilityAlias = 1;
 

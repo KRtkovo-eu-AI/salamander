@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-15 | Test general size branch errors. | Verify partial results without masking terminal failures. | #731 | GPT-6 |
 # | 2026-11-15 | Test the partial-size status markup. | Catch unescaped prefix characters in the real parser. | #731 | GPT-6 |
 # | 2026-11-15 | Explain denied size scans and total partial selections. | Report administrator denials and preserve lower-bound sums. | #731 | GPT-6 |
 # | 2026-11-11 | Exercise protected multi-file selection. | Reuse only the approved panel without new prompts. | #731 | GPT-6.1 Terra |
@@ -39,6 +40,7 @@ def main():
     branch = source[start:end]
     helper = 'template<class Query>\n' + block(read('src/uacbroker/f7pilot.h'), 'DWORD QueryCompressedSize(')
     generated = read('src/tests/uac_size_allocation_controller_tests.cpp.in')
+    generated = generated.replace('@@BRANCH_ERRORS@@', block(read('src/uacbroker/f7pilot.h'), 'inline bool IsSkippableSizeBranchError('))
     start = status.index('const int prefix = partialSelectedSize')
     end = status.index('ExpandPluralBytesFilesDirs(text + prefix', start)
     generated = generated.replace('@@STATUS_PREFIX@@', status[start:end])

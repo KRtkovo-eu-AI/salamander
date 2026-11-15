@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Test a locked inventory branch and readable siblings. | Verify partial counts with real NTFS sharing failures. | #731 | GPT-6 |
 | 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
 | 2026-11-14 | Check metadata-only Find permissions. | Prevent name-only consent from authorizing content reads. | #731 | GPT-6 |
 | 2026-11-14 | Check scoped panel content requests. | Restrict reusable viewer access to named descendants. | #731 | GPT-6 |
@@ -4838,6 +4839,22 @@ int wmain(int argc, wchar_t** argv)
     DWORD inventoryError = UacListing::Inventory(listing.get(), MAXULONGLONG, inventory);
     Check(inventoryError == ERROR_SUCCESS && inventory.files == 2 && inventory.directories == 1 && inventory.bytes == 3,
           "strict inventory sums a nested Unicode file and an empty file", inventoryError);
+    const auto lockedDir = fixture + L"\\destination\\locked-branch";
+    if (!CreateDirectoryW(lockedDir.c_str(), nullptr)) return 2;
+    HANDLE locked = CreateFileW(lockedDir.c_str(), FILE_LIST_DIRECTORY, 0, nullptr, OPEN_EXISTING,
+                                FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+    if (locked == INVALID_HANDLE_VALUE) return 2;
+    std::wstring lockedSkipped;
+    inventoryError = UacListing::Inventory(listing.get(), MAXULONGLONG, inventory, nullptr, &lockedSkipped);
+    CloseHandle(locked);
+    if (inventoryError || inventory.firstOmission != ERROR_SHARING_VIOLATION ||
+        lockedSkipped != L"locked-branch" || inventory.bytes != 3 || inventory.files != 2)
+        std::printf("locked inventory: error=%lu omission=%lu bytes=%llu files=%lu name=%ls\n",
+                    inventoryError, inventory.firstOmission, inventory.bytes, inventory.files, lockedSkipped.c_str());
+    Check(!inventoryError && inventory.firstOmission == ERROR_SHARING_VIOLATION &&
+              lockedSkipped == L"locked-branch" && inventory.bytes == 3 && inventory.files == 2,
+          "locked branch is skipped while accessible siblings remain counted", inventoryError);
+    if (!RemoveDirectoryW(lockedDir.c_str())) return 2;
     UacListing::SubtreeManifest manifest;
     DWORD manifestError = UacListing::CaptureManifest(listing.get(), MAXULONGLONG, manifest);
     FILE_ID_INFO nestedFileId{};
@@ -4891,7 +4908,7 @@ int wmain(int argc, wchar_t** argv)
           "publish no manifest when the scan encounters a junction", manifestError);
     std::wstring firstSkipped;
     inventoryError = UacListing::Inventory(root.get(), MAXULONGLONG, inventory, nullptr, &firstSkipped);
-    Check(!inventoryError && inventory.firstOmission == ERROR_REPARSE_TAG_INVALID &&
+    Check(!inventoryError && inventory.firstOmission == ERROR_REPARSE_POINT_ENCOUNTERED &&
               !firstSkipped.empty() && inventory.files && inventory.bytes,
           "skip an unverified junction and retain the readable inventory with a diagnostic", inventoryError);
     inventoryError = UacListing::Inventory(listing.get(), GetTickCount64(), inventory);

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Test general size branch errors. | Retain other branches while rejecting disconnected or invalid sessions. | #731 | GPT-6 |
 // | 2026-11-15 | Test the partial-size status markup. | Check displayed text and highlighted number offsets. | #731 | GPT-6 |
 // | 2026-11-15 | Explain denied size scans and total partial selections. | Report administrator denials and preserve lower-bound sums. | #731 | GPT-6 |
 // | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
@@ -47,6 +48,7 @@ static DWORD QueryLocal(const wchar_t*, DWORD* high)
 #define GetCompressedFileSizeW QueryLocal
 namespace UacF7
 {
+@@BRANCH_ERRORS@@
 @@QUERY@@
 struct FileAllocationRequest { ULONGLONG size = 0; DWORD attrs = 0; };
 struct DirectoryInventory { ULONGLONG bytes = 0, files = 0, directories = 0; DWORD firstOmission = 0, flags = 0; };
@@ -182,6 +184,16 @@ static void Reset()
 }
 int main()
 {
+    Check(UacF7::IsSkippableSizeBranchError(ERROR_ACCESS_DENIED) &&
+          UacF7::IsSkippableSizeBranchError(ERROR_SHARING_VIOLATION) &&
+          UacF7::IsSkippableSizeBranchError(ERROR_CRC) &&
+          UacF7::IsSkippableSizeBranchError(ERROR_REPARSE_TAG_INVALID),
+          "different branch failures can leave a partial result");
+    Check(!UacF7::IsSkippableSizeBranchError(ERROR_CANCELLED) &&
+          !UacF7::IsSkippableSizeBranchError(ERROR_BROKEN_PIPE) &&
+          !UacF7::IsSkippableSizeBranchError(ERROR_FILE_INVALID) &&
+          !UacF7::IsSkippableSizeBranchError(ERROR_TIMEOUT),
+          "cancel, lost session, wrong identity and timeout are not branch failures");
     for (bool partialSelectedSize : {false, true})
     {
         char text[200];
@@ -215,6 +227,24 @@ int main()
         Check(panel.MeasureDirectory(&sum, &scope, L"C:\\scope\\denied") == TRUE && sum.CountSizeIncomplete &&
               sum.CountSizeFirstOmission == ERROR_ACCESS_DENIED && sum.CountSizeFirstOmissionWasElevated,
               "a live broker's access denial is recorded as an administrator denial");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeScanScope scope;
+        scope.Root = L"C:\\scope"; g_inventoryError = ERROR_SHARING_VIOLATION;
+        Check(panel.MeasureDirectory(&sum, &scope, L"C:\\scope\\locked") == TRUE && sum.CountSizeIncomplete &&
+              sum.CountSizeFirstOmission == ERROR_SHARING_VIOLATION && !sum.CountSizeFirstOmissionWasElevated,
+              "a locked branch is skipped and its actual error is preserved");
+        g_inventoryError = ERROR_SUCCESS; brokerValue = 23;
+        Check(panel.MeasureDirectory(&sum, &scope, L"C:\\scope\\readable") == TRUE &&
+              sum.TotalSize.Value == 23 && prompts == 1,
+              "a readable sibling contributes after a branch error without another prompt");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeScanScope scope;
+        scope.Root = L"C:\\scope"; g_inventoryError = ERROR_FILE_INVALID;
+        Check(panel.MeasureDirectory(&sum, &scope, L"C:\\scope\\changed") == -1 &&
+              !sum.CountSizeFirstOmission,
+              "an identity failure is not converted into an ordinary branch omission");
     }
     {
         Reset(); CFilesWindow panel; COperations sum; CSizeScanScope scope;
