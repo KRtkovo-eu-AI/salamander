@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Record user verification of a file shield. | Preserve the reported move test separately from automated diagnostics. | #731 | GPT-6 |
 | 2026-11-15 | Record user feedback on file shields. | Explain the measured integrity-label restriction on two root files. | #731 | GPT-6 |
 | 2026-11-15 | Record file access shields and verification. | Document ordinary file operations, uncertain cases and user confirmation. | #731 | GPT-6 |
 | 2026-11-15 | Record user feedback on folder shields. | Distinguish reported folder rendering from unimplemented file indicators. | #731 | GPT-6 |
@@ -673,6 +674,7 @@ Tento přehled je závazný pro současnou práci. Následující časové zázn
 - **Automaticky ověřeno:** test existujícího controlleru a workeru s dočasnými NTFS položkami prošel v Debug i Release (43 kontrol v každé konfiguraci), včetně odepřených práv, souborů jen pro čtení, zástupců a sdílené čtecí relace. Prošly testy vykreslovacího kontraktu, cest panelu (196 kontrol v každé konfiguraci) a přechodu chráněného panelu (47 kontrol v každé konfiguraci). Oddělený experiment s právy mazání a přejmenování je v `C:\Samandarin\builds\uac-file-shield-20261115\evidence\same-folder-rename-acl.json`. Host Release x64 `C:\Samandarin\builds\uac-file-shield-20261115\salamander\Release_x64\salamand.exe` má SHA-256 `7B39A174BAE2F9B62DC9DFF1408573323E78E265215B3F79A6E4BFCB0EAE0A58`; jde o výstup sestavení, ne o nasazenou kompletní instalaci. Systémové UAC ani interaktivní aplikace se nespouštěly.
 - **Uživatelské ověření:** štít u souborů v tomto sestavení zatím čeká na ověření uživatelem. Dřívější uživatelské potvrzení složek patří sestavení uvedenému v předchozím oddílu.
 - **Uživatelské hlášení a čtecí diagnostika:** uživatel v instalaci `C:\Program Files\Samandarin UAC Test e5e83c71` uvedl, že se štít zobrazuje příliš často, například u `C:\MkvMetaEverything-EfuVm-x64.zip` a `C:\PowerShell-7.6.4-win-x64.zip`, přestože s nimi mohl různě manipulovat. Konkrétní operace a jejich elevaci neupřesnil. Oba soubory mají zděděný `High Mandatory Level (No Write Up)`. Nedestruktivní otevření účtem majkl na střední úrovni integrity dovolilo `GENERIC_READ`, ale vrátilo chybu 5 pro `GENERIC_WRITE`, `FILE_WRITE_ATTRIBUTES` i `DELETE`. Proto současná sonda indikuje odepření zápisu ještě před kontrolou rodiče. Zápis je omezen povinnou úrovní integrity i přesto, že DACL poskytuje skupině Authenticated Users právo Modify. Soubory ani jejich oprávnění se neměnily; tato sonda nedokazuje, které konkrétní operace uživatel provedl a zda k nim došlo s elevací.
+- **Následné uživatelské ověření:** uživatel vyzkoušel přesun a uvedl, že štít je v tomto případě oprávněný. Neupřesnil, kterého ze dvou uvedených souborů se pokus týkal ani další průběh operace; nejde o námi provedený test ani obecné potvrzení všech variant štítu.
 
 ## Vstup do chráněné podsložky WER — 15. listopadu 2026
 
