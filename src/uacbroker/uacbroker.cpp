@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Return verified read-only viewer handles. | Let the native viewer read large protected files in blocks. | #731 | GPT-6 |
 | 2026-11-15 | Stream scoped directory size inventories. | Bound each response while retaining cancellation and identity checks. | #731 | GPT-6 |
 | 2026-11-15 | Page oversized protected panel listings. | Retain exact directory identities and complete results across pages. | #731 | GPT-6 |
 | 2026-11-15 | Avoid unnecessary traversal access for listed directory identity. | Offer UAC when a readable parent denies explicit traversal. | #731 | GPT-6 |
@@ -2528,6 +2529,35 @@ DWORD DuplicateThinToHost(HANDLE host, DWORD hostPid, HANDLE source, DWORD acces
     return ERROR_SUCCESS;
 }
 
+// Only reclaim a handle whose numeric value has not been sent to the host.
+// Once sending starts, the host may have received and closed it already.
+void CloseUndisclosedViewerHandle(HANDLE host, DWORD hostPid, HANDLE remote)
+{
+    const auto process = OpenThinHostForDup(host, hostPid);
+    HANDLE local = nullptr;
+    if (process && DuplicateHandle(process.get(), remote, GetCurrentProcess(), &local, 0, FALSE,
+                                   DUPLICATE_SAME_ACCESS | DUPLICATE_CLOSE_SOURCE))
+        CloseHandle(local);
+}
+
+DWORD SendViewerHandle(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE source, DWORD status, ULONGLONG deadline)
+{
+    HANDLE remote = nullptr;
+    if (!status)
+        status = DuplicateThinToHost(host, hostPid, source, FILE_READ_DATA | FILE_READ_ATTRIBUTES | SYNCHRONIZE, remote);
+    DWORD error = TransferRequest(pipe, &status, sizeof(status), true, deadline);
+    if (error)
+    {
+        if (remote) CloseUndisclosedViewerHandle(host, hostPid, remote);
+        return error;
+    }
+    if (status) return ERROR_SUCCESS;
+    ULONGLONG wire = static_cast<ULONGLONG>(reinterpret_cast<ULONG_PTR>(remote));
+    // An interrupted send is ambiguous: retaining a read-only handle until
+    // host exit is safer than closing a handle value the host may have reused.
+    return TransferRequest(pipe, &wire, sizeof(wire), true, deadline);
+}
+
 #if defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_REOPEN_PROTOTYPE)
 // Scan Ahead has two existing forms of evidence. This is not an additional
 // revision requirement for ordinary overwrite confirmations.
@@ -3427,8 +3457,8 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     const bool selection = listingScope == Operation::InventorySelection;
     const bool findFile = listingScope == Operation::FindFile;
     const bool allocationFile = listingScope == Operation::FileAllocation;
-    const bool view = header.operation == Operation::View;
-    snapshotRequest = view;
+    const bool view = header.operation == Operation::View || header.operation == Operation::ViewHandle;
+    snapshotRequest = header.operation == Operation::View;
     const bool readArchive = header.operation == Operation::ReadArchive || findFile;
     const bool writeZipSelection = header.operation == Operation::WriteZipSelection;
     zipUpdate = header.operation == Operation::WriteZipUpdate;
@@ -4034,7 +4064,20 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
         }
     }
     else if (view)
-        result = UacViewLeaf::ReadVerifiedSnapshot(parent.get(), expected, sourceIdentity, leaf, deadline, snapshot);
+    {
+        if (snapshotRequest)
+            result = UacViewLeaf::ReadVerifiedSnapshot(parent.get(), expected, sourceIdentity, leaf, deadline, snapshot);
+        else
+        {
+            // Preserve native viewer sharing while validating the exact approved source.
+            HANDLE raw = nullptr;
+            LARGE_INTEGER size{};
+            FILE_BASIC_INFO basic{};
+            result = UacViewLeaf::OpenVerifiedRead(parent.get(), expected, sourceIdentity, leaf, deadline,
+                                                   raw, size, basic, FILE_SHARE_READ | FILE_SHARE_WRITE);
+            archive = Adopt(raw);
+        }
+    }
     else if (writeZipSelection)
         result = UacZipSelection::Publish(parent.get(), expected, zipBytes, pipe, deadline);
     else if (readArchive)
@@ -4423,15 +4466,18 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE defaultRoot,
         const bool linkLeaf = (length & UacListing::linkIdentityRequest) != 0;
         const bool fileAllocation = (length & UacListing::fileAllocationRequest) != 0;
         const bool pagedListing = (length & UacListing::pagedListingRequest) != 0;
+        const bool viewerHandle = (length & UacListing::viewerHandleRequest) != 0;
         length &= ~(UacListing::inventoryRequest | UacListing::sizeDetailsRequest | UacListing::contentRequest |
                     UacListing::leafIdentityRequest | UacListing::parentIdentityRequest |
                     UacListing::directoryIdentityRequest | UacListing::verifiedListingRequest | UacListing::linkIdentityRequest |
-                    UacListing::fileAllocationRequest | UacListing::pagedListingRequest);
+                    UacListing::fileAllocationRequest | UacListing::pagedListingRequest | UacListing::viewerHandleRequest);
         // A session grants only its declared read capability; incompatible request flags terminate the exchange.
         const bool canReadIdentity = scope == Operation::List ||
                                      (UacF7::IsFindDirectoryScope(scope) && !parentOnly) ||
                                      (scope == Operation::CompareContent && !parentOnly && !directoryLeaf);
-        if ((pagedListing && ((scope != Operation::CompareList && scope != Operation::List && !UacF7::IsFindDirectoryScope(scope)) || inventoryRequest || sizeDetails || contentRequest ||
+        if ((viewerHandle && (scope != Operation::List || !length || inventoryRequest || sizeDetails || contentRequest ||
+                              leafIdentity || parentOnly || directoryLeaf || verifyListing || linkLeaf || fileAllocation || pagedListing)) ||
+            (pagedListing && ((scope != Operation::CompareList && scope != Operation::List && !UacF7::IsFindDirectoryScope(scope)) || inventoryRequest || sizeDetails || contentRequest ||
                               leafIdentity || parentOnly || directoryLeaf || verifyListing || linkLeaf || fileAllocation)) ||
             (fileAllocation && (!UacListing::ValidAllocationScope(scope, length) || inventoryRequest || sizeDetails ||
                                 contentRequest || leafIdentity || parentOnly || directoryLeaf || verifyListing || linkLeaf)) ||
@@ -4602,6 +4648,28 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE defaultRoot,
                 error = TransferRequest(pipe, &allocation, sizeof(allocation), true, deadline);
             if (error)
                 return error;
+            continue;
+        }
+        if (viewerHandle)
+        {
+            // Keep the request inside the panel root and match the selected file's identity before duplication.
+            UacF7::MoveFileIdentity expected{};
+            error = TransferRequest(pipe, &expected, sizeof(expected), false, deadline);
+            if (error) return error;
+            HANDLE raw = nullptr;
+            LARGE_INTEGER size{};
+            FILE_BASIC_INFO basic{};
+            DWORD status = UacViewLeaf::OpenScopedRead(root, relative, deadline, raw, size, basic,
+                                                       FILE_SHARE_READ | FILE_SHARE_WRITE);
+            const auto file = Adopt(raw);
+            FILE_ID_INFO actual{};
+            if (!status && !GetFileInformationByHandleEx(file.get(), FileIdInfo, &actual, sizeof(actual)))
+                status = GetLastError();
+            if (!status && (actual.VolumeSerialNumber != expected.serial ||
+                            std::memcmp(actual.FileId.Identifier, expected.id, sizeof(expected.id))))
+                status = ERROR_FILE_INVALID;
+            error = SendViewerHandle(pipe, host, hostPid, file.get(), status, deadline);
+            if (error) return error;
             continue;
         }
         if (contentRequest)
@@ -4813,7 +4881,13 @@ int RunBroker(const InstallLocation& install, const wchar_t* pipeName, DWORD hos
                                nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, &selectedInventory, &readSelection);
         if (error)
             return IoError(L"Receive request", error);
-        error = TransferRequest(pipe.get(), &result, sizeof(result), true, deadline);
+        if (listingScope == Operation::ViewHandle)
+        {
+            error = SendViewerHandle(pipe.get(), host.get(), hostPid, archive.get(), result, deadline);
+            archive.reset();
+        }
+        else
+            error = TransferRequest(pipe.get(), &result, sizeof(result), true, deadline);
         if (error)
             return IoError(L"Send request result", error);
         if (snapshotRequest && result == ERROR_SUCCESS)
@@ -5145,6 +5219,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
 #ifdef SAM_UAC_F7_HOST
     DWORD operationError = ERROR_GEN_FAILURE;
     std::vector<BYTE> receivedSnapshot;
+    Handle receivedViewer;
 #endif
     if (drop)
         pipe.reset();
@@ -5262,7 +5337,15 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
                     return IoError(L"Read viewer snapshot", error);
             }
         }
-        DWORD hasSession = sessionPipe && operationError == ERROR_SUCCESS ? 1 : 0;
+        if (request->operation == Operation::ViewHandle && operationError == ERROR_SUCCESS)
+        {
+            ULONGLONG wire = 0;
+            error = TransferRequest(pipe.get(), &wire, sizeof(wire), false, deadline);
+            if (error || !wire || wire > static_cast<ULONGLONG>(UINTPTR_MAX))
+                return probeIoError(L"Read viewer handle", error ? error : ERROR_INVALID_DATA);
+            receivedViewer = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(wire)));
+        }
+        DWORD hasSession = sessionPipe && request->operation != Operation::ViewHandle && operationError == ERROR_SUCCESS ? 1 : 0;
         if (zipUpdateFile)
         {
             error = TransferRequest(pipe.get(), &hasSession, sizeof(hasSession), false, deadline);
@@ -5311,6 +5394,8 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
 #ifdef SAM_UAC_F7_HOST
     if (snapshot && operationError == ERROR_SUCCESS)
         snapshot->swap(receivedSnapshot);
+    if (sessionPipe && request->operation == Operation::ViewHandle && operationError == ERROR_SUCCESS)
+        *sessionPipe = receivedViewer.release();
     *result = UacF7::TransferReply(request->operation, operationError);
 #else
     std::wprintf(L"Authenticated elevated broker exited (%lu), expected (%lu).\n", code, expected);
@@ -5922,6 +6007,25 @@ Result PreparedLeaf::ReadViewerSnapshot(HWND owner, std::vector<BYTE>& snapshot)
     std::memcpy(header.sourceId.Identifier, sourceId, sizeof(sourceId));
     std::wstring payload = volume + relative + leaf;
     RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, nullptr, nullptr, &snapshot);
+    return result;
+}
+
+// Open the exact approved file once; the original viewer owns the resulting handle.
+Result PreparedLeaf::OpenViewerRead(HWND owner, HANDLE& file) const
+{
+    file = nullptr;
+    Result result;
+    const ComApartment com;
+    InstallLocation install;
+    if (operation != Operation::View || (!parent && !identityFromListing) || FAILED(com.result) || !install.Open() ||
+        !install.MatchesProcess(GetCurrentProcess(), appImage) || !install.OpenImage(appImage))
+        return result;
+    RequestHeader header{serial, {}, {}, Operation::ViewHandle,
+                         static_cast<DWORD>(relative.size()), static_cast<DWORD>(leaf.size()), 0, 0, {}, 0, 0, 0};
+    std::memcpy(header.parentId.Identifier, fileId, sizeof(fileId));
+    std::memcpy(header.sourceId.Identifier, sourceId, sizeof(sourceId));
+    std::wstring payload = volume + relative + leaf;
+    RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, &file);
     return result;
 }
 
@@ -8314,6 +8418,29 @@ DWORD ListingSession::ReadViewerSnapshot(const std::wstring& path, const Prepare
     if (!error) error = closeError;
     if (error) snapshot.clear();
     return error;
+}
+
+DWORD ListingSession::OpenViewerRead(const std::wstring& path, const PreparedLeaf& expected, HANDLE& file)
+{
+    ListingForegroundLock lock(mutex, foregroundWaiters);
+    file = nullptr;
+    if (prepared.operation != Operation::List || !Contains(path) || expected.operation != Operation::View)
+        return ERROR_ACCESS_DENIED;
+    UacF7::MoveFileIdentity identity{};
+    identity.serial = expected.serial;
+    std::memcpy(identity.id, expected.sourceId, sizeof(identity.id));
+    const auto deadline = GetTickCount64() + timeoutMs;
+    DWORD error = SendPath(path, UacListing::viewerHandleRequest, deadline);
+    if (!error) error = Transfer(&identity, sizeof(identity), true, deadline);
+    DWORD status = ERROR_SUCCESS;
+    if (!error) error = Transfer(&status, sizeof(status), false, deadline);
+    ULONGLONG wire = 0;
+    if (!error && !status) error = Transfer(&wire, sizeof(wire), false, deadline);
+    if (!error && !status && (!wire || wire > static_cast<ULONGLONG>(UINTPTR_MAX))) error = ERROR_INVALID_DATA;
+    if (error) { Close(); return error; }
+    if (status) return status;
+    file = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(wire));
+    return ERROR_SUCCESS;
 }
 
 DWORD ListingSession::Inventory(const std::wstring& path, DirectoryInventory& inventory, DirectorySizeDetails* details,

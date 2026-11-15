@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Define scoped viewer handle requests. | Reuse the authenticated panel session for large files. | #731 | GPT-6 |
 | 2026-11-15 | Share the compatibility alias check with streamed inventory. | Retain exact no-follow exclusions for large size scans. | #731 | GPT-6 |
 | 2026-11-15 | Scan large parent listings for file identities and revisions. | Preserve exact UAC authorization without rejecting large directories. | #731 | GPT-6 |
 | 2026-11-15 | Stream child identity through large parent listings. | Preserve exact identity checks without rejecting accessible large directories. | #731 | GPT-6 |
@@ -64,6 +65,8 @@ constexpr DWORD verifiedListingRequest = 0x02000000;
 constexpr DWORD linkIdentityRequest = 0x01000000;
 constexpr DWORD fileAllocationRequest = 0x00800000;
 constexpr DWORD pagedListingRequest = 0x00400000;
+// The panel grant can return a read-only handle for one verified viewer file.
+constexpr DWORD viewerHandleRequest = 0x00200000;
 
 enum class PagedListingOp : DWORD { Open = 1, Next = 2, Close = 3 };
 struct PagedListingFrame

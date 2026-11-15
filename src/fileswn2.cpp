@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-15 | Stream protected ZIP viewer entries to an ephemeral read handle. | Remove the whole-entry memory limit while keeping ZIP validation. | #731 | GPT-6 |
 // | 2026-11-11 | Prepare a new protected listing before leaving the current panel. | Preserve the previous session when access to a different root is cancelled or fails. | #731 | GPT-6.1 Terra |
 // | 2026-11-08 | Collect one decoded entry for the caller. | Keep partial or invalid output out of viewer and file publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Read ZIP entries through the existing authorization. | Use the same bounded broker batch as the panel listing. | | GPT-6.1 Sol (Codex) |
@@ -3490,6 +3491,7 @@ struct ProtectedZipListing
     std::vector<BYTE> block = std::vector<BYTE>(UacF7::archiveReadBlock);
     ULONGLONG cachedOffset = 0;
     DWORD cachedSize = 0;
+    bool independentWindows = false;
 
     static DWORD WINAPI Read(void* context, ULONGLONG offset, void* bytes, DWORD count)
     {
@@ -3504,9 +3506,20 @@ struct ProtectedZipListing
             {
                 listing.cachedOffset = offset - offset % UacF7::archiveReadBlock;
                 listing.cachedSize = static_cast<DWORD>(min(size - listing.cachedOffset, static_cast<ULONGLONG>(UacF7::archiveReadBlock)));
+                // A long entry uses bounded windows on the same approved archive session.
+                const DWORD beginError = listing.independentWindows ? listing.session.BeginRead() : ERROR_SUCCESS;
+                if (beginError)
+                {
+                    listing.cachedSize = 0;
+                    return beginError;
+                }
                 const DWORD error = listing.session.Read(listing.cachedOffset, listing.block.data(), listing.cachedSize);
-                if (error)
-                    return error;
+                const DWORD endError = listing.independentWindows ? listing.session.EndRead() : ERROR_SUCCESS;
+                if (error || endError)
+                {
+                    listing.cachedSize = 0;
+                    return error ? error : endError;
+                }
             }
             const auto within = static_cast<DWORD>(offset - listing.cachedOffset);
             const DWORD copied = min(count, listing.cachedSize - within);
@@ -3623,15 +3636,81 @@ DWORD CFilesWindow::ReadProtectedZipEntry(const CFileData& file, const char* nam
 
     auto& session = *ProtectedZipSession;
     ProtectedZipListing listing{session};
+    listing.independentWindows = true;
     const SalZipReadSourceV1 source{session.Size(), &listing, ProtectedZipListing::Read, nullptr};
-    const DWORD beginError = session.BeginRead();
-    if (beginError)
-        return beginError;
     EnterPlugin();
     const DWORD error = read(&source, name, &file, maxBytes, write, context);
     LeavePlugin();
-    const DWORD endError = session.EndRead();
-    return error ? error : endError;
+    return error;
+}
+
+namespace
+{
+struct ProtectedZipViewerOutput
+{
+    HANDLE file;
+    ULONGLONG length = 0;
+
+    static DWORD WINAPI Write(void* context, const BYTE* bytes, DWORD count)
+    {
+        auto& output = *static_cast<ProtectedZipViewerOutput*>(context);
+        while (count)
+        {
+            DWORD written = 0;
+            if (!WriteFile(output.file, bytes, count, &written, nullptr))
+                return GetLastError();
+            if (!written)
+                return ERROR_WRITE_FAULT;
+            output.length += written;
+            bytes += written;
+            count -= written;
+        }
+        return ERROR_SUCCESS;
+    }
+};
+
+struct ProtectedZipTemporaryHandle
+{
+    HANDLE value;
+    ~ProtectedZipTemporaryHandle() { if (value != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(value)); }
+};
+}
+
+DWORD CFilesWindow::ReadProtectedZipViewer(const CFileData& file, const char* name, HANDLE& readHandle)
+{
+    readHandle = nullptr;
+    if (file.Size.Value > static_cast<ULONGLONG>(MAXLONGLONG))
+        return ERROR_FILE_TOO_LARGE;
+
+    // Keep decoded protected bytes private and remove them when the viewer closes.
+    std::vector<wchar_t> temporary(32768);
+    const DWORD length = GetTempPathW(static_cast<DWORD>(temporary.size()), temporary.data());
+    if (!length)
+        return GetLastError();
+    if (length >= temporary.size())
+        return ERROR_FILENAME_EXCED_RANGE;
+    GUID guid{};
+    wchar_t id[39]{};
+    if (FAILED(CoCreateGuid(&guid)) || !StringFromGUID2(guid, id, ARRAYSIZE(id)))
+        return ERROR_GEN_FAILURE;
+    const std::wstring path = SalPathAddExtendedPrefixW(
+        (std::wstring(temporary.data()) + L"Samandarin-Viewer-" + id + L".tmp").c_str());
+    ProtectedZipTemporaryHandle writer{HANDLES_Q(CreateFileW(path.c_str(), GENERIC_READ | GENERIC_WRITE | DELETE,
+                                                             0, nullptr, CREATE_NEW,
+                                                             FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE |
+                                                                 FILE_FLAG_SEQUENTIAL_SCAN,
+                                                             nullptr))};
+    if (writer.value == INVALID_HANDLE_VALUE)
+        return GetLastError();
+
+    ProtectedZipViewerOutput output{writer.value};
+    DWORD error = ReadProtectedZipEntry(file, name, file.Size.Value, ProtectedZipViewerOutput::Write, &output);
+    if (!error && output.length != file.Size.Value)
+        error = ERROR_HANDLE_EOF;
+    if (!error && !NOHANDLES(DuplicateHandle(GetCurrentProcess(), writer.value, GetCurrentProcess(), &readHandle,
+                                             FILE_READ_DATA | FILE_READ_ATTRIBUTES | SYNCHRONIZE, FALSE, 0)))
+        error = GetLastError();
+    return error;
 }
 
 BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archivePath,

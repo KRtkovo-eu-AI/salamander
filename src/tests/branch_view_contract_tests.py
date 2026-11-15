@@ -284,10 +284,12 @@ class BranchViewContracts(unittest.TestCase):
                      "GetItemFullPathW(*f)", "protectedCandidate = SalPathRemoveExtendedPrefixW",
                      "ViewFileInt(owner", "deferredPathCheck ? ProtectedListing.get() : nullptr")
         internal = body("fileswn5.cpp", "BOOL ViewFileInt(")
-        self.ordered(internal, "case VIEWER_INTERNAL:", "PrepareProtectedViewerSnapshot(")
-        controller = body("fileswn5.cpp", "static bool PrepareProtectedViewerSnapshot(")
+        self.ordered(internal, "case VIEWER_INTERNAL:", "PrepareProtectedViewerRead(", "std::move(readHandle)")
+        controller = body("fileswn5.cpp", "static bool PrepareProtectedViewerRead(")
         self.ordered(controller, "GetLastError() == ERROR_ACCESS_DENIED", "PrepareViewer(*candidate",
-                     "ConfirmProtectedRead(", "ReadViewerSnapshot(",
+                     "protectedListing->Contains(*candidate)", "protectedListing->OpenViewerRead(*candidate, *prepared",
+                     "enumFileNamesSourceUID = enumFileNamesLastFileIndex = -1", "ConfirmProtectedRead(",
+                     "prepared->OpenViewerRead(",
                      "enumFileNamesSourceUID = enumFileNamesLastFileIndex = -1")
 
     def test_branch_rename_reuses_verified_source_and_checks_row_lifetime(self):

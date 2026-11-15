@@ -352,7 +352,9 @@ public:
                     dispatchError = ReceiveRequest(install, peer.get(), GetCurrentProcess(), GetCurrentProcessId(), deadline,
                         result, exactRoot, snapshot, view, zip, scope, archive, revision, nullptr, nullptr, &exact,
                         nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, &selected, &selectedReads);
-                    if (!dispatchError)
+                    if (!dispatchError && scope == Operation::ViewHandle)
+                        dispatchError = SendViewerHandle(peer.get(), GetCurrentProcess(), GetCurrentProcessId(), archive.get(), result, deadline);
+                    else if (!dispatchError)
                         dispatchError = TransferRequest(peer.get(), &result, sizeof(result), true, deadline);
                     if (!dispatchError && view && result == ERROR_SUCCESS)
                     {
@@ -533,6 +535,29 @@ public:
         return !TransferRequest(server.get(), &header, sizeof(header), true, deadline) &&
                !TransferRequest(server.get(), payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), true, deadline) &&
                !TransferRequest(server.get(), &result, sizeof(result), false, deadline);
+    }
+
+    bool StartExactViewer(const Directory& pathParent, std::wstring_view leaf,
+                          const FILE_ID_INFO& expectedParent, const FILE_ID_INFO& expectedFile, DWORD& result, Handle& file)
+    {
+        RequestHeader header{};
+        header.serial = expectedParent.VolumeSerialNumber;
+        header.parentId = expectedParent.FileId;
+        header.sourceId = expectedFile.FileId;
+        header.operation = Operation::ViewHandle;
+        header.relativeLength = static_cast<DWORD>(pathParent.relative.size());
+        header.leafLength = static_cast<DWORD>(leaf.size());
+        std::wstring payload = pathParent.identity.volume + pathParent.relative + std::wstring(leaf);
+        const auto deadline = GetTickCount64() + timeoutMs;
+        if (TransferRequest(server.get(), &header, sizeof(header), true, deadline) ||
+            TransferRequest(server.get(), payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), true, deadline) ||
+            TransferRequest(server.get(), &result, sizeof(result), false, deadline)) return false;
+        if (result) return true;
+        ULONGLONG value = 0;
+        if (TransferRequest(server.get(), &value, sizeof(value), false, deadline) || !value || value > UINTPTR_MAX)
+            return false;
+        file = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(value)));
+        return true;
     }
 
     bool StartFindRoot(const Directory& parent, std::wstring_view directory,
@@ -742,6 +767,23 @@ public:
         return SendFindRequest(UacListing::contentRequest, leaf, deadline) &&
                !TransferRequest(server.get(), &status, sizeof(status), false, deadline) && !status &&
                !TransferRequest(server.get(), &revision, sizeof(revision), false, deadline) && revision.size == 1;
+    }
+
+    bool OpenViewer(std::wstring_view path, UacF7::MoveFileIdentity identity, DWORD expected, Handle& file)
+    {
+        file.reset();
+        const auto deadline = GetTickCount64() + timeoutMs;
+        DWORD status = ERROR_GEN_FAILURE;
+        if (!SendFindRequest(UacListing::viewerHandleRequest, path, deadline) ||
+            TransferRequest(server.get(), &identity, sizeof(identity), true, deadline) ||
+            TransferRequest(server.get(), &status, sizeof(status), false, deadline) || status != expected)
+            return false;
+        if (status) return true;
+        ULONGLONG value = 0;
+        if (TransferRequest(server.get(), &value, sizeof(value), false, deadline) || !value || value > UINTPTR_MAX)
+            return false;
+        file = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(value)));
+        return true;
     }
 
     bool ReadAndCloseFindContent(BYTE expected)
@@ -1031,6 +1073,62 @@ void CheckListedArchiveIdentity(const Directory& source, const Directory& outsid
     result = UacViewLeaf::OpenVerifiedRead(source.handle.get(), source.identity, expected, leaf, deadline, raw, size, basic);
     Check(result == ERROR_FILE_INVALID && !raw && HasByte(source.File(leaf), 44) && HasByte(source.File(old), 42),
           "reject a same-name replacement after capturing the listed archive ID");
+}
+
+void CheckPanelViewerHandle(const Directory& source)
+{
+    const auto path = source.File(L"viewer-large-\u6771.bin");
+    const auto writer = Adopt(CreateFileW(path.c_str(), GENERIC_READ | GENERIC_WRITE,
+        FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, CREATE_NEW, 0, nullptr));
+    LARGE_INTEGER size{};
+    size.QuadPart = 16LL * 1024 * 1024 + 1;
+    FILE_ID_INFO actual{};
+    if (!writer || !SetFilePointerEx(writer.get(), size, nullptr, FILE_BEGIN) || !SetEndOfFile(writer.get()) ||
+        !GetFileInformationByHandleEx(writer.get(), FileIdInfo, &actual, sizeof(actual)))
+    {
+        Check(false, "prepare large viewer fixture");
+        return;
+    }
+    UacF7::MoveFileIdentity identity{};
+    identity.serial = actual.VolumeSerialNumber;
+    std::memcpy(identity.id, actual.FileId.Identifier, sizeof(identity.id));
+    JobPipe job;
+    Handle viewer;
+    Check(job.Open(nullptr, source.handle.get(), Operation::List) &&
+          job.OpenViewer(L"viewer-large-\u6771.bin", identity, ERROR_SUCCESS, viewer),
+          "open a large viewer file through the approved panel scope");
+    LARGE_INTEGER observed{};
+    DWORD bytes = 0;
+    BYTE value = 0;
+    Check(viewer && GetFileSizeEx(viewer.get(), &observed) && observed.QuadPart == size.QuadPart &&
+          SetFilePointerEx(viewer.get(), size, nullptr, FILE_BEGIN) &&
+          !WriteFile(viewer.get(), &value, 1, &bytes, nullptr) && GetLastError() == ERROR_ACCESS_DENIED,
+          "viewer handle has no size limit and cannot write");
+    UacListing::LeafIdentity listed{};
+    Check(job.QueryLeafIdentity(L"viewer-large-\u6771.bin", ERROR_SUCCESS, listed),
+          "the panel session remains usable while the viewer handle is open");
+    auto stale = identity;
+    stale.id[0] ^= 1;
+    Handle rejected;
+    Check(job.OpenViewer(L"viewer-large-\u6771.bin", stale, ERROR_FILE_INVALID, rejected) && !rejected,
+          "the panel viewer rejects a mismatched file identity");
+    Check(job.OpenViewer(L"..\\outside\\other", identity, ERROR_INVALID_NAME, rejected) && !rejected,
+          "the panel viewer rejects a path outside the approved scope");
+    JobPipe standalone;
+    DWORD status = ERROR_GEN_FAILURE;
+    Handle exact;
+    Check(standalone.Open(nullptr, nullptr, Operation::List, nullptr, true) &&
+          standalone.StartExactViewer(source, L"viewer-large-\u6771.bin", source.identity.file, actual, status, exact) &&
+          status == ERROR_SUCCESS && exact && GetFileSizeEx(exact.get(), &observed) && observed.QuadPart == size.QuadPart,
+          "standalone viewer duplicates the exact large file selected for consent");
+    JobPipe staleExact;
+    auto substituted = actual;
+    substituted.FileId.Identifier[0] ^= 1;
+    Check(staleExact.Open(nullptr, nullptr, Operation::List, nullptr, true) &&
+          staleExact.StartExactViewer(source, L"viewer-large-\u6771.bin", source.identity.file, substituted, status, rejected) &&
+          status == ERROR_FILE_INVALID && !rejected,
+          "standalone viewer rejects a changed source identity");
+    viewer.reset();
 }
 
 void CheckPanelPreparationPaths(const Directory& source, const Directory& outside)
@@ -5802,6 +5900,7 @@ int wmain(int argc, wchar_t** argv)
     CheckListedLeafIdentity(source);
     CheckListedHardLinkMove(source, target);
     CheckListedArchiveIdentity(source, outside);
+    CheckPanelViewerHandle(source);
     CheckPanelPreparationPaths(source, outside);
     CheckPanelPreparationFlags(source);
     CheckPanelPreparationMutationGuards(source);

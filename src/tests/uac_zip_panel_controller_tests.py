@@ -19,6 +19,12 @@ def main():
     last = source.index('    ProtectedZipListing listing{*session};', first)
     setup = source[first:last] + '    (void)directory; (void)pluginData; (void)size; (void)date;\n    return ERROR_SUCCESS;\n}\n'
     fixture = read('src/tests/uac_zip_panel_controller_tests.cpp.in').replace('@@SETUP@@', setup)
+    first = source.index('struct ProtectedZipListing')
+    last = source.index('\n// Keep archive parsing', first)
+    fixture = fixture.replace('@@LISTING@@', source[first:last])
+    first = source.index('namespace\n{\nstruct ProtectedZipViewerOutput')
+    last = source.index('\nBOOL CFilesWindow::ChangePathToArchive', first)
+    fixture = fixture.replace('@@VIEWER@@', source[first:last])
     if '@@' in fixture:
         raise AssertionError('unexpanded fixture')
     env = compiler_environment()
@@ -32,7 +38,7 @@ def main():
             flags = ['/MDd', '/D_DEBUG', '/Od'] if config == 'Debug' else ['/MD', '/DNDEBUG', '/O2']
             print('Protected ZIP session setup:', config, flush=True)
             for command in ([compiler, '/nologo', '/std:c++17', '/EHsc', '/utf-8', '/W4', '/WX',
-                             *flags, str(cpp), '/Fe:' + str(exe)], [str(exe)]):
+                             *flags, str(cpp), 'ole32.lib', '/Fe:' + str(exe)], [str(exe)]):
                 if run(command, cwd=directory, env=env, timeout=35).returncode:
                     return 1
     return 0

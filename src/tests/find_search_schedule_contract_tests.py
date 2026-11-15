@@ -73,19 +73,33 @@ def main() -> int:
             "foundView = std::move(identity)", "AddFoundItem(", "std::move(foundView)")
     require("maxViewerSnapshotBytes" not in publish and "file.nFileSizeHigh" not in publish.split("if (!foundView", 1)[1].split("AddFoundItem(", 1)[0],
             "capturing Refine identity must not be restricted by viewer snapshot size")
-    snapshot_source = (ROOT / "src" / "uacbroker" / "uacbroker.cpp").read_text(encoding="utf-8-sig")
-    snapshot = function_body(snapshot_source, "DWORD ListingSession::ReadViewerSnapshot(")
-    ordered(snapshot, "expected.MatchesReadSource(revision)", "size > maxViewerSnapshotBytes", "snapshot.resize(")
+    broker = (ROOT / "src" / "uacbroker" / "uacbroker.cpp").read_text(encoding="utf-8-sig")
+    scoped_open = function_body(broker, "DWORD ListingSession::OpenViewerRead(")
+    ordered(scoped_open, "prepared.operation != Operation::List", "!Contains(path)",
+            "expected.operation != Operation::View", "identity.serial = expected.serial",
+            "expected.sourceId", "viewerHandleRequest", "Transfer(&identity", "file = reinterpret_cast<HANDLE>")
+    dispatch = function_body(broker, "DWORD ServeListings(")
+    ordered(dispatch, "viewerHandle && (scope != Operation::List", "if (viewerHandle)",
+            "TransferRequest(pipe, &expected", "OpenScopedRead(root, relative", "FileIdInfo",
+            "actual.VolumeSerialNumber != expected.serial", "std::memcmp(actual.FileId.Identifier, expected.id",
+            "SendViewerHandle(pipe, host, hostPid")
+    send = function_body(broker, "DWORD SendViewerHandle(")
+    require("FILE_READ_DATA | FILE_READ_ATTRIBUTES | SYNCHRONIZE" in send,
+            "viewer handle duplication must remain read-only")
+    require("maxViewerSnapshotBytes" not in scoped_open and "snapshot.resize" not in scoped_open,
+            "viewer reads must not materialize or cap the whole file")
     require("foundView = singleFile ? knownFile : nullptr" in publish,
             "retained refine results must keep their captured identity after refusal")
     host = (ROOT / "src" / "fileswn5.cpp").read_text(encoding="utf-8-sig")
     internal = function_body(host, "BOOL ViewFileInt(")
-    controller = function_body(host, "static bool PrepareProtectedViewerSnapshot(")
+    controller = function_body(host, "static bool PrepareProtectedViewerRead(")
     ordered(internal, "!deniedParent && !foundView", "if (foundView && (!viewer || viewer->ViewerType != VIEWER_INTERNAL))",
-            "case VIEWER_INTERNAL:", "PrepareProtectedViewerSnapshot(")
+            "case VIEWER_INTERNAL:", "PrepareProtectedViewerRead(", "std::move(readHandle)")
     ordered(controller, "prepared = foundView", "if (!prepared)", "CreateFileW(",
-            "GetLastError() == ERROR_ACCESS_DENIED", "request.PrepareView(", "ConfirmProtectedRead(",
-            "prepared->ReadViewerSnapshot", "enumFileNamesSourceUID = enumFileNamesLastFileIndex = -1")
+            "GetLastError() == ERROR_ACCESS_DENIED", "request.PrepareView(",
+            "protectedListing->Contains(*candidate)", "protectedListing->OpenViewerRead(*candidate, *prepared",
+            "enumFileNamesSourceUID = enumFileNamesLastFileIndex = -1", "ConfirmProtectedRead(",
+            "prepared->OpenViewerRead", "enumFileNamesSourceUID = enumFileNamesLastFileIndex = -1")
 
     require("volatile LONG RefreshPending;" in find_h,
             "Find results and log updates must share an atomic pending flag")

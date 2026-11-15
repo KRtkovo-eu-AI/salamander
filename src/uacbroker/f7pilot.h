@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Request verified protected viewer handles. | Read large files without widening the approved scope. | #731 | GPT-6 |
 | 2026-11-15 | Stream protected size results in bounded frames. | Preserve scoped totals and responsive cancellation for large trees. | #731 | GPT-6 |
 | 2026-11-15 | Page large protected panel listings. | Keep ordinary listings compatible while removing the per-directory cap. | #731 | GPT-6 |
 | 2026-11-15 | Scope one read session to multiple captured selections. | Reuse one consent without granting unselected paths. | #731 | GPT-6 |
@@ -187,7 +188,7 @@ bool CanOfferElevation();
 
 // Wire operation IDs distinguish the approved capability; a read-only scope
 // must not be interpreted as permission for content reads or mutations.
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26, MoveAcrossVolume = 27, FinishCrossVolumeMove = 28, MoveCompressed = 29, CopyCompressedSecurity = 30, RenameDirectory = 31, DeleteDirectory = 32, Inventory = 33, CompareList = 34, CompareContent = 35, MoveDirectory = 36, CopyDirectoryEntry = 37, MergeCopyTree = 38, ListCopyTreeSource = 39, PlanCopyTree = 40, MoveOverwrite = 41, MoveAcrossVolumeOverwrite = 42, FileAllocation = 43, CopyOverwriteIgnoreAds = 44, ProbeOverwrite = 45, ProbeOverwriteIgnoreAds = 46, AbortOverwriteProbe = 47, ThinOpenSource = 49, ThinTargetCreate = 50, ThinTargetRetry = 51, ThinTargetProbe = 52, ThinDiscardTarget = 53, ThinTargetRelease = 54, ThinTargetOverwrite = 55, ThinTargetOverwriteScan = 56, FindList = 57, InventorySelection = 58, FindFlatList = 59, FindFlatContent = 60, ReadSelection = 61 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26, MoveAcrossVolume = 27, FinishCrossVolumeMove = 28, MoveCompressed = 29, CopyCompressedSecurity = 30, RenameDirectory = 31, DeleteDirectory = 32, Inventory = 33, CompareList = 34, CompareContent = 35, MoveDirectory = 36, CopyDirectoryEntry = 37, MergeCopyTree = 38, ListCopyTreeSource = 39, PlanCopyTree = 40, MoveOverwrite = 41, MoveAcrossVolumeOverwrite = 42, FileAllocation = 43, CopyOverwriteIgnoreAds = 44, ProbeOverwrite = 45, ProbeOverwriteIgnoreAds = 46, AbortOverwriteProbe = 47, ThinOpenSource = 49, ThinTargetCreate = 50, ThinTargetRetry = 51, ThinTargetProbe = 52, ThinDiscardTarget = 53, ThinTargetRelease = 54, ThinTargetOverwrite = 55, ThinTargetOverwriteScan = 56, FindList = 57, InventorySelection = 58, FindFlatList = 59, FindFlatContent = 60, ReadSelection = 61, ViewHandle = 62 };
 
 inline constexpr bool IsFlatFindScope(Operation operation)
 {
@@ -644,6 +645,8 @@ public:
                std::memcmp(identity.id, sourceId, sizeof(sourceId)) == 0;
     }
     Result ReadViewerSnapshot(HWND owner, std::vector<BYTE>& snapshot) const;
+    // The caller owns the returned read-only handle.
+    Result OpenViewerRead(HWND owner, HANDLE& file) const;
     bool PrepareZipSelection(const std::wstring& directory);
     DWORD WriteZipSelectionLocal(const std::vector<BYTE>& bytes) const;
     Result WriteZipSelection(HWND owner, std::vector<BYTE>& bytes) const;
@@ -1256,6 +1259,8 @@ public:
     DWORD ReadContent(ULONGLONG offset, void* buffer, DWORD bytes);
     DWORD CloseContent();
     DWORD ReadViewerSnapshot(const std::wstring& path, const PreparedLeaf& expected, std::vector<BYTE>& snapshot);
+    // Reuse the panel grant without holding the session while the viewer is open.
+    DWORD OpenViewerRead(const std::wstring& path, const PreparedLeaf& expected, HANDLE& file);
     bool Contains(const std::wstring& path) const;
     // This checks only the frozen requested scope; it does not imply consent
     // or a live broker and must not be used to perform a privileged read.

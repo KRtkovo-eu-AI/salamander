@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-15 | Expose a temporary ZIP viewer read handle. | Keep entry data outside the viewer memory budget. | #731 | GPT-6 |
 // | 2026-11-08 | Track protected archive mode on the panel. | Distinguish manual refresh from background refresh. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-15 | Track file access indicators with directory indicators. | Keep the background snapshot independent of plugin data. | #731 | GPT-6 |
@@ -1679,6 +1680,8 @@ public:
     bool EditProtectedZip(const char* sourcePath, SalEnumSelection2 add, SalEnumSelection remove, void* context,
                           const char* archiveRoot = nullptr);
     DWORD ReadProtectedZipEntry(const CFileData& file, const std::string& entry, std::vector<BYTE>& bytes);
+    // Supply the native viewer with a read-only, delete-on-close ZIP entry handle.
+    DWORD ReadProtectedZipViewer(const CFileData& file, const char* name, HANDLE& readHandle);
     DWORD ReadProtectedZipEntry(const CFileData& file, const char* name, ULONGLONG maxBytes,
                                 SalZipWrite write, void* context);
     BOOL ShouldShowWaitCursorForRefresh();

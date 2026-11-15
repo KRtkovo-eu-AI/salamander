@@ -4,6 +4,7 @@
 // CommentsTranslationProject: TRANSLATED
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Read verified handles with the existing block reader. | Preserve viewer navigation without a size limit. | #731 | GPT-6 |
 | 2026-11-15 | Explain protected viewer snapshots. | Document ownership and the ordinary viewer read path. | #731 | GPT-6 |
 | 2026-11-08 | Read protected viewer data from memory. | Keep parsing in the ordinary process and scope the bytes to one open document. | | GPT-6.1 Sol (Codex) |
 | 2026-11-04 | Wrap FindPreviousDecodedEOL within one logical line; invalidate line-number checkpoints on reload. | Full-file wrap replay and line scans made EOF scrolling O(n) for large Unicode files (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
@@ -38,6 +39,7 @@ struct CTVData
     const char* Caption;
     BOOL WholeCaption;
     std::unique_ptr<std::vector<BYTE>> Snapshot;
+    ViewerReadHandle ReadHandle;
 };
 
 HANDLE ViewerContinue = NULL;
@@ -96,8 +98,9 @@ unsigned ThreadViewerMessageLoopBody(void* parameter)
         wholeCaption = data->WholeCaption;
     }
     UINT showCmd = data->ShowCmd;
-    // Transfer the approved bytes to the viewer thread; no elevated handle is inherited.
+    // Transfer document ownership before the caller is released, including on thread failure.
     auto snapshot = std::move(data->Snapshot);
+    auto readHandle = std::move(data->ReadHandle);
 
     //  TRACE_I("MoresStanislav: ThreadViewerMessageLoopBody 2");
     //  CALL_STACK_MESSAGE1("MoresStanislav: ThreadViewerMessageLoopBody 2");
@@ -171,7 +174,7 @@ unsigned ThreadViewerMessageLoopBody(void* parameter)
     {
         CALL_STACK_MESSAGE1("ThreadViewerMessageLoopBody::message_loop");
         if (!name.empty())
-            view->OpenFileW(name.c_str(), caption, wholeCaption, std::move(snapshot));
+            view->OpenFileW(name.c_str(), caption, wholeCaption, std::move(snapshot), std::move(readHandle));
 
         MSG msg;
         HWND viewHWindow = view->HWindow; // because WM_QUIT leaves the window object unallocated
@@ -219,7 +222,8 @@ DWORD WINAPI ThreadViewerMessageLoop(void* param)
 BOOL OpenViewer(const char* name, CViewType mode, int left, int top, int width, int height,
                 UINT showCmd, BOOL returnLock, HANDLE* lock, BOOL* lockOwner,
                 CSalamanderPluginViewerData* viewerData, int enumFileNamesSourceUID,
-                int enumFileNamesLastFileIndex, std::unique_ptr<std::vector<BYTE>> snapshot)
+                int enumFileNamesLastFileIndex, std::unique_ptr<std::vector<BYTE>> snapshot,
+                ViewerReadHandle readHandle)
 {
     CALL_STACK_MESSAGE11("OpenViewer(%s, %d, %d, %d, %d, %d, %u, %d, , , , %d, %d)",
                          name, mode, left, top, width, height, showCmd, returnLock,
@@ -254,6 +258,7 @@ BOOL OpenViewer(const char* name, CViewType mode, int left, int top, int width, 
         data.Caption = intViewerData != NULL ? intViewerData->Caption : NULL;
         data.WholeCaption = intViewerData != NULL && intViewerData->WholeCaption;
         data.Snapshot = std::move(snapshot);
+        data.ReadHandle = std::move(readHandle);
 
         DWORD ThreadID;
         HANDLE loop = HANDLES(CreateThread(NULL, 0, ThreadViewerMessageLoop, &data, 0, &ThreadID));
@@ -347,7 +352,7 @@ void CViewerWindow::ConfigHasChanged()
 
 void CViewerWindow::SetLogViewMode(BOOL enable)
 {
-    if (ProtectedSnapshot || LogViewMode == enable)
+    if (ProtectedSnapshot || ProtectedReadHandle || LogViewMode == enable)
         return;
 
     LogViewMode = enable;
@@ -532,7 +537,7 @@ DWORD WINAPI CViewerWindow::LogViewWatcherThreadProc(LPVOID param)
 
 void CViewerWindow::RefreshLogView()
 {
-    if (MouseDrag || FileName == NULL)
+    if (MouseDrag || FileName == NULL || ProtectedSnapshot || ProtectedReadHandle)
         return;
 
     HANDLE file = OpenViewerFileForRead(FileNameW, FileName);
@@ -642,12 +647,11 @@ void CViewerWindow::CodeCharacters(unsigned char* start, unsigned char* end)
                        UseCodeTable ? CodeTable : NULL);
 }
 
-// A protected document is an immutable snapshot; ordinary files still use the
-// existing file handle so both sources share the viewer's parsing and navigation.
+// The verified read handle uses the ordinary block reader without reopening a privileged path.
 BOOL CViewerWindow::GetViewerSize(HANDLE file, CQuadWord& size, DWORD& error) const
 {
     if (!ProtectedSnapshot)
-        return SalGetFileSize(file, size, error);
+        return SalGetFileSize(ProtectedReadHandle ? ProtectedReadHandle.get() : file, size, error);
     size.Value = ProtectedSnapshot->size();
     error = ERROR_SUCCESS;
     return TRUE;
@@ -657,6 +661,8 @@ BOOL CViewerWindow::ReadViewerAt(HANDLE file, ULONGLONG offset, void* buffer, DW
 {
     if (!ProtectedSnapshot)
     {
+        if (ProtectedReadHandle)
+            file = ProtectedReadHandle.get();
         LARGE_INTEGER position{};
         position.QuadPart = offset;
         return SetFilePointerEx(file, position, nullptr, FILE_BEGIN) &&
@@ -681,13 +687,13 @@ BOOL CViewerWindow::LoadBefore(HANDLE* hFile)
         return FALSE;
 
     HANDLE file = nullptr;
-    if (!ProtectedSnapshot && (hFile == NULL || *hFile == NULL))
+    if (!ProtectedSnapshot && !ProtectedReadHandle && (hFile == NULL || *hFile == NULL))
     {
         file = OpenViewerFileForRead(FileNameW, FileName);
         if (hFile != NULL && file != INVALID_HANDLE_VALUE)
             *hFile = file;
     }
-    else if (!ProtectedSnapshot)
+    else if (!ProtectedSnapshot && !ProtectedReadHandle)
         file = *hFile;
 
     if (file != INVALID_HANDLE_VALUE)
@@ -809,13 +815,13 @@ BOOL CViewerWindow::LoadBehind(HANDLE* hFile)
         return FALSE;
 
     HANDLE file = nullptr;
-    if (!ProtectedSnapshot && (hFile == NULL || *hFile == NULL))
+    if (!ProtectedSnapshot && !ProtectedReadHandle && (hFile == NULL || *hFile == NULL))
     {
         file = OpenViewerFileForRead(FileNameW, FileName);
         if (hFile != NULL && file != INVALID_HANDLE_VALUE)
             *hFile = file;
     }
-    else if (!ProtectedSnapshot)
+    else if (!ProtectedSnapshot && !ProtectedReadHandle)
         file = *hFile;
 
     if (file != INVALID_HANDLE_VALUE)
@@ -962,14 +968,15 @@ void CViewerWindow::HeightChanged(BOOL& fatalErr)
 }
 
 void CViewerWindow::OpenFile(const char* file, const char* caption, BOOL wholeCaption,
-                             std::unique_ptr<std::vector<BYTE>> snapshot)
+                             std::unique_ptr<std::vector<BYTE>> snapshot, ViewerReadHandle readHandle)
 {
     CALL_STACK_MESSAGE3("CViewerWindow::OpenFile(%s, %s)", file, caption);
     CancelLogViewRetry();
     StopLogViewWatcher();
-    // Keep the approved bytes scoped to this document and disable live log watching.
+    // Close the preceding document's handle when switching and never watch a protected path.
     ProtectedSnapshot = std::move(snapshot);
-    if (ProtectedSnapshot)
+    ProtectedReadHandle = std::move(readHandle);
+    if (ProtectedSnapshot || ProtectedReadHandle)
         LogViewMode = FALSE;
     std::string fileNameCopy = file != NULL ? file : "";
     const char* fileName = fileNameCopy.c_str();
@@ -1025,10 +1032,10 @@ void CViewerWindow::OpenFile(const char* file, const char* caption, BOOL wholeCa
 }
 
 void CViewerWindow::OpenFileW(const wchar_t* file, const char* caption, BOOL wholeCaption,
-                              std::unique_ptr<std::vector<BYTE>> snapshot)
+                              std::unique_ptr<std::vector<BYTE>> snapshot, ViewerReadHandle readHandle)
 {
     std::string fileA = SalWideToMultiBytePath(file, CP_UTF8);
-    OpenFile(fileA.c_str(), caption, wholeCaption, std::move(snapshot));
+    OpenFile(fileA.c_str(), caption, wholeCaption, std::move(snapshot), std::move(readHandle));
     FileNameW = file != NULL ? file : L"";
     if (LogViewMode)
     {
@@ -1089,7 +1096,7 @@ void CViewerWindow::FileChanged(HANDLE file, BOOL testOnlyFileSize, BOOL& fatalE
     BOOL close;
     if (file == NULL)
     {
-        if (!ProtectedSnapshot)
+        if (!ProtectedSnapshot && !ProtectedReadHandle)
             file = OpenViewerFileForRead(FileNameW, FileName);
         close = file != nullptr;
     }

@@ -19,7 +19,7 @@ def main():
     source = read('src/fileswn5.cpp')
     fixture = read('src/tests/find_view_identity_tests.cpp.in')
     fixture = fixture.replace('@@INCLUDES@@', (ROOT / 'src/uacbroker').as_posix())
-    fixture = fixture.replace('@@CONTROLLER@@', block(source, 'static bool PrepareProtectedViewerSnapshot('))
+    fixture = fixture.replace('@@CONTROLLER@@', block(source, 'static bool PrepareProtectedViewerRead('))
     fixture = fixture.replace('@@CANDIDATE@@', block(source, 'static bool AllowFindViewerCandidate('))
     fixture = fixture.replace('@@HANDLER_GUARD@@', block(source, 'if (foundView && (!viewer || viewer->ViewerType != VIEWER_INTERNAL))'))
     fixture = fixture.replace('@@PANEL_HANDLER_GUARD@@', block(source, 'if (panelStillCurrent && (!viewer || viewer->HandlerID != handlerID'))

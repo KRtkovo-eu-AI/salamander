@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Preserve native viewer sharing for verified reads. | Keep exact identity and no-follow checks for long-lived handles. | #731 | GPT-6 |
 // | 2026-11-15 | Explain scoped viewer reads. | Document identity validation and snapshot limits. | #731 | GPT-6 |
 // | 2026-11-08 | Open a scoped content file relative to a verified directory. | Share read-only validation with the viewer and ZIP. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Share verified file opening with archive reads. | Keep the snapshot limit specific to the viewer. | | GPT-6.1 Sol (Codex) |
@@ -17,7 +18,8 @@ namespace UacViewLeaf
 // Open a single leaf for read-only access relative to an already validated parent.
 // When supplied, the listed identity must match the opened object.
 inline DWORD OpenRead(HANDLE parent, const FILE_ID_INFO* expectedSource, std::wstring_view leaf,
-                              ULONGLONG deadline, HANDLE& opened, LARGE_INTEGER& size, FILE_BASIC_INFO& initial)
+                              ULONGLONG deadline, HANDLE& opened, LARGE_INTEGER& size, FILE_BASIC_INFO& initial,
+                              ULONG sharing = FILE_SHARE_READ)
 {
     opened = nullptr;
     if (!UacDirectoryLeaf::IsComponent(leaf))
@@ -26,7 +28,8 @@ inline DWORD OpenRead(HANDLE parent, const FILE_ID_INFO* expectedSource, std::ws
         return ERROR_TIMEOUT;
 
     HANDLE raw = nullptr;
-    DWORD error = UacRenameLeaf::Detail::OpenSource(parent, leaf, raw, FILE_READ_DATA, FILE_SHARE_READ);
+    // Long-lived viewer handles use the same sharing policy as the native viewer.
+    DWORD error = UacRenameLeaf::Detail::OpenSource(parent, leaf, raw, FILE_READ_DATA, sharing);
     if (error)
         return error;
     const auto close = [](void* handle) { CloseHandle(handle); };
@@ -51,7 +54,8 @@ inline DWORD OpenRead(HANDLE parent, const FILE_ID_INFO* expectedSource, std::ws
 
 inline DWORD OpenVerifiedRead(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expectedParent,
                               const FILE_ID_INFO& expectedSource, std::wstring_view leaf,
-                              ULONGLONG deadline, HANDLE& opened, LARGE_INTEGER& size, FILE_BASIC_INFO& initial)
+                              ULONGLONG deadline, HANDLE& opened, LARGE_INTEGER& size, FILE_BASIC_INFO& initial,
+                              ULONG sharing = FILE_SHARE_READ)
 {
     opened = nullptr;
     UacDirectoryLeaf::ParentIdentity actualParent;
@@ -60,12 +64,13 @@ inline DWORD OpenVerifiedRead(HANDLE parent, const UacDirectoryLeaf::ParentIdent
         return error;
     if (!UacDirectoryLeaf::SameParent(actualParent, expectedParent))
         return ERROR_FILE_INVALID;
-    return OpenRead(parent, &expectedSource, leaf, deadline, opened, size, initial);
+    return OpenRead(parent, &expectedSource, leaf, deadline, opened, size, initial, sharing);
 }
 
 // A scoped read may descend from its approved root, but cannot follow reparse points.
 inline DWORD OpenScopedRead(HANDLE root, std::wstring_view relative, ULONGLONG deadline,
-                            HANDLE& opened, LARGE_INTEGER& size, FILE_BASIC_INFO& initial)
+                            HANDLE& opened, LARGE_INTEGER& size, FILE_BASIC_INFO& initial,
+                            ULONG sharing = FILE_SHARE_READ)
 {
     opened = nullptr;
     const auto split = relative.find_last_of(L'\\');
@@ -75,7 +80,7 @@ inline DWORD OpenScopedRead(HANDLE root, std::wstring_view relative, ULONGLONG d
     {
         UacDirectoryLeaf::ParentIdentity identity;
         const DWORD error = UacDirectoryLeaf::ReadParentIdentity(root, identity);
-        return error ? error : OpenRead(root, nullptr, relative, deadline, opened, size, initial);
+        return error ? error : OpenRead(root, nullptr, relative, deadline, opened, size, initial, sharing);
     }
     HANDLE raw = nullptr;
     UacDirectoryLeaf::ParentIdentity identity;
@@ -83,7 +88,7 @@ inline DWORD OpenScopedRead(HANDLE root, std::wstring_view relative, ULONGLONG d
     if (error)
         return error;
     const std::unique_ptr<void, decltype(&CloseHandle)> parent(raw, CloseHandle);
-    return OpenRead(parent.get(), nullptr, relative.substr(split + 1), deadline, opened, size, initial);
+    return OpenRead(parent.get(), nullptr, relative.substr(split + 1), deadline, opened, size, initial, sharing);
 }
 
 // Publish a snapshot only after the complete bounded read and metadata recheck.

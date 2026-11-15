@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-15 | Open protected viewer documents through verified read handles. | Preserve panel consent and native block-based viewing. | #731 | GPT-6 |
 // | 2026-11-12 | Preserve protected panel identity for explicit internal viewers. | Keep View With on the existing viewer and refuse stale modal state. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Offer verified time-only metadata for one special NTFS file. | Preserve compression, sparsity and encryption without treating untouched controls as changes. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Offer verified elevation for case-only rename. | Let the broker verify an existing target alias without treating it as an overwrite. | #731 | GPT-6.1 Terra |
@@ -2039,8 +2040,7 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
         if (altView || handlerID != 0xFFFFFFFF || index < 0 || index >= Files->Count)
             return;
         const auto& file = Files->At(index);
-        DWORD error = ERROR_FILE_TOO_LARGE;
-        if (file.Size.Value <= UacF7::maxViewerSnapshotBytes)
+        DWORD error = ERROR_SUCCESS;
         {
             BeginStopRefresh();
             try
@@ -2050,15 +2050,19 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
                     entry += '\\';
                 entry += file.Name;
                 const std::string title = std::string(GetZIPArchive()) + '\\' + entry;
-                auto snapshot = std::make_unique<std::vector<BYTE>>();
-                error = ReadProtectedZipEntry(file, entry, *snapshot);
+                // Keep large protected ZIP entries out of process memory; the viewer owns this read handle.
+                HANDLE opened = nullptr;
+                error = ReadProtectedZipViewer(file, entry.c_str(), opened);
+                if (opened == INVALID_HANDLE_VALUE) opened = nullptr;
+                ViewerReadHandle readHandle(opened);
+                if (!error && !readHandle) error = ERROR_INVALID_HANDLE;
                 if (!error)
                 {
                     RECT area{};
                     GetWindowRect(MainWindow->HWindow, &area);
                     OpenViewer(title.c_str(), vtText, area.left, area.top,
                                area.right - area.left, area.bottom - area.top, SW_SHOWNORMAL,
-                               FALSE, NULL, NULL, NULL, -1, -1, std::move(snapshot));
+                               FALSE, NULL, NULL, NULL, -1, -1, {}, std::move(readHandle));
                 }
             }
             catch (const std::bad_alloc&)
@@ -2339,10 +2343,10 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
 }
 
 // A Find result with a captured identity must never fall back to a path-only open.
-static bool PrepareProtectedViewerSnapshot(HWND parent, const std::wstring* candidate,
+static bool PrepareProtectedViewerRead(HWND parent, const std::wstring* candidate,
                                            UacF7::ListingSession* protectedListing,
                                            const UacF7::PreparedLeaf* foundView,
-                                           std::unique_ptr<std::vector<BYTE>>& snapshot, bool& readable,
+                                           ViewerReadHandle& readHandle, bool& readable,
                                            int& enumFileNamesSourceUID, int& enumFileNamesLastFileIndex,
                                            const UacF7::PreparedLeaf* panelView = nullptr,
                                            bool (*panelStillCurrent)(void*) = nullptr, void* panelContext = nullptr)
@@ -2405,8 +2409,11 @@ static bool PrepareProtectedViewerSnapshot(HWND parent, const std::wstring* cand
         if (protectedListing && protectedListing->Contains(*candidate))
         {
             if (panelStillCurrent && !panelStillCurrent(panelContext)) return false;
-            snapshot = std::make_unique<std::vector<BYTE>>();
-            const DWORD error = protectedListing->ReadViewerSnapshot(*candidate, *prepared, *snapshot);
+            HANDLE opened = nullptr;
+            DWORD error = protectedListing->OpenViewerRead(*candidate, *prepared, opened);
+            if (opened == INVALID_HANDLE_VALUE) opened = nullptr;
+            readHandle.reset(opened);
+            if (!error && !readHandle) error = ERROR_INVALID_HANDLE;
             if (panelStillCurrent && !panelStillCurrent(panelContext)) return false;
             if (error)
             {
@@ -2423,21 +2430,23 @@ static bool PrepareProtectedViewerSnapshot(HWND parent, const std::wstring* cand
             return false;
         if (panelStillCurrent && !panelStillCurrent(panelContext))
             return false;
-        snapshot = std::make_unique<std::vector<BYTE>>();
-        const UacF7::Result result = prepared->ReadViewerSnapshot(parent, *snapshot);
+        HANDLE opened = nullptr;
+        const UacF7::Result result = prepared->OpenViewerRead(parent, opened);
+        if (opened == INVALID_HANDLE_VALUE) opened = nullptr;
+        readHandle.reset(opened);
         if (panelStillCurrent && !panelStillCurrent(panelContext))
             return false;
-        if (result.error != ERROR_SUCCESS || result.unknown)
+        if (result.error != ERROR_SUCCESS || result.unknown || !readHandle)
         {
             if (result.error != ERROR_CANCELLED)
             {
                 const std::string message = std::string(LoadStr(IDS_UAC_VIEW_UNAVAILABLE)) +
-                                            "\n\n" + GetErrorText(result.error ? result.error : ERROR_GEN_FAILURE);
+                                            "\n\n" + GetErrorText(result.error ? result.error : ERROR_INVALID_HANDLE);
                 SalMessageBox(parent, message.c_str(), LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
             }
             return false;
         }
-        // A protected snapshot authorizes only this one file.
+        // A verified read handle authorizes only this one file.
         enumFileNamesSourceUID = enumFileNamesLastFileIndex = -1;
     }
     return true;
@@ -2746,15 +2755,15 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
         case VIEWER_INTERNAL:
         {
             const DWORD selectedHandlerID = viewer->HandlerID;
-            std::unique_ptr<std::vector<BYTE>> snapshot;
+            ViewerReadHandle readHandle;
             bool readable = false;
-            if (!PrepareProtectedViewerSnapshot(parent, protectedCandidate, protectedListing, foundView,
-                                                snapshot, readable, enumFileNamesSourceUID, enumFileNamesLastFileIndex,
+            if (!PrepareProtectedViewerRead(parent, protectedCandidate, protectedListing, foundView,
+                                                readHandle, readable, enumFileNamesSourceUID, enumFileNamesLastFileIndex,
                                                 panelView, panelStillCurrent, panelContext))
                 return FALSE;
             if (panelStillCurrent && !panelStillCurrent(panelContext))
                 return FALSE;
-            if (deniedParent && !readable && !snapshot)
+            if (deniedParent && !readable && !readHandle)
             {
                 SalMessageBox(parent, GetErrorText(ERROR_ACCESS_DENIED), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
                 return FALSE;
@@ -2784,7 +2793,7 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
                            place.rcNormalPosition.bottom - place.rcNormalPosition.top,
                            place.showCmd,
                            returnLock, &lockAux, &lockOwnerAux, NULL,
-                           enumFileNamesSourceUID, enumFileNamesLastFileIndex, std::move(snapshot)))
+                           enumFileNamesSourceUID, enumFileNamesLastFileIndex, {}, std::move(readHandle)))
             {
                 success = TRUE;
                 if (returnLock && lockAux != NULL)
