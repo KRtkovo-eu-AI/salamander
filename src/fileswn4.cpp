@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Overlay protected folder icons with the system shield. | Show known denied directory access without replacing shell overlays. | #731 | GPT-6 |
 // | 2026-11-15 | Explain partial size in tile views. | Distinguish skipped protected branches from complete totals. | #731 | GPT-6 |
 // | 2026-11-11 | Render the private disk size marker in tiles. | Keep plugin and archive size behavior unchanged. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Show a lower bound in the disk thumbnail view. | Preserve a visibly partial directory total. | #731 | GPT-6.1 Sol |
@@ -132,6 +133,33 @@ void CFilesWindow::SetFontAndColors(HDC hDC, CHighlightMasksItem* highlightMasks
 //
 // CFilesWindow::DrawIcon
 //
+
+namespace
+{
+// The stock icon is shared by both panels; scaled copies belong to each panel.
+struct CFolderUacShield
+{
+    HICON Icon = NULL;
+    CFolderUacShield()
+    {
+        SHSTOCKICONINFO info{};
+        info.cbSize = sizeof(info);
+        if (SUCCEEDED(SHGetStockIconInfo(SIID_SHIELD, SHGSI_ICON | SHGSI_SMALLICON, &info)))
+            Icon = info.hIcon;
+    }
+    ~CFolderUacShield()
+    {
+        if (Icon != NULL)
+            DestroyIcon(Icon);
+    }
+};
+
+HICON GetFolderUacShield()
+{
+    static CFolderUacShield shield;
+    return shield.Icon;
+}
+}
 
 void CFilesWindow::DrawIcon(HDC hDC, CFileData* f, BOOL isDir, BOOL isItemUpDir,
                             BOOL isItemFocusedOrEditMode, int x, int y, CIconSizeEnum iconSize,
@@ -389,6 +417,21 @@ void CFilesWindow::DrawIcon(HDC hDC, CFileData* f, BOOL isDir, BOOL isItemUpDir,
                             f->IconOverlayIndex, overlayRect, (drawFlags & DRAWFLAG_OVERLAY_ONLY) != 0,
                             iconOverlayFromPlugin, pluginIconOverlaysCount, pluginIconOverlays,
                             panelOverlays, GetWindowDPI());
+    }
+
+    // Keep the existing left-corner shell overlay. Drag images omit the shield
+    // in both color and mask passes so their masks remain consistent.
+    if (isDir && !isItemUpDir && !(drawFlags & (DRAWFLAG_MASK | DRAWFLAG_DRAGDROP)) &&
+        HasUacDeniedFolder(f))
+    {
+        const int iconPixels = GetIconSize(iconSize);
+        const int badgePixels = max(1, iconPixels / 2);
+        const int right = overlayRect != NULL ? overlayRect->right : x + iconPixels;
+        const int bottom = overlayRect != NULL ? overlayRect->bottom : y + iconPixels;
+        HICON shield = GetPanelOverlay(GetFolderUacShield(), badgePixels);
+        if (shield != NULL)
+            DrawIconEx(hDC, right - badgePixels, bottom - badgePixels, shield,
+                       badgePixels, badgePixels, 0, NULL, DI_NORMAL);
     }
 
     // I don't understand why, but the current bitmap drawing doesn't flicker.

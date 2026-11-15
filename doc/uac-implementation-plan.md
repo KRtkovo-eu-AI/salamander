@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Record the requested folder access shield. | Distinguish background access probes from proof of administrator access. | #731 | GPT-6 |
 | 2026-11-15 | Record denied WER directory navigation. | Distinguish parent traversal rights from authenticated listing access. | #731 | GPT-6 |
 | 2026-11-15 | Establish an authoritative UAC status and verification policy. | Separate implemented behavior, open scope gaps and historical evidence. | #731 | GPT-6 |
 | 2026-11-15 | Fix one reproduced F6 error 50 for hard-linked files. | Preserve a safe same-volume move while distinguishing the unconfirmed user report. | #731 | GPT-6 |
@@ -652,6 +653,13 @@ Tento přehled je závazný pro současnou práci. Následující časové zázn
 - **Uživatelem hlášená chyba:** při vstupu do chráněné podsložky ve Windows Error Reporting se nezobrazila nabídka UAC; zjištěná příčina je opravena a čeká na uživatelské potvrzení, viz následující oddíl. F6 `deployment.lock` skončilo chybou 50 bez nabídky UAC. Odděleně reprodukovaná a opravená chyba souboru s více pevnými odkazy není důkazem příčiny původního případu. Počet jeho odkazů, úplné atributy a nastavení F6 nejsou známé; uživatel potvrdil, že je zaznamenané nemá. Původní soubor se nemění.
 - **Čeká na uživatelské potvrzení:** opravy opakovaných čtecích výzev, odstranění limitu Findu, neúplných velikostí, zprávy o odmítnutí správcem, F6 pevných odkazů a experimentální `CopyAttrs`, pokud příslušný záznam výslovně neuvádí uživatelské ověření daného sestavení. Hlášení uživatele je uživatelský důkaz, nikoli naše vlastní měření.
 - **Ověřování a hranice:** provádět sestavení a relevantní existující neinteraktivní testy; nový cílený regresní případ pouze pro změněné chování nebo konkrétní chybu. Nepoužívat Computer Use, interaktivní aplikaci, piloty, instalátory ani systémové UAC; ruční ověření provádí uživatel a není podmínkou uzavření implementačního bloku. Další migraci workerů, ZIPu ani nových pluginů tento blok nezahajuje. Commity zůstávají lokálně a push vyžaduje výslovný pokyn.
+
+## Indikace odepřeného přístupu u složek — 15. listopadu 2026
+
+- **Uživatelské zadání:** zobrazovat malý štít na ikoně složky, je-li známé, že běžný účet nemá přístup. Uživatel výslovně zvolil kontrolu na pozadí a první rozsah omezil na místní složky; síťové, offline a přesměrované složky se bez spolehlivého výsledku neoznačují.
+- **Implementováno:** přístup se ověřuje mimo uživatelské vlákno pro běžné složky na místních pevných NTFS svazcích. Štít indikuje `ERROR_ACCESS_DENIED` pro výpis běžným účtem, nikoli záruku, že přístup povolí správce. Jiné chyby zůstávají neznámé. Výsledky patří konkrétnímu výpisu, po změně/obnovení se zneplatní a při změně pořadí během snímání se práce restartuje. Aktivní schválená panelová relace se nevydává za nutnost další elevace. Štít se kreslí samostatně od překryvů Shellu; při drag-and-drop je shodně vynechán z barevné i maskové části.
+- **Automaticky ověřeno:** regresní test skutečného controlleru a workeru s řízenými náhradami zpráv a plánování a dočasnými NTFS složkami prošel v Debug i Release (25 kontrol v každé konfiguraci); ověřuje přístup, odepření, neznámé chyby, opožděné zprávy, dávkování a změny výpisu. Prošly také testy cest panelu (196 kontrol v každé konfiguraci), vykreslovacího kontraktu a přechodu chráněného panelu (47 kontrol v každé konfiguraci). Host Release x64 se sestavil v `C:\Samandarin\builds\uac-folder-shield-20261115\salamander\Release_x64`, SHA-256 `331ACD1F7628A00EC8AFF9B16137AEB725F9BED3DF96712650608F19EDB04901`; jde o výstup sestavení, nikoli nasazenou kompletní testovací instalaci.
+- **Uživatelské ověření:** zatím čeká. Automatické testy nedokazují vzhled skutečné ikony, čitelnost při vyšším DPI ani vliv na výkon velkého adresáře; Computer Use ani interaktivní aplikace se nespouštěly. Průběžně získané výsledky se mohou změnit při změně oprávnění; nové načtení panelu vyvolá novou kontrolu.
 
 ## Vstup do chráněné podsložky WER — 15. listopadu 2026
 

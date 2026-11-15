@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Schedule scoped folder access indicators. | Keep slow access checks away from panel listing and rendering. | #731 | GPT-6 |
 // | 2026-11-15 | Explain buffered protected panel listings. | Preserve the ordinary panel rendering path after authorization. | #731 | GPT-6 |
 // | 2026-11-11 | Initialize disk rows with the private data marker. | Leave archive and plugin rows on the released ABI. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Initialize partial disk size state. | A new listing starts without an observed size. | #731 | GPT-6.1 Sol |
@@ -644,6 +645,8 @@ void CFilesWindow::FinishExplorerSortAsync(CExplorerSortAsyncData* data)
             SortExplorerNameExtAux(*Files, 0, Files->Count - 1, ReverseSort);
         ExplorerSortContext = NULL;
         ReindexBranchViewFiles();
+        if (UacFolderProbeRun && (!UacFolderProbeGeneration || UacFolderProbeNext < Dirs->Count))
+            StartUacFolderProbe(); // Restart only an incomplete snapshot after reordering.
         if (UseSystemIcons || UseThumbnails)
             WakeupIconCacheThread();
 
@@ -786,6 +789,8 @@ BOOL IsFilePlaceholder(WIN32_FIND_DATA const* findData)
 BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
 {
     CALL_STACK_MESSAGE1("CFilesWindow::ReadDirectory()");
+
+    StopUacFolderProbe(); // Invalidate results from the listing being replaced.
 
     class CAutoRefreshRestore
     {
@@ -1850,6 +1855,8 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         // sorting of Files and Dirs according to the current sorting method
         SortDirectory();
 
+        StartUacFolderProbe(); // Probe an independent path snapshot after displaying the listing.
+
         if (UseSystemIcons || UseThumbnails)
         {
             if (IconCache->Count > 1)
@@ -2775,6 +2782,8 @@ void CFilesWindow::SortDirectory(CFilesArray* files, CFilesArray* dirs)
     SortedWithDetectNum = Configuration.SortDetectNumbers;
     VisibleItemsArray.InvalidateArr();
     VisibleItemsArraySurround.InvalidateArr();
+    if (sortingPanelListing && UacFolderProbeRun && (!UacFolderProbeGeneration || UacFolderProbeNext < Dirs->Count))
+        StartUacFolderProbe(); // A partial index snapshot must not span two sort orders.
 }
 
 #ifndef _WIN64

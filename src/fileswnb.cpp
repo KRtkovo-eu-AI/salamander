@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Deliver folder access indicators to the owning panel. | Reject obsolete results before requesting a repaint. | #731 | GPT-6 |
 // | 2026-11-15 | Explain partial directory selection totals. | Distinguish lower bounds from unknown sizes. | #731 | GPT-6 |
 // | 2026-11-15 | Escape the partial-size prefix in status text. | Preserve highlighted number formatting for lower bounds. | #731 | GPT-6 |
 // | 2026-11-15 | Explain denied size scans and total partial selections. | Report administrator denials and preserve lower-bound sums. | #731 | GPT-6 |
@@ -831,6 +832,18 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
+    case uacFolderProbeContinueMessage:
+    {
+        UacFolderProbeContinue(wParam);
+        return 0;
+    }
+
+    case uacFolderProbeMessage:
+    {
+        UacFolderProbeReady(wParam, lParam);
+        return 0;
+    }
+
     case WM_USER_REFRESHINDEX:
     case WM_USER_REFRESHINDEX2:
     {
@@ -1224,6 +1237,7 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_DESTROY:
     {
+        StopUacFolderProbe(); // Disconnect notifications before the HWND can be reused.
         StopExplorerSortAsync(); // disconnect completion before this HWND can be reused
         //---  zruseni tohoto panelu z pole zdroju pro enumeraci souboru ve viewerech
         EnumFileNamesRemoveSourceUID(HWindow);
