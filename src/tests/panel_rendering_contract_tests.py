@@ -1056,14 +1056,15 @@ def main() -> int:
     uac_icon = fileswnd4[uac_start:uac_end] if uac_start >= 0 and uac_end > uac_start else ""
     if (
         "SHGetStockIconInfo(SIID_SHIELD" not in fileswnd4
-        or "HasUacDeniedFolder(f)" not in uac_icon
+        or "HasUacDeniedItem(f)" not in uac_icon
+        or "if (!isItemUpDir && !(drawFlags & (DRAWFLAG_MASK | DRAWFLAG_DRAGDROP))" not in uac_icon
         or "DRAWFLAG_MASK | DRAWFLAG_DRAGDROP" not in uac_icon
         or "GetPanelOverlay(GetFolderUacShield(), badgePixels)" not in uac_icon
         or "overlayRect->right" not in uac_icon
         or "overlayRect->bottom" not in uac_icon
         or uac_icon.rfind("DrawIconEx(hDC, right - badgePixels") < uac_icon.rfind("StateImageList_Draw(")
     ):
-        print("protected directory shields must preserve panel overlays and drag mask consistency")
+        print("protected item shields must preserve panel overlays and drag mask consistency")
         return 1
     if (
         "int iconSize = GetIconSizeForDPI(ICONSIZE_16, iconDPI);" not in plugins2

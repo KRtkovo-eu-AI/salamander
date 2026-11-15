@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Draw the UAC shield for protected files as well as directories. | Preserve the item's existing icon and shell overlay. | #731 | GPT-6 |
 // | 2026-11-15 | Overlay protected folder icons with the system shield. | Show known denied directory access without replacing shell overlays. | #731 | GPT-6 |
 // | 2026-11-15 | Explain partial size in tile views. | Distinguish skipped protected branches from complete totals. | #731 | GPT-6 |
 // | 2026-11-11 | Render the private disk size marker in tiles. | Keep plugin and archive size behavior unchanged. | #731 | GPT-6.1 Sol |
@@ -419,10 +420,10 @@ void CFilesWindow::DrawIcon(HDC hDC, CFileData* f, BOOL isDir, BOOL isItemUpDir,
                             panelOverlays, GetWindowDPI());
     }
 
-    // Keep the existing left-corner shell overlay. Drag images omit the shield
-    // in both color and mask passes so their masks remain consistent.
-    if (isDir && !isItemUpDir && !(drawFlags & (DRAWFLAG_MASK | DRAWFLAG_DRAGDROP)) &&
-        HasUacDeniedFolder(f))
+    // Keep the existing left-corner shell overlay for both files and folders.
+    // Drag images omit the shield in both color and mask passes.
+    if (!isItemUpDir && !(drawFlags & (DRAWFLAG_MASK | DRAWFLAG_DRAGDROP)) &&
+        HasUacDeniedItem(f))
     {
         const int iconPixels = GetIconSize(iconSize);
         const int badgePixels = max(1, iconPixels / 2);

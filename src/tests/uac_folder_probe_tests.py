@@ -19,8 +19,8 @@ def main():
     destroy = read('src/fileswnb.cpp')
     assert 'StopUacFolderProbe();' in block(panel, 'BOOL CFilesWindow::ReadDirectory(')
     assert 'StartUacFolderProbe();' in block(panel, 'void CFilesWindow::SortDirectory(')
-    assert 'sortingPanelListing && UacFolderProbeRun && (!UacFolderProbeGeneration || UacFolderProbeNext < Dirs->Count)' in block(panel, 'void CFilesWindow::SortDirectory(')
-    assert 'UacFolderProbeRun && (!UacFolderProbeGeneration || UacFolderProbeNext < Dirs->Count)' in block(panel, 'void CFilesWindow::FinishExplorerSortAsync(')
+    assert 'UacFolderProbeNext < static_cast<size_t>(Dirs->Count) + static_cast<size_t>(Files->Count)' in block(panel, 'void CFilesWindow::SortDirectory(')
+    assert 'UacFolderProbeNext < static_cast<size_t>(Dirs->Count) + static_cast<size_t>(Files->Count)' in block(panel, 'void CFilesWindow::FinishExplorerSortAsync(')
     disk = block(change, 'BOOL CFilesWindow::ChangePathToDisk(')
     assert disk.index('InvalidateChangesInPanelWeHaveNewListing();') < disk.index('StartUacFolderProbe();')
     assert 'StopUacFolderProbe();' in block(destroy, 'case WM_DESTROY:')
@@ -29,12 +29,13 @@ def main():
         'STATE': block(source, 'struct CUacFolderProbeState', ';'),
         'NEW_RUN': block(source, 'ULONG_PTR NewUacFolderProbeRun('),
         'LOCAL_PARENT': block(source, 'bool IsLocalUacFolderParent('),
+        'READONLY_ACL': block(source, 'bool IsReadonlyFileWriteDenied('),
         'WORKER': block(source, 'DWORD WINAPI RunUacFolderProbe('),
         'STOP': block(source, 'void CFilesWindow::StopUacFolderProbe('),
         'START': block(source, 'void CFilesWindow::StartUacFolderProbe('),
         'CONTINUE': block(source, 'void CFilesWindow::UacFolderProbeContinue('),
         'READY': block(source, 'void CFilesWindow::UacFolderProbeReady('),
-        'HAS': block(source, 'bool CFilesWindow::HasUacDeniedFolder('),
+        'HAS': block(source, 'bool CFilesWindow::HasUacDeniedItem('),
     }.items():
         fixture = fixture.replace('@@' + key + '@@', text)
     assert '@@' not in fixture

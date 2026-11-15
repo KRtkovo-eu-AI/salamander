@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Restart access probes when either panel array is reordered. | Preserve complete file and directory coverage across sort changes. | #731 | GPT-6 |
 // | 2026-11-15 | Schedule scoped folder access indicators. | Keep slow access checks away from panel listing and rendering. | #731 | GPT-6 |
 // | 2026-11-15 | Explain buffered protected panel listings. | Preserve the ordinary panel rendering path after authorization. | #731 | GPT-6 |
 // | 2026-11-11 | Initialize disk rows with the private data marker. | Leave archive and plugin rows on the released ABI. | #731 | GPT-6.1 Sol |
@@ -645,7 +646,8 @@ void CFilesWindow::FinishExplorerSortAsync(CExplorerSortAsyncData* data)
             SortExplorerNameExtAux(*Files, 0, Files->Count - 1, ReverseSort);
         ExplorerSortContext = NULL;
         ReindexBranchViewFiles();
-        if (UacFolderProbeRun && (!UacFolderProbeGeneration || UacFolderProbeNext < Dirs->Count))
+        if (UacFolderProbeRun && (!UacFolderProbeGeneration ||
+            UacFolderProbeNext < static_cast<size_t>(Dirs->Count) + static_cast<size_t>(Files->Count)))
             StartUacFolderProbe(); // Restart only an incomplete snapshot after reordering.
         if (UseSystemIcons || UseThumbnails)
             WakeupIconCacheThread();
@@ -2782,7 +2784,8 @@ void CFilesWindow::SortDirectory(CFilesArray* files, CFilesArray* dirs)
     SortedWithDetectNum = Configuration.SortDetectNumbers;
     VisibleItemsArray.InvalidateArr();
     VisibleItemsArraySurround.InvalidateArr();
-    if (sortingPanelListing && UacFolderProbeRun && (!UacFolderProbeGeneration || UacFolderProbeNext < Dirs->Count))
+    if (sortingPanelListing && UacFolderProbeRun && (!UacFolderProbeGeneration ||
+        UacFolderProbeNext < static_cast<size_t>(Dirs->Count) + static_cast<size_t>(Files->Count)))
         StartUacFolderProbe(); // A partial index snapshot must not span two sort orders.
 }
 

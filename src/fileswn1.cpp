@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-15 | Probe ordinary file operations with the existing folder worker. | Indicate denied access without changing files or treating a read grant as write authority. | #731 | GPT-6 |
 // | 2026-11-15 | Probe folder access off the UI thread. | Mark known denied local folders without changing panel or plugin identities. | #731 | GPT-6 |
 // | 2026-11-15 | Explain protected panel path marking. | Identify the path component covered by the active session. | #731 | GPT-6 |
 // | 2026-11-08 | Mark protected archive paths with the existing administrator shield. | Keep the path and folder navigation familiar. | | GPT-6.1 Sol (Codex) |
@@ -41,18 +42,25 @@
 #include <iterator>
 #include <limits>
 #include <mutex>
+#include <aclapi.h>
 
 // Shared with the worker, which never keeps a panel or CFileData pointer.
 struct CUacFolderProbeState
 {
+    struct Item
+    {
+        std::wstring path;
+        bool directory;
+        bool readOnly;
+    };
     std::mutex mutex;
     HWND window = nullptr;
     ULONG_PTR run = 0;
     ULONGLONG generation = 0;
     bool running = false;
     bool notifyPending = false;
-    std::vector<std::wstring> pendingPaths;
-    std::vector<std::wstring> pendingDenied;
+    std::vector<Item> pendingPaths;
+    std::vector<std::pair<std::wstring, unsigned>> pendingDenied;
 };
 
 namespace
@@ -92,6 +100,53 @@ bool IsLocalUacFolderParent(const std::wstring& path)
     }
 }
 
+// READONLY itself denies write opens, so consult only the object's DACL without changing it.
+bool IsReadonlyFileWriteDenied(const std::wstring& path)
+{
+    HANDLE file = CreateFileW(path.c_str(), READ_CONTROL, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                              nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return false;
+    PSECURITY_DESCRIPTOR descriptor = nullptr;
+    const DWORD error = GetSecurityInfo(file, SE_FILE_OBJECT,
+                                        OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,
+                                        nullptr, nullptr, nullptr, nullptr, &descriptor);
+    CloseHandle(file);
+    if (error != ERROR_SUCCESS || !descriptor)
+    {
+        if (descriptor) LocalFree(descriptor);
+        return false;
+    }
+
+    HANDLE effective = nullptr;
+    if (!OpenThreadToken(GetCurrentThread(), TOKEN_QUERY | TOKEN_DUPLICATE, TRUE, &effective))
+    {
+        if (GetLastError() != ERROR_NO_TOKEN ||
+            !OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY | TOKEN_DUPLICATE, &effective))
+        {
+            LocalFree(descriptor);
+            return false;
+        }
+    }
+    HANDLE token = nullptr;
+    const BOOL duplicated = DuplicateToken(effective, SecurityImpersonation, &token);
+    CloseHandle(effective);
+    if (!duplicated)
+    {
+        LocalFree(descriptor);
+        return false;
+    }
+    GENERIC_MAPPING mapping{FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_GENERIC_EXECUTE, FILE_ALL_ACCESS};
+    PRIVILEGE_SET privileges{};
+    DWORD privilegeBytes = sizeof(privileges), granted = 0;
+    BOOL access = FALSE;
+    const BOOL checked = AccessCheck(descriptor, token, FILE_GENERIC_WRITE, &mapping,
+                                     &privileges, &privilegeBytes, &granted, &access);
+    CloseHandle(token);
+    LocalFree(descriptor);
+    // A DACL allow does not prove access under mandatory integrity or other checks.
+    return checked && !access;
+}
+
 DWORD WINAPI RunUacFolderProbe(void* argument)
 {
     std::unique_ptr<std::shared_ptr<CUacFolderProbeState>> owner(
@@ -103,7 +158,7 @@ DWORD WINAPI RunUacFolderProbe(void* argument)
     {
         for (;;)
         {
-            std::vector<std::wstring> paths;
+            std::vector<CUacFolderProbeState::Item> paths;
             ULONG_PTR run = 0;
             ULONGLONG generation = 0;
             {
@@ -121,31 +176,64 @@ DWORD WINAPI RunUacFolderProbe(void* argument)
             if (!UacF7::CanOfferElevation()) continue;
             std::wstring checkedParent;
             bool parentAllowed = false;
-            for (const auto& path : paths)
+            DWORD parentDelete = ERROR_IO_PENDING, parentAddFile = ERROR_IO_PENDING;
+            for (const auto& item : paths)
             {
                 {
                     std::lock_guard<std::mutex> lock(state->mutex);
                     if (state->run != run || !state->window) break;
                 }
+                const auto& path = item.path;
                 const auto separator = path.find_last_of(L'\\');
-                const auto parent = separator == std::wstring::npos ? std::wstring() : path.substr(0, separator);
+                const auto parent = separator == std::wstring::npos ? std::wstring() : path.substr(0, separator == 2 ? 3 : separator);
                 if (checkedParent != parent)
                 {
                     checkedParent = parent;
                     parentAllowed = IsLocalUacFolderParent(path);
+                    parentDelete = parentAddFile = ERROR_IO_PENDING;
                 }
                 if (!parentAllowed) continue;
                 const std::wstring extended = SalPathAddExtendedPrefixW(path.c_str());
-                // Do not follow a replaced reparse point while checking an ordinary row.
-                HANDLE handle = CreateFileW(extended.c_str(), FILE_LIST_DIRECTORY,
-                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
-                    FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
-                const DWORD error = handle == INVALID_HANDLE_VALUE ? GetLastError() : ERROR_SUCCESS;
-                if (handle != INVALID_HANDLE_VALUE) CloseHandle(handle);
-                if (error != ERROR_ACCESS_DENIED) continue;
+                // Open existing objects only; no probe writes, deletes, follows a final link, or denies sharing.
+                const auto probe = [](const std::wstring& name, DWORD access, bool directory) -> DWORD {
+                    HANDLE handle = CreateFileW(name.c_str(), access,
+                        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                        FILE_FLAG_OPEN_REPARSE_POINT | (directory ? FILE_FLAG_BACKUP_SEMANTICS : 0), nullptr);
+                    const DWORD error = handle == INVALID_HANDLE_VALUE ? GetLastError() : ERROR_SUCCESS;
+                    if (handle != INVALID_HANDLE_VALUE) CloseHandle(handle);
+                    return error;
+                };
+                // Keep read and mutation denials distinct: a live panel grant covers only read operations.
+                unsigned denied = 0;
+                if (item.directory)
+                    denied = probe(extended, FILE_LIST_DIRECTORY, true) == ERROR_ACCESS_DENIED ? 1u : 0u;
+                else
+                {
+                    if (probe(extended, GENERIC_READ, false) == ERROR_ACCESS_DENIED) denied |= 1u;
+                    if (item.readOnly ? IsReadonlyFileWriteDenied(extended) :
+                        probe(extended, GENERIC_WRITE, false) == ERROR_ACCESS_DENIED) denied |= 2u;
+                    if (probe(extended, FILE_WRITE_ATTRIBUTES, false) == ERROR_ACCESS_DENIED) denied |= 2u;
+                    if (!(denied & 2u))
+                    {
+                        const DWORD removal = probe(extended, DELETE, false);
+                        if (removal == ERROR_ACCESS_DENIED && parentDelete == ERROR_IO_PENDING)
+                            parentDelete = probe(SalPathAddExtendedPrefixW(parent.c_str()), FILE_DELETE_CHILD, true);
+                        if (removal == ERROR_ACCESS_DENIED && parentDelete == ERROR_ACCESS_DENIED)
+                            denied |= 2u;
+                        // Renaming within the current parent also requires permission to add the new name.
+                        if (!(denied & 2u) && (removal == ERROR_SUCCESS ||
+                                        (removal == ERROR_ACCESS_DENIED && parentDelete == ERROR_SUCCESS)))
+                        {
+                            if (parentAddFile == ERROR_IO_PENDING)
+                                parentAddFile = probe(SalPathAddExtendedPrefixW(parent.c_str()), FILE_ADD_FILE, true);
+                            if (parentAddFile == ERROR_ACCESS_DENIED) denied |= 2u;
+                        }
+                    }
+                }
+                if (!denied) continue;
                 std::lock_guard<std::mutex> lock(state->mutex);
                 if (state->run != run || !state->window) break;
-                state->pendingDenied.push_back(path);
+                state->pendingDenied.emplace_back(path, denied);
                 if (!state->notifyPending)
                 {
                     state->notifyPending = true;
@@ -173,7 +261,7 @@ void CFilesWindow::StopUacFolderProbe()
     UacFolderProbeGeneration = 0;
     UacFolderProbeNext = 0;
     UacFolderProbeRoot.clear();
-    UacDeniedFolders.clear();
+    UacDeniedItems.clear();
     if (!UacFolderProbe) return;
     std::lock_guard<std::mutex> lock(UacFolderProbe->mutex);
     UacFolderProbe->run = 0;
@@ -186,11 +274,10 @@ void CFilesWindow::StopUacFolderProbe()
 void CFilesWindow::StartUacFolderProbe()
 {
     StopUacFolderProbe();
-    if (!HWindow || !Dirs || !Is(ptDisk) || GetPathDriveType() != DRIVE_FIXED ||
-        (ProtectedListing && ProtectedListing->IsOpen() && ProtectedListing->Contains(GetPathW()))) return;
+    if (!HWindow || !Dirs || !Files || !Is(ptDisk) || GetPathDriveType() != DRIVE_FIXED) return;
     try
     {
-        const ULONG_PTR run = Dirs->Count ? NewUacFolderProbeRun() : 0;
+        const ULONG_PTR run = Dirs->Count || Files->Count ? NewUacFolderProbeRun() : 0;
         if (!run) return;
         if (!UacFolderProbe) UacFolderProbe = std::make_shared<CUacFolderProbeState>();
         std::lock_guard<std::mutex> lock(UacFolderProbe->mutex);
@@ -212,22 +299,31 @@ void CFilesWindow::StartUacFolderProbe()
 void CFilesWindow::UacFolderProbeContinue(WPARAM identity)
 {
     if (!UacFolderProbe || identity != UacFolderProbeRun || !Is(ptDisk) || UacFolderProbeRoot != GetPathW()) return;
-    if (!Dirs || UacFolderProbeNext < 0 || UacFolderProbeNext > Dirs->Count) { StopUacFolderProbe(); return; }
+    if (!Dirs || !Files || Dirs->Count < 0 || Files->Count < 0) { StopUacFolderProbe(); return; }
+    const size_t directories = static_cast<size_t>(Dirs->Count);
+    const size_t total = directories + static_cast<size_t>(Files->Count);
+    if (UacFolderProbeNext > total) { StopUacFolderProbe(); return; }
     try
     {
         // A short UI batch avoids a linear pause on very large directory listings.
         if (!UacFolderProbeGeneration) UacFolderProbeGeneration = GetListingIdentityGeneration();
         if (UacFolderProbeGeneration != GetListingIdentityGeneration()) { StopUacFolderProbe(); return; }
-        std::vector<std::wstring> paths;
-        const int end = UacFolderProbeNext + (std::min)(64, Dirs->Count - UacFolderProbeNext);
+        std::vector<CUacFolderProbeState::Item> paths;
+        const size_t end = UacFolderProbeNext + (std::min)(size_t{64}, total - UacFolderProbeNext);
         for (; UacFolderProbeNext < end; ++UacFolderProbeNext)
         {
-            const auto& item = Dirs->At(UacFolderProbeNext);
-            if (!strcmp(item.Name, "..") || item.IsLink ||
-                (item.Attr & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_OFFLINE)))
+            const bool directory = UacFolderProbeNext < directories;
+            const auto& item = directory ? Dirs->At(static_cast<int>(UacFolderProbeNext)) :
+                                           Files->At(static_cast<int>(UacFolderProbeNext - directories));
+            if ((directory && (!strcmp(item.Name, "..") || item.IsLink)) ||
+                (item.Attr & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_OFFLINE)) ||
+                (!directory && (item.Attr & (FILE_ATTRIBUTE_ENCRYPTED | FILE_ATTRIBUTE_RECALL_ON_OPEN |
+                                              FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS))))
                 continue;
             const auto path = GetItemFullPathW(item);
-            if (!path.empty()) paths.push_back(SalPathRemoveExtendedPrefixW(path.c_str()));
+            if (path.empty()) continue;
+            const auto normalized = SalPathRemoveExtendedPrefixW(path.c_str());
+            paths.push_back({normalized, directory, (item.Attr & FILE_ATTRIBUTE_READONLY) != 0});
         }
         std::lock_guard<std::mutex> lock(UacFolderProbe->mutex);
         if (UacFolderProbe->run != identity) return;
@@ -248,7 +344,7 @@ void CFilesWindow::UacFolderProbeContinue(WPARAM identity)
                 UacFolderProbeGeneration = 0;
             }
         }
-        if (UacFolderProbeNext < Dirs->Count && UacFolderProbeRun)
+        if (UacFolderProbeNext < total && UacFolderProbeRun)
             PostMessage(HWindow, uacFolderProbeContinueMessage, identity, 0);
     }
     catch (const std::bad_alloc&) { StopUacFolderProbe(); }
@@ -258,7 +354,7 @@ void CFilesWindow::UacFolderProbeReady(WPARAM identity, LPARAM generation)
 {
     if (!UacFolderProbe || identity != UacFolderProbeRun ||
         static_cast<ULONG_PTR>(generation) != static_cast<ULONG_PTR>(GetListingIdentityGeneration())) return;
-    std::vector<std::wstring> denied;
+    std::vector<std::pair<std::wstring, unsigned>> denied;
     {
         std::unique_lock<std::mutex> lock(UacFolderProbe->mutex, std::try_to_lock);
         if (!lock.owns_lock())
@@ -270,21 +366,23 @@ void CFilesWindow::UacFolderProbeReady(WPARAM identity, LPARAM generation)
         denied.swap(UacFolderProbe->pendingDenied);
         UacFolderProbe->notifyPending = false;
     }
-    try { for (auto& path : denied) UacDeniedFolders.insert(std::move(path)); }
+    try { for (auto& item : denied) UacDeniedItems[std::move(item.first)] |= item.second; }
     catch (const std::bad_alloc&) { }
     if (!denied.empty() && GetListBoxHWND()) InvalidateRect(GetListBoxHWND(), nullptr, FALSE);
 }
 
-bool CFilesWindow::HasUacDeniedFolder(const CFileData* file) const
+bool CFilesWindow::HasUacDeniedItem(const CFileData* file) const
 {
-    if (!file || !(file->Attr & FILE_ATTRIBUTE_DIRECTORY) || !UacFolderProbeRun ||
+    if (!file || UacDeniedItems.empty() || !UacFolderProbeRun ||
         UacFolderProbeGeneration != GetListingIdentityGeneration()) return false;
     try
     {
         const auto full = GetItemFullPathW(*file);
         const auto path = SalPathRemoveExtendedPrefixW(full.c_str());
-        if (ProtectedListing && ProtectedListing->IsOpen() && ProtectedListing->Contains(path)) return false;
-        return UacDeniedFolders.find(path) != UacDeniedFolders.end();
+        const auto found = UacDeniedItems.find(path);
+        if (found == UacDeniedItems.end()) return false;
+        const bool readCovered = ProtectedListing && ProtectedListing->IsOpen() && ProtectedListing->Contains(path);
+        return (found->second & 2u) || ((found->second & 1u) && !readCovered);
     }
     catch (const std::bad_alloc&) { return false; }
 }

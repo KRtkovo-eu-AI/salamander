@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Track protected archive mode on the panel. | Distinguish manual refresh from background refresh. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Track file access indicators with directory indicators. | Keep the background snapshot independent of plugin data. | #731 | GPT-6 |
 // | 2026-11-15 | Track asynchronous UAC folder indicators per panel. | Avoid filesystem access in the drawing path and preserve plugin ABI. | #731 | GPT-6 |
 // | 2026-11-15 | Explain panel-owned UAC sessions. | Clarify session lifetime across panel navigation. | #731 | GPT-6 |
 // | 2026-11-11 | Store file-list exclusion identity in the portable host type. | Avoid a Windows SDK type dependency in every panel consumer. | #731 | GPT-6.1 Sol |
@@ -47,7 +48,7 @@ struct CExplorerPropertyCache;
 #include <string>
 #include <vector>
 #include <memory>
-#include <unordered_set>
+#include <unordered_map>
 #include "uacbroker/f7pilot.h"
 
 BOOL ConfirmElevatedFileEdit(HWND owner, const std::wstring& document, const UacF7::ElevatedEditor& editor);
@@ -934,10 +935,10 @@ public:
     std::unique_ptr<UacF7::ArchiveReadSession> ProtectedZipSession;
     std::unique_ptr<UacF7::ListingSession> ProtectedListing;
     std::shared_ptr<CUacFolderProbeState> UacFolderProbe;
-    std::unordered_set<std::wstring> UacDeniedFolders; // UI-thread snapshot; never part of plugin data
+    std::unordered_map<std::wstring, unsigned> UacDeniedItems; // UI-thread snapshot; never part of plugin data
     ULONG_PTR UacFolderProbeRun = 0;
     ULONGLONG UacFolderProbeGeneration = 0;
-    int UacFolderProbeNext = 0;
+    size_t UacFolderProbeNext = 0;
     std::wstring UacFolderProbeRoot;
     std::vector<WIN32_FIND_DATAW> ProtectedListingEntries;
     bool KeepProtectedListing = false;
@@ -946,7 +947,7 @@ public:
     void StopUacFolderProbe();
     void UacFolderProbeContinue(WPARAM identity);
     void UacFolderProbeReady(WPARAM identity, LPARAM generation);
-    bool HasUacDeniedFolder(const CFileData* file) const;
+    bool HasUacDeniedItem(const CFileData* file) const;
 
     BOOL IsBranchView() const;
     BOOL IsBranchViewScanning() const;
