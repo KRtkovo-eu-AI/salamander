@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Correct partial-size status markup. | Record the reported extra angle brackets and the parser fix. | #731 | GPT-6 |
 | 2026-11-15 | Record incomplete size reporting and selected totals. | Distinguish administrator denial from a lower-bound sum. | #731 | GPT-6 |
 | 2026-11-15 | Restrict nonrecursive Find grants. | Distinguish direct files from descendant access in the broker. | #731 | GPT-6 |
 | 2026-11-15 | Reuse protected result identities in refinement. | Record bounded implementation and remaining multi-item scope. | #731 | GPT-6 |
@@ -629,6 +630,8 @@
 
 ## Neúplné velikosti a odmítnutí správcem — 15. listopadu 2026
 
+- **Uživatelské hlášení:** build `f64d212d` při výpočtu `C:\ProgramData` zobrazil součet ve tvaru `>= <6 448 185 601> bytes`; závorky jsou nechtěné značky zvýraznění. Příčinou je neescapované `>` v novém prefixu, které předčasně ukončí zpracování značek. Oprava escapuje prefix před stávajícím parserem; opětovné uživatelské ověření čeká.
+- **Automatické ověření opravy:** test skutečného parseru a řadiče velikostí prošel v Debug i Release (61 kontrol v každé konfiguraci), včetně výsledného textu a pozice zvýrazněného čísla. Release x64 host byl sestaven do `C:\Samandarin\builds\uac-size-status-fix-20261115\salamander\Release_x64` (SHA-256 `5FB2013B82E106BF614270DCFDD61022B02E890441D5BB023673234969E2DD3F`). Jde o výstup hosta, nikoli kompletní nasazený testovací balík; interaktivní ověření čeká.
 - **Uživatelské hlášení:** při výpočtu `C:\Windows` byla ohlášena chyba u `C:\Windows\CSC`; výběr více složek s velikostí zobrazenou jako `>=` neukázal jejich součet. Jde o uživatelské pozorování před opravou, nikoli o vlastní ověření konkrétního ACL CSC.
 - **Implementováno:** při odepření potvrzeném živou elevovanou relací doplní hlášení, že přístup nebyl povolen ani správci a nepřístupné položky ve výsledku chybí. Odmítnutí UAC nebo cesta mimo schválený rozsah se za takové odepření nevydává. Stavový řádek sčítá číselné velikosti úplných i částečně změřených složek a označí celkovou dolní mez `>=`; nezměřená složka stále potlačí neznámý součet. Po přepočtu se status obnoví.
 - **Automaticky ověřeno:** existující testy řadiče velikostí pokrývají smíšený součet, neznámou velikost, pluginová data, skutečné odepření brokerem, zamítnutí souhlasu a cestu mimo rozsah; testy průchodu a lokalizovaných textů prošly v Debug i Release. Český, slovenský a německý text je přeložený, ostatní katalogy mají nový text označený k překladu. Po sestavení bude potřeba uživatelské potvrzení; systémová UAC ani Computer Use se nespouštěly.

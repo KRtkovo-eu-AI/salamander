@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Test the partial-size status markup. | Check displayed text and highlighted number offsets. | #731 | GPT-6 |
 // | 2026-11-15 | Explain denied size scans and total partial selections. | Report administrator denials and preserve lower-bound sums. | #731 | GPT-6 |
 // | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
 // | 2026-11-11 | Test approved multi-file allocation reuse. | Check selection, identity, disconnect and no extra prompt. | #731 | GPT-6.1 Terra |
@@ -28,6 +29,8 @@ static CQuadWord operator%(CQuadWord a, CQuadWord b) { a.Value %= b.Value; retur
 constexpr DWORD_PTR DiskDirectoryPartialSizeMarker = static_cast<DWORD_PTR>(-2);
 struct CFileData { CQuadWord Size; BOOL SizeValid = FALSE; DWORD_PTR PluginData = 0; };
 @@SELECTION_ACCUMULATOR@@
+#define TRACE_E(message) ((void)0)
+@@STATUS_PARSER@@
 
 static int prompts, warnings, measurements, g_prepared, waitDepth, inventories;
 static DWORD localError, g_startError, g_allocationError, g_inventoryError, prepareError, reportedError;
@@ -179,6 +182,19 @@ static void Reset()
 }
 int main()
 {
+    for (bool partialSelectedSize : {false, true})
+    {
+        char text[200];
+        @@STATUS_PREFIX@@
+        strcpy_s(text + prefix, sizeof(text) - prefix, "<6 448 185 601> bytes in <1> selected directory");
+        DWORD placements[4];
+        int count = 4;
+        BOOL parsed = LookForSubTexts(text, placements, &count);
+        const char* expected = partialSelectedSize ? ">= 6 448 185 601 bytes in 1 selected directory" : "6 448 185 601 bytes in 1 selected directory";
+        Check(parsed && std::strcmp(text, expected) == 0 && count == 2 &&
+              LOWORD(placements[0]) == (partialSelectedSize ? 3 : 0) && HIWORD(placements[0]) == 13,
+              "selected-size status text preserves the lower bound and number highlighting");
+    }
     constexpr DWORD sparse = FILE_ATTRIBUTE_SPARSE_FILE | FILE_ATTRIBUTE_ARCHIVE;
     {
         CQuadWord total, plugin; BOOL display = TRUE; bool partial = false;

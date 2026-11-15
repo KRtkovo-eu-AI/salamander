@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-15 | Test the partial-size status markup. | Catch unescaped prefix characters in the real parser. | #731 | GPT-6 |
 # | 2026-11-15 | Explain denied size scans and total partial selections. | Report administrator denials and preserve lower-bound sums. | #731 | GPT-6 |
 # | 2026-11-11 | Exercise protected multi-file selection. | Reuse only the approved panel without new prompts. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Compile the shared batch refusal state. | Test actual controller behavior across distinct scopes. | #731 | GPT-6.1 Terra |
@@ -19,7 +20,7 @@ def main():
     args = parser.parse_args()
     source = read('src/fileswn6.cpp')
     status = read('src/fileswnb.cpp')
-    assert 'const int prefix = partialSelectedSize ? 3 : 0;' in status
+    assert 'const int prefix = partialSelectedSize ? 4 : 0;' in status
     assert 'ExpandPluralBytesFilesDirs(text + prefix, 200 - prefix, selectedSize' in status
     notice = block(read('src/fileswn8.cpp'), 'static void ShowSizeInventoryIncomplete(')
     assert 'error == ERROR_ACCESS_DENIED && deniedAsAdmin' in notice
@@ -38,6 +39,10 @@ def main():
     branch = source[start:end]
     helper = 'template<class Query>\n' + block(read('src/uacbroker/f7pilot.h'), 'DWORD QueryCompressedSize(')
     generated = read('src/tests/uac_size_allocation_controller_tests.cpp.in')
+    start = status.index('const int prefix = partialSelectedSize')
+    end = status.index('ExpandPluralBytesFilesDirs(text + prefix', start)
+    generated = generated.replace('@@STATUS_PREFIX@@', status[start:end])
+    generated = generated.replace('@@STATUS_PARSER@@', block(read('src/salamdr4.cpp'), 'BOOL LookForSubTexts('))
     generated = generated.replace('@@SELECTION_ACCUMULATOR@@', block(read('src/fileswnb.cpp'), 'static void AccumulateSelectedSize('))
     generated = generated.replace('@@QUERY@@', helper).replace('@@COUNT_SIZE@@', branch)
     batch = block(source, 'struct CSizeBatchConsent', ';')

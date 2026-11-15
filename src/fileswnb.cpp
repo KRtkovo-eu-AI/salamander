@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Escape the partial-size prefix in status text. | Preserve highlighted number formatting for lower bounds. | #731 | GPT-6 |
 // | 2026-11-15 | Explain denied size scans and total partial selections. | Report administrator denials and preserve lower-bound sums. | #731 | GPT-6 |
 // | 2026-11-10 | Return the result of preparing Find editor elevation. | Release the caller before any consent dialog. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Dispatch Find F4 with its result context. | Use its owner and full name in the common editor path. | #731 | GPT-6.1 Sol |
@@ -1110,8 +1111,8 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     char text[200];
                     if (displaySize)
                     {
-                        const int prefix = partialSelectedSize ? 3 : 0;
-                        if (prefix) memcpy(text, ">= ", prefix);
+                        const int prefix = partialSelectedSize ? 4 : 0;
+                        if (prefix) memcpy(text, "\\>= ", prefix);
                         ExpandPluralBytesFilesDirs(text + prefix, 200 - prefix, selectedSize, files, dirs, TRUE);
                         LookForSubTexts(text, varPlacements, &varPlacementsCount);
                     }
