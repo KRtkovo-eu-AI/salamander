@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Stream child identity through large parent listings. | Preserve exact identity checks without rejecting accessible large directories. | #731 | GPT-6 |
 | 2026-11-15 | Explain protected listing and identity checks. | Document bounded reads and partial results. | #731 | GPT-6 |
 | 2026-11-15 | Continue size scans after individual branch errors. | Preserve verified partial totals and other accessible branches. | #731 | GPT-6 |
 | 2026-11-15 | Restrict nonrecursive Find consent. | Keep the broker inside the user-requested search depth. | #731 | GPT-6 |
@@ -272,7 +273,7 @@ DWORD EnumerateRows(HANDLE directory, bool strict, Accept accept, DWORD* ioFailu
 }
 
 inline DWORD CaptureChildId(HANDLE parent, std::wstring_view child, bool directory, FILE_ID_128& id,
-                            DWORD& attributes, DWORD expectedReparseTag = 0)
+                            DWORD& attributes, DWORD expectedReparseTag = 0, bool scanLargeDirectory = false)
 {
     if (!UacDirectoryLeaf::IsComponent(child))
         return ERROR_INVALID_NAME;
@@ -281,9 +282,11 @@ inline DWORD CaptureChildId(HANDLE parent, std::wstring_view child, bool directo
     DWORD count = 0;
     FILE_ID_128 candidate{};
     DWORD candidateAttributes = 0;
+    // The directory-listing fallback may scan all pages without increasing
+    // memory use; other callers retain their existing bounded lookup.
     const DWORD error = Detail::EnumerateRows(parent, false,
         [&](const FILE_ID_EXTD_DIR_INFO& row, std::wstring_view name) -> DWORD {
-            if (++count > maxEntries)
+            if (!scanLargeDirectory && ++count > maxEntries)
                 return ERROR_BUFFER_OVERFLOW;
             if (!UacDirectoryLeaf::Equal(name, child))
                 return ERROR_SUCCESS;
@@ -309,9 +312,10 @@ inline DWORD CaptureChildId(HANDLE parent, std::wstring_view child, bool directo
 }
 
 #ifdef SAM_UAC_THIN_COPY_TEST
-// The ordinary bounded listing API remains unchanged. A thin-copy caller may
-// instead scan all pages with constant memory; its callback must check the
-// authenticated connection and deadline without changing the directory.
+// The default identity lookup remains bounded; the directory-listing fallback
+// and thin-copy callers may scan all pages with constant memory. A thin-copy
+// callback must check the authenticated connection and deadline without
+// changing the directory.
 // The caller MUST provide its own independently opened file object, not a
 // duplicate of a host-controlled handle sharing an enumeration cursor.
 // Enumeration is not an atomic snapshot and an individual OS call may block.
@@ -357,7 +361,7 @@ DWORD CaptureChildIdStreaming(HANDLE parent, std::wstring_view child, bool direc
 inline DWORD CaptureChildDirectoryId(HANDLE parent, std::wstring_view child, FILE_ID_128& id)
 {
     DWORD attributes = 0;
-    return CaptureChildId(parent, child, true, id, attributes);
+    return CaptureChildId(parent, child, true, id, attributes, 0, true);
 }
 
 // Capture the complete revision shown by a readable, pinned parent. The broker

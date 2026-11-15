@@ -88,7 +88,7 @@ def main():
                     if owned.parent != parent:
                         raise ValueError("F6 target fixture is outside its requested parent")
                     return run([*arguments, str(owned)], cwd=folder, env=env, timeout=45).returncode
-            return run(arguments, cwd=folder, env=env, timeout=45 if args.move_source_probe else 15).returncode
+            return run(arguments, cwd=folder, env=env, timeout=45).returncode
         finally:
             if junction_created:
                 junction.rmdir()

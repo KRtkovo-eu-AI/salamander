@@ -4730,6 +4730,74 @@ void CheckPendingDirectoryChain(const std::wstring& fixture, HANDLE root)
           "rollback leaves a newly populated directory and its file intact", rollback);
 }
 
+bool CheckLargeDirectoryListing(const std::wstring& fixture)
+{
+    const auto path = fixture + L"\\large-listing";
+    const auto first = path + L"\\a-selected-\u6771";
+    const auto last = path + L"\\z-selected-\u65e5";
+    const auto junction = path + L"\\z-junction";
+    if (!CreateDirectoryW(path.c_str(), nullptr) || !CreateDirectoryW(first.c_str(), nullptr) ||
+        !CreateDirectoryW(last.c_str(), nullptr) || !CreateDirectoryW(junction.c_str(), nullptr))
+        return false;
+    {
+        const HANDLE donorRaw = CreateFileW((fixture + L"\\junction").c_str(), GENERIC_READ,
+                                            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                                            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+        const HANDLE targetRaw = CreateFileW(junction.c_str(), GENERIC_WRITE,
+                                             FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                                             FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+        const Handle donor(donorRaw == INVALID_HANDLE_VALUE ? nullptr : donorRaw);
+        const Handle target(targetRaw == INVALID_HANDLE_VALUE ? nullptr : targetRaw);
+        std::vector<BYTE> buffer(MAXIMUM_REPARSE_DATA_BUFFER_SIZE);
+        DWORD bytes = 0, written = 0;
+        if (!donor || !target ||
+            !DeviceIoControl(donor.get(), FSCTL_GET_REPARSE_POINT, nullptr, 0, buffer.data(),
+                             static_cast<DWORD>(buffer.size()), &bytes, nullptr) ||
+            !DeviceIoControl(target.get(), FSCTL_SET_REPARSE_POINT, buffer.data(), bytes, nullptr, 0, &written, nullptr))
+            return false;
+    }
+    constexpr DWORD fillers = UacListing::maxEntries + 1;
+    for (DWORD i = 0; i != fillers; ++i)
+    {
+        const auto name = path + L"\\item-" + std::to_wstring(i);
+        const HANDLE raw = CreateFileW(name.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                       nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (raw == INVALID_HANDLE_VALUE) return false;
+        CloseHandle(raw);
+    }
+    const HANDLE raw = CreateFileW(path.c_str(), FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES,
+                                   FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                                   FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+    Handle parent(raw == INVALID_HANDLE_VALUE ? nullptr : raw);
+    FILE_ID_INFO firstId{}, lastId{};
+    auto firstHandle = OpenIdentity(first, firstId, true);
+    auto lastHandle = OpenIdentity(last, lastId, true);
+    if (!parent || !firstHandle || !lastHandle) return false;
+    FILE_ID_128 captured{};
+    DWORD error = UacListing::CaptureChildDirectoryId(parent.get(), L"a-selected-\u6771", captured);
+    Check(!error && !std::memcmp(captured.Identifier, firstId.FileId.Identifier, sizeof(captured.Identifier)),
+          "capture an early Unicode directory identity in a parent beyond the listing limit", error);
+    error = UacListing::CaptureChildDirectoryId(parent.get(), L"z-selected-\u65e5", captured);
+    Check(!error && !std::memcmp(captured.Identifier, lastId.FileId.Identifier, sizeof(captured.Identifier)),
+          "capture a late Unicode directory identity in a parent beyond the listing limit", error);
+    error = UacListing::CaptureChildDirectoryId(parent.get(), L"missing", captured);
+    Check(error == ERROR_FILE_NOT_FOUND, "reject a missing directory in a large parent", error);
+    error = UacListing::CaptureChildDirectoryId(parent.get(), L"z-junction", captured);
+    Check(error == ERROR_REPARSE_TAG_INVALID, "reject a junction in a large parent", error);
+    error = UacListing::CaptureChildDirectoryId(parent.get(), L"item-0", captured);
+    Check(error == ERROR_DIRECTORY, "reject a file as a directory in a large parent", error);
+    DWORD attributes = 0;
+    error = UacListing::CaptureChildId(parent.get(), L"missing", false, captured, attributes);
+    Check(error == ERROR_BUFFER_OVERFLOW, "retain the existing bounded non-directory identity scan", error);
+    firstHandle.reset();
+    lastHandle.reset();
+    parent.reset();
+    for (DWORD i = 0; i != fillers; ++i)
+        if (!DeleteFileW((path + L"\\item-" + std::to_wstring(i)).c_str())) return false;
+    return RemoveDirectoryW(junction.c_str()) && RemoveDirectoryW(first.c_str()) &&
+           RemoveDirectoryW(last.c_str()) && RemoveDirectoryW(path.c_str());
+}
+
 int wmain(int argc, wchar_t** argv)
 {
     using namespace UacDirectoryLeaf;
@@ -4774,6 +4842,7 @@ int wmain(int argc, wchar_t** argv)
         !CheckZipSelection(fixture, root.get()) || !CheckReplacement(fixture, root.get(), UacZipUpdate::ReplacementKind::Zip) ||
         !CheckReplacement(fixture, root.get(), UacZipUpdate::ReplacementKind::DiskCopy) || !CheckOverwriteProcessExit(fixture))
         return 2;
+    if (!CheckLargeDirectoryListing(fixture)) return 2;
     HANDLE rawListing = nullptr;
     ParentIdentity listingIdentity;
     DWORD listingError = OpenParentBelowRoot(root.get(), L"destination", rawListing, listingIdentity, FILE_LIST_DIRECTORY);
