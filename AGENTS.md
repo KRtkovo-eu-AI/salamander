@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Align current UAC test and consent instructions. | Make noninteractive verification and exact multi-root scope authoritative. | #731 | GPT-6 |
 | 2026-11-14 | Define shared read-consent scope for sizes, Find and panel F3. | Avoid repeated elevation within an already approved operation. | #731 | GPT-6 |
 | 2026-11-14 | Make UAC verification noninteractive until further notice. | Keep user-run checks separate from automatic evidence. | #731 | GPT-6 |
 | 2026-11-14 | Require concrete reasons for additional UAC acceptance gates. | Prevent stronger-than-native guarantees from expanding the refactor again. | #731 | GPT-6 |
@@ -17,8 +18,8 @@ These rules apply to all future agentic development in this repository.
 
 ### Shared read consent (user requirements, 2026-11-14)
 
-- One directory-size operation (including Ctrl+Q, Space and selected items) has at most one UAC consent for its selected scope and traversed subtrees; siblings are not new batches.
-- One recursive Find has at most one consent for its requested search scope and read capability. Continue searching accessible locations while consent is pending; do not prompt for each protected subtree.
+- One directory-size operation (including Ctrl+Q, Space and selected items) has at most one UAC consent for its exact selected scope and traversed subtrees; unrelated siblings are not implicitly authorized.
+- One Find, including independent roots and refinement of protected results, has at most one consent for its exact requested roots or selected identities and read capability. Continue searching accessible locations while consent is pending; do not prompt for each protected subtree.
 - Reuse the live approved panel read session inside its scope for navigation, refresh, sizes and internal F3; F3 must not prompt or launch another helper when that session authorizes the read.
 - Reuse the actual authenticated session, not a consent flag. The application remains unelevated; read consent does not grant writes, external elevated programs or access outside the approved operation scope.
 - A refusal applies to the rest of the current operation. Continue accessible work and indicate incomplete results clearly; a later independent operation may ask again.
@@ -26,7 +27,7 @@ These rules apply to all future agentic development in this repository.
 
 Until the user changes this instruction, do not use Computer Use, run Samandarin, brokers, pilots, installers or acceptance scripts interactively, trigger UAC, or request interactive confirmation. Build and run relevant existing noninteractive automated tests; skip tests requiring interaction or elevation and report them. Add a targeted regression test only for changed behavior or a concrete uncovered defect. The user performs interactive checks independently: distinguish implemented, automatically verified, user verified, user-reported defect and not yet user verified. Treat the user's report as user evidence, and after a fix explicitly mark user confirmation pending. Do not make interactive acceptance a prerequisite for completing an implementation step. Preserve other UAC security and native-behavior requirements.
 
-The current UAC refactor follows the **Závazné upřesnění přepracování — 14. listopadu 2026** section of `doc/uac-implementation-plan.md`. It supersedes contrary historical requirements below or in older audit notes; historical test results remain evidence only for their recorded builds.
+The current UAC refactor follows the authoritative current-state overview in `doc/uac-implementation-plan.md` and the rules in this section. Historical design notes and test results apply only to their recorded revisions and do not override the current overview.
 
 - Continue from the current work and preserve the return point `uac-pre-handle-refactor-20261112`. Do not reset to pre-UAC code. Use upstream as a behavior reference.
 - Use actual native workers, including `DoCopyFile` and its sync/async loops. Preserve conflicts, Retry (fresh opens and tail checks), Scan Ahead identity checks, Skip/Skip All/Ignore, pause, speed limits, cancellation, progress and foreground return. A normally writable target stays on the normal token even when its source needs elevation. Do not add a general target revision check after the ordinary overwrite dialog or a transaction engine.
@@ -36,7 +37,7 @@ The current UAC refactor follows the **Závazné upřesnění přepracování �
 - Privileged cleanup may remove only the identified object created by this operation, never an arbitrary replacement at its path. Do not require proof that nobody changed that same object's contents. On an unidentifiable object or actual cleanup failure, preserve data and use the existing error flow.
 - Judge file, process and token handles by their exact required access masks. Waiting, limited process identity queries and `TOKEN_QUERY` are not inherently delegation of administrator authority. Never grant host rights to take over the elevated process or identity; narrowing a dangerous handle after receipt does not make its original transfer safe. Keep Windows launch authentication when it meets this boundary.
 - Track handle ownership and failed transfers, drain cancelled async I/O before freeing buffers, and stop further work/close known handles on session loss. A helper crash does not revoke transferred handles. Test lost replies between duplication and receipt. A third escrow process is optional, not a milestone requirement. Record a bounded hard-crash leak as an unresolved risk with measured impact; reject unbounded repeatable leaks and present options before expanding the architecture.
-- Implement and test coherent blocks locally before shared Computer Use VM acceptance. The first milestone requires one identified build for actual F5 in all three protected source/target combinations, including overwrite, native controls/Retry/cleanup, consent/decline and another administrator, plus focused identity and fault cases. Do not combine historical pilots into acceptance of the current build or repeat unaffected tests without a reason.
+- The first thin-helper F5 milestone is closed. CopyAttrs is implemented in the corresponding experimental thin path. Historical VM evidence applies only to the builds recorded in the plan; do not reopen that milestone without a concrete regression. Current implementation work uses noninteractive automated tests only; the user performs any manual verification and it is not a prerequisite for completing an implementation block.
 - Measure comparable final Release sizes for both executables and their sum, plus private memory for both processes after removing replaced code; full measurement is not required after every fix. Continue migration based on the first milestone's results; the prototype or revised conditions alone do not complete the goal.
 - No new user features/settings, persistent journals/recovery menus, installer changes or plugins beyond ZIP. Keep commits local; push only on explicit request.
 
