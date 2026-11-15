@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Page oversized protected panel listings. | Retain exact directory identities and complete results across pages. | #731 | GPT-6 |
 | 2026-11-15 | Avoid unnecessary traversal access for listed directory identity. | Offer UAC when a readable parent denies explicit traversal. | #731 | GPT-6 |
 | 2026-11-15 | Dispatch one approved set of exact read scopes. | Share consent without broadening access to unrelated siblings. | #731 | GPT-6 |
 | 2026-11-15 | Clarify remaining broker operation boundaries. | Document scoped identities, transport validation and session ownership. | #731 | GPT-6 |
@@ -8384,6 +8385,68 @@ DWORD ListingSession::List(const std::wstring& path, std::vector<WIN32_FIND_DATA
         return error;
     }
     return reply.error;
+}
+
+// Keep the ordinary small listing path. Only oversized panel results use the
+// scoped cursor, with a freshly captured identity and no partial publication.
+DWORD ListingSession::ListPanel(const std::wstring& path, std::vector<WIN32_FIND_DATAW>& entries)
+{
+    entries.clear();
+    DWORD error = ERROR_SUCCESS;
+    try { error = List(path, entries); }
+    catch (const std::bad_alloc&) { Close(); return ERROR_NOT_ENOUGH_MEMORY; }
+    if (error != ERROR_BUFFER_OVERFLOW)
+        return error;
+
+    FindRootIdentity rootIdentity{};
+    try { error = CaptureFindRoot(path, rootIdentity); }
+    catch (const std::bad_alloc&) { return ERROR_NOT_ENOUGH_MEMORY; }
+    if (error)
+        return error;
+    MoveFileIdentity expected{rootIdentity.serial};
+    std::memcpy(expected.id, rootIdentity.id.Identifier, sizeof(expected.id));
+    MoveFileIdentity actual{};
+    ULONGLONG lease = 0;
+    try { error = OpenDirectoryCursor(path, expected, actual, lease); }
+    catch (const std::bad_alloc&) { return ERROR_NOT_ENOUGH_MEMORY; }
+    if (error)
+        return error;
+    struct CursorGuard
+    {
+        ListingSession& session;
+        ULONGLONG& lease;
+        ~CursorGuard()
+        {
+            if (lease)
+            {
+                // A failed cleanup allocation must not leave a live broker cursor.
+                try { session.CloseDirectoryCursor(lease); }
+                catch (const std::bad_alloc&) { session.Close(); }
+            }
+        }
+    } guard{*this, lease};
+
+    std::vector<WIN32_FIND_DATAW> complete;
+    bool done = false;
+    try
+    {
+        while (!done)
+        {
+            std::vector<PagedListingEntry> page;
+            error = NextDirectoryPage(lease, page, done);
+            if (error)
+                return error;
+            if (done)
+                lease = 0;
+            if (page.size() > complete.max_size() - complete.size())
+                return ERROR_NOT_ENOUGH_MEMORY;
+            for (const auto& row : page)
+                complete.push_back(row.data);
+        }
+    }
+    catch (const std::bad_alloc&) { return ERROR_NOT_ENOUGH_MEMORY; }
+    entries.swap(complete);
+    return ERROR_SUCCESS;
 }
 
 DWORD ListingSession::OpenDirectoryCursor(const std::wstring& path, const MoveFileIdentity& expected,

@@ -23,6 +23,8 @@
 #include "@@BROKER_DIR@@/f7pilot.h"
 #undef private
 #include "@@BROKER_DIR@@/listing.h"
+#include "@@BROKER_DIR@@/metadataleaf.h"
+#include "@@BROKER_DIR@@/deleteleaf.h"
 
 struct CloseHandleDeleter { void operator()(void* handle) const { CloseHandle(handle); } };
 using Handle = std::unique_ptr<void, CloseHandleDeleter>;
@@ -510,6 +512,38 @@ void RetainedLifetime()
           "worker ownership retains the session after the simulated panel releases it");
 }
 
+void PanelPartialFailure()
+{
+    Pair pair;
+    if (!pair.Open(31)) { Check(false, "prepare partial panel fixture"); return; }
+    auto session = Session(pair);
+    session->prepared.operation = UacF7::Operation::List;
+    session->prepared.fileId[0] = 7;
+    const auto expected = Identity(7);
+    std::atomic<bool> peerOk{false};
+    std::thread peer([&] {
+        const ListingReply overflow{ERROR_BUFFER_OVERFLOW, 0};
+        UacF7::MoveFileIdentity request{};
+        UacListing::PagedListingReply denied{};
+        denied.error = ERROR_ACCESS_DENIED;
+        bool ok = Prefix(pair.peer.get(), 0) && Write(pair.peer.get(), &overflow, sizeof(overflow));
+        ok = ok && Request(pair.peer.get(), UacListing::PagedListingOp::Open, &request) &&
+             request.serial == expected.serial && !std::memcmp(request.id, expected.id, sizeof(request.id)) &&
+             OpenReply(pair.peer.get(), expected);
+        ok = ok && Request(pair.peer.get(), UacListing::PagedListingOp::Next) && PageReply(pair.peer.get(), L'\u6771', 8);
+        ok = ok && Request(pair.peer.get(), UacListing::PagedListingOp::Next) && Write(pair.peer.get(), &denied, sizeof(denied));
+        ok = ok && Prefix(pair.peer.get(), 0) && ListReply(pair.peer.get());
+        peerOk = ok;
+    });
+    std::vector<WIN32_FIND_DATAW> rows;
+    const DWORD error = session->ListPanel(L"C:\\owned-fixture", rows);
+    const bool incompleteHidden = error == ERROR_ACCESS_DENIED && rows.empty() && session->IsOpen();
+    const DWORD retry = session->List(L"C:\\owned-fixture", rows);
+    peer.join();
+    Check(incompleteHidden && !retry && rows.empty() && peerOk,
+          "an error after a panel page publishes no partial rows and keeps the session usable");
+}
+
 void PanelViewerSnapshots()
 {
     Pair pair;
@@ -569,6 +603,7 @@ int main()
     PartialPage();
     CloseWaitsForPage();
     RetainedLifetime();
+    PanelPartialFailure();
     PanelViewerSnapshots();
     std::printf("Failures=%d\n", failures);
     return failures ? 1 : 0;

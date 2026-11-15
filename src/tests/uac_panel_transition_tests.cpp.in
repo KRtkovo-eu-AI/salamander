@@ -61,7 +61,7 @@ struct ListingSession {
         open = !scenario.start;
         return scenario.start;
     }
-    DWORD List(const std::wstring&, std::vector<WIN32_FIND_DATAW>& entries) {
+    DWORD ListPanel(const std::wstring&, std::vector<WIN32_FIND_DATAW>& entries) {
         entries = {{root == L"C:\\old" ? 1 : 2}};
         return scenario.list;
     }

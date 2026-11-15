@@ -9,6 +9,7 @@
 // | 2026-11-08 | Offer a protected ZIP listing after ordinary read denial. | Reuse the internal viewer for read-only output. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Route disk navigation and refresh through the approved listing session. | Reuse consent inside the root and release it on exit. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Page large protected panel listings. | Reuse the approved session without truncating large directories. | #731 | GPT-6 |
 // | 2026-11-15 | Start folder indicators after publishing the disk listing. | Bind background checks to the final listing generation. | #731 | GPT-6 |
 // | 2026-11-15 | Clarify protected panel lifetime. | Document commit, cleanup and ZIP read fallback. | #731 | GPT-6 |
 // | 2026-11-15 | Explain protected panel and ZIP listing boundaries. | Clarify session ownership and privileged read failures. | #731 | GPT-6 |
@@ -3086,7 +3087,7 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
         // Reuse the panel session only within its approved root.
         if (ProtectedListing && ProtectedListing->Contains(requestedWide))
         {
-            const DWORD listError = ProtectedListing->List(requestedWide, newProtectedEntries);
+            const DWORD listError = ProtectedListing->ListPanel(requestedWide, newProtectedEntries);
             if (listError == ERROR_SUCCESS)
             {
                 protectedPath = true;
@@ -3137,7 +3138,7 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
                         listingError = session->Start(parent, nullptr, &listedAsAdmin);
                         if (!listingError)
                         {
-                            listingError = session->List(requestedWide, newProtectedEntries);
+                            listingError = session->ListPanel(requestedWide, newProtectedEntries);
                             listedAsAdmin = session->IsOpen();
                         }
                     }

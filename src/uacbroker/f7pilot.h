@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Page large protected panel listings. | Keep ordinary listings compatible while removing the per-directory cap. | #731 | GPT-6 |
 | 2026-11-15 | Scope one read session to multiple captured selections. | Reuse one consent without granting unselected paths. | #731 | GPT-6 |
 | 2026-11-15 | Clarify grouped UAC capability contracts. | Document foreground, file modes and scoped read sessions. | #731 | GPT-6 |
 | 2026-11-15 | Explain UAC request and session boundaries. | Document identity, operation scopes, and ownership for review. | #731 | GPT-6 |
@@ -1252,6 +1253,7 @@ public:
     bool GetPreparedFindRootIdentity(MoveFileIdentity& identity) const;
     DWORD List(const std::wstring& path, std::vector<WIN32_FIND_DATAW>& entries,
                const MoveFileIdentity* expected = nullptr);
+    DWORD ListPanel(const std::wstring& path, std::vector<WIN32_FIND_DATAW>& entries);
     DWORD OpenDirectoryCursor(const std::wstring& path, const MoveFileIdentity& expected, MoveFileIdentity& actual,
                               ULONGLONG& lease, HANDLE stop = nullptr);
     DWORD NextDirectoryPage(ULONGLONG lease, std::vector<PagedListingEntry>& entries, bool& done, HANDLE stop = nullptr);

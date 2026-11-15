@@ -4769,10 +4769,11 @@ bool CheckLargeDirectoryListing(const std::wstring& fixture)
                                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
                                    FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
     Handle parent(raw == INVALID_HANDLE_VALUE ? nullptr : raw);
-    FILE_ID_INFO firstId{}, lastId{};
+    FILE_ID_INFO firstId{}, lastId{}, fileId{};
     auto firstHandle = OpenIdentity(first, firstId, true);
     auto lastHandle = OpenIdentity(last, lastId, true);
-    if (!parent || !firstHandle || !lastHandle) return false;
+    auto fileHandle = OpenIdentity(path + L"\\item-0", fileId);
+    if (!parent || !firstHandle || !lastHandle || !fileHandle) return false;
     FILE_ID_128 captured{};
     DWORD error = UacListing::CaptureChildDirectoryId(parent.get(), L"a-selected-\u6771", captured);
     Check(!error && !std::memcmp(captured.Identifier, firstId.FileId.Identifier, sizeof(captured.Identifier)),
@@ -4787,10 +4788,36 @@ bool CheckLargeDirectoryListing(const std::wstring& fixture)
     error = UacListing::CaptureChildDirectoryId(parent.get(), L"item-0", captured);
     Check(error == ERROR_DIRECTORY, "reject a file as a directory in a large parent", error);
     DWORD attributes = 0;
+    error = UacListing::CaptureChildId(parent.get(), L"item-0", false, captured, attributes);
+    Check(!error && !std::memcmp(captured.Identifier, fileId.FileId.Identifier, sizeof(captured.Identifier)) &&
+              !(attributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)),
+          "capture the exact file identity in a parent beyond the old listing limit", error);
     error = UacListing::CaptureChildId(parent.get(), L"missing", false, captured, attributes);
-    Check(error == ERROR_BUFFER_OVERFLOW, "retain the existing bounded non-directory identity scan", error);
+    Check(error == ERROR_FILE_NOT_FOUND, "reject a missing file in a large parent", error);
+    UacF7::ArchiveRevision revision{};
+    FILE_BASIC_INFO basic{};
+    LARGE_INTEGER size{};
+    if (!GetFileInformationByHandleEx(fileHandle.get(), FileBasicInfo, &basic, sizeof(basic)) ||
+        !GetFileSizeEx(fileHandle.get(), &size)) return false;
+    error = UacListing::CaptureChildRevision(parent.get(), L"item-0", fileId.VolumeSerialNumber, revision);
+    Check(!error && revision.serial == fileId.VolumeSerialNumber && revision.size == size.QuadPart &&
+              revision.created == basic.CreationTime.QuadPart && revision.modified == basic.LastWriteTime.QuadPart &&
+              revision.changed == basic.ChangeTime.QuadPart && revision.attributes == basic.FileAttributes &&
+              !std::memcmp(revision.fileId, fileId.FileId.Identifier, sizeof(revision.fileId)),
+          "capture the exact overwrite revision in a parent beyond the old listing limit", error);
+    const auto priorRevision = revision;
+    error = UacListing::CaptureChildRevision(parent.get(), L"missing", fileId.VolumeSerialNumber, revision);
+    Check(error == ERROR_FILE_NOT_FOUND && UacF7::SameFileRevision(revision, priorRevision),
+          "a missing overwrite target cannot publish a revision", error);
+    error = UacListing::CaptureChildRevision(parent.get(), L"z-junction", fileId.VolumeSerialNumber, revision);
+    Check(error == ERROR_NOT_SUPPORTED && UacF7::SameFileRevision(revision, priorRevision),
+          "a junction cannot publish an overwrite revision", error);
+    error = UacListing::CaptureChildRevision(parent.get(), L"a-selected-\u6771", fileId.VolumeSerialNumber, revision);
+    Check(error == ERROR_NOT_SUPPORTED && UacF7::SameFileRevision(revision, priorRevision),
+          "a directory cannot publish a file overwrite revision", error);
     firstHandle.reset();
     lastHandle.reset();
+    fileHandle.reset();
     parent.reset();
     for (DWORD i = 0; i != fillers; ++i)
         if (!DeleteFileW((path + L"\\item-" + std::to_wstring(i)).c_str())) return false;

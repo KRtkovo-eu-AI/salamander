@@ -85,8 +85,11 @@ int wmain(int argc, wchar_t** argv)
         if (child != INVALID_HANDLE_VALUE) CloseHandle(child);
 
         FILE_ID_128 id{}; DWORD attrs = 0;
-        DWORD bounded = UacListing::CaptureChildId(listing, L"東-child-日.txt", false, id, attrs);
-        Check(bounded == ERROR_BUFFER_OVERFLOW, "existing bounded API still refuses more than 4096 entries");
+        DWORD direct = UacListing::CaptureChildId(listing, L"東-child-日.txt", false, id, attrs);
+        Check(direct == ERROR_SUCCESS &&
+              std::memcmp(id.Identifier, expected.FileId.Identifier, sizeof(id.Identifier)) == 0 &&
+              !(attrs & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)),
+              "ordinary identity scan also returns the exact child beyond 4096 entries");
         unsigned pages = 0;
         const auto ok = [&]() -> DWORD { ++pages; return ERROR_SUCCESS; };
         DWORD result = UacListing::CaptureChildIdStreaming(listing, L"東-child-日.txt", false, id, attrs, ok);
@@ -152,6 +155,9 @@ int wmain(int argc, wchar_t** argv)
             result = UacListing::CaptureChildIdStreaming(listing, L"sample-link.txt", false, sentinel, unchanged, ok);
             Check(result == ERROR_REPARSE_TAG_INVALID && Sentinel(sentinel, unchanged),
                   "unexpected file symlink is rejected without following it");
+            result = UacListing::CaptureChildId(listing, L"sample-link.txt", false, sentinel, unchanged);
+            Check(result == ERROR_REPARSE_TAG_INVALID && Sentinel(sentinel, unchanged),
+                  "ordinary large-parent scan also rejects the symlink without following it");
             Check(DeleteFileW(link.c_str()) != FALSE, "remove isolated symlink");
         }
         else Skip("file symlink creation unavailable to current account");
@@ -170,6 +176,13 @@ int wmain(int argc, wchar_t** argv)
                     result = UacListing::CaptureChildIdStreaming(caseHandle, L"aCase.txt", false, sentinel, unchanged, ok);
                     Check(result == ERROR_DUP_NAME && Sentinel(sentinel, unchanged),
                           "two case-fold equivalent names are rejected after full scan");
+                    result = UacListing::CaptureChildId(caseHandle, L"aCase.txt", false, sentinel, unchanged);
+                    Check(result == ERROR_DUP_NAME && Sentinel(sentinel, unchanged),
+                          "ordinary identity scan rejects ambiguous case-folded names");
+                    UacF7::ArchiveRevision revision{};
+                    result = UacListing::CaptureChildRevision(caseHandle, L"aCase.txt", 0, revision);
+                    Check(result == ERROR_DUP_NAME && revision.serial == 0 && revision.size == 0,
+                          "overwrite revision scan rejects ambiguous case-folded names");
                     caseTested = true;
                 }
                 CloseHandle(caseHandle);

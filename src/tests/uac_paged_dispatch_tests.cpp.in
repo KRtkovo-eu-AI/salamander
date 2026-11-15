@@ -153,6 +153,61 @@ int wmain()
         swprintf_s(leaf, L"\\row-%04u.txt", i);
         if (!WriteByte(targetPath + leaf, static_cast<BYTE>(i))) return 5;
     }
+    {
+        JobPipe panelJob;
+        if (!panelJob.Open(nullptr, target.get(), Operation::List)) return 21;
+        UacF7::ListingSession panel;
+        panel.root = L"C:\\panel-root-fixture";
+        panel.prepared.operation = Operation::List;
+        panel.prepared.serial = targetId.VolumeSerialNumber;
+        std::memcpy(panel.prepared.fileId, targetId.FileId.Identifier, sizeof(panel.prepared.fileId));
+        panel.pipe = panelJob.DetachClientForPanel();
+        panel.publishedOpen.store(true);
+        std::vector<WIN32_FIND_DATAW> listed;
+        DWORD error = panel.ListPanel(panel.root, listed);
+        Check(error == ERROR_SUCCESS && listed.size() == 4104 && panel.IsOpen(),
+              "actual panel client and dispatcher list all entries at the approved root");
+        panel.Close();
+        panelJob.Finish();
+    }
+    {
+        JobPipe panelJob;
+        if (!panelJob.Open(nullptr, root.handle.get(), Operation::List)) return 20;
+        UacF7::ListingSession panel;
+        panel.root = L"C:\\panel-fixture";
+        panel.prepared.operation = Operation::List;
+        panel.prepared.volume = root.identity.volume;
+        panel.prepared.relative = root.relative;
+        panel.prepared.serial = root.identity.file.VolumeSerialNumber;
+        std::memcpy(panel.prepared.fileId, root.identity.file.FileId.Identifier, sizeof(panel.prepared.fileId));
+        panel.pipe = panelJob.DetachClientForPanel();
+        panel.publishedOpen.store(true);
+        const auto path = panel.root + L"\\paged-\u6771";
+        std::vector<WIN32_FIND_DATAW> listed;
+        DWORD firstError = panel.ListPanel(path, listed);
+        std::set<std::wstring> panelNames;
+        for (const auto& item : listed) panelNames.emplace(item.cFileName);
+        Check(firstError == ERROR_SUCCESS && listed.size() == 4104 && panelNames.size() == 4104,
+              "actual panel client and dispatcher list all entries in a large descendant");
+        listed.clear();
+        DWORD refreshError = panel.ListPanel(path, listed);
+        Check(refreshError == ERROR_SUCCESS && listed.size() == 4104 && panel.IsOpen(),
+              "large panel refresh reuses the same scoped session");
+        auto deletion = Adopt(CreateFileW(targetPath.c_str(), DELETE | FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+        listed.clear();
+        DWORD lockedError = deletion ? panel.ListPanel(path, listed) : ERROR_GEN_FAILURE;
+        Check(lockedError == ERROR_SHARING_VIOLATION && listed.empty() && panel.IsOpen(),
+              "failed paged listing publishes no partial rows and retains the session");
+        deletion.reset();
+        listed.clear();
+        DWORD retryError = panel.ListPanel(path, listed);
+        Check(retryError == ERROR_SUCCESS && listed.size() == 4104 && panel.IsOpen(),
+              "large panel retry succeeds after a paged sharing failure");
+        panel.Close();
+        panelJob.Finish();
+    }
     JobPipe job;
     if (!job.Open(nullptr, root.handle.get(), Operation::CompareList)) return 6;
     std::vector<UacF7::PagedListingEntry> rows;

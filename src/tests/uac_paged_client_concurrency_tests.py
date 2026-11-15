@@ -24,8 +24,9 @@ def main():
     globals_ = ('bool IsStopSignaled(', 'DWORD FinishIo(', 'DWORD TransferRequest(')
     members = ('PreparedLeaf::~PreparedLeaf(', 'ListingSession::~ListingSession(',
                'static DWORD LockListingForCall(', 'void ListingSession::Close(',
-               'bool ListingSession::Contains(', 'DWORD ListingSession::Transfer(',
-               'DWORD ListingSession::SendPath(', 'DWORD ListingSession::List(',
+               'size_t ListingSession::FindReadScope(', 'bool ListingSession::Contains(', 'DWORD ListingSession::Transfer(',
+               'DWORD ListingSession::SendPath(', 'DWORD ListingSession::PrepareLeaf(',
+               'DWORD ListingSession::CaptureFindRoot(', 'DWORD ListingSession::List(', 'DWORD ListingSession::ListPanel(',
                'DWORD ListingSession::OpenContent(', 'DWORD ListingSession::ReadContent(', 'DWORD ListingSession::CloseContent(',
                'DWORD ListingSession::ReadViewerSnapshot(',
                'DWORD ListingSession::OpenDirectoryCursor(', 'DWORD ListingSession::NextDirectoryPage(',

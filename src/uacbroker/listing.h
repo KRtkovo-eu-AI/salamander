@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Scan large parent listings for file identities and revisions. | Preserve exact UAC authorization without rejecting large directories. | #731 | GPT-6 |
 | 2026-11-15 | Stream child identity through large parent listings. | Preserve exact identity checks without rejecting accessible large directories. | #731 | GPT-6 |
 | 2026-11-15 | Explain protected listing and identity checks. | Document bounded reads and partial results. | #731 | GPT-6 |
 | 2026-11-15 | Continue size scans after individual branch errors. | Preserve verified partial totals and other accessible branches. | #731 | GPT-6 |
@@ -272,50 +273,8 @@ DWORD EnumerateRows(HANDLE directory, bool strict, Accept accept, DWORD* ioFailu
 }
 }
 
-inline DWORD CaptureChildId(HANDLE parent, std::wstring_view child, bool directory, FILE_ID_128& id,
-                            DWORD& attributes, DWORD expectedReparseTag = 0, bool scanLargeDirectory = false)
-{
-    if (!UacDirectoryLeaf::IsComponent(child))
-        return ERROR_INVALID_NAME;
-
-    bool found = false;
-    DWORD count = 0;
-    FILE_ID_128 candidate{};
-    DWORD candidateAttributes = 0;
-    // The directory-listing fallback may scan all pages without increasing
-    // memory use; other callers retain their existing bounded lookup.
-    const DWORD error = Detail::EnumerateRows(parent, false,
-        [&](const FILE_ID_EXTD_DIR_INFO& row, std::wstring_view name) -> DWORD {
-            if (!scanLargeDirectory && ++count > maxEntries)
-                return ERROR_BUFFER_OVERFLOW;
-            if (!UacDirectoryLeaf::Equal(name, child))
-                return ERROR_SUCCESS;
-            if (found)
-                return ERROR_DUP_NAME;
-            const bool reparse = (row.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
-            if (reparse != (expectedReparseTag != 0) || (reparse && row.ReparsePointTag != expectedReparseTag))
-                return ERROR_REPARSE_TAG_INVALID;
-            if (((row.FileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0) != directory)
-                return ERROR_DIRECTORY;
-            candidate = row.FileId;
-            candidateAttributes = row.FileAttributes;
-            found = true;
-            return ERROR_SUCCESS;
-        });
-    if (error)
-        return error;
-    if (!found)
-        return ERROR_FILE_NOT_FOUND;
-    id = candidate;
-    attributes = candidateAttributes;
-    return ERROR_SUCCESS;
-}
-
-#ifdef SAM_UAC_THIN_COPY_TEST
-// The default identity lookup remains bounded; the directory-listing fallback
-// and thin-copy callers may scan all pages with constant memory. A thin-copy
-// callback must check the authenticated connection and deadline without
-// changing the directory.
+// A checked caller can scan bounded pages while monitoring its authenticated
+// connection and deadline without relaxing identity or duplicate checks.
 // The caller MUST provide its own independently opened file object, not a
 // duplicate of a host-controlled handle sharing an enumeration cursor.
 // Enumeration is not an atomic snapshot and an individual OS call may block.
@@ -356,12 +315,20 @@ DWORD CaptureChildIdStreaming(HANDLE parent, std::wstring_view child, bool direc
     attributes = candidateAttributes;
     return ERROR_SUCCESS;
 }
-#endif
+
+inline DWORD CaptureChildId(HANDLE parent, std::wstring_view child, bool directory, FILE_ID_128& id,
+                            DWORD& attributes, DWORD expectedReparseTag = 0)
+{
+    // Host-side requests can scan every page without retaining the directory
+    // contents; the broker separately checks the captured identity on use.
+    return CaptureChildIdStreaming(parent, child, directory, id, attributes,
+                                   []() -> DWORD { return ERROR_SUCCESS; }, expectedReparseTag);
+}
 
 inline DWORD CaptureChildDirectoryId(HANDLE parent, std::wstring_view child, FILE_ID_128& id)
 {
     DWORD attributes = 0;
-    return CaptureChildId(parent, child, true, id, attributes, 0, true);
+    return CaptureChildId(parent, child, true, id, attributes);
 }
 
 // Capture the complete revision shown by a readable, pinned parent. The broker
@@ -373,12 +340,11 @@ inline DWORD CaptureChildRevision(HANDLE parent, std::wstring_view child, ULONGL
     if (!UacDirectoryLeaf::IsComponent(child))
         return ERROR_INVALID_NAME;
     bool found = false;
-    DWORD count = 0;
     UacF7::ArchiveRevision candidate{};
+    // Retain the same complete verification for overwrite decisions in large
+    // parents without buffering their entries or accepting ambiguous names.
     const DWORD error = Detail::EnumerateRows(parent, true,
         [&](const FILE_ID_EXTD_DIR_INFO& row, std::wstring_view name) -> DWORD {
-            if (++count > maxEntries)
-                return ERROR_BUFFER_OVERFLOW;
             if (!UacDirectoryLeaf::Equal(name, child))
                 return ERROR_SUCCESS;
             if (found)
