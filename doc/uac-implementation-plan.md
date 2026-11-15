@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-15 | Record user-reported protected Find scope limit. | Track incomplete results and the work needed to remove the fixed cap. | #731 | GPT-6 |
 | 2026-11-15 | Fix skipped links in batch size consent. | Preserve elevation for eligible selected siblings. | #731 | GPT-6 |
 | 2026-11-15 | Record ProgramData multi-folder elevation regression. | Distinguish reproduced batch failure from the working single-root prompt. | #731 | GPT-6 |
 | 2026-11-15 | Continue size scans after branch errors. | Retain accessible counts and distinguish terminal failures. | #731 | GPT-6 |
@@ -632,6 +633,12 @@
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
+
+## Limit chráněných položek Findu — 15. listopadu 2026
+
+- **Uživatelské hlášení:** při hledání v `C:\Windows` se ve Find Logu opakovaně objevuje překročení limitu 32 chráněných souborů. Kód potvrzuje pevnou kapacitu 32 chráněných požadavků, po jejímž vyčerpání se další položky neprohledají; nejde o limit Windows. Uživatelské hlášení nebylo reprodukováno pomocí Computer Use.
+- **Zbývá implementovat:** odstranit pevný limit ve frontě, evidenci relací a šestibitovém indexu výsledků, včetně navazujícího porovnávání duplicit a odmítnutí. Zachovat jediný schválený rozsah, identitu, životnost relace a pokračování běžného prohledávání; zohlednit paměť a nynější lineární vyhledávání předchozích požadavků. Změnu ověřit existujícími neinteraktivními testy včetně více než 32 položek a přesného rozsahu; uživatelské ověření po opravě čeká.
+- **Další limity k posouzení:** velikostní inventura má 4096 položek a hloubku 32; chráněný snímek interního prohlížeče 16 MiB; ZIP výběr 4096 položek, hloubku 32 a 64 MiB, včetně 16MiB limitu položky; některé starší a EFS kopírovací cesty mají 16 MiB. Stránka Findu o 64 položkách je přenosová dávka, nikoli celkový limit výsledků. Limity analyzovat po jednotlivých cestách, nezaměňovat je s limity Windows.
 
 ## Neúplné velikosti a odmítnutí správcem — 15. listopadu 2026
 
