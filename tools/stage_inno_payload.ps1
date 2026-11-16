@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-16 | Support explicit runtime-only staging. | Keep host-only builds independent of unfinished plugin binaries. | | GPT-6 |
 # | 2026-11-14 | Keep runtime payload staging independent of installer catalog generation. | A catalog refresh is an installer-only step and must not fail the C++ post-build copy. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-14 | Refresh the Inno web-package include from the stable catalogs during staging. | Keep both installer variants synchronized with release URLs, hashes, and versions. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-14 | Emit ownership inventory for installer-managed plugin files. | Upgrades need safe, component-scoped stale-file cleanup. | | openrouter/openai/gpt-6-luna-pro |
@@ -10,7 +11,9 @@ param(
     [string]$RepositoryRoot,
 
     [Parameter(Mandatory = $true)]
-    [string]$DestinationRoot
+    [string]$DestinationRoot,
+
+    [switch]$RuntimeOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -136,6 +139,16 @@ foreach ($extensionRoot in $extensionRoots) {
         }
         $extensionFileCount++
     }
+}
+
+if ($RuntimeOnly) {
+    # A pre-existing manifest could be mistaken for an inventory of this runtime-only build.
+    $managedManifestPath = Join-Path $destinationRoot 'managed-plugin-files.txt'
+    if (Test-Path -LiteralPath $managedManifestPath) {
+        throw "Runtime-only staging cannot use a directory containing an existing managed-plugin manifest: $managedManifestPath"
+    }
+    Write-Host "Staged $($payloadPaths.Count) Inno payload files and $extensionFileCount files from $($extensionRoots.Count) extension trees ($copiedCount updated); installer manifest was not generated."
+    return
 }
 
 $managedFileEntries = [System.Collections.Generic.List[string]]::new()

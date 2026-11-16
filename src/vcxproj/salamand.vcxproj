@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- | Date | Summary | Reason | Ticket | Model |
+| 2026-11-16 | Make runtime-only staging explicit for host validation builds. | Avoid requiring the complete installer payload when building individual projects. | #731 | GPT-6 |
 | 2026-11-11 | Compile the file-list workspace without the host PCH. | Keep native Windows identity types scoped to one translation unit. | #731 | GPT-6.1 Sol |
 | 2026-11-07 | Build the F7 broker host transport. | Share the verified one-shot handshake with the application. | | GPT-6.1 Sol (Codex) | -->
 <!--
@@ -1349,9 +1350,11 @@
 
   <Target Name="StageSalamanderRuntimeFiles" AfterTargets="Build">
     <PropertyGroup>
-      <OpenSalamanderStagingOutDir>$([System.String]::Copy('$(OutDir)').TrimEnd('\'))</OpenSalamanderStagingOutDir>
+      <!-- TargetDir resolves a relative OutDir before the staging process changes its working directory. -->
+      <OpenSalamanderStagingOutDir>$([System.String]::Copy('$(TargetDir)').TrimEnd('\'))</OpenSalamanderStagingOutDir>
+      <OpenSalamanderRuntimeStageOption Condition="'$(OpenSalamanderRuntimeStageOnly)' == 'true'">-RuntimeOnly</OpenSalamanderRuntimeStageOption>
     </PropertyGroup>
-    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(ProjectDir)..\..\tools\stage_inno_payload.ps1&quot; -RepositoryRoot &quot;$(ProjectDir)..\..&quot; -DestinationRoot &quot;$(OpenSalamanderStagingOutDir)&quot;"
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(ProjectDir)..\..\tools\stage_inno_payload.ps1&quot; -RepositoryRoot &quot;$(ProjectDir)..\..&quot; -DestinationRoot &quot;$(OpenSalamanderStagingOutDir)&quot; $(OpenSalamanderRuntimeStageOption)"
           WorkingDirectory="$(ProjectDir)..\.."
           StandardOutputImportance="high"
           StandardErrorImportance="high" />
@@ -1360,7 +1363,7 @@
           AfterTargets="Build"
           Condition="'$(Platform)' == 'x64'">
     <PropertyGroup>
-      <OpenSalamanderStagingOutDir>$([System.String]::Copy('$(OutDir)').TrimEnd('\'))</OpenSalamanderStagingOutDir>
+      <OpenSalamanderStagingOutDir>$([System.String]::Copy('$(TargetDir)').TrimEnd('\'))</OpenSalamanderStagingOutDir>
     </PropertyGroup>
     <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(ProjectDir)..\..\tools\stage_vcpkg_payload_dlls.ps1&quot; -RepositoryRoot &quot;$(ProjectDir)..\..&quot; -DestinationRoot &quot;$(OpenSalamanderStagingOutDir)&quot;"
           WorkingDirectory="$(ProjectDir)..\.."

@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-16 | Select runtime-only staging for analysis builds. | CodeQL builds do not assemble a complete installer payload. | #731 | GPT-6 |
 # | 2026-11-07 | Include both UAC handshake endpoints in CodeQL. | Analyze the broker and diagnostic host on the PR head. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-04 | Cancel an older CodeQL run when a newer one is queued. | A stale analysis kept a Windows runner while the pull request had moved on. | | Grok 4.7 |
 
@@ -190,6 +191,7 @@ jobs:
               '/t:Rebuild'
               "/p:Configuration=$($env:BUILD_CONFIGURATION)"
               '/p:Platform=x64'
+              '/p:OpenSalamanderRuntimeStageOnly=true'
               '/p:PreferredToolArchitecture=x64'
               '/nr:false'
               '/v:m'

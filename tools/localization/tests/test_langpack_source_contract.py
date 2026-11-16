@@ -135,12 +135,14 @@ def test_versinfo_can_skip_when_embedding():
     assert "SKIP_LANG_VERSIONINFO" in vers
 
 
-def test_inno_ships_optional_langpack_not_per_language_slg():
+def test_inno_ships_langpack_without_per_language_slg():
     iss = (REPO / "doc" / "runbook-setup" / "inno_setup_salamander_x64.iss").read_text(
         encoding="utf-8", errors="replace"
     )
-    assert r"lang\langpack.dll" in iss
-    assert "additionallanguages" in iss
+    langpack_lines = [line for line in iss.splitlines() if r'lang\langpack.dll' in line and line.lstrip().startswith('Source:')]
+    assert len(langpack_lines) == 1
+    assert 'DestDir: "{app}\\lang"' in langpack_lines[0]
+    assert 'Tasks:' not in langpack_lines[0] and 'Check:' not in langpack_lines[0]
     assert r"lang\czech.slg" not in iss
     assert r"plugins\zip\lang\*.slg" not in iss
     assert r"plugins\zip\zip.spl" in iss
