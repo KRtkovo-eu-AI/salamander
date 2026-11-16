@@ -1,16 +1,7 @@
 {
   "schemaVersion": 6,
   "catalogName": "Extension Runtimes",
-  "generatedAt": "2026-11-16T03:56:36Z",
-  "changelog": [
-    {
-      "date": "2026-11-14",
-      "summary": "Refresh the Salamatrix release URL to version 0.7.13.",
-      "reason": "The stable catalog version must match the published, SHA-256-verified release asset.",
-      "ticket": "",
-      "model": "openrouter/openai/gpt-6-luna-pro"
-    }
-  ],
+  "generatedAt": "2026-08-31T02:56:50Z",
   "plugins": [
     {
       "id": "salamatrix",
@@ -41,10 +32,10 @@
         "romanian": "Salamatrix este un furnizor de framework de automatizare pentru pluginuri native și extensii de script.",
         "spanish": "Salamatrix es un proveedor de framework de automatización para plugins nativos y extensiones de script."
       },
-      "latestVersion": "0.7.14 (x64)",
+      "latestVersion": "0.7.13 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://salamatrix.samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrix_0.7.14_x64/plugin_5.0_salamatrix_0.7.14_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrix_0.7.10_x64/plugin_5.0_salamatrix_0.7.10_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/salamatrix.png",
       "packageType": "plugin",
       "security": {
@@ -54,7 +45,7 @@
         "activeWebContent": "no",
         "elevation": "never"
       },
-      "packageSha256": "808b2e238f35ed38dcfb232748c63bd70e36c318119d7ee19da69bb381c7188e"
+      "packageSha256": "4d21f93f94594851e5dd44477156e7af7e918f55057bb70cc6646794dd8b7017"
     },
     {
       "id": "salamatrixai",
@@ -65,10 +56,10 @@
       "description": {
         "english": "Salamatrix AI is native provider and the sole owner of the local AI assistant workflow."
       },
-      "latestVersion": "0.3 (x64)",
+      "latestVersion": "0.2 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://salamatrix.samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrixai_0.3_x64/plugin_5.0_salamatrixai_0.3_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrixai_0.2_x64/plugin_5.0_salamatrixai_0.2_x64.7z",
       "dependencies": [
         "salamatrix"
       ],
@@ -81,7 +72,7 @@
         "activeWebContent": "no",
         "elevation": "never"
       },
-      "packageSha256": "86c34614d93dd16844702b67c3a05378e906de4eaeeeb79d1fa8dc370192620f"
+      "packageSha256": "828d63f1a0854cb12f36a12a75ea1edd2b416166dd74472730b49af77d7ec70b"
     },
     {
       "id": "salamatrixailocalllama",
@@ -119,10 +110,10 @@
       "description": {
         "english": "Python Runtime for integrating Python scripts with the Salamatrix framework."
       },
-      "latestVersion": "0.3.2 (x64)",
+      "latestVersion": "0.3.1 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://salamatrix.samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_pythonruntime_0.3.2_x64/plugin_5.0_pythonruntime_0.3.2_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_pythonruntime_0.3.1_x64/plugin_5.0_pythonruntime_0.3.1_x64.7z",
       "dependencies": [
         "salamatrix"
       ],
@@ -135,7 +126,7 @@
         "activeWebContent": "no",
         "elevation": "never"
       },
-      "packageSha256": "33dd729be973a5b79979dc989506b781cd76ec03b5f87aeb19fe98268c7c22f8"
+      "packageSha256": "fc812895ba9b03e93bf74aa7048bec0a045bcf04317ffd3e179a0b9fae162f69"
     },
     {
       "id": "powershellruntime",
@@ -146,10 +137,10 @@
       "description": {
         "english": "PowerShell Runtime for integrating PowerShell scripts with the Salamatrix framework."
       },
-      "latestVersion": "0.4 (x64)",
+      "latestVersion": "0.3 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://salamatrix.samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_powershellruntime_0.4_x64/plugin_5.0_powershellruntime_0.4_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_powershellruntime_0.3_x64/plugin_5.0_powershellruntime_0.3_x64.7z",
       "dependencies": [
         "salamatrix"
       ],
@@ -162,7 +153,7 @@
         "activeWebContent": "no",
         "elevation": "never"
       },
-      "packageSha256": "eb890143051728076f6ca3addf2ac763d040ffa020006762cf5ec6c24e28c415"
+      "packageSha256": "d89fc3b8a2c9f057c56c3b965a66f59657aae315f9b84c2136bc4f6e6a44ead1"
     },
     {
       "id": "luaruntime",
@@ -173,10 +164,10 @@
       "description": {
         "english": "Lua Runtime for integrating Lua scripts with the Salamatrix framework."
       },
-      "latestVersion": "0.3.2 (x64)",
+      "latestVersion": "0.3.1 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://salamatrix.samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_luaruntime_0.3.2_x64_reupload/plugin_5.0_luaruntime_0.3.2_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_luaruntime_0.3.1_x64/plugin_5.0_luaruntime_0.3.1_x64.7z",
       "dependencies": [
         "salamatrix"
       ],
@@ -189,7 +180,7 @@
         "activeWebContent": "no",
         "elevation": "never"
       },
-      "packageSha256": "62ef0d58f79c4410e1e5bfd1f12d935a45eca2ccafc5dfdb277b02882927defc"
+      "packageSha256": "5069218f8212a530dcc48e36843396cbf17b47138f05818b4eeab4fae0df9443"
     },
     {
       "id": "phpruntime",
@@ -200,10 +191,10 @@
       "description": {
         "english": "PHP Runtime for integrating PHP scripts with the Salamatrix framework."
       },
-      "latestVersion": "0.4 (x64)",
+      "latestVersion": "0.3 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://salamatrix.samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_phpruntime_0.4_x64/plugin_5.0_phpruntime_0.4_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_phpruntime_0.3_x64/plugin_5.0_phpruntime_0.3_x64.7z",
       "dependencies": [
         "salamatrix"
       ],
@@ -216,7 +207,7 @@
         "activeWebContent": "no",
         "elevation": "never"
       },
-      "packageSha256": "339ea44a9597eda7664effc701d1b21e78ec3719faa8e94a238d28ff11b3efbe"
+      "packageSha256": "09b08c4950580265962b2ab3183e2669bc7f57604bddb581fb775a830357ca6b"
     },
     {
       "id": "javascriptruntime",
@@ -227,10 +218,10 @@
       "description": {
         "english": "JavaScript Runtime for integrating JavaScript scripts with the Salamatrix framework."
       },
-      "latestVersion": "0.4 (x64)",
+      "latestVersion": "0.3 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://salamatrix.samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_javascriptruntime_0.4_x64_reupload/plugin_5.0_javascriptruntime_0.4_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_javascriptruntime_0.3_x64/plugin_5.0_javascriptruntime_0.3_x64.7z",
       "dependencies": [
         "salamatrix"
       ],
@@ -243,7 +234,7 @@
         "activeWebContent": "no",
         "elevation": "never"
       },
-      "packageSha256": "4797fbc693b1cd81d57088e9a06fbc5e3fbb6961ce6392cf8bb6a96e11c4c4bd"
+      "packageSha256": "435b01dc3ea836ff80064e29eb77371af228f25de75bcdac06313666d0016f48"
     },
     {
       "id": "demoplug",
@@ -274,10 +265,10 @@
         "romanian": "Plugin de demonstrație pentru scopuri de testare.",
         "spanish": "Plugin de demostración para fines de prueba."
       },
-      "latestVersion": "2.1 (x64)",
+      "latestVersion": "2.0 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://salamatrix.samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_demoplug_2.1_x64/plugin_5.0_demoplug_2.1_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_demoplug_2.0_x64/plugin_5.0_demoplug_2.0_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/demoplug.png",
       "packageType": "plugin",
       "security": {
@@ -287,7 +278,7 @@
         "activeWebContent": "no",
         "elevation": "never"
       },
-      "packageSha256": "98389a7407494b8276713379cef6849a4787628882312dba89e9385f544f992c"
+      "packageSha256": "887d44b31b616f73e5356b7d865aa583dd5f0a4bdda8ff079b0915003cee3350"
     }
   ]
 }

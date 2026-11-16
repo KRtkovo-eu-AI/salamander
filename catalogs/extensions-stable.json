@@ -1,7 +1,7 @@
 {
   "schemaVersion": 6,
   "catalogName": "Extensions Stable",
-  "generatedAt": "2026-11-16T03:56:36Z",
+  "generatedAt": "2026-08-31T02:56:50Z",
   "plugins": [
     {
       "id": "file-lock-inspector",
@@ -12,10 +12,10 @@
       "description": {
         "english": "Find processes that prevent selected files from being changed, moved, or deleted."
       },
-      "latestVersion": "1.0.3 (x64)",
+      "latestVersion": "1.0.2 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_file-lock-inspector_1.0.3_x64/plugin_5.0_file-lock-inspector_1.0.3_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_file-lock-inspector_1.0.2_x64/plugin_5.0_file-lock-inspector_1.0.2_x64.7z",
       "dependencies": [
         "powershellruntime"
       ],
@@ -28,7 +28,7 @@
         "activeWebContent": "no",
         "elevation": "never"
       },
-      "packageSha256": "c7837e92b5eb3ea25b258a3cd25b9421e032f3b55c69c25cc87bd29d64ef0e2d"
+      "packageSha256": "1e4da3ad060ebc275755a4ee61de43ddbba13b21d8bcbf2ceb4726dfe4768c87"
     },
     {
       "id": "git-worktree-navigator",
@@ -62,7 +62,7 @@
       "name": {
         "english": "Extension Menu Builder"
       },
-      "author": "Open Salamander Authors, Open Samandarin Authors",
+      "author": "Open Salamander Authors",
       "description": {
         "english": "Create and edit simple menu-driven Salamatrix extensions interactively."
       },
@@ -90,7 +90,7 @@
       "name": {
         "english": "Salamatrix Demo Sample Scripts"
       },
-      "author": "Open Salamander Authors, Open Samandarin Authors",
+      "author": "Open Salamander Authors",
       "description": {
         "english": "Demo sample scripts for the Salamatrix framework."
       },
@@ -117,9 +117,9 @@
       "name": {
         "english": "Process Explorer"
       },
-      "author": "Open Salamander Authors, Open Samandarin Authors",
+      "author": "Open Salamander Authors",
       "description": {
-        "english": "Lists running Windows processes in an Open Samandarin file-system panel."
+        "english": "Lists running Windows processes in a Salamander file-system panel."
       },
       "latestVersion": "1.3.0 (x64)",
       "versionScheme": "fileversion",
@@ -144,9 +144,9 @@
       "name": {
         "english": "Hardware Monitor"
       },
-      "author": "Open Salamander Authors, Open Samandarin Authors",
+      "author": "Open Salamander Authors",
       "description": {
-        "english": "Displays detailed hardware information, sensor readings, and system utilization in an Open Samandarin file-system panel, similar to AIDA64."
+        "english": "Displays detailed hardware information, sensor readings, and system utilization in a Salamander file-system panel, similar to AIDA64."
       },
       "latestVersion": "1.0.0 (x64)",
       "versionScheme": "fileversion",
@@ -171,9 +171,9 @@
       "name": {
         "english": "Event Viewer"
       },
-      "author": "Open Salamander Authors, Open Samandarin Authors",
+      "author": "Open Salamander Authors",
       "description": {
-        "english": "Browses Windows event logs in an Open Samandarin file-system panel."
+        "english": "Browses Windows event logs in a Salamander file-system panel."
       },
       "latestVersion": "1.0.0 (x64)",
       "versionScheme": "fileversion",
@@ -193,33 +193,6 @@
       "packageSha256": "e675b02cf8d4d68826b85d5669d60a6927e2205fd6fb446c56762f414f8a2519"
     },
     {
-      "id": "json-viewer-nodejs",
-      "packageType": "extension",
-      "name": {
-        "english": "JSON Viewer (nodeJS)"
-      },
-      "author": "Open Salamander Authors, Open Samandarin Authors",
-      "description": {
-        "english": "Lightweight WebView2 JSON viewer using the Firefox/Chrome JSON Viewer (pd4d10/json-viewer)."
-      },
-      "latestVersion": "1.2.5 (x64)",
-      "versionScheme": "fileversion",
-      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_json-viewer-nodejs_1.2.5_x64/plugin_5.0_json-viewer-nodejs_1.2.5_x64.7z",
-      "dependencies": [
-        "javascriptruntime"
-      ],
-      "icon": "https://samandarin.net/catalogs/img/plugin.png",
-      "security": {
-        "networkAccess": "no",
-        "externalProcesses": "no",
-        "scriptExecution": "yes",
-        "activeWebContent": "yes",
-        "elevation": "never"
-      },
-      "packageSha256": "8288d72d945d6a653311dff4a46cf39dcb7302289aecbfe1cf6db73c7dc8398c"
-    },
-    {
       "id": "TabuleSprZel",
       "packageType": "extension",
       "name": {
@@ -228,7 +201,7 @@
       },
       "author": "Ondřej Kotas (KRtekTM)",
       "description": {
-        "english": "Scrapes railway departures from Správa Železnic website and displays them in an Open Samandarin file-system panel.",
+        "english": "Scrapes railway departures from Správa Železnic website and displays them in Samandarin file-system panel.",
         "czech": "Získává údaje o odjezdech vlaků z webu Správy železnic a zobrazuje je v panelu souborového systému."
       },
       "latestVersion": "1.6.0 (x64)",
