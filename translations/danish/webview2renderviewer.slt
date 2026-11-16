@@ -1,0 +1,41 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\danish\webview2renderviewer\webview2renderviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1030
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"WebView2-fremviser"
+47,1,"Om plugin"
+
+[STRINGTABLE 1]
+48,1,"Fremviser til gengivet HTML, Markdown og webdokumenter med WebView2."
+49,1,"https://samandarin.net/"
+50,1,"Kan ikke forberede synkroniseringshændelsen for fremviseren."
+51,1,"Den valgte fil er for stor til at åbne. Filer større end 32 MB understøttes ikke."
+52,1,"&Fil"
+53,1,"&Vis"
+54,1,"&Luk\tEsc"
+55,1,"&Opdater\tF5"
+56,1,"&Forstør\tCtrl++"
+57,1,"Zoom &Ud\tCtrl+-"
+58,1,"&Nulstil\tCtrl+0"
+59,1,"Indlæser"
+60,1,"Klar"
+61,1,"Kan ikke initialisere WebView2-gengivelsen."
+62,1,"Kan ikke åbne den valgte fil."
+63,1,"Vis &Linjenumre"
+
+[STRINGTABLE 2]
+64,1,"&Linjeskift\tF2"
+65,1,"Vis &Blanktegn"
+66,1,"&Rediger"
+67,1,"&Kopier\tCtrl+C"
+68,1,"Vælg &Alle\tCtrl+A"
+69,1,"&Udskriv\tCtrl+P"
+

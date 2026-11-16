@@ -1,0 +1,30 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\finnish\unfat\unfat.atp"
+TEXTVERSION,"1.4 (x64)"
+VERSION,"1,4,0,197"
+
+[TRANSLATION]
+LANGID,1035
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"UnFAT"
+1001,1,"Tietoa"
+1003,1,"Selaa ja pura FAT 12, 16 ja 32 -levykuvia."
+
+[STRINGTABLE 1]
+1100,1,"Virhe avattaessa "%s"."
+1101,1,"Virhe luettaessa "%s"."
+1102,1,"Jäsennysvirhe "%s".\n\n%s"
+1103,1,"Käynnistyssektori on vioittunut tai tiedosto ei ole FAT 12/16/32-kuva."
+
+[STRINGTABLE 2]
+1104,1,"Virhe luettaessa hakemistoa "%s".\n%s\nSektori: %d, Poikkeama: 0x%s\n\nEi kelvollinen FAT 12/16/32-kuva."
+1106,1,"Virhe luettaessa tiedostoa "%s".\n%s\nKlusteri: %d\n\nEi kelvollinen FAT 12/16/32-kuva."
+1107,1,"Kirjoitusvirhe"
+1108,1,"Tiedosto "%s" näyttää olevan koko kiintolevyn kuva.\nUnFAT-laajennus ei tue tällaisia kuvia."
+1109,1,"Puretaan FAT-kuvaa - %s"
+1110,1,"puretaan: %s"
+

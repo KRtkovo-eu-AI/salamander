@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-16 | Limit creation of new repository locale directories to sftp. | Newly added sftp translations should not introduce locales for every plugin. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-11 | Add language filtering to plugin translation sync. | Keep both translation sync directions selectable for newly added languages. | | openai/gpt-5.6-luna-pro |
 <#
 .SYNOPSIS
@@ -12,6 +13,8 @@
 
     Plugin discovery is automatic: any directory under src/plugins/*/translations/ that
     contains .slt files is treated as a plugin source.
+    New top-level locale directories are created from plugin translations only for sftp;
+    other plugins are synced only into locale directories already present in translations/.
 
 .PARAMETER RepoRoot
     Path to the repository root. Auto-detected if omitted.
@@ -124,6 +127,11 @@ foreach ($pluginDir in (Get-ChildItem -Path $pluginsDir -Directory))
         $targetLangDir = Join-Path $translationsDir $langDir.Name
         if (-not (Test-Path -LiteralPath $targetLangDir))
         {
+            if ($pluginDir.Name -ine "sftp")
+            {
+                continue
+            }
+
             New-Item -ItemType Directory -Path $targetLangDir -Force | Out-Null
             Write-Host "  Created: translations\$($langDir.Name)"
         }

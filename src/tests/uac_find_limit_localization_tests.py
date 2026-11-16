@@ -16,6 +16,7 @@ LOCALES = {"arabic", "bulgarian", "chinesesimplified", "chinesetraditional", "cr
            "czech", "dutch", "french", "german", "greek", "hebrew", "hungarian",
            "indonesian", "italian", "japanese", "korean", "polish", "portuguese",
            "romanian", "russian", "slovak", "spanish", "swedish", "turkish", "ukrainian", "vietnamese"}
+FALLBACKS = {"catalan", "danish", "finnish", "lithuanian", "norwegian", "slovenian"}
 IDS = {"IDS_UAC_FIND_SCOPE_LIMIT": 14700, "IDS_FIND_ACTIVITY_INCOMPLETE": 14701,
        "IDS_UAC_FIND_SCOPE_LIMIT_CARRIED": 14702,
        "IDS_FIND_ACTIVITY_INCOMPLETE_OTHER": 14704,
@@ -61,7 +62,12 @@ class FindLimitLocalizationTests(unittest.TestCase):
                 with self.subTest(locale=path.parent.name, number=number):
                     self.assertIn(name, english)
                     self.assertEqual(len(rows[number]), 1)
-                    self.assertEqual(rows[number][0][0], '1')
+                    fallback = path.parent.name in FALLBACKS and number != 14005
+                    expected_state = '0' if fallback else '1'
+                    self.assertEqual(rows[number][0][0], expected_state)
+                    self.assertTrue(rows[number][0][1].strip())
+                    if fallback:
+                        self.assertEqual(rows[number][0][1], english[name])
                     self.assertEqual(Counter(format_token.findall(rows[number][0][1])), Counter(format_token.findall(english[name])))
 
     def test_resource_ids_and_english(self):
@@ -80,7 +86,9 @@ class FindLimitLocalizationTests(unittest.TestCase):
     def test_all_locales_and_placeholder(self):
         translations = ROOT / "translations"
         paths = {path.parent.name: path for path in translations.glob("*/salamand.slt")}
-        self.assertEqual(set(paths), LOCALES)
+        self.assertEqual(set(paths), LOCALES | FALLBACKS)
+        resources = (ROOT / "src/lang/texts.rc2").read_text(encoding="utf-8-sig")
+        english = dict(re.findall(r'^\s*(IDS_[A-Z0-9_]+),\s*"(.*)"\s*$', resources, re.M))
         for locale, path in paths.items():
             with self.subTest(locale=locale):
                 raw = path.read_bytes()
@@ -91,14 +99,17 @@ class FindLimitLocalizationTests(unittest.TestCase):
                 typed_section = text.split("[STRINGTABLE 198]", 1)[1].split("[STRINGTABLE 199]", 1)[0]
                 headers = [int(n) for n in re.findall(r"^\[STRINGTABLE (\d+)\]$", text, re.M)]
                 self.assertEqual(headers, list(range(len(headers))))
-                for number in IDS.values():
-                    pattern = r'^' + str(number) + r',1,"([^"\r\n]+)"\s*$'
+                for name, number in IDS.items():
+                    state = '0' if locale in FALLBACKS else '1'
+                    pattern = r'^' + str(number) + ',' + state + r',"([^"\r\n]+)"\s*$'
                     rows = re.findall(pattern, text, re.M)
                     self.assertEqual(len(rows), 1, (locale, number))
                     if locale == "czech" and number == 14701:
                         self.assertEqual(rows[0], "Neúplné (limit správce)")
                     expected_section = typed_section if number >= 14704 else section
                     self.assertEqual(len(re.findall(pattern, expected_section, re.M)), 1, (locale, number))
+                    if locale in FALLBACKS:
+                        self.assertEqual(rows[0], english[name], (locale, number))
                     self.assertEqual(rows[0].count("%"), number in (14700, 14702), (locale, number))
                     if number in (14700, 14702):
                         self.assertEqual(rows[0].count("%s"), 1, locale)

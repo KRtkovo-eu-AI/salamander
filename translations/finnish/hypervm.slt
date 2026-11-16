@@ -1,0 +1,54 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\finnish\hypervm\hypervm.atp"
+TEXTVERSION,"1.11 (x64)"
+VERSION,"1,11,0,197"
+
+[TRANSLATION]
+LANGID,1035
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"Hyper-V-koneet"
+47,1,"Lisäosatieto"
+
+[STRINGTABLE 1]
+48,1,"Näytä paikalliset Hyper-V-koneet paneelissa."
+49,1,"https://samandarin.net/"
+50,1,"Näytä &Hyper-V-koneet-ikkuna"
+51,1,"Luo &VHD"
+52,1,"&Liitä VHD"
+60,1,"Luo ja liitä virtuaalinen kiintolevy"
+61,1,"Liitä virtuaalikiintolevy"
+62,1,"Irrota virtuaalinen levy"
+63,1,"Sijainti:"
+
+[STRINGTABLE 2]
+64,1,"Selaa..."
+65,1,"Virtuaalilevyn koko:"
+66,1,"Virtuaalilevyn muoto"
+67,1,"Virtuaalilevyn tyyppi"
+68,1,"Tukee enintään 2040 Gt:n virtuaalilevyjä."
+69,1,"Tukee yli 2040 Gt:n virtuaalilevyjä (enintään 64 Tt) ja kestää sähkökatkoja."
+70,1,"Kiinteä koko, suositeltu"
+71,1,"Dynaamisesti kasvava"
+72,1,"Virtuaalilevytiedosto varataan enimmäiskokoonsa luotaessa."
+73,1,"Virtuaalilevytiedosto kasvaa enimmäiskokoonsa, kun siihen kirjoitetaan tietoa."
+74,1,"Vain luku."
+75,1,"Määritä virtuaalilevyn sijainti koneessa."
+76,1,"Määritä virtuaalilevyn sijainti tietokoneessa."
+77,1,"Irrota virtuaalilevy {0}?"
+78,1,"Virtuaalikiintolevy liitetty: {0}"
+79,1,"Hyper-V-koneita ei löytynyt."
+
+[STRINGTABLE 3]
+80,1,"Määritys"
+81,1,"Ei määritystä vielä."
+82,1,"OK"
+83,1,"Peruuta"
+84,1,"Virtuaalilevyt (*.vhd;*.vhdx)|*.vhd;*.vhdx"
+85,1,"Hyper-V-koneet"
+86,1,"Luo ja liitä virtuaalinen kiintolevy"
+87,1,"Liitä virtuaalikiintolevy"
+

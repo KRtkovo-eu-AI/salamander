@@ -1,0 +1,41 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\slovenian\webview2renderviewer\webview2renderviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1060
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"Pregledovalnik WebView2"
+47,1,"O vtičniku"
+
+[STRINGTABLE 1]
+48,1,"Pregledovalnik za upodobljene dokumente HTML, Markdown in splet z WebView2."
+49,1,"https://samandarin.net/"
+50,1,"Ni mogoče pripraviti dogodka za sinhronizacijo pregledovalnika."
+51,1,"Izbrane datoteke ni mogoče odpreti. Datoteke, večje od 32 MB, niso podprte."
+52,1,"&Datoteka"
+53,1,"&Pogled"
+54,1,"&Zapri\tEsc"
+55,1,"&Osveži\tF5"
+56,1,"&Povečaj\tCtrl++"
+57,1,"&Pomanjšaj\tCtrl+-"
+58,1,"&Ponastavi\tCtrl+0"
+59,1,"Nalaganje..."
+60,1,"Pripravljeno"
+61,1,"Ni mogoče zagnati upodabljalnika WebView2."
+62,1,"Izbrane datoteke ni mogoče odpreti."
+63,1,"Prikaži &številke vrstic"
+
+[STRINGTABLE 2]
+64,1,"&Zavij vrstice\tF2"
+65,1,"Prikaži &presledke"
+66,1,"&Uredi"
+67,1,"&Kopiraj\tCtrl+C"
+68,1,"Izberi &vse\tCtrl+A"
+69,1,"&Natisni...\tCtrl+P"
+

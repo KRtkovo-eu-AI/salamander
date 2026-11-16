@@ -1,0 +1,40 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\catalan\nethood\nethood.atp"
+TEXTVERSION,"1.11 (x64)"
+VERSION,"1,11,0,197"
+
+[TRANSLATION]
+LANGID,1027
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 102]
+220,127,1,"Configuració de xarxa"
+1201,7,7,106,10,1,"Mostra &administratius"
+1203,13,22,159,10,1,"Mostra recursos administratius com a &ocults"
+1202,7,37,204,10,1,"Mostra els elements de &Llocs de xarxa al nivell superior"
+1204,7,52,168,10,1,"Mostra &ordinadors de xarxa al nivell superior"
+1206,7,67,155,10,1,"Mostra &discs remots per Remote Desktop"
+1205,7,82,137,10,1,"&Escaneja xarxa en obrir Salamander"
+3000,7,99,206,1,1,""
+1,30,106,50,14,1,"OK"
+2,85,106,50,14,1,"Cancel·la"
+9,140,106,50,14,1,"Ajut"
+
+[STRINGTABLE 0]
+128,1,"Xarxa"
+129,1,"Permet accedir als ordinadors de la xarxa."
+
+[STRINGTABLE 1]
+1024,1,"Comentari"
+1025,1,"{!}<%d> objecte triat{|1|s}"
+1026,1,"Xarxa"
+1027,1,"Escanejant xarxa…"
+1028,1,"La xarxa no disponible."
+1029,1,"Sobre Plugin"
+1030,1,"%1 a %2"
+1031,1,"Equip local"
+1032,1,"Equip amfitrió"
+1033,1,"Discs de %s"
+

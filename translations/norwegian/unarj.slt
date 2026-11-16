@@ -1,0 +1,88 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\norwegian\unarj\unarj.atp"
+TEXTVERSION,"1.24 (x64)"
+VERSION,"1,24,0,197"
+
+[TRANSLATION]
+LANGID,1044
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 100]
+194,110,1,"Neste arkivvolum"
+300,12,9,170,32,1,"Sett inn disken med neste arkivvolum eller finn riktig fil på disken.\n\nTrykk OK når du er klar."
+301,12,48,60,8,1,"Forrige volum:"
+103,73,48,109,12,1,""
+302,12,62,49,8,1,"&Neste volum:"
+101,12,72,155,12,1,""
+102,170,72,13,12,1,"..."
+1,39,91,50,14,1,"OK"
+2,102,91,50,14,1,"Avbryt"
+
+[DIALOG 103]
+352,85,1,"Feil"
+300,6,10,26,8,1,"Navn:"
+104,36,10,309,8,1,""
+301,6,23,26,8,1,"Feil:"
+302,36,23,309,16,1,"Filen kan ikke pakkes ut fordi den fortsetter fra et forrige volum. For å pakke ut denne filen må du starte med et volum der filen begynner."
+105,36,44,183,12,1,"&Ikke vis denne meldingen i fremtiden."
+1,121,63,50,14,1,"OK"
+2,181,63,50,14,1,"Avbryt"
+
+[DIALOG 106]
+220,85,1,"UnARJ-konfigurasjon"
+300,23,22,154,8,1,"ved utpakking."
+107,12,10,197,12,1,"&Hopp automatisk over filer fra forrige volum"
+301,23,44,111,8,1,"kan ikke vises."
+116,12,32,197,12,1,"&Ikke vis varsel når hele arkivinnholdet"
+302,6,60,208,1,1,""
+1,57,66,50,14,1,"OK"
+2,112,66,50,14,1,"Avbryt"
+
+[DIALOG 115]
+213,107,1,"UnARJ - Varsel"
+300,11,10,194,24,1,"Ikke alle filer i multivolumarkivet kan listes (og sees i panelet), fordi noen av arkivvolumene ikke finnes."
+301,11,41,192,16,1,"For å liste hele arkivinnholdet, kopier alle arkivvolumer til samme katalog."
+105,11,66,157,12,1,"&Ikke vis denne meldingen i fremtiden"
+302,5,83,203,1,1,""
+1,153,89,50,14,1,"OK"
+
+[STRINGTABLE 0]
+1000,1,"UnARJ"
+1001,1,"Ikke nok minne."
+1002,1,"Uventet slutt på arkivfilen."
+1005,1,"Arkivet er ødelagt."
+1006,1,"Filen er i ukjent format eller ikke gyldig ARJ-arkiv."
+1007,1,"Kan ikke åpne arkivfilen."
+
+[STRINGTABLE 1]
+1008,1,"En ukjent feil oppsto."
+1010,1,"Ingen tilgang til arkivfilen."
+1011,1,"ARJ-arkivfiler (*.A*)"
+1012,1,"Velg arkivfil"
+1013,1,"Feil i komprimerte data. CRC samsvarer ikke."
+1014,1,"Kan ikke legge til arkivoppføring i fillisten."
+1015,1,"Pakker ut ARJ-arkiv - %s"
+1016,1,"forbereder data og oppretter kataloger..."
+1017,1,"pakker ut..."
+1018,1,"pakker ut: "
+1019,1,"Kan ikke få filpeker: "
+1020,1,"Kan ikke skrive til fil:"
+1021,1,"Kan ikke sette filpeker: "
+1022,1,"Kan ikke fullføre grunnet for langt banenavn."
+1023,1,"Kan ikke fullføre grunnet for lang maske."
+
+[STRINGTABLE 2]
+1024,1,"Ukjent versjon av komprimert fil."
+1025,1,"Ukjent type av komprimert fil."
+1026,1,"Filen er komprimert med en metode som UnARJ ikke støtter."
+1027,1,"Beklager, krypterte filer støttes ikke."
+1028,1,"Ugyldig volum eller ukjent arkivstruktur."
+1029,1,"Beklager, pluginen er utløpt. Se nettstedet vårt for nyere versjon."
+1030,1,"Filen mangler."
+1031,1,"Feil"
+1032,1,"Alle filer(*.*)"
+1033,1,"Bla og pakk ut ARJ-arkiver."
+1034,1,"Om plugin"
+

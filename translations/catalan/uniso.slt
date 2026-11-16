@@ -1,0 +1,111 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\catalan\uniso\uniso.atp"
+TEXTVERSION,"1.40 (x64)"
+VERSION,"1,40,0,197"
+
+[TRANSLATION]
+LANGID,1027
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 1200]
+220,83,1,"Configuració UnISO"
+1201,8,11,188,10,1,"&Neteja l'atribut només lectura copiant de l'arxiu"
+1202,8,23,198,10,1,"&Mostra la sessió com a directori (totes les sessions)"
+1203,8,35,142,10,1,"M&ostra el disc d'arrencada com a fitxer"
+3000,2,58,216,1,1,""
+1,108,64,50,14,1,"OK"
+2,163,64,50,14,1,"Cancel·la"
+
+[STRINGTABLE 0]
+1000,1,"UnISO"
+1001,1,"No es pot obrir el fitxer."
+1002,1,"Error desconegut."
+1003,1,"Desempaquetant ISO"
+1004,1,"Error en desempaquetar l'arxiu."
+1005,1,"No es pot gestionar aquest fitxer."
+1006,1,"Memòria insuficient."
+1007,1,"Quant al connector"
+
+[STRINGTABLE 1]
+1009,1,"Explora i extreu imatges ISO de CD/DVD."
+1010,1,"No es pot crear el directori temporal."
+1011,1,"No es pot suprimir el fitxer temporal."
+1012,1,"Format de fitxer desconegut o no és una imatge ISO vàlida.\n\nSi esteu segur que és vàlida, contacteu amb support@altap.cz i ajudeu-nos a admetre aquest format."
+1013,1,"No es pot obrir el fitxer '%s'."
+1014,1,"No s'ha pogut crear el fitxer temporal."
+1015,1,"No es pot definir els atributs del fitxer."
+1016,1,"No es pot crear el directori '%s'."
+1020,1,"Sí"
+1021,1,"No"
+1022,1,"Error"
+1023,1,"Avís"
+
+[STRINGTABLE 2]
+1024,1,"Errors en llegir la imatge multisessió.\n\nNomés es mostren les sessions llegides correctament."
+1025,1,"Tipus de pista desconegut."
+1026,1,"Estratègia d'assignació desconeguda (%d).\n\nContacteu amb support@altap.cz i ajudeu-nos a corregir-ho."
+1027,1,"Format incorrecte del fitxer .CCD.\n\nLa imatge pot ser incompleta."
+1028,1,"Falta el fitxer .CCD.\n\nLa imatge pot ser incompleta."
+1029,1,"No es pot llegir el sector #%08X."
+1030,1,"ID d'etiqueta UDF no vàlida."
+1031,1,"Error en llegir l'estructura de directori al sector #%08X.\n\nContingut ISO incomplet."
+1032,1,"Error intern del connector."
+1033,1,"Error en llegir la taula d'assignació virtual al sector #%08X."
+1034,1,"Falta la taula d'assignació virtual."
+1035,1,"ICB d'arrel incorrecte.\n\nNo es pot llegir el directori."
+1036,1,"El fitxer "%s" no es pot extreure.\n\nMida del fitxer diferent dels blocs ICB."
+1037,1,"No es pot obrir #%d."
+1038,1,"Aquest fitxer sembla una imatge de disquet, disc dur o partició.\nCanvieu el nom a .ima per activar el connector UnFAT."
+1039,1,"Aquesta imatge conté el sistema APFS.\nAquest sistema encara no és compatible."
+
+[STRINGTABLE 3]
+1050,1,"Capçalera no llegible. Fitxer massa petit."
+1051,1,"Estructures Partition Manager danyades."
+1052,1,"Aquesta imatge de disc no conté cap partició HFS Plus."
+1053,1,"Aquesta imatge conté HFS i no el sistema HFS Plus.\nHFS no és compatible."
+1054,1,"No es pot cercar el bloc #%08X.\nFitxer %s no s'extreurà."
+1055,1,"No es pot cercar #%08X."
+
+[STRINGTABLE 4]
+1056,1,"Tipus de node arrel BTree no compatible al Catalog."
+1057,1,"El fitxer Catalog està fragmentat en més de 8 fragments, cosa no compatible."
+1058,1,"El fitxer '%s' està fragmentat en més de 8 fragments, cosa no compatible.\nEl fitxer no s'extreurà."
+1059,1,"Aquesta imatge conté un camí massa llarg per a Open Samandarin."
+1060,1,"No es pot acabar l'operació: nom massa llarg."
+1070,1,"Capçalera no llegible. Fitxer massa petit."
+1071,1,"Aquest paquet està xifrat.\nPaquets xifrats no són compatibles."
+
+[STRINGTABLE 5]
+1072,1,"Aquest fitxer no sembla ser un paquet DMG o està incomplet.\nNo conté un peu DMG vàlid."
+1073,1,"Aquest fitxer no sembla ser un paquet DMG vàlid o està incomplet.\nNo conté una Property List vàlida."
+1074,1,"Aquest paquet no conté cap bloc de dades de la partició HFS Plus que comenci a %I64u.\nEl bloc és necessari per gestionar el paquet."
+1075,1,"No es poden llegir les dades de la imatge a %I64u."
+1076,1,"No es pot cercar a la imatge la posició %I64u."
+1077,1,"Error intern: mètode no compatible."
+1078,1,"Aquesta imatge conté un bloc comprimit amb un mètode desconegut.\nAquestes imatges no són compatibles."
+1079,1,"No s'ha pogut descomprimir un bloc ZLIB. Imatge danyada."
+1080,1,"No s'ha pogut descomprimir un bloc BZIP2. Imatge danyada."
+1085,1,"Aquest fitxer no sembla ser una imatge ISZ comprimida o està incomplet.\nNo conté una capçalera ISZ vàlida."
+1086,1,"No es pot llegir la capçalera. Fitxer massa petit."
+1087,1,"Imatge segmentada.\nImatges segmentades no compatibles."
+
+[STRINGTABLE 6]
+1088,1,"Imatge xifrada.\nImatges xifrades no compatibles."
+1100,1,"Error de lectura"
+1101,1,"Error d'escriptura"
+1102,1,"Pistes d'àudio no extraïbles."
+1103,1,"Cancel·lant l'operació, espereu..."
+
+[STRINGTABLE 7]
+1150,1,"Info. de la imatge\n\n"
+1151,1,"Dades de la imatge "%s"\n\n"
+
+[STRINGTABLE 8]
+1152,1,"Nombre de sessions: %d"
+1153,1,"\nSessió %d\n"
+1154,1,"  Nombre de pistes: %d\n"
+1155,1,"  Pista: %d, %s, Mida: %d KBytes\n"
+1156,1,"  Pista: %d, %s, Mida: %d KB - "%s"\n"
+

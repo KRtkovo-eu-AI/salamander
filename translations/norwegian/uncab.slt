@@ -1,0 +1,95 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\norwegian\uncab\uncab.atp"
+TEXTVERSION,"1.30 (x64)"
+VERSION,"1,30,0,197"
+
+[TRANSLATION]
+LANGID,1044
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 100]
+221,122,1,"Neste CAB-volum"
+112,12,9,198,32,1,""
+300,12,48,40,8,1,"Disknavn:"
+110,54,48,156,8,1,""
+301,12,59,40,8,1,"CAB-navn:"
+111,54,59,156,8,1,""
+302,12,70,22,8,1,"&Bane:"
+101,12,80,182,12,1,""
+102,197,80,13,12,1,"..."
+1,106,103,50,14,1,"OK"
+2,160,103,50,14,1,"Avbryt"
+303,6,97,209,1,1,""
+
+[DIALOG 103]
+352,85,1,"Feil"
+300,6,10,26,8,1,"Navn:"
+104,36,10,309,8,1,""
+301,6,23,26,8,1,"Feil:"
+302,36,23,309,16,1,"Filen kan ikke trekkes ut fordi den fortsetter fra forrige volum. For å trekke ut denne filen må du starte med et volum der filen begynner."
+105,36,44,183,12,1,"&Ikke vis denne meldingen igjen."
+108,91,63,50,14,1,"&Hopp"
+109,151,63,50,14,1,"Hopp &alt"
+2,211,63,50,14,1,"Avbryt"
+
+[DIALOG 106]
+220,85,1,"UnCAB-konfigurering"
+300,23,22,154,8,1,"ved utpakking."
+107,12,10,197,12,1,"&Hopp automatisk over fortsatte filer fra forrige volum"
+301,23,44,111,8,1,"kan ikke listes."
+116,12,32,197,12,1,"&Ikke vis varsler når hele arkivinnholdet"
+302,6,60,208,1,1,""
+1,57,66,50,14,1,"OK"
+2,112,66,50,14,1,"Avbryt"
+
+[DIALOG 115]
+213,108,1,"UnCAB - Varsel"
+300,11,9,193,24,1,"Ikke alle filer i flervolumsarkivet kan listes (og vises i panelet), fordi noen arkivvolumer ikke finnes."
+301,11,40,193,16,1,"For å liste hele arkivinnholdet, kopier alle arkivvolumene til samme mappe og åpne DET FØRSTE arkivvolumet."
+105,11,65,157,12,1,"&Ikke vis denne meldingen igjen"
+302,5,83,202,1,1,""
+1,154,90,50,14,1,"OK"
+
+[STRINGTABLE 0]
+1000,1,"UnCAB"
+1001,1,"Utilstrekkelig minne"
+
+[STRINGTABLE 1]
+1008,1,"En ukjent feil oppsto."
+1012,1,"Velg mappe"
+1014,1,"Kan ikke legge til arkivoppføring i fillisten."
+1015,1,"Pakker ut CAB-arkiv - %s"
+1016,1,"forbereder data og oppretter kataloger..."
+1017,1,"pakker ut..."
+1018,1,"pakker ut: "
+1019,1,"Kunne ikke få filpeker: "
+1020,1,"Kan ikke skrive til fil:"
+1021,1,"Kunne ikke angi filpeker: "
+1022,1,"Kan ikke fullføre operasjonen på grunn av for lang bane."
+1023,1,"Kan ikke fullføre på grunn av for lang maske."
+
+[STRINGTABLE 2]
+1025,1,"Beklager, pluginet har utløpt. Se nettstedet vårt for nyere versjon."
+1026,1,"Kan ikke opprette/åpne fil."
+1027,1,"Kan ikke lese fil."
+1028,1,"Kabinett mangler."
+1029,1,"Kabinettfilen har ikke riktig format."
+1030,1,"Kabinettfilen har et ukjent versjonsnummer."
+1031,1,"Kabinettfilen er skadet."
+1032,1,"Ukjent komprimeringstype i kabinettmappe."
+1033,1,"Feil ved dekomprimering av data i kabinettfil."
+1034,1,"Kabinettene i et sett har ulik RESERVE-størrelse."
+1035,1,"Avbrudd."
+1036,1,"Velg mappe som inneholder '%s'."
+1037,1,"Feilaktig kabinettfil."
+1038,1,"Filen mangler."
+1039,1,"hopp over fil"
+
+[STRINGTABLE 3]
+1040,1,"Vennligst sett inn en disk med kabinettvolumnummer %d, eller finn riktig kabinettfil på disken.\n\nTrykk OK når du er klar."
+1041,1,"Feil"
+1042,1,"Bla og pakk ut CAB-arkiver."
+1043,1,"Om plugin"
+

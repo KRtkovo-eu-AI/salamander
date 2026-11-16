@@ -1,6 +1,15 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-08-31T02:56:50Z",
+  "generatedAt": "2026-11-16T03:56:36Z",
+  "changelog": [
+    {
+      "date": "2026-11-16",
+      "summary": "Refresh the shipped package security capability inventory.",
+      "reason": "Keep the bundled trust metadata synchronized with installer packages.",
+      "ticket": "",
+      "model": "openrouter/openai/gpt-6-luna-pro"
+    }
+  ],
   "packages": [
     {
       "id": "7zip",
@@ -208,6 +217,17 @@
         "externalProcesses": "yes",
         "scriptExecution": "yes",
         "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "json-viewer-nodejs",
+      "packageType": "extension",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "yes",
+        "activeWebContent": "yes",
         "elevation": "never"
       }
     },

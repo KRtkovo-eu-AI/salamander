@@ -1,0 +1,83 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\norwegian\textviewer\textviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1044
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 8500]
+310,129,1,"Prism Text Viewer-innstillinger"
+8701,7,7,296,86,1,"Ytelse"
+8700,17,21,276,18,1,"&Hold Prism Viewer klar for raskere gjenåpning"
+8702,17,44,276,40,1,"Holder en viser klar i opptil 60 sekunder etter at en fil er lukket. Dette bruker ekstra minne (ca. 100 MB eller mer). Den første filen åpnes normalt."
+1,197,108,50,14,1,"OK"
+2,253,108,50,14,1,"Avbryt"
+
+[STRINGTABLE 0]
+46,1,"Prism Text Viewer"
+47,1,"Om plugin"
+
+[STRINGTABLE 1]
+48,1,"Innfødt viser som gjengir tekstfiler med Prism.js-syntaksutheving."
+49,1,"https://samandarin.net/"
+50,1,"Kan ikke forberede synkroniseringshendelsen som viseren krever."
+52,1,"&Fil"
+53,1,"&Vis"
+54,1,"&Lukk\tEsc"
+55,1,"&Oppdat.\tF5"
+56,1,"Øk &zoom\tCtrl++"
+57,1,"Zoom &ut\tCtrl+-"
+58,1,"&Reset\tCtrl+0"
+59,1,"Laster..."
+60,1,"Klar"
+61,1,"Kan ikke initialisere WebView2-gjengiveren."
+62,1,"Kan ikke åpne den valgte filen."
+63,1,"Vis &Linjenumre"
+
+[STRINGTABLE 2]
+64,1,"&Bryt linje\tF2"
+65,1,"Vis &Mellomrom"
+66,1,"Syntaks&Uthever"
+67,1,"&Automatisk"
+68,1,"&Farger"
+69,1,"&Visual Studio"
+70,1,"Standard &Prism"
+71,1,"&Tilpasset"
+72,1,"Rediger &Tilpasset"
+73,1,"Rediger tilpasset"
+74,1,"&Lagre"
+75,1,"Avbryt"
+76,1,"Lys"
+77,1,"Mørk"
+78,1,"Kommentar"
+79,1,"Tegnsetting"
+
+[STRINGTABLE 3]
+80,1,"Nøkkelord"
+81,1,"Kontrollord"
+82,1,"Klassenavn"
+83,1,"Funksjon"
+84,1,"Streng"
+85,1,"Tall"
+86,1,"Boolsk"
+87,1,"Variabel"
+88,1,"Navnerom"
+89,1,"Regulært uttrykk"
+90,1,"Kan ikke lagre egendefinert fargepalett."
+91,1,"Salamatrix.UI er utilgjengelig."
+92,1,"Kan ikke åpne dialog for plugin-konfigurering."
+93,1,"&Rediger"
+94,1,"&Kopier\tCtrl+C"
+95,1,"Velg &alle\tCtrl+A"
+
+[STRINGTABLE 4]
+96,1,"&Finn...\tCtrl+F"
+97,1,"Finn &neste\tF3"
+98,1,"Finn &forrige\tShift+F3"
+99,1,"&Gå til linje...\tCtrl+G"
+100,1,"&Skriv ut...\tCtrl+P"
+

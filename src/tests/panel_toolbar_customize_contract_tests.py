@@ -2,9 +2,10 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-15 | Guard localized bottom-toolbar parsing. | Incomplete or localized separators must not hide the toolbar or leave English placeholders when translated tooltips exist. | | OpenAI GPT-6 Luna Pro |
 # | 2026-11-04 | Lock the shared panel and middle toolbar catalogs. | Panel customize must keep offering every middle-toolbar command. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
 
-"""Panel toolbar customize offers the same commands as the middle toolbar."""
+"""Panel toolbar catalog and bottom-toolbar localization contracts."""
 
 from pathlib import Path
 import re
@@ -224,6 +225,38 @@ def main() -> None:
         fail("toolbar Save no longer receives the destination capacity")
     if "leftToolbar->CheckItem(CM_HELP_CONTEXT" not in mainwnd1 or "rightToolbar->CheckItem(CM_HELP_CONTEXT" not in mainwnd1:
         fail("panel toolbars do not reflect the shared context-help button state")
+
+    bottom_init = function_body(toolbar4, "BOOL CBottomToolBar::InitDataResRow", "CBottomTBStateEnum BottomTBStates")
+    for needle in (
+        "LoadStr(textResID, HInstance)",
+        "GetBottomTBSeparatorLength(end)",
+        "InitBottomTBTextFromToolTip(state, index, TRUE)",
+        "fieldCount < 12",
+        "for (int index = 0; index < 12; index++)",
+        "return TRUE;",
+    ):
+        if needle not in bottom_init:
+            fail(f"bottom toolbar localization lost tolerant row parsing ({needle})")
+    if "if (index != 12)" in bottom_init or "return FALSE;" in bottom_init:
+        fail("an incomplete localized bottom-toolbar row can still hide the entire toolbar")
+
+    tooltip_fallback = function_body(
+        toolbar4,
+        "static BOOL InitBottomTBTextFromToolTip",
+        "// Loads up to twelve localized labels.",
+    )
+    for needle in ("ToolBarButtons[buttonIndex].ToolTipResID", "IsBottomTBTextUntranslated", "TruncateUtf8TextToByteLimit"):
+        if needle not in tooltip_fallback:
+            fail(f"bottom toolbar no longer uses localized tooltip fallback ({needle})")
+
+    bottom_separators = function_body(
+        toolbar4,
+        "static int GetBottomTBSeparatorLength",
+        "static BOOL IsBottomTBTextUntranslated",
+    )
+    for separator in (r"\xE3\x80\x81", r"\xEF\xBC\x8C", r"\xD8\x8C"):
+        if separator not in bottom_separators:
+            fail(f"bottom toolbar parser no longer accepts localized separator {separator}")
 
     if 'const char* DefLeftToolBar = "36";' not in dialogs4 or 'const char* DefRightToolBar = "51";' not in dialogs4:
         fail("default panel toolbars no longer start from Change Drive")

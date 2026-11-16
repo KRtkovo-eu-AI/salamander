@@ -1,0 +1,20 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\catalan\demomenu\demomenu.atp"
+TEXTVERSION,"1.0.3 (x64)"
+VERSION,"1,0,3,197"
+
+[TRANSLATION]
+LANGID,1027
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"MenúDemo"
+47,1,"Sobre mòdul"
+
+[STRINGTABLE 1]
+48,1,"Aquest complement us ajudarà a crear un complement de menú propi."
+49,1,"samandarin.net"
+50,1,"Ordre &prova"
+

@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\norwegian\diskdir\diskdir.atp"
+TEXTVERSION,"1.1 (x64)"
+VERSION,"1,1,0,197"
+
+[TRANSLATION]
+LANGID,1044
+AUTHOR,"KRtkovo.eu"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 200]
+278,94,1,"Lag DiskDir-katalog"
+1004,8,9,29,8,1,"Katalog:"
+1001,42,9,228,8,1,""
+1005,8,23,262,1,1,""
+1002,16,32,100,12,1,"Pakk også banenavn"
+1003,16,48,126,12,1,"Pakk underkataloger rekursivt"
+1006,8,66,262,1,1,""
+1,84,74,50,14,1,"OK"
+2,144,74,50,14,1,"Avbryt"
+
+[STRINGTABLE 0]
+100,1,"DiskDir"
+101,1,"Oppretter og viser Total Commander-kompatible DiskDir-filkataloger."
+102,1,"DiskDir"
+103,1,"Om DiskDir"
+104,1,"Innebygd støtte for DiskDir-kompatible kataloger.\n\nKatalogfiler inneholder navn, størrelser og tidsstempler, ikke innhold."
+105,1,"DiskDir-katalog"
+106,1,"Katalogbanen er ugyldig eller for lang."
+107,1,"Katalognavnet er allerede i bruk av en mappe."
+108,1,"The catalog already exists:\n\n"
+109,1,"\n\nVil du overskrive den?"
+110,1,"DiskDir-kataloger lagrer ikke filinnhold, så kildefiler kan ikke flyttes."
+111,1,"Å legge til poster i eksisterende DiskDir-katalog støttes ikke."
+
+[STRINGTABLE 1]
+112,1,"Kan ikke opprette DiskDir-katalog."
+113,1,"Originalfilen som er registrert i katalogen, finnes ikke."
+114,1,"Én eller flere originalfiler i katalogen finnes ikke."
+115,1,"Kan ikke åpne katalog."
+116,1,"Katalogen er for stor."
+117,1,"Kan ikke lese katalog."
+118,1,"UTF-8-katalogen har ugyldig tekst."
+119,1,"Filen inneholder ikke en gyldig DiskDir-katalog."
+120,1,"Kan ikke skrive DiskDir-katalog."
+

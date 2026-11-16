@@ -1,0 +1,58 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\norwegian\demoview\demoview.atp"
+TEXTVERSION,"1.0.4 (x64)"
+VERSION,"1,0,4,197"
+
+[TRANSLATION]
+LANGID,1044
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 490]
+205,61,1,"Visning"
+3000,4,6,199,41,1,"Vindusposisjon"
+491,11,17,72,12,1,"&Lagre ved lukking"
+492,11,29,156,12,1,"S&ett til Salamander-vinduets posisjon"
+
+[STRINGTABLE 0]
+46,1,"DemoView"
+47,1,"Om pluginet"
+
+[STRINGTABLE 1]
+48,1,"Pluginen skal hjelpe deg å lage din egen visningsplugin."
+49,1,"samandarin.net"
+50,1,"Det har oppstått et unntak i DemoView, vennligst informer utviklerne!\nHvis du jobbet med en .DMV-fil da unntaket oppsto,\nforsøk å gjenskape feilen med denne .DMV-filen, og hvis unntaket\noppstår igjen, send oss denne .DMV-filen (vi gjenskaper og fikser feilen).\nTakk!"
+51,1,"petr.solin@altap.cz"
+52,1,"Konfigurasjonen er allerede åpnet."
+53,1,"Noen DemoView-visningsvinduer er åpne. Vil du lukke dem?"
+54,1,"DemoView-konfigurasjon"
+55,1,"Ugyldig nummer!"
+56,1,"DemoView-filer (*.dmv)|*.dmv|Alle filer (*.*)|*.*|"
+
+[STRINGTABLE 2]
+2000,1,"&Filer"
+2001,1,"&Åpne\tCtrl+O"
+2002,1,"A&vslutt"
+2010,1,"&Rediger"
+2011,1,"&Klipp\tCtrl+X"
+2012,1,"&Kopier\tCtrl+C"
+2013,1,"&Lim inn\tCtrl+V"
+
+[STRINGTABLE 3]
+2020,1,"&Visning"
+2021,1,"&Filter"
+2022,1,"Filter"
+2025,1,"&Alternativer"
+2026,1,"&Konfigurasjon..."
+
+[STRINGTABLE 4]
+2032,1,"&Hjelp"
+2033,1,"&Om"
+
+[STRINGTABLE 5]
+2500,1,"Klipp\tCtrl+X"
+2501,1,"Kopier\tCtrl+C"
+2502,1,"Lim inn\tCtrl+V"
+2503,1,"Filter\tCtrl+U"
+

@@ -8,14 +8,21 @@ import re
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 names = {'IDS_BRANCH_IDENTITY_UNAVAILABLE': 14716, 'IDS_BRANCH_LIST_LIMIT': 14717, 'IDS_BRANCH_MERGE_UNCERTAIN': 14719, 'IDS_BRANCH_MERGE_UNCERTAIN_DETAIL': 14720}
-locales = {'chinesesimplified', 'czech', 'dutch', 'french', 'german', 'hungarian', 'italian', 'romanian', 'russian', 'slovak', 'spanish'}
+locales = {'arabic', 'bulgarian', 'chinesesimplified', 'chinesetraditional', 'croatian',
+           'czech', 'dutch', 'french', 'german', 'greek', 'hebrew', 'hungarian',
+           'indonesian', 'italian', 'japanese', 'korean', 'polish', 'portuguese',
+           'romanian', 'russian', 'slovak', 'spanish', 'swedish', 'turkish', 'ukrainian', 'vietnamese'}
+fallbacks = {'catalan', 'danish', 'finnish', 'lithuanian', 'norwegian', 'slovenian'}
 header = (ROOT / 'src/texts.rh2').read_text(encoding='utf-8-sig')
 resources = (ROOT / 'src/lang/texts.rc2').read_text(encoding='utf-8-sig')
+english = {}
 for name, number in names.items():
     assert re.findall(r'^#define\s+(\w+)\s+' + str(number) + r'\s*$', header, re.M) == [name]
-    assert len(re.findall(r'^\s*' + name + r',\s*"[^"\r\n]+"\s*$', resources, re.M)) == 1
+    matches = re.findall(r'^\s*' + name + r',\s*"([^"\r\n]+)"\s*$', resources, re.M)
+    assert len(matches) == 1
+    english[number] = matches[0]
 paths = {p.parent.name: p for p in (ROOT / 'translations').glob('*/salamand.slt')}
-assert set(paths) == locales
+assert set(paths) == locales | fallbacks
 for locale, path in paths.items():
     raw = path.read_bytes()
     assert raw.startswith(b'\xef\xbb\xbf[EXPORTINFO]') and raw.count(b'\n') == raw.count(b'\r\n'), locale
@@ -24,9 +31,12 @@ for locale, path in paths.items():
     assert headers == list(range(len(headers))), locale
     section = text.split('[STRINGTABLE 198]', 1)[1].split('[STRINGTABLE 199]', 1)[0]
     for number in names.values():
-        pattern = r'^' + str(number) + r',1,"([^"\r\n]+)"\s*$'
+        state = '0' if locale in fallbacks else '1'
+        pattern = r'^' + str(number) + ',' + state + r',"([^"\r\n]+)"\s*$'
         matches = re.findall(pattern, text, re.M)
         assert len(matches) == 1 and len(re.findall(pattern, section, re.M)) == 1, (locale, number)
         assert matches[0].count('%I64u') == (1 if number == 14719 else 0), (locale, number)
         assert matches[0].count('%') == (1 if number == 14719 else 0), (locale, number)
-print('PASS: four Branch diagnostics and all 11 locale resource blocks')
+        if locale in fallbacks:
+            assert matches[0] == english[number], (locale, number)
+print('PASS: four Branch diagnostics and all 32 locale resource blocks')

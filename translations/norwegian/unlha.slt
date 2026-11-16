@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\norwegian\unlha\unlha.atp"
+TEXTVERSION,"1.16 (x64)"
+VERSION,"1,16,0,197"
+
+[TRANSLATION]
+LANGID,1044
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1,1,"Ugyldig LZH-fil eller ukjent filformat."
+2,1,"Kontrollsumfeil i overskrift.\nArkivet er ødelagt - ikke alle filer vises."
+3,1,"Ikke nok minne"
+4,1,"Skrivefeil"
+5,1,"UnLHA"
+6,1,"Feil ved åpning av arkivet"
+7,1,"Kunne ikke legge til arkivoppføring i filisten."
+8,1,"Arkivet inneholder én eller flere UNIX-symboliske lenker, som ikke vises."
+10,1,"Kan ikke pakke ut filen"
+11,1,"Feil i komprimerte data. CRC samsvarer ikke."
+12,1,"Feil ved lesing av arkivet"
+13,1,"Pakker ut LHA-arkiv - %s"
+14,1,"forbereder data og oppretter mapper..."
+15,1,"pakker ut: "
+
+[STRINGTABLE 1]
+16,1,"pakker ut..."
+17,1,"Kan ikke fullføre operasjonen: for lang filbane."
+18,1,"Kan ikke fullføre operasjonen: for lang maske."
+19,1,"Ukjent komprimeringsmetode. Filen kan ikke pakkes ut."
+20,1,"ukjent metode ignorert..."
+21,1,"Se og pakke ut LHA-arkiver."
+22,1,"Om plugin"
+

@@ -1,0 +1,30 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\norwegian\unfat\unfat.atp"
+TEXTVERSION,"1.4 (x64)"
+VERSION,"1,4,0,197"
+
+[TRANSLATION]
+LANGID,1044
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"UnFAT"
+1001,1,"Om plugin"
+1003,1,"Bla gjennom og pakke ut FAT 12/16/32-diskbilder."
+
+[STRINGTABLE 1]
+1100,1,"Feil ved åpning av "%s"."
+1101,1,"Feil ved lesing av "%s"."
+1102,1,"Tolking av "%s" feilet.\n\n%s"
+1103,1,"Oppstartssektoren er skadet, eller filen er ikke et FAT 12/16/32-bilde."
+
+[STRINGTABLE 2]
+1104,1,"Feil ved lesing av katalog i fil "%s".\n%s\nSektor: %d, offset: 0x%s\n\nFilen er ikke et FAT 12/16/32-bilde."
+1106,1,"Feil ved lesing av fil fra fil "%s".\n%s\nKlynge: %d\n\nFilen er ikke et FAT 12/16/32-bilde."
+1107,1,"Feil ved skriving"
+1108,1,"Filen "%s" ser ut til å være et bilde av en hel harddisk.\nSlike bilder støttes ikke av UnFAT-pluginen."
+1109,1,"Pakker ut FAT-bilde - %s"
+1110,1,"pakker ut: %s"
+

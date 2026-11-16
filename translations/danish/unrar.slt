@@ -1,0 +1,109 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\danish\unrar\unrar.atp"
+TEXTVERSION,"3.5 (x64)"
+VERSION,"3,5,0,197"
+
+[TRANSLATION]
+LANGID,1030
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 100]
+194,95,1,"Næste arkivvolumen"
+117,12,9,170,32,1,"Indsæt disk med næste arkivvolumen eller find den relevante fil på disken.\n\nTryk OK, når du er klar."
+300,12,48,42,8,1,"&Filnavn:"
+101,12,58,155,12,1,""
+102,170,58,13,12,1,"..."
+1,39,76,50,14,1,"OK"
+2,102,76,50,14,1,"Afbryd"
+
+[DIALOG 103]
+352,85,1,"Fejl"
+300,6,10,26,8,1,"Navn:"
+104,36,10,309,8,1,""
+301,6,23,26,8,1,"Fejl:"
+302,36,23,309,16,1,"Filen kan ikke udtrækkes, fordi den fortsættes fra forrige volumen. For at udtrække denne fil skal du starte med det volumen, hvor filen begynder."
+105,36,44,183,12,1,"&Vis ikke denne meddelelse igen."
+1,121,63,50,14,1,"OK"
+2,181,63,50,14,1,"Afbryd"
+
+[DIALOG 106]
+220,115,1,"UnRAR-konfiguration"
+107,12,10,200,12,1,"&Spring automatisk over filer fra tidligere volumener"
+116,12,32,197,12,1,"&Vis ikke advarsel, når hele arkivindholdet"
+300,23,22,154,8,1,"ved udpakning."
+301,23,44,111,8,1,"kan ikke vises."
+302,6,60,208,1,1,""
+117,12,70,200,12,1,"Vis kolonnen "&Pakket" ved visning af arkiv"
+303,6,90,208,1,1,""
+1,57,96,50,14,1,"OK"
+2,112,96,50,14,1,"Afbryd"
+
+[DIALOG 108]
+350,80,1,"Indtast kode"
+113,18,18,18,20,1,""
+300,57,10,208,8,1,"Denne fil er krypteret. Indtast adgangskode for dekryptering."
+301,57,25,17,8,1,"Fil:"
+104,97,25,240,8,1,""
+302,57,38,37,8,1,"&Kode:"
+110,97,36,157,12,1,""
+1,30,58,50,14,1,"&OK"
+112,90,58,50,14,1,"&Alt"
+109,150,58,50,14,1,"&Skip"
+111,210,58,50,14,1,"S&kip alt"
+2,270,58,50,14,1,"Afbryd"
+
+[DIALOG 115]
+213,105,1,"UnRAR - Advarsel"
+300,11,8,194,24,1,"Ikke alle filer i arkivet med flere volumener kan vises (og vises i panelet), fordi nogle arkivvolumener ikke kan findes."
+301,11,39,194,16,1,"For at liste hele arkivindholdet skal du kopiere alle volumener til samme mappe."
+105,11,64,157,12,1,"&Vis ikke denne meddelelse igen"
+302,5,81,202,1,1,""
+1,155,87,50,14,1,"OK"
+
+[STRINGTABLE 0]
+1000,1,"UnRAR"
+1001,1,"Ikke nok hukommelse"
+1002,1,"Kan ikke hente modulfilnavn."
+1003,1,"Kan ikke indlæse '%s'."
+1004,1,"Kan ikke hente procedureadresse."
+1005,1,"Arkivet er ødelagt. (Forkert kode?)"
+1006,1,"Filen er i ukendt format eller ikke et gyldigt RAR-arkiv. (Forkert kode?)"
+1007,1,"Kan ikke åbne arkivfil."
+
+[STRINGTABLE 1]
+1008,1,"Ukendt fejl opstod."
+1009,1,"Kan ikke åbne arkivvolumen."
+1010,1,"Kan ikke læse arkivfil."
+1011,1,"RAR-arkivfiler (*.R*)"
+1012,1,"Vælg arkivfil"
+1013,1,"Fejl i komprimerede data. CRC stemmer ikke. (Forkert kode?)"
+1014,1,"Kan ikke tilføje arkivpost til fillisten."
+1015,1,"Udpakker RAR-arkiv - %s"
+1016,1,"forbereder data og opretter mapper..."
+1017,1,"udpakker..."
+1018,1,"udpakker: "
+1019,1,"Kan ikke hente filpeger: "
+1020,1,"Kan ikke skrive til fil:"
+1021,1,"Kan ikke sætte filpeger: "
+1022,1,"Kan ikke gennemføre pga. for langt stinavn."
+1023,1,"Kan ikke gennemføre pga. for lang maske."
+
+[STRINGTABLE 2]
+1024,1,"Indtast mindst et tegn."
+1027,1,"Alle filer(*.*)"
+1028,1,"Fejl"
+1029,1,"Filen mangler"
+1030,1,"Forkert version af unrar.dll. Geninstaller UnRAR-pluginet."
+1031,1,"Det ser ud til at være et arkiv med flere bind. Vælg det første bind, og tryk OK.\n\nHvis det ikke er et arkiv med flere bind, tryk Annuller."
+1032,1,"Vælg første bind"
+1033,1,"Gennemse og udpak RAR-arkiver."
+1034,1,"Om plugin"
+1035,1,"Filen findes ikke i arkivet."
+1036,1,"Adgangskoden er forkert. Brug korrekt store/små bogstaver. Sørg for, at CapsLock ikke er slået til ved en fejl."
+
+[STRINGTABLE 3]
+1040,1,"Pakket"
+1041,1,"Pakket filstørrelse"
+

@@ -1,0 +1,19 @@
+Open Samandarin
+
+Open Samandarin yra bendruomenės sukurta atšaka, pagrįsta Open Salamander 5.0.
+Tai eksperimentinė atvirojo kodo versija, kurią, padedamas dirbtinio intelekto ir
+taikydamas „vibe coding“ metodą, sukūrė Ondrej Kotas (KRtekTM). Ji skirta
+eksperimentuoti mėgstantiems naudotojams; gali pasitaikyti trūkumų, todėl prieš
+naudodami svarbiems darbams perskaitykite laidos informaciją.
+
+Pagrindiniam Open Salamander kodui taikoma GNU GPL 2 arba naujesnė versija.
+Kai kuriems įtrauktiems komponentams ir papildiniams taikomos atskiros licencijos,
+įskaitant GPLv3, MIT, Zlib ir kitas atvirojo kodo licencijas. Šis trumpas pranešimas
+nepakeičia tų licencijų sąlygų; žr. saugykloje esantį LICENSE failą ir trečiųjų šalių
+pranešimus.
+
+Ši programinė įranga teikiama „tokia, kokia yra“, be jokių aiškių ar numanomų garantijų.
+Leidimas ją naudoti, kopijuoti, keisti ir platinti suteikiamas pagal atitinkamiems
+failams ir komponentams taikomas atvirojo kodo licencijas. Neiškraipykite šios atšakos
+kilmės, tinkamai pažymėkite pakeistas versijas ir išsaugokite licencijų bei autorių
+teisių pranešimus nepakeistus.

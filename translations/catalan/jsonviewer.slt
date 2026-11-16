@@ -1,0 +1,21 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\catalan\jsonviewer\jsonviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1027
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"Visor JSON .NET"
+47,1,"Sobre plugin"
+
+[STRINGTABLE 1]
+48,1,"Visor intern que mostra documents JSON amb interfície WinForms gestionada"
+49,1,"https://samandarin.net/"
+50,1,"No es pot preparar l'esdeveniment de sincronització del visor."
+51,1,"El fitxer JSON triat és massa gran per obrir-lo. No s'admeten fitxers de més de 8 MB."
+

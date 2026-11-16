@@ -1,0 +1,83 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\finnish\textviewer\textviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1035
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 8500]
+310,129,1,"Prism Text Viewer -määritys"
+8701,7,7,296,86,1,"Tehokkuus"
+8700,17,21,276,18,1,"&Pidä Prism valmiina nopeampaa avausta varten"
+8702,17,44,276,40,1,"Pitää yhden katselijan valmiina jopa 60 s tiedoston sulkemisesta. Käyttää lisämuistia (noin 100 MB tai enemmän). Ensimmäinen tiedosto avautuu normaalisti."
+1,197,108,50,14,1,"OK"
+2,253,108,50,14,1,"Peruuta"
+
+[STRINGTABLE 0]
+46,1,"Prism Text Viewer"
+47,1,"Pluginistä"
+
+[STRINGTABLE 1]
+48,1,"Natiivi katselija tekst tiedostoille Prism.js-korostuksella."
+49,1,"https://samandarin.net/"
+50,1,"Katselijan synkronointitapahtuman valmistelu epäonnistui."
+52,1,"&Tiedosto"
+53,1,"&Näytä"
+54,1,"&Sulje\tEsc"
+55,1,"&Päivitä\tF5"
+56,1,"&Lähennä\tCtrl++"
+57,1,"&Loitonna\tCtrl+-"
+58,1,"&Nollaa\tCtrl+0"
+59,1,"Ladataan"
+60,1,"Valmis"
+61,1,"WebView2-renderöinnin alustus epäonnistui."
+62,1,"Valittua tiedostoa ei avattu."
+63,1,"Näytä &rivinumerot"
+
+[STRINGTABLE 2]
+64,1,"&Rivitä\tF2"
+65,1,"Näytä &välilyönnit"
+66,1,"Syntaksin &korostus"
+67,1,"&Automaattinen"
+68,1,"&Värit"
+69,1,"&Visual Studio"
+70,1,"Oletus &Prism"
+71,1,"&Mukautettu"
+72,1,"Muokkaa &mukautettua"
+73,1,"Muokkaa mukautettua"
+74,1,"&Tallenna"
+75,1,"Peruuta"
+76,1,"Vaalea"
+77,1,"Tumma"
+78,1,"Kommentti"
+79,1,"Välimerkit"
+
+[STRINGTABLE 3]
+80,1,"Avainsana"
+81,1,"Ohjausavainsana"
+82,1,"Luokkanimi"
+83,1,"Funktio"
+84,1,"Teksti"
+85,1,"Luku"
+86,1,"Boolean"
+87,1,"Muuttuja"
+88,1,"Nimitila"
+89,1,"Regulaarilauseke"
+90,1,"Mukautettua väripalettia ei tallennu."
+91,1,"Salamatrix.UI ei ole käytössä."
+92,1,"Liitännäisen määritysikkunaa ei voitu avata."
+93,1,"&Muokkaa"
+94,1,"&Kopioi\tCtrl+C"
+95,1,"Valitse &kaikki\tCtrl+A"
+
+[STRINGTABLE 4]
+96,1,"&Etsi...\tCtrl+F"
+97,1,"Etsi &seuraava\tF3"
+98,1,"Etsi &edellinen\tShift+F3"
+99,1,"&Siirry riville...\tCtrl+G"
+100,1,"&Tulosta...\tCtrl+P"
+

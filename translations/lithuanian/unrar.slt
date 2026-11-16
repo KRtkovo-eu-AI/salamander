@@ -1,0 +1,109 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\lithuanian\unrar\unrar.atp"
+TEXTVERSION,"3.5 (x64)"
+VERSION,"3,5,0,197"
+
+[TRANSLATION]
+LANGID,1063
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 100]
+194,95,1,"Kitas archyvo tomas"
+117,12,9,170,32,1,"Įstatykite diską su kitu archyvo tomu arba nurodykite failą diske.\n\nPaspauskite OK, kai būsite pasiruošę."
+300,12,48,64,8,1,"&Failo pavadinimas:"
+101,12,58,155,12,1,""
+102,170,58,13,12,1,"..."
+1,39,76,50,14,1,"OK"
+2,102,76,50,14,1,"Atšaukti"
+
+[DIALOG 103]
+352,85,1,"Klaida"
+300,4,10,28,8,1,"Vardas:"
+104,36,10,309,8,1,""
+301,6,23,26,8,1,"Klaida:"
+302,36,23,309,16,1,"Failo negalima išskleisti, nes jis tęsiamas iš ankstesnio tomo. Pradėkite nuo tomo, kuriame prasideda failas."
+105,36,44,183,12,1,"&Nerodyti šio pranešimo ateityje."
+1,121,63,50,14,1,"OK"
+2,181,63,50,14,1,"Atšaukti"
+
+[DIALOG 106]
+220,115,1,"UnRAR konfigūracija"
+107,12,10,200,12,1,"&Automatiškai praleisti tęsiamus failus iš ankstesnių tomų"
+116,12,32,197,12,1,"&Nerodyti dėmesio, kai visas archyvo turinys"
+300,23,22,154,8,1,"išpakuojant."
+301,23,44,111,8,1,"negali būti išvardytas."
+302,6,60,208,1,1,""
+117,12,70,200,12,1,"Išvardijant rodyti „&Supakuotas“ stulpelį"
+303,6,90,208,1,1,""
+1,57,96,50,14,1,"OK"
+2,112,96,50,14,1,"Atšaukti"
+
+[DIALOG 108]
+350,80,1,"Įveskite slaptažodį"
+113,18,18,18,20,1,""
+300,57,10,202,8,1,"Šis failas užšifruotas. Įveskite slaptažodį iššifravimui."
+301,57,25,24,8,1,"Failas:"
+104,97,25,240,8,1,""
+302,57,38,42,8,1,"&Slaptažodis:"
+110,97,36,157,12,1,""
+1,30,58,50,14,1,"&OK"
+112,90,58,50,14,1,"&Visi"
+109,150,58,50,14,1,"&Praleisti"
+111,210,58,50,14,1,"&Praleisti visus"
+2,270,58,50,14,1,"Atšaukti"
+
+[DIALOG 115]
+213,105,1,"UnRAR - Dėmesio"
+300,11,8,194,24,1,"Ne visus kelių tomų archyvo failus galima išvardyti (ir rodyti skydelyje), nes kai kurių archyvo tomų nerasta."
+301,11,39,194,16,1,"Visam turiniui išvardyti nukopijuokite visus tomus į tą patį katalogą."
+105,11,64,157,12,1,"&Nerodyti šio pranešimo ateityje"
+302,5,81,202,1,1,""
+1,155,87,50,14,1,"OK"
+
+[STRINGTABLE 0]
+1000,1,"UnRAR"
+1001,1,"Nepakanka atminties."
+1002,1,"Nepavyko gauti modulio vardo."
+1003,1,"Nepavyko įkelti '%s'."
+1004,1,"Nepavyko gauti procedūros adreso"
+1005,1,"Archyvas sugadintas. (Neteis. slapt.)"
+1006,1,"Failas nepažįstamo formato arba ne RAR archyvas. (Neteisingas slaptaž.)"
+1007,1,"Nepavyko atidaryti archyvo."
+
+[STRINGTABLE 1]
+1008,1,"Įvyko nežinoma klaida."
+1009,1,"Nepavyko atidaryti tomo."
+1010,1,"Nepavyko skaityti archyvo."
+1011,1,"RAR archyvai (*.R*)"
+1012,1,"Pasirink archyvą"
+1013,1,"Klaida suspaustuose duomenyse. CRC nesutampa. (Neteis. slapt.)"
+1014,1,"Nepavyko pridėti archyvo įrašo į failų sąrašą"
+1015,1,"Išpakuojamas archyvas - %s"
+1016,1,"ruošiamasi ir kuriami katalogai..."
+1017,1,"išpakuojama"
+1018,1,"išpakuojama"
+1019,1,"Nepavyko gauti failo žymos:"
+1020,1,"Nepavyko rašyti į failą:"
+1021,1,"Nepavyko nustatyti žymos:"
+1022,1,"Nepavyko užbaigti operacijos dėl per ilgo kelio."
+1023,1,"Nepavyko užbaigti operacijos dėl per ilgos kaukės"
+
+[STRINGTABLE 2]
+1024,1,"Įveskite bent vieną simbolį."
+1027,1,"Visi failai (*.*)"
+1028,1,"Klaida"
+1029,1,"Failas nerastas"
+1030,1,"Neteisinga unrar.dll versija. Iš naujo įdiekite UnRAR papildinį."
+1031,1,"Atrodo, tai kelių tomų archyvas. Jei taip, pasirinkite pirmąjį tomą ir spauskite OK.\n\nJei tai ne kelių tomų archyvas, spauskite Atšaukti."
+1032,1,"Pasirink pirmą tomą"
+1033,1,"Naršyti ir išpakuoti RAR archyvus"
+1034,1,"Apie papildinį"
+1035,1,"Failas nerastas archyve."
+1036,1,"Slaptažodis neteisingas. Raidės įveskite atsižvelgdami į registrą. Patikrinkite, ar CapsLock neįjungtas netyčia."
+
+[STRINGTABLE 3]
+1040,1,"Supakuota"
+1041,1,"Supakuotas failo dydis"
+

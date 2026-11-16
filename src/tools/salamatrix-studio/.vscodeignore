@@ -1,3 +1,6 @@
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-16 | Exclude the lowercase signed preview-host copy from VSIX files. | Prevent case-sensitive packaging from shipping the same executable twice. | | openai/gpt-6-luna-pro |
+
 node_modules/**
 .gitignore
 src/**
@@ -14,4 +17,5 @@ dist/**/*.map
 preview-host/**
 native/**/*.pdb
 native/**/*.Signed.exe
+native/**/*.signed.exe
 resources/studio-marketplace.svg

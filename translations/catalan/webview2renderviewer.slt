@@ -1,0 +1,41 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\catalan\webview2renderviewer\webview2renderviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1027
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"Visor WebView2"
+47,1,"Sobre plugin"
+
+[STRINGTABLE 1]
+48,1,"Visor que mostra documents HTML, Markdown i web renderitzats amb WebView2."
+49,1,"https://samandarin.net/"
+50,1,"No es pot preparar l'esdeveniment de sincronització del visor."
+51,1,"El fitxer seleccionat és massa gran. No es permeten fitxers de més de 32 MB."
+52,1,"&Fitxer"
+53,1,"&Vista"
+54,1,"&Tanca\tEsc"
+55,1,"&Recarrega\tF5"
+56,1,"&Amplia\tCtrl++"
+57,1,"&Redueix\tCtrl+-"
+58,1,"&Reinicia\tCtrl+0"
+59,1,"Carregant"
+60,1,"A punt"
+61,1,"No es pot inicialitzar WebView2."
+62,1,"No es pot obrir el fitxer triat."
+63,1,"&Nombres de línia"
+
+[STRINGTABLE 2]
+64,1,"&Ajusta línies\tF2"
+65,1,"&Espais en blanc"
+66,1,"&Edita"
+67,1,"&Copia\tCtrl+C"
+68,1,"Tria &tot\tCtrl+A"
+69,1,"&Imprimeix\tCtrl+P"
+

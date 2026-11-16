@@ -1,0 +1,75 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\danish\pak\pak.atp"
+TEXTVERSION,"1.74 (x64)"
+VERSION,"1,74,0,197"
+
+[TRANSLATION]
+LANGID,1030
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 100]
+194,73,1,"Optimer PAK-arkiv"
+300,8,9,53,8,1,"Gyldig data:"
+101,64,9,118,8,1,""
+301,8,20,53,8,1,"Total størrelse:"
+102,64,20,118,8,1,""
+302,8,31,52,8,1,"Spildt plads:"
+103,64,31,118,8,1,""
+303,8,44,178,1,1,""
+1,41,53,50,14,1,"Optimer"
+2,101,53,50,14,1,"Afbryd"
+
+[STRINGTABLE 0]
+500,1,"Åbner ikke fil: %s"
+501,1,"Kan ikke initialisere paklib. En fil er allerede åben"
+502,1,"Kan ikke åbne fil, en er allerede åben."
+503,1,"Får ikke filstørrelse: %s"
+504,1,"Ugyldigt dataformat."
+505,1,"For lidt hukommelse."
+506,1,"nuværende PAK-centralkatalog"
+507,1,"Kan ikke sætte filpointer: %s"
+508,1,"Kan ikke læse fra fil: %s"
+509,1,"Kan ikke få filpointer: %s"
+510,1,"Skriver ikke til fil: %s"
+511,1,"Kan ikke tilføje fil: for langt navn."
+
+[STRINGTABLE 1]
+1000,1,"PAK"
+1001,1,"For lidt hukommelse."
+1002,1,"Kan ikke tilføje til liste."
+1003,1,"Kan ikke indlæse paklib.dll eller få adresse: "
+1004,1,"Udpakker PAK-arkiv - %s"
+1005,1,"klargør data..."
+1006,1,"udpakker..."
+1007,1,"udpakker: "
+
+[STRINGTABLE 2]
+1008,1,"Kan ikke afslutte: for langt stinavn."
+1009,1,"Kan ikke sætte filpointer: "
+1010,1,"Kan ikke få filpointer: "
+1011,1,"Skriver ikke til fil:"
+1013,1,"Kan ikke åbne fil: "
+1014,1,"Kan ikke afslutte: for lang maske."
+1015,1,"Sletter fra PAK-arkiv - %s"
+1016,1,"sletter..."
+1017,1,"sletter: "
+1018,1,"annullerer handling, vent..."
+1019,1,"Pakker til PAK-arkiv - %s"
+1020,1,"Kan ikke tilføje fil: For stor."
+1021,1,"pakker..."
+1022,1,"Kan ikke tilføje fil: For langt navn."
+1023,1,"pakker: "
+
+[STRINGTABLE 3]
+1024,1,"Kan ikke læse fra fil: "
+1025,1,"Kan ikke forbinde plugin til Open Samandarin"
+1026,1,"optimerer, vent venligst"
+1027,1,"Optimerer PAK-arkiv - %s"
+1028,1,"Sletning af filer blev ikke afsluttet. Du skal muligvis køre PAK-optimalisering fra menuen PAK-plugin for at undgå spild af diskplads."
+1029,1,"&Optimer PAK"
+1030,1,"Undskyld, pluginet er udløbet. Se vores hjemmeside for en nyere version."
+1031,1,"Gennemse og udpak Quake PAK-arkiver."
+1032,1,"Om plugin"
+

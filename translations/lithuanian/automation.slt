@@ -1,0 +1,75 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\lithuanian\automation\automation.atp"
+TEXTVERSION,"2.9 (x64)"
+VERSION,"2,9,0,197"
+
+[TRANSLATION]
+LANGID,1063
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 100]
+205,64,1,"Įvestis"
+1150,8,8,189,8,1,"Užklausa:"
+101,8,18,189,12,1,""
+1,48,42,50,14,1,"OK"
+2,107,42,50,14,1,"Atšaukti"
+
+[DIALOG 101]
+332,143,1,"Automatizavimo konfigūracija"
+375,8,9,67,8,1,"&Skriptų katalogai:"
+371,8,19,316,73,1,""
+1001,8,102,105,10,1,"Įgalinti skriptų &derinimą"
+1,75,121,50,14,1,"OK"
+2,141,121,50,14,1,"Atšaukti"
+9,207,121,50,14,1,"&Žinynas"
+
+[MENU 106]
+0,1,"[POPUP]"
+40013,1,"Naršyti…"
+40014,1,"Salamander katalogas"
+40015,1,"Aplinkos kintamasis"
+
+[STRINGTABLE 0]
+1,1,"Automatika"
+2,1,"Automatizuoja užduotis skriptais."
+3,1,"Apie papildinį"
+
+[STRINGTABLE 1]
+128,1,"Automatizavimo skripto klaida"
+129,1,"Line:\t%u\r\n"
+130,1,"Column:\t%u\r\n"
+131,1,"Error:\t%s"
+132,1,"Vykdyti sutelktą skriptą"
+134,1,"Operacijos eiga"
+135,1,"Source:\t%s\r\n"
+136,1,"Atidaryti skriptų meniu"
+137,1,"(nėra skripto)"
+138,1,"Nepavyko vykdyti skriptą '%s'.\r\n%s"
+139,1,"Nežinoma klaida."
+140,1,"1\t&Nutr."
+141,1,"1\t&Der.\t2\t&Nutrū."
+142,1,"Skriptų katalogas"
+143,1,"Pasirinkite skriptų saugyklos katalogą."
+
+[STRINGTABLE 2]
+144,1,"Nutraukti skriptą"
+145,1,"Nutraukti scenarijų\tCtrl+Break"
+146,1,"Samandarin langas užrakintas Automatizavimo papildiniu. Užbaikite vykdomą skriptą."
+147,1,"Nepavyko inicijuoti skriptų variklio."
+
+[STRINGTABLE 3]
+256,1,"Negaliojantis archyvas."
+257,1,"Dabartinio kelio uždaryti negalima."
+258,1,"Kelias sutrumpintas."
+259,1,"Negalima pakeisti ypatybės arba iškviesti %s, kol langas rodomas."
+260,1,"Negalima pakeisti ypatybės arba iškviesti %s, kol langas paslėptas."
+261,1,"Nepavyko įkelti papildinį."
+262,1,"Plugino klaida."
+263,1,"Nepavyko perkelti failą į disko talpyklą."
+264,1,"Failo kaukės klaida."
+265,1,"Į konteinerį galima pridėti tik komponentus."
+266,1,"Į konteinerį negalima pridėti formų."
+267,1,"Scenarijaus vykdymą atšaukė naudotojas."
+

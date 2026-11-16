@@ -1,0 +1,83 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\danish\textviewer\textviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1030
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 8500]
+310,129,1,"Prism-tekstviewer-konfiguration"
+8701,7,7,296,86,1,"Ydeevne"
+8700,17,21,276,18,1,"&Hold Prism Viewer klar til hurtig genåbning"
+8702,17,44,276,40,1,"Holder én viewer klar i op til 60 sek. efter lukning af en fil. Det bruger ekstra hukommelse (ca. 100 MB eller mere). Den første fil åbnes stadig normalt."
+1,197,108,50,14,1,"OK"
+2,253,108,50,14,1,"Afbryd"
+
+[STRINGTABLE 0]
+46,1,"Prism-tekstviewer"
+47,1,"Om plugin"
+
+[STRINGTABLE 1]
+48,1,"Indbygget viewer til tekstfiler med Prism.js-syntaksfremhævning."
+49,1,"https://samandarin.net/"
+50,1,"Kunne ikke forberede synkroniseringshændelsen, vieweren kræver."
+52,1,"&Fil"
+53,1,"&Vis"
+54,1,"&Luk\tEsc"
+55,1,"&Opdater\tF5"
+56,1,"&Forstør\tCtrl++"
+57,1,"Zoom &ud\tCtrl+-"
+58,1,"&Reset\tCtrl+0"
+59,1,"Henter..."
+60,1,"Klar"
+61,1,"Kan ikke initialisere WebView2-rendereren."
+62,1,"Kan ikke åbne den valgte fil."
+63,1,"Vis &linjenumre"
+
+[STRINGTABLE 2]
+64,1,"&Ombrud\tF2"
+65,1,"Vis &mellemrum"
+66,1,"Syntaks &fremhæver"
+67,1,"&Auto"
+68,1,"&Farver"
+69,1,"&Visual Studio"
+70,1,"Std. &Prisme"
+71,1,"&Egen"
+72,1,"&Tilpas"
+73,1,"Rediger egen"
+74,1,"&Gem"
+75,1,"Afbryd"
+76,1,"Lys"
+77,1,"Mørk"
+78,1,"Kommentar"
+79,1,"Punktuation"
+
+[STRINGTABLE 3]
+80,1,"Nøgleord"
+81,1,"Kontrolnøgleord"
+82,1,"Klassenavn"
+83,1,"Funktion"
+84,1,"Streng"
+85,1,"Tal"
+86,1,"Boolsk"
+87,1,"Variabel"
+88,1,"Navnerum"
+89,1,"Regulært udtryk"
+90,1,"Kunne ikke gemme brugerfarvepaletten."
+91,1,"Salamatrix.UI er utilgængelig."
+92,1,"Kunne ikke åbne pluginindstillingsdialogen."
+93,1,"&Rediger"
+94,1,"&Kopiér\tCtrl+C"
+95,1,"Markér &alt\tCtrl+A"
+
+[STRINGTABLE 4]
+96,1,"&Søg...\tCtrl+F"
+97,1,"Søg &næste\tF3"
+98,1,"Søg &forrige\tShift+F3"
+99,1,"&Gå til linje...\tCtrl+G"
+100,1,"&Udskriv...\tCtrl+P"
+

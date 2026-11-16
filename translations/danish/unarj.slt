@@ -1,0 +1,88 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\danish\unarj\unarj.atp"
+TEXTVERSION,"1.24 (x64)"
+VERSION,"1,24,0,197"
+
+[TRANSLATION]
+LANGID,1030
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 100]
+194,110,1,"Næste arkivbind"
+300,12,9,170,32,1,"Indsæt disken med det næste arkivbind, eller find den relevante fil på disken.\n\nTryk OK, når du er klar."
+301,12,48,60,8,1,"Forrige bind:"
+103,73,48,109,12,1,""
+302,12,62,49,8,1,"&Næste bind:"
+101,12,72,155,12,1,""
+102,170,72,13,12,1,"..."
+1,39,91,50,14,1,"OK"
+2,102,91,50,14,1,"Afbrud"
+
+[DIALOG 103]
+352,85,1,"Fejl"
+300,6,10,26,8,1,"Navn:"
+104,36,10,309,8,1,""
+301,6,23,26,8,1,"Fejl:"
+302,36,23,309,16,1,"Filen kan ikke udpakkes, fordi den fortsættes fra et tidligere bind. For at udpakke denne fil skal du starte med det bind, hvor filen begynder."
+105,36,44,183,12,1,"&Vis ikke denne meddelelse i fremtiden."
+1,121,63,50,14,1,"OK"
+2,181,63,50,14,1,"Afbrud"
+
+[DIALOG 106]
+220,85,1,"UnARJ-konfiguration"
+300,23,22,154,8,1,"ved udpakning."
+107,12,10,197,12,1,"&Spring automatisk over filer fra forrige bind"
+301,23,44,111,8,1,"kan ikke vises."
+116,12,32,197,12,1,"&Vis ikke advarsel, når hele arkivindholdet"
+302,6,60,208,1,1,""
+1,57,66,50,14,1,"OK"
+2,112,66,50,14,1,"Afbrud"
+
+[DIALOG 115]
+213,107,1,"UnARJ - Advarsel"
+300,11,10,194,24,1,"Ikke alle filer i det flerbindsarkiv kan vises (og ses i panelet), fordi nogle af arkivbindene ikke kan findes."
+301,11,41,192,16,1,"Kopiér alle arkivbind til samme mappe for at vise hele arkivindholdet."
+105,11,66,157,12,1,"&Vis ikke denne meddelelse i fremtiden"
+302,5,83,203,1,1,""
+1,153,89,50,14,1,"OK"
+
+[STRINGTABLE 0]
+1000,1,"UnARJ"
+1001,1,"For lidt hukommelse."
+1002,1,"Uventet afslutning af arkivfil."
+1005,1,"Arkivet er korrupt."
+1006,1,"Ukendt format eller ikke et gyldigt ARJ-arkiv."
+1007,1,"Kan ikke åbne arkivfilen."
+
+[STRINGTABLE 1]
+1008,1,"Ukendt fejl opstod."
+1010,1,"Ingen adgang til arkivfilen."
+1011,1,"ARJ-arkivfiler (*.A*)"
+1012,1,"Vælg arkivfil"
+1013,1,"Fejl i komprimerede data. CRC matcher ikke."
+1014,1,"Kan ikke tilføje arkivpost til fillisten."
+1015,1,"Udpakker ARJ-arkiv - %s"
+1016,1,"forbereder data og opretter mapper..."
+1017,1,"udpaker..."
+1018,1,"udpaker: "
+1019,1,"Kan ikke hente filmarkør: "
+1020,1,"Kan ikke skrive til fil:"
+1021,1,"Kan ikke sætte filmarkør: "
+1022,1,"Kan ikke afslutte handlingen pga. langt stinavn."
+1023,1,"Kan ikke afslutte handlingen pga. lang maske."
+
+[STRINGTABLE 2]
+1024,1,"Ukendt version af komprimeret fil."
+1025,1,"Ukendt type af komprimeret fil."
+1026,1,"Komprimeringsmetoden understøttes ikke af UnARJ-pluginnet."
+1027,1,"Beklager, krypterede filer støttes ikke."
+1028,1,"Ugyldigt volumen eller ukendt arkivstruktur."
+1029,1,"Beklager, pluginnet er udløbet. Se vores websted for en nyere version."
+1030,1,"Filen mangler."
+1031,1,"Fejl"
+1032,1,"Alle filer(*.*)"
+1033,1,"Gennemse og udpak ARJ-arkiver."
+1034,1,"Om pluginnet"
+

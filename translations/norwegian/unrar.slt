@@ -1,0 +1,109 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\norwegian\unrar\unrar.atp"
+TEXTVERSION,"3.5 (x64)"
+VERSION,"3,5,0,197"
+
+[TRANSLATION]
+LANGID,1044
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 100]
+194,95,1,"Neste arkivvolum"
+117,12,9,170,32,1,"Sett inn disken med neste arkivvolum, eller finn riktig fil på disken.\n\nTrykk OK når du er klar."
+300,12,48,42,8,1,"&Filnavn:"
+101,12,58,155,12,1,""
+102,170,58,13,12,1,"..."
+1,39,76,50,14,1,"OK"
+2,102,76,50,14,1,"Avbryt"
+
+[DIALOG 103]
+352,85,1,"Feil"
+300,6,10,26,8,1,"Navn:"
+104,36,10,309,8,1,""
+301,6,23,26,8,1,"Feil:"
+302,36,23,309,16,1,"Filen kan ikke pakkes ut fordi den fortsetter fra et forrige volum. For å pakke ut denne filen må du starte med volumet der filen begynner."
+105,36,44,183,12,1,"&Vis ikke denne meldingen igjen."
+1,121,63,50,14,1,"OK"
+2,181,63,50,14,1,"Avbryt"
+
+[DIALOG 106]
+220,115,1,"UnRAR-konfigurering"
+107,12,10,200,12,1,"&Hopp automatisk over fortsatte filer fra forrige volum"
+116,12,32,197,12,1,"&Vis ikke varsel når hele arkivinnholdet"
+300,23,22,154,8,1,"ved utpakking."
+301,23,44,111,8,1,"ikke kan listes."
+302,6,60,208,1,1,""
+117,12,70,200,12,1,"Vis kolonnen "&Pakket" ved arkivlisting"
+303,6,90,208,1,1,""
+1,57,96,50,14,1,"OK"
+2,112,96,50,14,1,"Avbryt"
+
+[DIALOG 108]
+350,80,1,"Angi passord"
+113,18,18,18,20,1,""
+300,57,10,202,8,1,"Denne filen er kryptert. Angi passord for dekryptering."
+301,57,25,17,8,1,"Fil:"
+104,97,25,240,8,1,""
+302,57,38,37,8,1,"&Passord:"
+110,97,36,157,12,1,""
+1,30,58,50,14,1,"&OK"
+112,90,58,50,14,1,"&Alt"
+109,150,58,50,14,1,"&Hopp"
+111,210,58,50,14,1,"&Hopp alt"
+2,270,58,50,14,1,"Avbryt"
+
+[DIALOG 115]
+213,105,1,"UnRAR - Varsel"
+300,11,8,194,24,1,"Ikke alle filer i arkivet med flere volum kan listes (og vises i panelet), fordi noen av arkivvolumene ikke finnes."
+301,11,39,194,16,1,"For å liste hele arkivinnholdet, kopier alle arkivvolumene til samme mappe."
+105,11,64,157,12,1,"&Ikke vis denne meldingen igjen"
+302,5,81,202,1,1,""
+1,155,87,50,14,1,"OK"
+
+[STRINGTABLE 0]
+1000,1,"UnRAR"
+1001,1,"Ikke nok minne."
+1002,1,"Kan ikke hente modulfilnavn."
+1003,1,"Kan ikke laste '%s'."
+1004,1,"Får ikke prosedyreadresse."
+1005,1,"Arkivet er skadet. (Feil passord?)"
+1006,1,"Filen er i ukjent format eller ikke et gyldig RAR-arkiv. (Feil passord?)"
+1007,1,"Kan ikke åpne arkivfilen."
+
+[STRINGTABLE 1]
+1008,1,"En ukjent feil oppsto."
+1009,1,"Kan ikke åpne arkivvolum."
+1010,1,"Kan ikke lese arkivfilen."
+1011,1,"RAR-arkivfiler (*.R*)"
+1012,1,"Velg arkivfil"
+1013,1,"Feil i komprimerte data. CRC stemmer ikke. (Feil passord?)"
+1014,1,"Kan ikke legge til arkivoppføring i listen."
+1015,1,"Pakker ut RAR-arkiv - %s"
+1016,1,"forbereder data og oppretter kataloger..."
+1017,1,"pakker ut..."
+1018,1,"pakker ut: "
+1019,1,"Kan ikke hente filpeker: "
+1020,1,"Kan ikke skrive til fil:"
+1021,1,"Kan ikke angi filpeker: "
+1022,1,"Kan ikke fullføre: for langt banenavn."
+1023,1,"Kan ikke fullføre: for lang maske."
+
+[STRINGTABLE 2]
+1024,1,"Skriv inn minst ett tegn."
+1027,1,"Alle (*.*)"
+1028,1,"Feil"
+1029,1,"Fil mangler"
+1030,1,"Feil versjon av unrar.dll. Reinstaller UnRAR-tillegget."
+1031,1,"Dette ser ut til å være et flervolumsarkiv. Velg i så fall det første arkivvolumet og trykk OK.\n\nHvis det ikke er et flervolumsarkiv, trykk Avbryt."
+1032,1,"Velg første volum"
+1033,1,"Bla og pakk ut RAR-arkiver."
+1034,1,"Om tillegget"
+1035,1,"Filen ikke funnet i arkivet."
+1036,1,"Passordet er feil. Bokstavene må skrives med riktig store/små bokstaver. Sørg for at CapsLock ikke er på ved et uhell."
+
+[STRINGTABLE 3]
+1040,1,"Pakket"
+1041,1,"Pakket filstørrelse"
+

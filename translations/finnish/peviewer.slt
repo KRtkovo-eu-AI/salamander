@@ -1,0 +1,38 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\finnish\peviewer\peviewer.atp"
+TEXTVERSION,"3.2 (x64)"
+VERSION,"3,2,0,197"
+
+[TRANSLATION]
+LANGID,1035
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 8501]
+346,154,1,"Portable Executable Viewer -määritys"
+1300,7,7,64,8,1,"&Saatavilla osiot:"
+8700,7,17,105,130,1,""
+8702,119,17,50,14,1,"&Lisää->"
+8703,119,35,50,14,1,"<- &Poista"
+1301,176,7,58,8,1,"&Näkyvät osiot:"
+8701,176,17,105,130,1,""
+8704,289,17,50,14,1,"&Ylös"
+8705,289,35,50,14,1,"&Alas"
+1,289,97,50,14,1,"OK"
+2,289,115,50,14,1,"Peruuta"
+8706,289,133,50,14,1,"N&ollaa"
+
+[STRINGTABLE 0]
+1016,1,"Lisäosatieto"
+
+[STRINGTABLE 1]
+10100,1,"Portable Executable Viewer"
+10101,1,"Tiedostoa ei avattu %s."
+10102,1,"Väliaikaistiedostoa ei voitu luoda."
+10103,1,"Tapahtui poikkeus.\n\nKatsottu tiedosto: %s\n\nJos tiedosto ei mielestäsi ole vahingoittunut, lähetä se osoitteeseen support@altap.cz.\nToistamme ja korjaamme virheen. Kiitos yhteistyöstä!"
+10104,1,"Näyttää tietoa Portable Executable -tiedostoista, kuten EXE, DLL jne."
+
+[STRINGTABLE 2]
+10118,1,"Lisäosan asetuksissa valittua Portable Executable -osiota ei löytynyt.\nKäytä valikkoa Asetukset > Lisäosan määritys > Portable Executable Viewer\nOpen Samandarin pääikkunassa näkyvien osioiden asetukseen."
+

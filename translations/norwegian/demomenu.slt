@@ -1,0 +1,20 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\norwegian\demomenu\demomenu.atp"
+TEXTVERSION,"1.0.3 (x64)"
+VERSION,"1,0,3,197"
+
+[TRANSLATION]
+LANGID,1044
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"Demomeny"
+47,1,"Om plugin"
+
+[STRINGTABLE 1]
+48,1,"Dette pluginet skal hjelpe deg å lage ditt eget menyplugin."
+49,1,"samandarin.net"
+50,1,"&Testkommando"
+

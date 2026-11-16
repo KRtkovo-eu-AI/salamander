@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Record changes to the generated package capability snapshot. | Keep the shipped trust metadata auditable when the installer package inventory changes. | | openrouter/openai/gpt-6-luna-pro |
 """Update shipped plugin and extension entries in the base catalogs.
 
 Existing catalog membership is authoritative: shipped packages already present
@@ -423,6 +425,7 @@ def apply_package_trust_fields(entry: dict[str, Any], previous: dict[str, Any] |
 def build_capabilities_snapshot(
     catalogs: dict[Path, dict[str, Any]], generated_at: str | None = None
 ) -> dict[str, Any]:
+    snapshot_timestamp = generated_at or now_utc()
     packages: list[dict[str, Any]] = []
     seen: set[str] = set()
     for catalog in catalogs.values():
@@ -450,7 +453,16 @@ def build_capabilities_snapshot(
     packages.sort(key=lambda item: str(item["id"]))
     return {
         "schemaVersion": 1,
-        "generatedAt": generated_at or now_utc(),
+        "generatedAt": snapshot_timestamp,
+        "changelog": [
+            {
+                "date": snapshot_timestamp[:10],
+                "summary": "Refresh the shipped package security capability inventory.",
+                "reason": "Keep the bundled trust metadata synchronized with installer packages.",
+                "ticket": "",
+                "model": "openrouter/openai/gpt-6-luna-pro",
+            }
+        ],
         "packages": packages,
     }
 

@@ -1,0 +1,83 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\lithuanian\textviewer\textviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1063
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 8500]
+310,129,1,"Prism teksto žiūrovo nustatymai"
+8701,7,7,296,86,1,"Našumas"
+8700,17,21,276,18,1,"&Laikyti Prism žiūrovą paruoštą greitam atidarymui"
+8702,17,44,276,40,1,"Uždarius failą, vienas žiūrovas lieka paruoštas iki 60 sek. Tam naudojama papildoma atmintis (apie 100 MB ar daugiau). Pirmas failas atsidaro įprastai."
+1,197,108,50,14,1,"OK"
+2,253,108,50,14,1,"Atšaukti"
+
+[STRINGTABLE 0]
+46,1,"Prism teksto žiūrovas"
+47,1,"Apie papildinį"
+
+[STRINGTABLE 1]
+48,1,"Vietinis žiūrovas tekstiniams failams su Prism.js sintaksės paryškinimu."
+49,1,"https://samandarin.net/"
+50,1,"Nepavyko paruošti žiūrovo reikalingą sinchronizavimo įvykį."
+52,1,"&Failas"
+53,1,"&Vaizdas"
+54,1,"&Uždaryti\tEsc"
+55,1,"&Atnaujinti\tF5"
+56,1,"&Didinti\tCtrl++"
+57,1,"&Mažinti\tCtrl+-"
+58,1,"&Atstatyti\tCtrl+0"
+59,1,"Įkeliama..."
+60,1,"Paruošta"
+61,1,"Nepavyko inicijuoti WebView2 atvaizdavimą."
+62,1,"Pasirinktas failas neatsidaro."
+63,1,"Rodyti &eilučių nr."
+
+[STRINGTABLE 2]
+64,1,"&Laužyti eilutes\tF2"
+65,1,"Rodyti &tarpelius"
+66,1,"Sintaksės &paryškintuvas"
+67,1,"&Automatinis"
+68,1,"&Spalvos"
+69,1,"&Visual Studio"
+70,1,"Numatytasis &Prism"
+71,1,"&Pasirinktinis"
+72,1,"Redag. &Pas."
+73,1,"Redaguoti pasirinktini"
+74,1,"&Įrašyti"
+75,1,"Atšaukti"
+76,1,"Šviesi"
+77,1,"Tamsi"
+78,1,"Komentaras"
+79,1,"Skyryba"
+
+[STRINGTABLE 3]
+80,1,"Raktinis žodis"
+81,1,"Valdymo raktažodis"
+82,1,"Klasės pavadinimas"
+83,1,"Funkcija"
+84,1,"Eilutė"
+85,1,"Skaičius"
+86,1,"Loginis"
+87,1,"Kintamasis"
+88,1,"Vardų erdvė"
+89,1,"Reguliarioji išraiška"
+90,1,"Nepavyksta išsaugoti spalvų paletės."
+91,1,"Salamatrix.UI nepasiekiamas."
+92,1,"Nepavyksta atidaryti papildinio nustatymų."
+93,1,"&Redaguoti"
+94,1,"&Kopijuoti\tCtrl+C"
+95,1,"Pasirinkti &viską\tCtrl+A"
+
+[STRINGTABLE 4]
+96,1,"&Rasti...\tCtrl+F"
+97,1,"Rasti &toliau\tF3"
+98,1,"Rasti &ankstesnį\tShift+F3"
+99,1,"&Eiti į eilutę...\tCtrl+G"
+100,1,"&Spausdinti...\tCtrl+P"
+

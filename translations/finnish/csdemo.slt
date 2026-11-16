@@ -1,0 +1,20 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\finnish\csdemo\csdemo.atp"
+TEXTVERSION,"1.0.6 (x64)"
+VERSION,"1,0,6,197"
+
+[TRANSLATION]
+LANGID,1035
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"C# Demo"
+47,1,"Lisäosasta"
+
+[STRINGTABLE 1]
+48,1,"Esimerkkilisäosa isännöi hallittua WinForms-UI:ta CLR:ssä."
+49,1,"https://samandarin.net/"
+50,1,"Näytä &C#-demoikkuna"
+

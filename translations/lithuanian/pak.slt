@@ -1,0 +1,75 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\lithuanian\pak\pak.atp"
+TEXTVERSION,"1.74 (x64)"
+VERSION,"1,74,0,197"
+
+[TRANSLATION]
+LANGID,1063
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 100]
+194,73,1,"PAK optimizavimas"
+300,8,9,59,8,1,"Galiojantis dydis:"
+101,64,9,118,8,1,""
+301,8,20,52,8,1,"Bendras dydis:"
+102,64,20,118,8,1,""
+302,8,31,57,8,1,"Švaistoma vieta:"
+103,64,31,118,8,1,""
+303,8,44,178,1,1,""
+1,41,53,50,14,1,"Optimizuoti"
+2,101,53,50,14,1,"Atšaukti"
+
+[STRINGTABLE 0]
+500,1,"Negalima atverti: %s"
+501,1,"Negalima inicijuoti paklib. Jau atidarytas failas."
+502,1,"Negalima atverti. Jau atidarytas failas."
+503,1,"Negalima gauti dydžio: %s"
+504,1,"Netinkamas formatas."
+505,1,"Nepakanaka atminties."
+506,1,"esamas PAK centrinis katalogas"
+507,1,"Nepavyko nustatyti žymeklio: %s"
+508,1,"Nepavyko skaityti: %s"
+509,1,"Nepavyko gauti žymeklio: %s"
+510,1,"Nepavyko rašyti: %s"
+511,1,"Nepavyksta pridėti dėl ilgo pavadinimo."
+
+[STRINGTABLE 1]
+1000,1,"PAK"
+1001,1,"Nepakanaka atminties."
+1002,1,"Nepavyko pridėti į sąrašą."
+1003,1,"Nepavyko įkelti paklib.dll arba gauti adreso: "
+1004,1,"PAK išpakavimas - %s"
+1005,1,"ruošiami duomenys..."
+1006,1,"išpakavimas..."
+1007,1,"išpakavimas: "
+
+[STRINGTABLE 2]
+1008,1,"Negalima baigti operacijos dėl per ilgo kelio."
+1009,1,"Nepavyko nustatyti žymeklio: "
+1010,1,"Nepavyko gauti žymeklio: "
+1011,1,"Nepavyko rašyti į failą:"
+1013,1,"Nepavyko atverti: "
+1014,1,"Negalima baigti operacijos dėl per ilgos kaukės."
+1015,1,"Ištrinama iš PAK archyvo - %s"
+1016,1,"trinama..."
+1017,1,"trinama: "
+1018,1,"atšaukiama operacija, palaukite..."
+1019,1,"Pakuojama į PAK archyvą - %s"
+1020,1,"Negalima pridėti didelio failo."
+1021,1,"pakuojama…"
+1022,1,"Negalima pridėti dėl ilgo pavadinimo."
+1023,1,"pakuoti: "
+
+[STRINGTABLE 3]
+1024,1,"Nepavyko skaityti failo: "
+1025,1,"Papildinys neprisijungė: Open Samandarin."
+1026,1,"optimizuojama, palaukite…"
+1027,1,"Optimizuojamas PAK - %s"
+1028,1,"Nepavyko sėkmingai baigti failų trynimo. Kad nebūtų švaistoma disko vieta, gali reikėti paleisti PAK optimizavimą iš PAK papildinio meniu."
+1029,1,"&Optimiz. PAK"
+1030,1,"Deja, papildinys nebegalioja. Naujesnę versiją rasite mūsų svetainėje."
+1031,1,"Naršyti ir išgauti Quake PAK archyvus."
+1032,1,"Apie pluginą"
+

@@ -1,0 +1,75 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\finnish\automation\automation.atp"
+TEXTVERSION,"2.9 (x64)"
+VERSION,"2,9,0,197"
+
+[TRANSLATION]
+LANGID,1035
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 100]
+205,64,1,"Syöte"
+1150,8,8,189,8,1,"Kehote:"
+101,8,18,189,12,1,""
+1,48,42,50,14,1,"OK"
+2,107,42,50,14,1,"Hylkää"
+
+[DIALOG 101]
+332,143,1,"Automaation määritys"
+375,8,9,67,8,1,"&Skriptihakemistot:"
+371,8,19,316,73,1,""
+1001,8,102,105,10,1,"Ota skriptin &debuggaus"
+1,75,121,50,14,1,"OK"
+2,141,121,50,14,1,"Hylkää"
+9,207,121,50,14,1,"&Ohje"
+
+[MENU 106]
+0,1,"[POPUP]"
+40013,1,"Selaa…"
+40014,1,"Salamander-hakemisto"
+40015,1,"Ympäristömuuttuja"
+
+[STRINGTABLE 0]
+1,1,"Automaatio"
+2,1,"Automatisoi tehtäviä skripteillä."
+3,1,"Lisäosatieto"
+
+[STRINGTABLE 1]
+128,1,"Automaatio skriptivirhe"
+129,1,"Line:\t%u\r\n"
+130,1,"Column:\t%u\r\n"
+131,1,"Error:\t%s"
+132,1,"Aja kohdeskripti"
+134,1,"Edistyminen"
+135,1,"Lähde:\t%s\r\n"
+136,1,"Skriptivalikko"
+137,1,"ei skriptiä"
+138,1,"Skriptin '%s' ajo epäonnistui.\r\n%s"
+139,1,"Tuntematon."
+140,1,"1\t&Sulje"
+141,1,"1\t&Debug\t2\t&Sulje"
+142,1,"Skriptihakemisto"
+143,1,"Valitse skriptien tietovarasto."
+
+[STRINGTABLE 2]
+144,1,"Keskeytä"
+145,1,"Keskeytä skriptiajo\tCtrl+Break"
+146,1,"Samandarin-ikkuna on automaatiolisäosan lukitsema. Päätä käynnissä oleva skripti."
+147,1,"Skriptimoottorin alustaminen epäonnistui."
+
+[STRINGTABLE 3]
+256,1,"Virheellinen."
+257,1,"Nykyistä polkua ei voi sulkea."
+258,1,"Polku katkaistiin."
+259,1,"Ominaisuutta ei voi muuttaa eikä kutsua metodia %s ikkunan näkyessä."
+260,1,"Ominaisuutta ei voi muuttaa eikä kutsua metodia %s ikkunan ollessa piilossa."
+261,1,"Laajennusta ei ladattu."
+262,1,"Laajennusvika."
+263,1,"Tiedostoa ei siirretty levyvälimuistiin."
+264,1,"Maskin syntaksivirhe."
+265,1,"Vain komponentteja voidaan lisätä säilöön."
+266,1,"Lomakkeita ei voida lisätä säilöön."
+267,1,"Käyttäjä keskeytti komentosarjan ajon."
+

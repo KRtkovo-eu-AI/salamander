@@ -5,6 +5,7 @@
 # | 2026-11-11 | Retry only invalid rows from structurally complete batches. | Avoid resending valid translations when technical-token validation rejects one row. | | openai/gpt-5.6-luna-pro |
 # | 2026-11-11 | Parallelize independent translation batches. | Reduce wall-clock time without changing validation or retry behavior. | | openai/gpt-5.6-luna-pro |
 # | 2026-11-05 | Register fifteen major-language translation stubs. | Empty language folders need LANGID metadata before AI batch translation. | | Composer |
+# | 2026-11-15 | Add Catalan, Danish, Finnish, Lithuanian, Norwegian and Slovenian localization stubs. | Register new target languages with Windows LANGID metadata for the AI translation pipeline. | | nvidia/nemotron-3.5-super-vl:free |
 #!/usr/bin/env python3
 """Translate untranslated SLT resource lines through a supported LLM provider."""
 from __future__ import annotations
@@ -46,11 +47,14 @@ class TechnicalTokenValidationError(ValueError):
 LANGUAGES = {
     "arabic": {"name": "Arabic", "locale": "ar-SA", "langid": 1025, "script": "Arabic script (RTL)"},
     "bulgarian": {"name": "Bulgarian", "locale": "bg-BG", "langid": 1026, "script": "Cyrillic"},
+    "catalan": {"name": "Catalan", "locale": "ca-ES", "langid": 1027, "script": "Catalan Latin with accents"},
     "chinesesimplified": {"name": "Simplified Chinese", "locale": "zh-CN", "langid": 2052, "script": "Simplified Chinese characters"},
     "chinesetraditional": {"name": "Traditional Chinese", "locale": "zh-TW", "langid": 1028, "script": "Traditional Chinese characters"},
     "croatian": {"name": "Croatian", "locale": "hr-HR", "langid": 1050, "script": "Croatian Latin with accents"},
     "czech": {"name": "Czech", "locale": "cs-CZ", "langid": 1029, "script": "Czech Latin with accents"},
+    "danish": {"name": "Danish", "locale": "da-DK", "langid": 1030, "script": "Danish Latin"},
     "dutch": {"name": "Dutch", "locale": "nl-NL", "langid": 1043, "script": "Dutch Latin"},
+    "finnish": {"name": "Finnish", "locale": "fi-FI", "langid": 1035, "script": "Finnish Latin with ä/ö"},
     "french": {"name": "French", "locale": "fr-FR", "langid": 1036, "script": "French Latin with accents"},
     "german": {"name": "German", "locale": "de-DE", "langid": 1031, "script": "German Latin with umlauts and ß"},
     "greek": {"name": "Greek", "locale": "el-GR", "langid": 1032, "script": "Greek alphabet"},
@@ -60,11 +64,14 @@ LANGUAGES = {
     "italian": {"name": "Italian", "locale": "it-IT", "langid": 1040, "script": "Italian Latin with accents"},
     "japanese": {"name": "Japanese", "locale": "ja-JP", "langid": 1041, "script": "Japanese kana and kanji"},
     "korean": {"name": "Korean", "locale": "ko-KR", "langid": 1042, "script": "Hangul"},
+    "lithuanian": {"name": "Lithuanian", "locale": "lt-LT", "langid": 1063, "script": "Lithuanian Latin with diacritics"},
+    "norwegian": {"name": "Norwegian", "locale": "nb-NO", "langid": 1044, "script": "Norwegian Latin"},
     "polish": {"name": "Polish", "locale": "pl-PL", "langid": 1045, "script": "Polish Latin with accents"},
     "portuguese": {"name": "Brazilian Portuguese", "locale": "pt-BR", "langid": 1046, "script": "Portuguese Latin with accents"},
     "romanian": {"name": "Romanian", "locale": "ro-RO", "langid": 1048, "script": "Romanian Latin with ș/ț diacritics"},
     "russian": {"name": "Russian", "locale": "ru-RU", "langid": 1049, "script": "Cyrillic"},
     "slovak": {"name": "Slovak", "locale": "sk-SK", "langid": 1051, "script": "Slovak Latin with accents"},
+    "slovenian": {"name": "Slovenian", "locale": "sl-SI", "langid": 1060, "script": "Slovenian Latin with accents"},
     "spanish": {"name": "Spanish", "locale": "es-ES", "langid": 3082, "script": "Spanish Latin with accents"},
     "swedish": {"name": "Swedish", "locale": "sv-SE", "langid": 1053, "script": "Swedish Latin with å/ä/ö"},
     "turkish": {"name": "Turkish", "locale": "tr-TR", "langid": 1055, "script": "Turkish Latin with ğ/ı/ş/ç/ö/ü"},

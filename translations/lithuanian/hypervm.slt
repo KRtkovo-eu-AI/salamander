@@ -1,0 +1,54 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\lithuanian\hypervm\hypervm.atp"
+TEXTVERSION,"1.11 (x64)"
+VERSION,"1,11,0,197"
+
+[TRANSLATION]
+LANGID,1063
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"Hyper-V mašinos"
+47,1,"Apie įskiepį"
+
+[STRINGTABLE 1]
+48,1,"Rodyti vietines Hyper-V mašinas skydelyje."
+49,1,"https://samandarin.net/"
+50,1,"Rodyti &Hyper-V mašinų langą"
+51,1,"Kurti &VHD"
+52,1,"&Jungti VHD"
+60,1,"Kurti ir prijungti virtualųjį diską"
+61,1,"Prijungti virtualų diską"
+62,1,"Atjungti virtualų diską"
+63,1,"Vieta:"
+
+[STRINGTABLE 2]
+64,1,"Peržiūrėti"
+65,1,"Virtualaus disko dydis:"
+66,1,"Kietojo disko formatas"
+67,1,"Virtualiojo disko tipas"
+68,1,"Palaiko virtualius diskus iki 2040 GB dydžio."
+69,1,"Palaiko didesnius nei 2040 GB virtualius diskus (maks. 64 TB) ir atsparus maitinimo triktims."
+70,1,"Fiksuotas (rekomenduojama)"
+71,1,"Dinamiškai plečiamas"
+72,1,"Virtualiojo disko failui skiriama maksimali vieta kuriant diską."
+73,1,"Virtualiojo disko failas didėja iki maksimumo rašant duomenis į jį."
+74,1,"Skaitomas."
+75,1,"Nurodykite virtualiojo disko vietą mašinoje."
+76,1,"Nurodykite virtualiojo disko vietą kompiuteryje."
+77,1,"Atjungti virtualų diską {0}?"
+78,1,"Diskas prijungtas: {0}"
+79,1,"Hyper-V mašinų nerasta."
+
+[STRINGTABLE 3]
+80,1,"Konfiguracija"
+81,1,"Konfiguracijos nėra."
+82,1,"OK"
+83,1,"Atšaukti"
+84,1,"Virtualieji diskai (*.vhd;*.vhdx)|*.vhd;*.vhdx"
+85,1,"Hyper-V mašinos"
+86,1,"Kurti ir prijungti virtualųjį diską"
+87,1,"Prijungti virtualų diską"
+

@@ -14,6 +14,7 @@ LOCALES = {"arabic", "bulgarian", "chinesesimplified", "chinesetraditional", "cr
            "indonesian", "italian", "japanese", "korean", "polish", "portuguese",
            "romanian", "russian", "slovak", "spanish", "swedish", "turkish", "ukrainian", "vietnamese"}
 RESOURCE = "IDS_UAC_RECYCLE_DIRECTORY_UNSUPPORTED"
+FALLBACKS = {"catalan", "danish", "finnish", "lithuanian", "norwegian", "slovenian"}
 NUMBER = 14703
 ENGLISH = "Moving a protected folder to the Recycle Bin with administrator privileges is not supported yet."
 
@@ -29,7 +30,7 @@ class RecycleDirectoryLocalizationTests(unittest.TestCase):
 
     def test_translations_and_no_placeholders(self):
         paths = {path.parent.name: path for path in (ROOT / "translations").glob("*/salamand.slt")}
-        self.assertEqual(set(paths), LOCALES)
+        self.assertEqual(set(paths), LOCALES | FALLBACKS)
         for locale, path in paths.items():
             with self.subTest(locale=locale):
                 raw = path.read_bytes()
@@ -37,11 +38,14 @@ class RecycleDirectoryLocalizationTests(unittest.TestCase):
                 self.assertEqual(raw.count(b"\n"), raw.count(b"\r\n"))
                 text = raw.decode("utf-8-sig")
                 section = text.split("[STRINGTABLE 197]", 1)[1].split("[STRINGTABLE 198]", 1)[0]
-                pattern = r'^14703,1,"([^"\r\n]+)"\s*$'
+                state = '0' if locale in FALLBACKS else '1'
+                pattern = r'^14703,' + state + r',"([^"\r\n]+)"\s*$'
                 rows = re.findall(pattern, text, re.M)
                 self.assertEqual(len(rows), 1)
                 self.assertEqual(len(re.findall(pattern, section, re.M)), 1)
                 self.assertNotIn("%", rows[0])
+                if locale in FALLBACKS:
+                    self.assertEqual(rows[0], ENGLISH)
                 if locale == "czech":
                     self.assertEqual(rows[0], "Přesun chráněné složky do Koše s oprávněními správce zatím není podporován.")
 

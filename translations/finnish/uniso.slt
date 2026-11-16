@@ -1,0 +1,111 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\finnish\uniso\uniso.atp"
+TEXTVERSION,"1.40 (x64)"
+VERSION,"1,40,0,197"
+
+[TRANSLATION]
+LANGID,1035
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 1200]
+220,83,1,"UnISO-asetukset"
+1201,8,11,188,10,1,"&Poista vain-luku-määrite arkistosta kopioitaessa"
+1202,8,23,198,10,1,"&Näytä istunto hakemistona (pääsy kaikkiin istuntoihin)"
+1203,8,35,108,10,1,"Nä&ytä bootlevy tiedostona"
+3000,2,58,216,1,1,""
+1,108,64,50,14,1,"OK"
+2,163,64,50,14,1,"Peru"
+
+[STRINGTABLE 0]
+1000,1,"UnISO"
+1001,1,"Ei voida avata."
+1002,1,"Tuntematon virhe."
+1003,1,"Puretaan ISO-arkistoa"
+1004,1,"Arkiston purkuvirhe."
+1005,1,"Tiedostoa ei käsitellä."
+1006,1,"Riittämätön muisti."
+1007,1,"Plugintiedot"
+
+[STRINGTABLE 1]
+1009,1,"Selaa ja pura CD/DVD ISO-levykuvat."
+1010,1,"Väliaikaishakemistoa ei voi luoda."
+1011,1,"Väliaikaistiedosto ei poistu."
+1012,1,"Tuntematon tiedostomuoto tai virheellinen ISO-kuva.\n\nJos tämä on varmasti kelvollinen ISO-kuva, ota yhteyttä support@altap.cz ja auta tukemaan tätä muotoa."
+1013,1,"Ei voida avata '%s'."
+1014,1,"Väliaikaistiedoston luonti epäonnistui"
+1015,1,"Ei voi asettaa määritteitä."
+1016,1,"Ei voi luoda hakemistoa '%s'."
+1020,1,"Joo"
+1021,1,"Ei"
+1022,1,"Virhe"
+1023,1,"Huomio"
+
+[STRINGTABLE 2]
+1024,1,"Monilevyn levykuvan lukemisessa tapahtui virheitä.\n\nNäytetään vain oikein luetut istunnot."
+1025,1,"Tuntematon raita."
+1026,1,"Tuntematon allokointistrategia (%d).\n\nOta yhteyttä: support@altap.cz auttaaksesi korjaamaan."
+1027,1,"Huono .CCD-tiedoston muoto.\n\nKuva voi olla epätäydellinen."
+1028,1,".CCD-tiedosto puuttuu.\n\nKuva voi olla epätäydellinen."
+1029,1,"Sektoria #%08X ei lueta."
+1030,1,"Väärä UDF-tunnus."
+1031,1,"Virhe luettaessa hakemistorakennetta sektorilla #%08X.\n\nISO-kuva puutteellinen."
+1032,1,"Sisäinen plugin-virhe."
+1033,1,"Virhe luettaessa virtuaalista varaustaulukkoa #%08X."
+1034,1,"Varaustaulukko puuttuu."
+1035,1,"Huono juuren ICB.\n\nHakemistorakenne ei lueta."
+1036,1,"Tiedoston "%s" purku epäonnistui.\n\nTiedoston koko ei vastaa ICB-lohkoja."
+1037,1,"Raidetta #%d ei aukea."
+1038,1,"Tämä tiedosto on levyke-, kiintolevy- tai osiolevykuva.\nNimeä se .ima-päätteeksi aktivoidaksesi UnFAT-liitännäisen."
+1039,1,"Tämä levykuva sisältää APFS-tiedostojärjestelmän.\nSitä ei tueta vielä."
+
+[STRINGTABLE 3]
+1050,1,"Otsikkoa ei voitu lukea. Tiedosto liian pieni."
+1051,1,"Vioittuneet osiohallinnan rakenteet."
+1052,1,"Tämä levykuva ei sisällä HFS Plus -osiota."
+1053,1,"Levykuva sisältää HFS:n, ei HFS Plus -tiedostojärjestelmää.\nHFS:ää ei tueta."
+1054,1,"Blokkiin #%08X ei voitu siirtyä.\nTiedosto %s ei pureta."
+1055,1,"Blokkiin #%08X ei päästy."
+
+[STRINGTABLE 4]
+1056,1,"Katalogitiedoston tukematon BTree-juurisolmun tyyppi."
+1057,1,"Katalogitiedosto on pirstoutunut yli 8 palaseksi, mikä ei ole tuettua."
+1058,1,"Tiedosto '%s' on pirstoutunut yli 8 palaseksi, mikä ei ole tuettua.\nTiedostoa ei pureta."
+1059,1,"Tämä levykuva sisältää liian pitkän polun, jota Open Samandarin ei käsittele."
+1060,1,"Toiminto keskeytyy liian pitkän nimen vuoksi."
+1070,1,"Otsikkoa ei luettu; tiedosto liian pieni."
+1071,1,"Tämä paketti on salattu.\nSalattuja paketteja ei tueta."
+
+[STRINGTABLE 5]
+1072,1,"Tiedosto ei näytä olevan DMG-paketti tai on epätäydellinen.\nSiinä ei ole kelvollista DMG-alaviitettä."
+1073,1,"Tiedosto ei ole kelvollinen DMG-paketti tai on epätäydellinen.\nSiinä ei ole kelvollista ominaisuusluetteloa."
+1074,1,"Tästä paketista puuttuu HFS Plus -osion datablokkia alkaen kohdasta %I64u.\nBlokki tarvitaan paketin asianmukaiseen käsittelyyn."
+1075,1,"Levykuvasta ei voitu lukea tietoja kohdasta %I64u."
+1076,1,"Levykuvassa ei voitu siirtyä kohtaan %I64u."
+1077,1,"Sisäinen virhe: tukematon hakutapa."
+1078,1,"Tämä levykuva sisältää tuntemattomalla menetelmällä pakatun blokin.\nTällaisia levykuvia ei tueta."
+1079,1,"ZLIB-blokin purku epäonnistui. Levykuva vaikuttaa vioittuneelta."
+1080,1,"BZIP2-blokin purku epäonnistui. Levykuva vaikuttaa vioittuneelta."
+1085,1,"Tiedosto ei näytä olevan pakattu ISZ-kuva tai on epätäydellinen.\nSiinä ei ole kelvollista ISZ-otsikkoa."
+1086,1,"Pakattua otsikkoa ei luettu; tiedosto liian pieni."
+1087,1,"Tämä kuva on segmentoitua.\nSegmentoitua ei tueta."
+
+[STRINGTABLE 6]
+1088,1,"Tämä kuva on salattu.\nSalattuja kuvia ei tueta."
+1100,1,"Lukuvirhe"
+1101,1,"Kuvausvirhe"
+1102,1,"Ääniraitoja ei voida purkaa."
+1103,1,"Keskeytetään toimintoa, odota..."
+
+[STRINGTABLE 7]
+1150,1,"Tietoa kuvasta\n\n"
+1151,1,"Tietoa kuvasta "%s"\n\n"
+
+[STRINGTABLE 8]
+1152,1,"Istuntojen määrä: %d"
+1153,1,"\nIstunto %d\n"
+1154,1,"  Raitojen määrä: %d\n"
+1155,1,"  Raita: %d, %s, Koko: %d KBytes\n"
+1156,1,"  Raita: %d, %s, Koko: %d kt - "%s"\n"
+

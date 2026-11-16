@@ -9,8 +9,11 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-LOCALES = {"chinesesimplified", "czech", "dutch", "french", "german",
-           "hungarian", "italian", "romanian", "russian", "slovak", "spanish"}
+LOCALES = {"arabic", "bulgarian", "chinesesimplified", "chinesetraditional", "croatian",
+           "czech", "dutch", "french", "german", "greek", "hebrew", "hungarian",
+           "indonesian", "italian", "japanese", "korean", "polish", "portuguese",
+           "romanian", "russian", "slovak", "spanish", "swedish", "turkish", "ukrainian", "vietnamese"}
+FALLBACKS = {"catalan", "danish", "finnish", "lithuanian", "norwegian", "slovenian"}
 IDS = {"IDS_UAC_FIND_VIEW_IDENTITY_UNAVAILABLE": 14712, "IDS_UAC_FIND_VIEW_WITH_UNAVAILABLE": 14713,
        "IDS_UAC_FIND_REFINE_IDENTITY_UNAVAILABLE": 14714}
 ENGLISH = {14712: "The verified identity of this protected result is unavailable. The file cannot be opened safely; try running the search again.",
@@ -30,7 +33,7 @@ class FindViewIdentityLocalizationTests(unittest.TestCase):
 
     def test_all_locales(self):
         paths = {path.parent.name: path for path in (ROOT / "translations").glob("*/salamand.slt")}
-        self.assertTrue(LOCALES.issubset(paths))
+        self.assertEqual(set(paths), LOCALES | FALLBACKS)
         for locale, path in paths.items():
             with self.subTest(locale=locale):
                 raw = path.read_bytes()
@@ -39,12 +42,14 @@ class FindViewIdentityLocalizationTests(unittest.TestCase):
                 text = raw.decode("utf-8-sig")
                 section = text.split("[STRINGTABLE 198]", 1)[1].split("[STRINGTABLE 199]", 1)[0]
                 for number in IDS.values():
-                    state = '1' if locale in LOCALES else '[01]'
+                    state = '0' if locale in FALLBACKS else '1'
                     pattern = r'^' + str(number) + ',' + state + r',"([^"\r\n]+)"\s*$'
                     rows = re.findall(pattern, text, re.M)
                     self.assertEqual(len(rows), 1, (locale, number))
                     self.assertEqual(len(re.findall(pattern, section, re.M)), 1, (locale, number))
                     self.assertNotIn("%", rows[0])
+                    if locale in FALLBACKS:
+                        self.assertEqual(rows[0], ENGLISH[number])
                     if number == 14713:
                         self.assertIn("F3", rows[0])
                     if locale == "czech" and number == 14712:

@@ -1,6 +1,7 @@
 # | Date | Summary | Reason | Ticket | Model |
 # | 2026-11-13 | Remove English SLG seeds after packaging. | English resources are embedded in the host and plugin binaries. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-05 | Register fifteen major-language translation stubs. | Empty language folders need LANGID metadata before AI batch translation. | | Composer |
+# | 2026-11-15 | Add Catalan, Danish, Finnish, Lithuanian, Norwegian and Slovenian localization stubs. | Register new target languages with Windows LANGID metadata for the AI translation pipeline. | | nvidia/nemotron-3.5-super-vl:free |
 <#
 .SYNOPSIS
     Build translated .slg language packs from committed .slt archives.
@@ -229,11 +230,14 @@ $pendingCopies = New-Object System.Collections.Generic.List[object]
 $languageLangIds = @{
     arabic = 1025
     bulgarian = 1026
+    catalan = 1027
     chinesesimplified = 2052
     chinesetraditional = 1028
     croatian = 1050
     czech = 1029
+    danish = 1030
     dutch = 1043
+    finnish = 1035
     french = 1036
     german = 1031
     greek = 1032
@@ -243,11 +247,14 @@ $languageLangIds = @{
     italian = 1040
     japanese = 1041
     korean = 1042
+    lithuanian = 1063
+    norwegian = 1044
     polish = 1045
     portuguese = 1046
     romanian = 1048
     russian = 1049
     slovak = 1051
+    slovenian = 1060
     spanish = 3082
     swedish = 1053
     turkish = 1055

@@ -1,0 +1,64 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\lithuanian\tar\tar.atp"
+TEXTVERSION,"3.36 (x64)"
+VERSION,"3,36,0,197"
+
+[TRANSLATION]
+LANGID,1063
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+11200,1,"TAR klaida"
+11201,1,"Archyvo formatas neatpažintas arba nepalaikomas."
+11202,1,"Sugadinta TAR antraštė, archyvas pažeistas."
+11203,1,"Sugadinta kontrolinė suma, archyvas pažeistas."
+11204,1,"Vidinė klaida: pažeista failo struktūra."
+11205,1,"Nežinomas bloko parašas – praleista."
+11206,1,"Reikiamas failas nerastas archyve."
+11207,1,"Nepaskirstyta atmintis."
+
+[STRINGTABLE 1]
+11240,1,"LZH archyvai dar nepalaikomi."
+
+[STRINGTABLE 2]
+11250,1,"Išpakuoti"
+11251,1,"Išgaunama "
+11252,1,"Praleista "
+11260,1,"GZip klaida"
+11261,1,"Nežinomas suspaudimo būdas, išgauti negalima."
+11262,1,"Failas užšifruotas. GZip archyvuose šifravimas nepalaikomas."
+11263,1,"Šis failas yra daugiadalio archyvo dalis. Daugiadaliai GZip archyvai nepalaikomi."
+
+[STRINGTABLE 3]
+11264,1,"Nežinomos GZip antraštės vėliavėlės, išgauti negalima."
+11265,1,"Archyvo atidarymo klaida: "
+11266,1,"Per anksti pasibaigė failas."
+11267,1,"Archyvo skaitymo klaida: "
+11268,1,"Išvesties failas nerašomas: "
+11269,1,"WriteFile funkcija atsisakė įrašyti visus prašytus duomenis."
+11270,1,"Neteisingas GZip srauto blokas, išgauti nepavyko."
+11271,1,"Vidinė TAR papildinio klaida, praneškite el. paštu support@altap.cz."
+11272,1,"Nepaskirstyta atmintis."
+11273,1,"CRC klaida"
+11274,1,"Netikėti duomenys suspaustame sraute, archyvas pažeistas"
+11275,1,"Archyvo paieška nepavyko: "
+
+[STRINGTABLE 4]
+11280,1,"RPM peržiūra"
+11281,1,"RPM klaida"
+11282,1,"Laikinas pavadinimas nesukurtas."
+11283,1,"Laikinas failas nesukurtas."
+11284,1,"Failas neatpažintas kaip RPM archyvas."
+11285,1,"Šio archyvo prašyta RPM versija nepalaikoma."
+11286,1,"Nežinomas RPM archyvo parašas."
+11291,1,"Blogas failo įrašo parašas."
+11292,1,"Failo antraštė sugadinta."
+11293,1,"Nežinomas cpio formatas."
+
+[STRINGTABLE 5]
+11299,1,"TAR"
+11300,1,"Žiūrėti ir išgauti Unix archyvus."
+11301,1,"Apie įskiepį"
+

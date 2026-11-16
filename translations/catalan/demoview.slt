@@ -1,0 +1,58 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\catalan\demoview\demoview.atp"
+TEXTVERSION,"1.0.4 (x64)"
+VERSION,"1,0,4,197"
+
+[TRANSLATION]
+LANGID,1027
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 490]
+205,61,1,"Visor"
+3000,4,6,199,41,1,"Ubicació"
+491,11,17,63,12,1,"&Desa en tanc."
+492,11,29,156,12,1,"&Posició de la finestra del Salamander"
+
+[STRINGTABLE 0]
+46,1,"DemoView"
+47,1,"Quant a"
+
+[STRINGTABLE 1]
+48,1,"Aquest connector us ajudarà a crear el vostre propi visor."
+49,1,"samandarin.net"
+50,1,"S'ha produït una excepció a DemoView; informeu-ne els autors!\nSi estàveu treballant amb un fitxer .DMV quan s'ha produït l'excepció,\nproveu de reproduir l'error amb aquest fitxer .DMV i, si l'excepció\nes torna a produir, envieu-nos el fitxer .DMV (reproduirem l'error i el corregirem).\nGràcies!"
+51,1,"petr.solin@altap.cz"
+52,1,"La configuració ja està oberta."
+53,1,"Hi ha finestres del visor DemoView obertes. Voleu tancar-les?"
+54,1,"Configuració de DemoView"
+55,1,"Nombre no vàlid!"
+56,1,"DemoView (*.dmv)|*.dmv|Tots (*.*)|*.*|"
+
+[STRINGTABLE 2]
+2000,1,"&Arxiu"
+2001,1,"&Obre\tCtrl+O"
+2002,1,"S&urt"
+2010,1,"&Edit"
+2011,1,"&Talla\tCtrl+X"
+2012,1,"&Copia\tCtrl+C"
+2013,1,"&Enganxa\tCtrl+V"
+
+[STRINGTABLE 3]
+2020,1,"&Vista"
+2021,1,"&Filtre"
+2022,1,"Filtra"
+2025,1,"&Opcions"
+2026,1,"&Configuració..."
+
+[STRINGTABLE 4]
+2032,1,"&Ajuda"
+2033,1,"&Info"
+
+[STRINGTABLE 5]
+2500,1,"Talla\tCtrl+X"
+2501,1,"Copia\tCtrl+C"
+2502,1,"Enganxa\tCtrl+V"
+2503,1,"Filtra\tCtrl+U"
+

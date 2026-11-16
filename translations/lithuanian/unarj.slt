@@ -1,0 +1,88 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\lithuanian\unarj\unarj.atp"
+TEXTVERSION,"1.24 (x64)"
+VERSION,"1,24,0,197"
+
+[TRANSLATION]
+LANGID,1063
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 100]
+194,110,1,"Kitas archyvo tomas"
+300,12,9,170,32,1,"Įdėkite diską su kitu archyvo tomu arba raskite tinkamą failą diske.\n\nPaspauskite OK, kai būsite pasirengę."
+301,12,48,60,8,1,"Ankst. tomas:"
+103,73,48,109,12,1,""
+302,12,62,49,8,1,"&Kitas tomas:"
+101,12,72,155,12,1,""
+102,170,72,13,12,1,"..."
+1,39,91,50,14,1,"OK"
+2,102,91,50,14,1,"Atšaukti"
+
+[DIALOG 103]
+352,85,1,"Klaida"
+300,4,10,28,8,1,"Vardas:"
+104,36,10,309,8,1,""
+301,6,23,26,8,1,"Klaida:"
+302,36,23,309,16,1,"Failo negalima išskleisti, nes jis tęsiamas iš ankstesnio tomo. Norėdami išskleisti šį failą, pradėkite nuo tomo, kuriame failas prasideda."
+105,36,44,183,12,1,"&Nerodyti šio pranešimo ateityje."
+1,121,63,50,14,1,"OK"
+2,181,63,50,14,1,"Atšaukti"
+
+[DIALOG 106]
+220,85,1,"UnARJ konfigūracija"
+300,23,22,154,8,1,"išpakuojant."
+107,12,10,197,12,1,"&Automatiškai praleisti tęsiamus ankstesnio tomo failus"
+301,23,44,111,8,1,"negalima rodyti."
+116,12,32,197,12,1,"&Nerodyti dėmesio, kai visas archyvo turinys"
+302,6,60,208,1,1,""
+1,57,66,50,14,1,"OK"
+2,112,66,50,14,1,"Atšaukti"
+
+[DIALOG 115]
+213,107,1,"UnARJ - Dėmesio"
+300,11,10,194,24,1,"Visi failai daugiatomiame archyve negali būti išvardyti (ir matomi skydelyje), nes kai kurie archyvo tomai nerasti."
+301,11,41,192,16,1,"Norėdami matyti visą turinį, nukopijuokite visus tomus į tą patį katalogą."
+105,11,66,157,12,1,"&Nerodyti šio pranešimo ateityje"
+302,5,83,203,1,1,""
+1,153,89,50,14,1,"OK"
+
+[STRINGTABLE 0]
+1000,1,"UnARJ"
+1001,1,"Nepakanka atminties."
+1002,1,"Netikėta archyvo failo pabaiga."
+1005,1,"Archyvas sugadintas."
+1006,1,"Failas nežinomo formato arba netinkamas ARJ archyvas."
+1007,1,"Negalima atidaryti archyvo."
+
+[STRINGTABLE 1]
+1008,1,"Įvyko nežinoma klaida."
+1010,1,"Nepavyksta pasiekti archyvo."
+1011,1,"ARJ archyvai (*.A*)"
+1012,1,"Pasirinkite archyvą"
+1013,1,"Suglaudintų duomenų klaida. CRC nesutampa."
+1014,1,"Nepavyko įtraukti archyvo įrašo į sąrašą."
+1015,1,"Išpakuojama ARJ - %s"
+1016,1,"Rengiami duomenys ir kuriami katalogai..."
+1017,1,"išpakuojama"
+1018,1,"išpakuoti: "
+1019,1,"Nepavyko gauti žymeklio: "
+1020,1,"Nepavyko rašyti faile:"
+1021,1,"Nepavyko nustatyti žymeklį: "
+1022,1,"Nepavyko užbaigti dėl per ilgo kelio pavadinimo."
+1023,1,"Nepavyko užbaigti dėl per ilgos kaukės."
+
+[STRINGTABLE 2]
+1024,1,"Nežinoma suspausto failo versija."
+1025,1,"Nežinomas suspausto failo tipas."
+1026,1,"Failas suspaustas metodu, kurio nepalaiko UnARJ įskiepis."
+1027,1,"Atsiprašome, šifruoti failai nepalaikomi."
+1028,1,"Neteisingas tomas arba nežinoma struktūra."
+1029,1,"Atsiprašome, įskiepis nebegalioja. Naujausią versiją rasite mūsų svetainėje."
+1030,1,"Failas nerastas"
+1031,1,"Klaida"
+1032,1,"Visi (*.*)"
+1033,1,"Naršyti ir išpakuoti ARJ"
+1034,1,"Apie įskiepį"
+

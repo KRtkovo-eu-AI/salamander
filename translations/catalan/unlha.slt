@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\catalan\unlha\unlha.atp"
+TEXTVERSION,"1.16 (x64)"
+VERSION,"1,16,0,197"
+
+[TRANSLATION]
+LANGID,1027
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1,1,"Fitxer LZH no vàlid o format desconegut."
+2,1,"Error de checksum de capçalera.\nL'arxiu està danyat; no es pot llistar tot."
+3,1,"Sense memòria."
+4,1,"Error d'escriptura"
+5,1,"UnLHA"
+6,1,"Error en obrir l'arxiu."
+7,1,"No es pot afegir l'entrada a la llista."
+8,1,"L'arxiu conté un o més enllaços simbòlics UNIX, que no es mostraran."
+10,1,"No es pot desempaquetar"
+11,1,"Error en dades comprimides. CRC incorrecte."
+12,1,"Error en llegir l'arxiu."
+13,1,"Desempaquetant LHA - %s"
+14,1,"preparant dades i creant directoris..."
+15,1,"extraient: "
+
+[STRINGTABLE 1]
+16,1,"extraient..."
+17,1,"No es pot acabar l'operació: nom de ruta massa llarg."
+18,1,"No es pot fer l'operació: màscara massa llarga."
+19,1,"Mètode de compressió desconegut. No es pot desempaquetar"
+20,1,"mètode desconegut omès..."
+21,1,"Explora i extreu arxius LHA."
+22,1,"Sobre plugin"
+

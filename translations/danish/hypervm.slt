@@ -1,0 +1,54 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\danish\hypervm\hypervm.atp"
+TEXTVERSION,"1.11 (x64)"
+VERSION,"1,11,0,197"
+
+[TRANSLATION]
+LANGID,1030
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"Hyper-V-maskiner"
+47,1,"Om plugin"
+
+[STRINGTABLE 1]
+48,1,"Vis lokale Hyper-V-maskiner i panelet."
+49,1,"https://samandarin.net/"
+50,1,"Vis &Hyper-V-maskinervindue"
+51,1,"Opret &VHD"
+52,1,"Tilføj &VHD"
+60,1,"Opret og tilføj virtuel harddisk"
+61,1,"Tilføj virtuel harddisk"
+62,1,"Frakobl virtuel harddisk"
+63,1,"Lokation:"
+
+[STRINGTABLE 2]
+64,1,"Vælg..."
+65,1,"Størrelse på harddisk:"
+66,1,"Virtuel harddiskformat"
+67,1,"Virtuel harddisktype"
+68,1,"Understøtter virtuelle diske op til 2040 GB."
+69,1,"Understøtter virtuelle diske over 2040 GB (maks. 64 TB) og er modstandsdygtig over for strømsvigt."
+70,1,"Fast størrelse (anbef.)"
+71,1,"Dynamisk udvidende"
+72,1,"Den virtuelle harddiskfil tildeles maks. størrelse ved oprettelse."
+73,1,"Den virtuelle harddiskfil vokser til maks. størrelse, mens der skrives data."
+74,1,"Kun læs."
+75,1,"Angiv placeringen af den virtuelle harddisk."
+76,1,"Angiv placeringen af den virtuelle harddisk."
+77,1,"Frakobl virtuel harddisk {0}?"
+78,1,"Virtuel harddisk tilføjet: {0}"
+79,1,"Ingen Hyper-V-maskiner fundet."
+
+[STRINGTABLE 3]
+80,1,"Konfiguration"
+81,1,"Ingen konfiguration."
+82,1,"OK"
+83,1,"Afbryd"
+84,1,"Virtuelle harddiske (*.vhd;*.vhdx)|*.vhd;*.vhdx"
+85,1,"Hyper-V-maskiner"
+86,1,"Opret og tilføj virtuel harddisk"
+87,1,"Tilføj virtuel harddisk"
+

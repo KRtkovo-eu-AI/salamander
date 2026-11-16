@@ -1,0 +1,111 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\lithuanian\uniso\uniso.atp"
+TEXTVERSION,"1.40 (x64)"
+VERSION,"1,40,0,197"
+
+[TRANSLATION]
+LANGID,1063
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 1200]
+220,83,1,"UnISO konfigūracija"
+1201,8,11,188,10,1,"&Išvalyti skaitymo atributą kopijuojant iš archyvo"
+1202,8,23,198,10,1,"&Rodyti sesiją kaip katalogą (leisti visas sesijas)"
+1203,8,35,114,10,1,"&Rodyti įkrovos vaizdą kaip failą"
+3000,2,58,216,1,1,""
+1,108,64,50,14,1,"OK"
+2,163,64,50,14,1,"Atšaukti"
+
+[STRINGTABLE 0]
+1000,1,"UnISO"
+1001,1,"Failas neatsidaro"
+1002,1,"Nenurodyta klaida."
+1003,1,"Išpakuojamas ISO archyvas"
+1004,1,"Klaida išpakuojant archyvą."
+1005,1,"Failo apdoroti negalima."
+1006,1,"Nepakanka atminties."
+1007,1,"Apie įskiepį"
+
+[STRINGTABLE 1]
+1009,1,"Peržiūrėti ir išgauti CD/DVD ISO failus."
+1010,1,"Sukurti laikiną katalogą nepavyko."
+1011,1,"Laikinas failas neištrintas."
+1012,1,"Nežinomas failo formatas arba netinkamas ISO vaizdas.\n\nJei tai tikrai tinkamas ISO vaizdas, rašykite support@altap.cz ir padėkite palaikyti šį formatą."
+1013,1,"'%s' neatsidaro."
+1014,1,"Nepavyko sukurti laikino failo."
+1015,1,"Nepavyko pakeisti atributų."
+1016,1,"Katalogas '%s' nesukurtas."
+1020,1,"Taip"
+1021,1,"Ne"
+1022,1,"Klaida"
+1023,1,"Įspėjimas"
+
+[STRINGTABLE 2]
+1024,1,"Skaitydami kelių sesijų vaizdą aptikta klaidų.\n\nRodomos tik tinkamai nuskaitytos sesijos."
+1025,1,"Nežinomas takelio tipas."
+1026,1,"Nežinoma paskirstymo strategija (%d).\n\nKreipkitės į support@altap.cz ir padėkite išspręsti."
+1027,1,"Blogas .CCD failo formatas.\n\nVaizdas gali būti nepilnas."
+1028,1,"Trūksta .CCD failo.\n\nVaizdas gali būti nepilnas."
+1029,1,"Negalima skaityti #%08X."
+1030,1,"Netinkamas UDF Tag ID."
+1031,1,"Klaida skaitant katalogo struktūrą sektoriuje #%08X.\n\nNepilnas ISO vaizdo turinys."
+1032,1,"Vidinė įskiepio klaida."
+1033,1,"Klaida skaitant virtualią paskirstymo lentelę #%08X."
+1034,1,"Trūksta virtualios paskirstymo lentelės."
+1035,1,"Blogas šakninis ICB.\n\nKatalogo struktūra neskaitoma."
+1036,1,"Nepavyko išgauti failo "%s".\n\nFailo dydis nesutampa su ICB blokais."
+1037,1,"Takelis #%d neatsidaro"
+1038,1,"Šis failas atrodo kaip lankstaus ar kietojo disko arba skaidinio vaizdas.\nPervardykite failą į .ima, kad įjungtumėte „UnFAT“ papildinį."
+1039,1,"Šiame disko vaizde yra APFS failų sistema.\nŠi failų sistema dar nepalaikoma."
+
+[STRINGTABLE 3]
+1050,1,"Skaidinio antraštė neperskaityta. Failas mažas."
+1051,1,"Pažeistos Partition Manager struktūros."
+1052,1,"Šiame disko vaizde nėra HFS Plus skaidinio."
+1053,1,"Šiame disko vaizde yra HFS, o ne HFS Plus failų sistema.\nHFS nepalaikomas."
+1054,1,"Negalima pasiekti #%08X bloko.\n%s failas nebus išgautas."
+1055,1,"Negalima pereiti prie #%08X"
+
+[STRINGTABLE 4]
+1056,1,"Katalogo faile nepalaikomas BTree šaknies tipas."
+1057,1,"Katalogo failas suskaidytas į daugiau nei 8 fragmentus, tai nepalaikoma."
+1058,1,"Failas '%s' suskaidytas į daugiau nei 8 fragmentus, tai nepalaikoma.\nFailas nebus išgautas."
+1059,1,"Disko vaizde per ilgas kelias, kurio „Open Samandarin“ netvarko."
+1060,1,"Operacija nebaigiama dėl per ilgo pavadinimo."
+1070,1,"Paketo antraštė nenuskaityta. Failas mažas"
+1071,1,"Šis paketas užšifruotas.\nUžšifruoti paketai nepalaikomi."
+
+[STRINGTABLE 5]
+1072,1,"Šis failas, atrodo, nėra DMG paketas arba yra nepilnas.\nJame nėra galiojančios DMG poraštės."
+1073,1,"Šis failas, atrodo, nėra galiojantis DMG paketas arba yra nepilnas.\nJame nėra galiojančio Property List."
+1074,1,"Šiame pakete nėra HFS Plus skaidinio duomenų bloko, prasidedančio ties %I64u.\nBlokas reikalingas tinkamai tvarkyti paketą."
+1075,1,"Negalima nuskaityti duomenų iš disko vaizdo ties %I64u."
+1076,1,"Disko vaizde nebegalima pereiti prie %I64u."
+1077,1,"Vidinė klaida: nepalaikomas metodas."
+1078,1,"Šiame disko vaizde yra blokas, suspaustas nežinomu metodu.\nTokio disko vaizdai nepalaikomi."
+1079,1,"Nepavyko išpakuoti ZLIB suspausto bloko. Disko vaizdas atrodo pažeistas."
+1080,1,"Nepavyko išpakuoti BZIP2 suspausto bloko. Disko vaizdas atrodo pažeistas."
+1085,1,"Šis failas, atrodo, nėra suspaustas ISZ vaizdas arba yra nepilnas.\nJame nėra galiojančios ISZ antraštės."
+1086,1,"Suspausto vaizdo antraštė nenuskaityta. Failas mažas"
+1087,1,"Šis vaizdas segmentuotas.\nSegmentuoti vaizdai nepalaikomi."
+
+[STRINGTABLE 6]
+1088,1,"Šis vaizdas užšifruotas.\nUžšifruoti vaizdai nepalaikomi."
+1100,1,"Skaitymo klaida"
+1101,1,"Rašymo klaida"
+1102,1,"Garso takelių išgauti negalima."
+1103,1,"Atšaukiama operacija, palaukite..."
+
+[STRINGTABLE 7]
+1150,1,"Vaizdo informacija\n\n"
+1151,1,"Vaizdo informacija "%s"\n\n"
+
+[STRINGTABLE 8]
+1152,1,"Sesijų skaičius: %d"
+1153,1,"\nSesija %d\n"
+1154,1,"  Takelių skaičius: %d\n"
+1155,1,"  Takelis: %d, %s, Dydis: %d KB\n"
+1156,1,"  Takelis: %d, %s, Dydis: %d KB - "%s"\n"
+

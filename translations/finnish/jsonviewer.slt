@@ -1,0 +1,21 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\finnish\jsonviewer\jsonviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1035
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"JSON Viewer .NET"
+47,1,"Lisäosasta"
+
+[STRINGTABLE 1]
+48,1,"Sisäinen katselin JSON-asiakirjoja hallitulla WinForms-käyttöliittymällä."
+49,1,"https://samandarin.net/"
+50,1,"Katselimen vaatima synkronointitapahtuma ei voitu valmistella."
+51,1,"Valittu JSON-tiedosto on liian suuri avattavaksi. Yli 8 Mt:n tiedostoja ei tueta."
+

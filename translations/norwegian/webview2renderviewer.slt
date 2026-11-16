@@ -1,0 +1,41 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\norwegian\webview2renderviewer\webview2renderviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1044
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"WebView2 rendervisning"
+47,1,"Om pluginnet"
+
+[STRINGTABLE 1]
+48,1,"Viser rendret HTML, Markdown og nett-dokumenter med WebView2."
+49,1,"https://samandarin.net/"
+50,1,"Kunne ikke forberede synkroniseringshendelsen visningen krever."
+51,1,"Valgt fil er for stor til å åpnes. Filer over 32 MB støttes ikke."
+52,1,"&Fil"
+53,1,"&Vis"
+54,1,"&Lukk\tEsc"
+55,1,"&Oppdater\tF5"
+56,1,"Zoom &inn\tCtrl++"
+57,1,"Zoom &ut\tCtrl+-"
+58,1,"&Nullstill\tCtrl+0"
+59,1,"Laster..."
+60,1,"Klar"
+61,1,"Kunne ikke initialisere WebView2-renderer."
+62,1,"Kunne ikke åpne valgt fil."
+63,1,"Vis &linjenumre"
+
+[STRINGTABLE 2]
+64,1,"&Bryt linjer\tF2"
+65,1,"Vis &mellomrom"
+66,1,"&Rediger"
+67,1,"&Kopier\tCtrl+C"
+68,1,"Velg &alle\tCtrl+A"
+69,1,"&Skriv ut...\tCtrl+P"
+

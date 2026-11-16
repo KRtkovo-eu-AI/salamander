@@ -1,0 +1,30 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\catalan\unfat\unfat.atp"
+TEXTVERSION,"1.4 (x64)"
+VERSION,"1,4,0,197"
+
+[TRANSLATION]
+LANGID,1027
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"UnFAT"
+1001,1,"El connector"
+1003,1,"Explora i extreu imatges de disc FAT 12, 16 i 32."
+
+[STRINGTABLE 1]
+1100,1,"No es pot obrir "%s"."
+1101,1,"No es pot llegir "%s"."
+1102,1,"Error en analitzar "%s".\n\n%s"
+1103,1,"El sector d'arrencada està malmès o no és una imatge FAT 12, 16 o 32."
+
+[STRINGTABLE 2]
+1104,1,"Error en llegir el directori de "%s".\n%s\nSector: %d, Offset: 0x%s\n\nFitxer no vàlid FAT 12, 16 o 32."
+1106,1,"Error en llegir el fitxer de "%s".\n%s\nCluster: %d\n\nFitxer no vàlid FAT 12, 16 o 32."
+1107,1,"Error en escriure"
+1108,1,"El fitxer "%s" sembla una imatge de disc dur complet.\nEl connector UnFAT no admet aquestes imatges."
+1109,1,"Extraient imatge FAT - %s"
+1110,1,"extraient: %s"
+

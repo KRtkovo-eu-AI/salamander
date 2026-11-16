@@ -1,0 +1,38 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\norwegian\peviewer\peviewer.atp"
+TEXTVERSION,"3.2 (x64)"
+VERSION,"3,2,0,197"
+
+[TRANSLATION]
+LANGID,1044
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 8501]
+346,154,1,"Portable Executable Viewer-konfigurasjon"
+1300,7,7,64,8,1,"Ledige &seksjoner:"
+8700,7,17,105,130,1,""
+8702,119,17,50,14,1,"&Legg->"
+8703,119,35,50,14,1,"<- &Fjern"
+1301,176,7,58,8,1,"&Synl. seksjoner:"
+8701,176,17,105,130,1,""
+8704,289,17,50,14,1,"&Flytt ↑"
+8705,289,35,50,14,1,"&Flytt ↓"
+1,289,97,50,14,1,"OK"
+2,289,115,50,14,1,"Avbryt"
+8706,289,133,50,14,1,"Re&set"
+
+[STRINGTABLE 0]
+1016,1,"Om plugin"
+
+[STRINGTABLE 1]
+10100,1,"Portable Executable Viewer"
+10101,1,"Kan ikke åpne filen %s."
+10102,1,"Kunne ikke opprette midlertidig fil."
+10103,1,"Det har oppstått en unntaksfeil.\n\nFil som ble vist: %s\n\nHvis du mener filen ikke er skadet, sender du den til support@altap.cz.\nVi skal gjenskape og rette feilen i viseren. Takk for samarbeidet!"
+10104,1,"Vis informasjon om Portable Executable-filer som EXE, DLL osv."
+
+[STRINGTABLE 2]
+10118,1,"Ingen valgt Portable Executable-seksjon ble funnet i plugin-konfigurasjonen.\nBruk Alternativer > Plugin-konfigurasjon > Portable Executable Viewer\ni Open Samandarin-vinduet for å velge synlige seksjoner."
+

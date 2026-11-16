@@ -5,6 +5,7 @@
 """Compile the actual dialog text-selection branch with deterministic request stubs."""
 import argparse
 import hashlib
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -30,17 +31,29 @@ def main():
     worker = (ROOT / 'src/worker.cpp').read_text(encoding='utf-8-sig')
     if worker.count('prompt.kind = UacF7::TransferPromptKind::ThinPlainCopy;') != 1:
         raise RuntimeError('thin prompt must be explicitly marked at exactly one call site')
+    locales = {'arabic', 'bulgarian', 'chinesesimplified', 'chinesetraditional', 'croatian',
+               'czech', 'dutch', 'french', 'german', 'greek', 'hebrew', 'hungarian',
+               'indonesian', 'italian', 'japanese', 'korean', 'polish', 'portuguese',
+               'romanian', 'russian', 'slovak', 'spanish', 'swedish', 'turkish', 'ukrainian', 'vietnamese'}
+    fallbacks = {'catalan', 'danish', 'finnish', 'lithuanian', 'norwegian', 'slovenian'}
     translations = sorted((ROOT / 'translations').glob('*/salamand.slt'))
-    if len(translations) != 11:
+    if {path.parent.name for path in translations} != locales | fallbacks:
         raise RuntimeError('unexpected translation set')
-    for path in translations:
-        lines = path.read_text(encoding='utf-8-sig').splitlines()
-        matches = [line for line in lines if line.startswith('14721,1,')]
-        if len(matches) != 1 or not matches[0].endswith('"'):
-            raise RuntimeError('missing or ambiguous localized message: ' + str(path))
     english = (ROOT / 'src/lang/texts.rc2').read_text(encoding='utf-8-sig')
-    if english.count('IDS_UAC_THIN_COPY_CONFIRM,') != 1:
+    source_text = re.findall(r'^\s*IDS_UAC_THIN_COPY_CONFIRM,\s*"([^"\r\n]+)"\s*$', english, re.M)
+    if len(source_text) != 1:
         raise RuntimeError('missing or ambiguous default-language message')
+    for path in translations:
+        raw = path.read_bytes()
+        if not raw.startswith(b'\xef\xbb\xbf[EXPORTINFO]') or raw.count(b'\n') != raw.count(b'\r\n'):
+            raise RuntimeError('invalid catalog encoding: ' + str(path))
+        text = raw.decode('utf-8-sig')
+        matches = re.findall(r'^14721,([01]),"([^"\r\n]+)"\s*$', text, re.M)
+        state = '0' if path.parent.name in fallbacks else '1'
+        if len(matches) != 1 or matches[0][0] != state:
+            raise RuntimeError('missing or ambiguous localized message: ' + str(path))
+        if state == '0' and matches[0][1] != source_text[0]:
+            raise RuntimeError('incorrect English fallback: ' + str(path))
     env = compiler_environment()
     compiler = shutil.which('cl', path=env.get('PATH'))
     if not compiler:
@@ -65,7 +78,7 @@ def main():
                     return result.returncode
     if hashlib.sha256(dialog.read_bytes()).digest() != hashlib.sha256(original).digest():
         raise RuntimeError('dialog changed while running the test')
-    print('PASS: all 11 translations have exactly one message')
+    print('PASS: all 32 language catalogs have exactly one message')
     print('NOTE: production selection branch with request stubs, not an interactive dialog or broker test.')
     return 0
 

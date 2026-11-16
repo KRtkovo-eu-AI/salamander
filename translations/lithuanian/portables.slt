@@ -1,0 +1,59 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\lithuanian\portables\portables.atp"
+TEXTVERSION,"0.7 (x64)"
+VERSION,"0,7,0,197"
+
+[TRANSLATION]
+LANGID,1063
+AUTHOR,"Open Salamander"
+WEB,"https://samandarin.net/"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+128,1,"{!}%d pasirinktas įrenginys{2:s|0||1|s}"
+129,1,"Nėra įrenginių"
+130,1,"Nešiojamieji įrenginiai"
+131,1,"Atšaukti"
+132,1,"Ruošiama..."
+133,1,"Failas:"
+134,1,"Iš viso:"
+135,1,"Sumažinti"
+136,1,"Pristabdyti"
+137,1,"Nešiojamasis įrenginys nustojo reaguoti. Atjunkite ir vėl prijunkite jį. Skydelis „Portables“ grįš į įrenginių sąrašą."
+138,1,"%s iš %s nukopijuota"
+139,1,"Kopijuoti"
+140,1,"Perkelti"
+141,1,"Ištrinti"
+142,1,"Kopijuojama"
+143,1,"Perkeliama"
+
+[STRINGTABLE 1]
+144,1,"Trinama"
+145,1,"į"
+146,1,"%s iš %s perkelta"
+147,1,"%s iš %s apdorota"
+148,1,"Trinami pasirinkti elementai"
+149,1,"%s '%s' nepavyko (0x%08X)."
+150,1,"Pervadinti"
+151,1,"Sukurti aplanką"
+152,1,"Vaizdas"
+153,1,"Vardas vis dar įrenginyje. Elementas nebuvo sukurtas iš naujo."
+154,1,"Failas negali pakeisti aplanko."
+155,1,"Aplankas negali pakeisti failo."
+156,1,"Elementas tokiu pavadinimu jau yra."
+157,1,"?"
+
+[STRINGTABLE 2]
+8192,1,"Nešiojamieji įrenginiai"
+8193,1,"Tvarkyti nešiojamuosius įrenginius."
+
+[STRINGTABLE 3]
+9216,1,"Apie papildinį"
+
+[STRINGTABLE 4]
+10240,1,"Klaida keičiant aplanką"
+10241,1,"Kelias: "%s"\r\nKlaida: %s"
+
+[STRINGTABLE 5]
+19457,1,"Nurodytame kelyje yra kelias į failą."
+

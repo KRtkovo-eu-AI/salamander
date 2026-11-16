@@ -1,0 +1,17 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\norwegian\folders\folders.atp"
+TEXTVERSION,"0.4 (x64)"
+VERSION,"0,4,0,197"
+
+[TRANSLATION]
+LANGID,1044
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"Mapper"
+1001,1,"Om plugin"
+1003,1,"Bla i mapper som Skrivebord, Kontrollpanel, Papirkurven osv."
+1004,1,"'\tSkrivebord"
+

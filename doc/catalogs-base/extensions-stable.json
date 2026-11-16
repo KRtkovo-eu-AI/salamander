@@ -1,7 +1,7 @@
 {
   "schemaVersion": 6,
   "catalogName": "Extensions Stable",
-  "generatedAt": "2026-08-31T02:56:50Z",
+  "generatedAt": "2026-11-16T03:56:36Z",
   "plugins": [
     {
       "id": "file-lock-inspector",
@@ -12,10 +12,10 @@
       "description": {
         "english": "Find processes that prevent selected files from being changed, moved, or deleted."
       },
-      "latestVersion": "1.0.2 (x64)",
+      "latestVersion": "1.0.3 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_file-lock-inspector_1.0.2_x64/plugin_5.0_file-lock-inspector_1.0.2_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_file-lock-inspector_1.0.3_x64/plugin_5.0_file-lock-inspector_1.0.3_x64.7z",
       "dependencies": [
         "powershellruntime"
       ],
@@ -28,7 +28,7 @@
         "activeWebContent": "no",
         "elevation": "never"
       },
-      "packageSha256": "1e4da3ad060ebc275755a4ee61de43ddbba13b21d8bcbf2ceb4726dfe4768c87"
+      "packageSha256": "c7837e92b5eb3ea25b258a3cd25b9421e032f3b55c69c25cc87bd29d64ef0e2d"
     },
     {
       "id": "git-worktree-navigator",
@@ -55,7 +55,7 @@
         "activeWebContent": "no",
         "elevation": "never"
       },
-      "packageSha256": "de3a9974b357860cfe3334271a5f63ed96a8e85508e9b9f1055e4cf63ad6f416"
+      "packageSha256": "67bf9b55fd22d21b910ff6a5bf794216ab606f276ceae9ddebc01107ae5d87c1"
     },
     {
       "id": "extension-menu-builder",
@@ -82,7 +82,7 @@
         "activeWebContent": "no",
         "elevation": "never"
       },
-      "packageSha256": "0c755df05f723b30de6fd57a1e77ab92a55592b0acf5b0d02eea61e5255c02bc"
+      "packageSha256": "4969dbcf3d3ef5cdc51df05bc1811075596d437652dde9182951e0ee4bef5fe8"
     },
     {
       "id": "salamatrixdemos",
@@ -109,7 +109,7 @@
         "activeWebContent": "no",
         "elevation": "never"
       },
-      "packageSha256": "52a9cf289decd97ec4bac40451c6eeb190bb0a0d755e6aae3dba4a54b2d01917"
+      "packageSha256": "686039deeaafd563f3a5f5598f75cbe24a70505a504566bad52c63a59ff5a392"
     },
     {
       "id": "process-explorer",
@@ -136,7 +136,7 @@
         "activeWebContent": "no",
         "elevation": "never"
       },
-      "packageSha256": "0d70404baec8aa2c77bee5fe1f4e6c18f661df88f5d18dfc49d4b6665983ea7d"
+      "packageSha256": "a5147c6d246e4b0ccc9396562fe9b751cdaedb068ee98b701cb543c9a6246140"
     },
     {
       "id": "hardware-monitor",
@@ -163,7 +163,7 @@
         "activeWebContent": "no",
         "elevation": "never"
       },
-      "packageSha256": "baca2dd7697c4923c4d6579f3d040b4a7a49e3d53c1b1ee7e0b72ae7ffdc4f7c"
+      "packageSha256": "c082e7f131f6ada4427b83cbf1e2e58519f30cba9a28f311b731be7379637cf7"
     },
     {
       "id": "event-viewer",
@@ -190,7 +190,7 @@
         "activeWebContent": "no",
         "elevation": "never"
       },
-      "packageSha256": "e675b02cf8d4d68826b85d5669d60a6927e2205fd6fb446c56762f414f8a2519"
+      "packageSha256": "7a3fdce6826e169efa0a5dade62c96afbf1b416bd13832474881ed3ba7768a8d"
     },
     {
       "id": "json-viewer-nodejs",
@@ -217,7 +217,7 @@
         "activeWebContent": "yes",
         "elevation": "never"
       },
-      "packageSha256": ""
+      "packageSha256": "8288d72d945d6a653311dff4a46cf39dcb7302289aecbfe1cf6db73c7dc8398c"
     },
     {
       "id": "TabuleSprZel",

@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-16 | Keep distinct buffers for Shell and application menu labels. | Preserve Unicode shell entries while compiling the existing ANSI menu commands. | #731 | GPT-6 |
+// | 2026-11-15 | Preserve Unicode labels from the Shell background menu. | Avoid truncating localized menu text during ANSI conversion. | | openai/gpt-6-luna-pro |
 // | 2026-11-10 | Fix signedness in the archive clipboard buffer bounds check. | Keep the Win32 warning-as-error build passing. | https://github.com/KRtkovo-eu-AI/salamander/pull/844 | GPT-6 |
 // | 2026-11-10 | Stage archive and plugin FS selections as real clipboard files. | Enable ordinary Ctrl+C/Ctrl+V independent of the shell extension fake-directory handoff. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-10 | Close the archive clipboard data-object scope before releasing it. | A missing brace left ShellAction unterminated and stopped the build. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
@@ -2703,25 +2705,28 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                             if (useSelection)
                                 TRACE_E("Unexpected value in 'useSelection' (TRUE) in ShellAction(saContextMenu).");
                             int miCount = GetMenuItemCount(h);
-                            MENUITEMINFO mi;
+                            // Keep Windows-localized labels in UTF-16 while copying the shell commands.
+                            MENUITEMINFOW shellMi;
+                            WCHAR shellItemName[500];
+                            MENUITEMINFO mi{};
                             char itemName[500];
                             int i;
                             for (i = 0; i < miCount; i++)
                             {
-                                memset(&mi, 0, sizeof(mi)); // necessary here
-                                mi.cbSize = sizeof(mi);
-                                mi.fMask = MIIM_STATE | MIIM_TYPE | MIIM_ID | MIIM_SUBMENU;
-                                mi.dwTypeData = itemName;
-                                mi.cch = 500;
-                                if (GetMenuItemInfo(h, i, TRUE, &mi))
+                                memset(&shellMi, 0, sizeof(shellMi)); // necessary here
+                                shellMi.cbSize = sizeof(shellMi);
+                                shellMi.fMask = MIIM_STATE | MIIM_TYPE | MIIM_ID | MIIM_SUBMENU;
+                                shellMi.dwTypeData = shellItemName;
+                                shellMi.cch = _countof(shellItemName);
+                                if (GetMenuItemInfoW(h, i, TRUE, &shellMi))
                                 {
-                                    if (mi.hSubMenu == NULL && (mi.fType & MFT_SEPARATOR) == 0) // not a submenu nor a separator
+                                    if (shellMi.hSubMenu == NULL && (shellMi.fType & MFT_SEPARATOR) == 0) // not a submenu nor a separator
                                     {
-                                        if (AuxGetCommandString(panel->ContextMenu, mi.wID, GCS_VERB, NULL, cmdName, 200) == NOERROR)
+                                        if (AuxGetCommandString(panel->ContextMenu, shellMi.wID, GCS_VERB, NULL, cmdName, 200) == NOERROR)
                                         {
                                             if (stricmp(cmdName, "explore") == 0 || stricmp(cmdName, "open") == 0)
                                             {
-                                                InsertMenuItem(bckgndMenu, bckgndMenuInsert++, TRUE, &mi);
+                                                InsertMenuItemW(bckgndMenu, bckgndMenuInsert++, TRUE, &shellMi);
                                                 if (bckgndMenuInsert == 2)
                                                     break; // we don't need any more items from here
                                             }

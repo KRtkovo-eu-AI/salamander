@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-16 | Integrate the 0.17 release branch. | Preserve UAC localization and identify the remaining viewer prompt discrepancy. | #731 | GPT-6 |
 | 2026-11-15 | Record the protected F3 test build. | Associate later user feedback with the verified deployed binaries. | #731 | GPT-6 |
 | 2026-11-15 | Remove the protected F3 snapshot limit. | Preserve verified read handles and bounded ZIP streaming. | #731 | GPT-6 |
 | 2026-11-15 | Record the large size scan test build. | Associate user testing with the protected deployed binaries. | #731 | GPT-6 |
@@ -656,6 +657,13 @@
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
+
+## Integrace upstreamu 0.17 — 16. listopadu 2026
+
+- **Implementováno:** sloučena upstream větev `release/5.0-samandarin-0.17` na revizi `aef7a2dba7f38614a9166cff66662480efc1d5fc`. Deset konfliktů jazykových katalogů zachovává změny obou větví. Šesti novým upstream jazykům jsou doplněny chybějící texty UAC jako anglický fallback se stavem nepřeloženo; jejich dosavadní překlady zůstávají zachovány. Existující lokalizační kontroly nyní výslovně odlišují 26 překladů a šest fallbacků.
+- **Sestavení:** převzatá úprava shellové nabídky míchala Unicode buffer s existujícím ANSI kódem a nesestavila se. Oddělení obou bufferů zachovává Unicode názvy Windows a původní aplikační položky. Broker Release x64 a samostatné kompilační/linkovací cíle hosta Release x64 prošly. Plný host build po úspěšném linku nedokončil upstream staging, protože izolovaný build neobsahuje externí `plugins/7zip/7za.dll`; instalátor se touto změnou neupravoval.
+- **Automaticky ověřeno:** všech pět souvisejících lokalizačních testů, kontrakt panelové nástrojové lišty, F3 identita a ZIP controller v Debug i Release, stránkovaný UAC dispatcher v Debug i Release a transport/dispatcher v Release. Šest nových jazyků stále potřebuje skutečný překlad; anglický fallback se nepovažuje za lokalizaci. Interaktivní ověření ani systémové UAC se nespouštěly.
+- **Zjištěná dřívější chyba:** potvrzení F3 nad ověřeným výsledkem Findu (`IDS_UAC_VIEW_VERIFIED_CONFIRM`) a jeho lokalizace nadále nesprávně popisují 16MB paměťový snímek. Aktuální implementace už používá read-only handle a limit nemá. Text nebyl v tomto integračním bloku změněn; vyžaduje samostatnou opravu anglického zdroje, překladů a testů bez zhoršení ostatních jazyků.
 
 ## Aktuální stav a pravidla — 15. listopadu 2026
 

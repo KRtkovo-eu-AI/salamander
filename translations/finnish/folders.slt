@@ -1,0 +1,17 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\finnish\folders\folders.atp"
+TEXTVERSION,"0.4 (x64)"
+VERSION,"0,4,0,197"
+
+[TRANSLATION]
+LANGID,1035
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"Kansiot"
+1001,1,"Lisäosa-tieto"
+1003,1,"Selaa kansioita, kuten Työpöytä, Ohjauspaneeli, Roskakori jne."
+1004,1,"'\tTyöpöytä"
+

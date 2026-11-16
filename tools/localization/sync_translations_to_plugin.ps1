@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-16 | Limit automatic new-locale sync to sftp. | Newly added translations should not be copied into every plugin. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-11 | Sync top-level translation archives into plugin translation trees. | Plugin submodules can contain stale copies of the current repository translations. | | openai/gpt-5.6-luna-pro |
 # | 2026-11-11 | Keep WhatIf side-effect free for new language directories. | Directory creation must happen only after ShouldProcess approves the copy. | | openai/gpt-5.6-luna-pro |
 <#
@@ -12,8 +13,9 @@
     every plugin-owned .slt file, the matching archive from
     translations/{lang}/ is copied into the plugin tree. A language directory
     is also created when translations/{lang}/{plugin}.slt exists, which lets
-    newly added repository languages enter the plugin submodule. Missing source
-    files are skipped and reported; plugin-only files are not deleted.
+    newly added sftp repository languages enter the sftp plugin submodule. Other
+    plugins synchronize only language directories already present in their tree.
+    Missing source files are skipped and reported; plugin-only files are not deleted.
 
 .PARAMETER RepoRoot
     Path to the repository root. Auto-detected if omitted.
@@ -24,8 +26,8 @@
 
 .PARAMETER Languages
     Comma-separated list of language directories to synchronize. If omitted,
-    all language directories already present in each plugin, plus repository
-    languages containing the selected plugin archive, are synchronized.
+    all language directories already present in each plugin are synchronized.
+    Repository languages containing sftp.slt are additionally included for sftp.
 
 .EXAMPLE
     pwsh -File tools\localization\sync_translations_to_plugin.ps1
@@ -121,25 +123,30 @@ foreach ($pluginDir in $pluginDirs)
     }
 
     $pluginTranslationsDir = Join-Path $pluginDir.FullName "translations"
-    if (-not (Test-Path -LiteralPath $pluginTranslationsDir))
+    if (-not (Test-Path -LiteralPath $pluginTranslationsDir) -and $moduleName -ne "sftp")
     {
         continue
     }
 
     $languageNames = @{}
-    foreach ($langDir in (Get-ChildItem -Path $pluginTranslationsDir -Directory))
+    if (Test-Path -LiteralPath $pluginTranslationsDir)
     {
-        $languageNames[$langDir.Name] = $true
+        foreach ($langDir in (Get-ChildItem -Path $pluginTranslationsDir -Directory))
+        {
+            $languageNames[$langDir.Name] = $true
+        }
     }
 
-    # Include repository languages that have this plugin's archive but are not
-    # present in the submodule yet.
-    foreach ($repoLanguageDir in (Get-ChildItem -Path $translationsDir -Directory))
+    # Newly added repository locales are synchronized automatically for sftp only.
+    if ($moduleName -eq "sftp")
     {
-        $repoModuleArchive = Join-Path $repoLanguageDir.FullName "$moduleName.slt"
-        if (Test-Path -LiteralPath $repoModuleArchive)
+        foreach ($repoLanguageDir in (Get-ChildItem -Path $translationsDir -Directory))
         {
-            $languageNames[$repoLanguageDir.Name] = $true
+            $repoModuleArchive = Join-Path $repoLanguageDir.FullName "$moduleName.slt"
+            if (Test-Path -LiteralPath $repoModuleArchive)
+            {
+                $languageNames[$repoLanguageDir.Name] = $true
+            }
         }
     }
 
@@ -163,12 +170,25 @@ foreach ($pluginDir in $pluginDirs)
         {
             $sltFiles = @(Get-ChildItem -LiteralPath $langDir -Filter "*.slt" -File)
         }
+
         if ($sltFiles.Count -eq 0)
         {
             $newArchive = Join-Path $translationsDir "$languageName\$moduleName.slt"
             if (Test-Path -LiteralPath $newArchive)
             {
                 $sltFiles = @([pscustomobject]@{ Name = "$moduleName.slt"; FullName = (Join-Path $langDir "$moduleName.slt") })
+            }
+        }
+
+        # For sftp, also include its new repository archive if this locale already
+        # contains another .slt file but the plugin archive is not there yet.
+        if ($moduleName -eq "sftp")
+        {
+            $newArchive = Join-Path $translationsDir "$languageName\$moduleName.slt"
+            $hasModuleArchive = @($sltFiles | Where-Object { $_.Name -ieq "$moduleName.slt" }).Count -gt 0
+            if ((Test-Path -LiteralPath $newArchive) -and -not $hasModuleArchive)
+            {
+                $sltFiles += [pscustomobject]@{ Name = "$moduleName.slt"; FullName = (Join-Path $langDir "$moduleName.slt") }
             }
         }
 

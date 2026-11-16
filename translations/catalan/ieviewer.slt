@@ -1,0 +1,18 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\catalan\ieviewer\ieviewer.atp"
+TEXTVERSION,"1.14 (x64)"
+VERSION,"1,14,0,197"
+
+[TRANSLATION]
+LANGID,1027
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+10100,1,"Visor Internet Explorer"
+10101,1,"No es pot obrir el Visor Internet Explorer.\nInformeu aquest problema a support@altap.cz."
+10102,1,"Error"
+10103,1,"Visor HTML i XML lleuger basat en l'Internet Explorer."
+10105,1,"Sobre plugin"
+

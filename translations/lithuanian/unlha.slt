@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\lithuanian\unlha\unlha.atp"
+TEXTVERSION,"1.16 (x64)"
+VERSION,"1,16,0,197"
+
+[TRANSLATION]
+LANGID,1063
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1,1,"Neteisingas LZH arba nežinomas formatas."
+2,1,"Antraštės kontrolinės sumos klaida.\nArchyvas pažeistas – ne visi rodomi."
+3,1,"Nepakanka RAM."
+4,1,"Rašymo klaida"
+5,1,"UnLHA"
+6,1,"Klaida atveriant archyvą."
+7,1,"Nepavyko įtraukti įrašo į failų sąrašą."
+8,1,"Archyvas turi vieną ar daugiau UNIX simbolinių nuorodų, kurios nebus rodomos."
+10,1,"Negalima išpakuoti."
+11,1,"Suspaustų duomenų klaida. CRC nesutampa."
+12,1,"Klaida skaitant archyvą."
+13,1,"LHA archyvo išpakavimas %s"
+14,1,"rengiami duomenys ir kuriami katalogai..."
+15,1,"išpakavimas: "
+
+[STRINGTABLE 1]
+16,1,"išpakavimas..."
+17,1,"Negalima baigti operacijos dėl per ilgo kelio."
+18,1,"Negalima baigti operacijos dėl per ilgos kaukės."
+19,1,"Nežinomas suspaudimo metodas. Failo išpakuoti negalima."
+20,1,"nežinomas metodas apeitas"
+21,1,"Naršyti, išskleisti LHA archyvus"
+22,1,"Apie papildinį"
+

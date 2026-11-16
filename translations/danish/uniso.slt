@@ -1,0 +1,111 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\danish\uniso\uniso.atp"
+TEXTVERSION,"1.40 (x64)"
+VERSION,"1,40,0,197"
+
+[TRANSLATION]
+LANGID,1030
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 1200]
+220,83,1,"UnISO-konfiguration"
+1201,8,11,188,10,1,"&Fjern skrivebeskyttelse ved kopiering fra arkiv"
+1202,8,23,198,10,1,"&Vis session som mappe (tillad adgang til alle sessioner)"
+1203,8,35,108,10,1,"&Vis startbilledisk som fil"
+3000,2,58,216,1,1,""
+1,108,64,50,14,1,"OK"
+2,163,64,50,14,1,"Afbryd"
+
+[STRINGTABLE 0]
+1000,1,"UnISO"
+1001,1,"Kan ikke åbne fil"
+1002,1,"Uspecificeret fejl."
+1003,1,"Udpakker ISO-arkiv"
+1004,1,"Fejl: udpakning af arkiv"
+1005,1,"Kan ikke håndtere filen."
+1006,1,"For lidt hukommelse."
+1007,1,"Om plugin"
+
+[STRINGTABLE 1]
+1009,1,"Gennemse og udpak ISO-billeder fra CD/DVD."
+1010,1,"Kan ikke oprette midlertidig mappe"
+1011,1,"Kan ikke slette tempfil."
+1012,1,"Ukendt filformat eller ugyldigt ISO-billede.\n\nHvis det er et gyldigt ISO-billede, bedes du kontakte support@altap.cz, så vi kan understøtte formatet."
+1013,1,"Kan ikke åbne fil '%s'"
+1014,1,"Oprettelse af midlertidig fil fejlede."
+1015,1,"Kan ikke sætte attributter"
+1016,1,"Kan ikke oprette mappe '%s'."
+1020,1,"Ja"
+1021,1,"Nej"
+1022,1,"Fejl"
+1023,1,"Varsel"
+
+[STRINGTABLE 2]
+1024,1,"Der opstod fejl under læsning af multisessionsbilledet.\n\nViser kun korrekt læste sessioner."
+1025,1,"Ukendt sporetype."
+1026,1,"Ukendt allokeringsstrategi (%d).\n\nKontakt venligst support@altap.cz, så vi kan rette problemet."
+1027,1,"Dårligt .CCD-filformat.\n\nVist billede kan være ufuldstændigt."
+1028,1,".CCD-fil mangler.\n\nVist billede kan være ufuldstændigt."
+1029,1,"Kan ikke læse #%08X."
+1030,1,"Ugyldigt UDF-tag-id"
+1031,1,"Fejl ved læsning af mappestruktur ved #%08X.\n\nUfuldstændigt ISO-indhold."
+1032,1,"Intern pluginfejl."
+1033,1,"Fejl ved læsning af virtuel allokeringstabel #%08X."
+1034,1,"Virtuel allokeringstabel mangler."
+1035,1,"Dårlig rod-ICB.\n\nKan ikke læse mappestruktur."
+1036,1,"Filen "%s" kan ikke udpakkes.\n\nFilstørrelse stemmer ikke med ICB-blokke."
+1037,1,"Kan ikke åbne #%d."
+1038,1,"Denne fil er sandsynligvis et billede af en diskette, harddisk eller partition.\nOmdøb filen til .ima for at aktivere UnFAT-pluginnet."
+1039,1,"Dette diskbillede indeholder APFS-filsystemet.\nUnderstøttes endnu ikke."
+
+[STRINGTABLE 3]
+1050,1,"Kunne ikke læse partitionshoved. Fil for lille."
+1051,1,"Ødelagte Partition Manager-strukturer."
+1052,1,"Dette diskbillede mangler en HFS Plus-partition."
+1053,1,"Dette diskbillede indeholder HFS, ikke HFS Plus.\nHFS understøttes ikke."
+1054,1,"Kan ikke søge til blok #%08X.\nFilen %s udvindes ikke."
+1055,1,"Kan ikke søge til #%08X."
+
+[STRINGTABLE 4]
+1056,1,"Understøttet BTree-rodnodetype i katalogfilen."
+1057,1,"Katalogfilen er fragmenteret i mere end 8 fragmenter, hvilket ikke understøttes."
+1058,1,"Filen '%s' er fragmenteret i mere end 8 fragmenter, hvilket ikke understøttes.\nFilen udvindes ikke."
+1059,1,"Diskbilledet har en for lang sti for Open Samandarin."
+1060,1,"Kan ikke afslutte operationen pga. langt navn."
+1070,1,"Kan ikke læse pakkehoved. Fil for lille."
+1071,1,"Denne pakke er krypteret.\nKrypterede pakker understøttes ikke."
+
+[STRINGTABLE 5]
+1072,1,"Denne fil er ikke en DMG-pakke eller er ufuldstændig.\nDen har ingen gyldig DMG-fod."
+1073,1,"Denne fil er ikke en gyldig DMG-pakke eller er ufuldstændig.\nDen indeholder ikke en gyldig Property List."
+1074,1,"Denne pakke mangler en datablok for HFS Plus-partitionen fra %I64u.\nBlokken er nødvendig for korrekt håndtering af pakken."
+1075,1,"Kan ikke læse data fra diskbilledet ved position %I64u."
+1076,1,"Kan ikke søge i diskbilledet til position %I64u."
+1077,1,"Intern fejl: Understøttet søgemetode."
+1078,1,"Diskbilledet indeholder en blok komprimeret med ukendt metode.\nSådanne billeder understøttes ikke."
+1079,1,"Udpakning af ZLIB-blok mislykkedes. Diskbilledet er ødelagt."
+1080,1,"Udpakning af BZIP2-blok mislykkedes. Diskbilledet er ødelagt."
+1085,1,"Denne fil er ikke et komprimeret ISZ-billede eller er ufuldstændig.\nDen indeholder ikke et gyldigt ISZ-hoved."
+1086,1,"Kan ikke læse komprimeret billedhoved. Fil for lille."
+1087,1,"Dette billede er segmenteret.\nUnderstøttes ikke."
+
+[STRINGTABLE 6]
+1088,1,"Dette billede er krypteret.\nUnderstøttes ikke."
+1100,1,"Læsefejl"
+1101,1,"Skrivefejl"
+1102,1,"Lydspor kan ikke udvindes."
+1103,1,"Annullerer operation, vent..."
+
+[STRINGTABLE 7]
+1150,1,"Billedoplysninger\n\n"
+1151,1,"Billedoplysninger "%s"\n\n"
+
+[STRINGTABLE 8]
+1152,1,"Antal sessioner: %d"
+1153,1,"\nSession %d\n"
+1154,1,"  Antal spor: %d\n"
+1155,1,"  Spor: %d, %s, Str.: %d KB\n"
+1156,1,"  Spor: %d, %s, Str.: %d KB - "%s"\n"
+

@@ -1,0 +1,20 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\lithuanian\demomenu\demomenu.atp"
+TEXTVERSION,"1.0.3 (x64)"
+VERSION,"1,0,3,197"
+
+[TRANSLATION]
+LANGID,1063
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"DemoMenu"
+47,1,"Apie pluginą"
+
+[STRINGTABLE 1]
+48,1,"Šis papildinys padės jums sukurti savo meniu plėtinio papildinį."
+49,1,"samandarin.net"
+50,1,"&Testinė kom."
+

@@ -1,0 +1,40 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\catalan\unmime\unmime.atp"
+TEXTVERSION,"1.17 (x64)"
+VERSION,"1,17,0,197"
+
+[TRANSLATION]
+LANGID,1027
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 101]
+251,111,1,"Configuració UnMIME"
+2000,7,7,46,8,1,"Opcions llista"
+2001,49,11,196,1,1,""
+1000,18,20,70,10,1,"Llista &capçaleres"
+1001,18,35,86,10,1,"Llista &cos de missatge"
+1003,31,50,210,10,1,"Afegeix info &charset al nom del fitxer si no és US-ASCII"
+1002,18,65,69,10,1,"Llista &adjunts"
+2002,6,82,239,1,1,""
+1,137,90,50,14,1,"OK"
+2,194,90,50,14,1,"Cancel·la"
+
+[STRINGTABLE 0]
+1,1,"UnMIME"
+2,1,"No es pot obrir el fitxer."
+3,1,"Memòria insuficient."
+4,1,"No es pot afegir l'entrada d'arxiu a la llista."
+5,1,"Aquest fitxer conté un o més blocs amb codificació desconeguda.\nAquests no es desxifraran."
+6,1,"Error d'escriptura"
+7,1,"Desempaquetant correu - %s"
+8,1,"extraient: "
+9,1,"Analitzant..."
+10,1,"Un o més blocs %s estan danyats o tenen\nformat desconegut i no es desxifraran."
+11,1,"CRC invàlid en un o més blocs %s.\nAquests blocs no es desxifraran."
+12,1,"Navega i extreu fitxers MIME/Base64, UU/XXEncode, yEncode i BinHex."
+13,1,"Sobre plugin"
+14,1,"Avís: el fitxer té una bifurcació de recursos de Mac.\nNo es desempaquetarà."
+15,1,"&No ho mostris mai més"
+

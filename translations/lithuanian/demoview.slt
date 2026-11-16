@@ -1,0 +1,58 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\lithuanian\demoview\demoview.atp"
+TEXTVERSION,"1.0.4 (x64)"
+VERSION,"1,0,4,197"
+
+[TRANSLATION]
+LANGID,1063
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 490]
+205,61,1,"Peržiūra"
+3000,4,6,199,41,1,"Lango padėtis"
+491,11,17,71,12,1,"&Įsaugoti uždarant"
+492,11,29,156,12,1,"Nust&atyti pagal Salamander lango padėtį"
+
+[STRINGTABLE 0]
+46,1,"DemoView"
+47,1,"Apie papildinį"
+
+[STRINGTABLE 1]
+48,1,"Šis papildinys padės jums sukurti savo peržiūros papildinį."
+49,1,"samandarin.net"
+50,1,"DemoView įvyko išimtis, praneškite autoriams!\nJei dirbote su .DMV failu, kai įvyko išimtis,\nbandykite atkurti klaidą su šiuo .DMV failu ir jei išimtis\npasikartos, siųskite mums šį .DMV failą (atkursime ir ištaisysime klaidą).\nAčiū!"
+51,1,"petr.solin@altap.cz"
+52,1,"Konfiguracija jau atidaryta."
+53,1,"Atidaryti keli DemoView peržiūros langai. Ar norite juos uždaryti?"
+54,1,"DemoView konfigūracija"
+55,1,"Neteisingas skaičius!"
+56,1,"DemoView failai (*.dmv)|*.dmv|Visi failai (*.*)|*.*|"
+
+[STRINGTABLE 2]
+2000,1,"&Failai"
+2001,1,"&Atidaryti\tCtrl+O"
+2002,1,"Iš&eiti"
+2010,1,"&Redaguoti"
+2011,1,"&Iškirpti\tCtrl+X"
+2012,1,"&Kopijuoti\tCtrl+C"
+2013,1,"&Įklijuoti\tCtrl+V"
+
+[STRINGTABLE 3]
+2020,1,"&Rodinys"
+2021,1,"&Filtras"
+2022,1,"Filtras"
+2025,1,"&Parinktys"
+2026,1,"&Konfigūracija..."
+
+[STRINGTABLE 4]
+2032,1,"&Žinynas"
+2033,1,"&Apie"
+
+[STRINGTABLE 5]
+2500,1,"Iškirpti\tCtrl+X"
+2501,1,"Kopijuoti\tCtrl+C"
+2502,1,"Įklijuoti\tCtrl+V"
+2503,1,"Filtras\tCtrl+U"
+
