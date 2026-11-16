@@ -1,3 +1,7 @@
+<!--
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Rename the website to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,20 +11,20 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="../consent.css">
   <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
-  <meta name="description" content="Salamatrix is the modern extension framework for Open Salamander: shared services, virtual file-system panels, persistent extensions, runtime providers, native UI and AI-ready automation.">
-  <meta name="keywords" content="Salamatrix, Open Salamander, extension framework, virtual file-system panels, Event Viewer, Process Explorer, Hardware Monitor, Automation, plugins, Python, PowerShell, PHP, Node, Lua, Extension Bar, AI">
-  <meta name="author" content="Open Salamander community">
+  <meta name="description" content="Salamatrix is the modern extension framework for Open Samandarin: shared services, virtual file-system panels, persistent extensions, runtime providers, native UI and AI-ready automation.">
+  <meta name="keywords" content="Salamatrix, Open Samandarin, extension framework, virtual file-system panels, Event Viewer, Process Explorer, Hardware Monitor, Automation, plugins, Python, PowerShell, PHP, Node, Lua, Extension Bar, AI">
+  <meta name="author" content="Open Samandarin community">
   <meta name="robots" content="index, follow">
-  <meta property="og:title" content="Salamatrix Extension Framework for Open Salamander">
-  <meta property="og:description" content="A shared, versioned extension layer for Open Salamander with services, runtimes, native UI, commands, storage, and AI-ready automation.">
+  <meta property="og:title" content="Salamatrix Extension Framework for Open Samandarin">
+  <meta property="og:description" content="A shared, versioned extension layer for Open Samandarin with services, runtimes, native UI, commands, storage, and AI-ready automation.">
   <meta property="og:image" content="https://samandarin.krtkovo.eu/og_image.png">
   <meta property="og:image:alt" content="Salamatrix Extension Framework">
   <meta property="og:url" content="https://samandarin.krtkovo.eu/salamatrix/">
   <meta property="og:type" content="website">
-  <meta property="og:site_name" content="Open Salamander: Samandarin">
+  <meta property="og:site_name" content="Open Samandarin">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Salamatrix Extension Framework for Open Salamander">
-  <meta name="twitter:description" content="A shared, versioned extension layer for Open Salamander with services, runtimes, native UI, commands, storage, and AI-ready automation.">
+  <meta name="twitter:title" content="Salamatrix Extension Framework for Open Samandarin">
+  <meta name="twitter:description" content="A shared, versioned extension layer for Open Samandarin with services, runtimes, native UI, commands, storage, and AI-ready automation.">
   <meta name="twitter:image" content="https://samandarin.krtkovo.eu/og_image.png">
   <link rel="canonical" href="https://samandarin.krtkovo.eu/salamatrix/">
   <meta name="theme-color" content="#242424">
@@ -28,11 +32,11 @@
   {
     "@context": "https://schema.org",
     "@type": "TechArticle",
-    "headline": "Salamatrix Extension Framework for Open Salamander",
-    "description": "A shared, versioned extension layer for Open Salamander with services, runtimes, native UI, commands, storage, and AI-ready automation.",
+    "headline": "Salamatrix Extension Framework for Open Samandarin",
+    "description": "A shared, versioned extension layer for Open Samandarin with services, runtimes, native UI, commands, storage, and AI-ready automation.",
     "url": "https://samandarin.krtkovo.eu/salamatrix/",
     "image": "https://samandarin.krtkovo.eu/og_image.png",
-    "author": { "@type": "Organization", "name": "Open Salamander community" },
+    "author": { "@type": "Organization", "name": "Open Samandarin community" },
     "about": { "@type": "SoftwareApplication", "name": "Salamatrix" }
   }
   </script>
@@ -44,7 +48,7 @@
     <div class="site-header__row">
       <div class="site-branding">
         <h1><a href="index.html"><img id="header-logo" src="salamatrix_logo_64px.png" alt="Salamatrix logo"></a>Salamatrix <span class="site-branding__accent">Extension Framework</span></h1>
-        <p id="description-text">A shared, versioned extension layer for Open Salamander: Samandarin</p>
+        <p id="description-text">A shared, versioned extension layer for Open Samandarin</p>
       </div>
     </div>
     <nav class="section-nav" aria-label="Page sections">
@@ -89,7 +93,7 @@
     <section class="hero-panel" id="overview" aria-labelledby="hero-title">
       <div class="hero-panel__copy">
         <h2 id="hero-title">Extensions that feel native, whatever the language.</h2>
-        <p>Salamatrix is the new extension layer between a one-shot Automation script and a full native C++ plugin. It gives extensions a stable service model, a manifest, lifecycle, events, persistent state and a common way to work with Salamander panels.</p>
+        <p>Salamatrix is the new extension layer between a one-shot Automation script and a full native C++ plugin. It gives extensions a stable service model, a manifest, lifecycle, events, persistent state and a common way to work with Open Samandarin panels.</p>
         <p>Native plugins and out-of-process workers can use the same concepts. A Python, PowerShell, PHP, Node or Lua extension does not need to reinvent the host integration for every runtime.</p>
         <p class="hero-actions"><a class="button" aria="button" href="salamatrix-ui.html">Build native dialogs</a> <a class="button-secondary" aria="button" href="salamatrix-platform.md">Read the Platform specification</a></p>
       </div>
@@ -99,14 +103,14 @@
           <div class="stack-connector">↕</div>
           <div class="stack-box stack-box--middle"><strong>Salamatrix services</strong><span>UI · Commands · Events · Storage</span></div>
           <div class="stack-connector">↕</div>
-          <div class="stack-box stack-box--bottom"><strong>Open Salamander</strong><span>Host, panels and Plugin Manager</span></div>
+          <div class="stack-box stack-box--bottom"><strong>Open Samandarin</strong><span>Host, panels and Plugin Manager</span></div>
         </div>
         <span class="compatibility-badge">SMX1<br><small>API protocol</small></span>
       </div>
     </section>
 
     <section class="content-grid" id="architecture">
-      <h2>One framework, several ways to extend Salamander</h2>
+      <h2>One framework, several ways to extend Open Samandarin</h2>
       <p>Salamatrix keeps the useful simplicity of Automation while adding the pieces needed for real, long-lived extensions. The public surface is service-oriented and versioned, so providers can evolve through append-only contracts instead of coupling every extension to Salamander internals.</p>
       <div class="card-grid">
         <article class="info-card"><h3>Native foundation</h3><p><code>SALAMATRIX.SPL</code> is the framework provider. It registers the shared service registry, host adapters and the common object model used by native and scripted callers.</p></article>
