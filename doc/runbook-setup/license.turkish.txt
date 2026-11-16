@@ -1,0 +1,19 @@
+Open Samandarin
+
+Open Samandarin, Open Salamander 5.0 temel alınarak oluşturulmuş topluluk yapımı bir fork'tur.
+Ondrej Kotas (KRtekTM) tarafından yapay zekâ desteğiyle ve vibe coding yaklaşımıyla
+hazırlanmış deneysel bir açık kaynak derlemesidir. Denemeyi seven kullanıcılara yöneliktir;
+eksikliklerle karşılaşabileceğinizi göz önünde bulundurun ve önemli işler için kullanmadan
+önce sürüm notlarını inceleyin.
+
+Open Salamander'ın ana kodu GNU GPL sürüm 2 veya daha yenisi kapsamında lisanslanmıştır.
+Birlikte sunulan bazı bileşenler ve eklentiler GPLv3, MIT, Zlib ve diğer açık kaynak
+lisansları dâhil olmak üzere kendi lisanslarını kullanır. Bu kısa bildirim söz konusu
+lisans koşullarının yerine geçmez; depodaki LICENSE dosyasına ve üçüncü taraf bildirimlerine
+bakın.
+
+Bu yazılım, açık veya zımni herhangi bir garanti olmaksızın "olduğu gibi" sunulur.
+Kullanma, kopyalama, değiştirme ve dağıtma izni, ilgili dosya ve bileşenlere uygulanan
+açık kaynak lisansları kapsamında verilir. Bu fork'un kökenini yanlış tanıtmayın,
+değiştirilmiş sürümleri uygun şekilde belirtin ve lisans ile telif hakkı bildirimlerini
+koruyun.

@@ -1,0 +1,19 @@
+Open Samandarin
+
+Open Samandarin é um fork comunitário baseado no Open Salamander 5.0.
+É uma versão experimental de código aberto criada por Ondrej Kotas (KRtekTM) com
+auxílio de IA e usando a abordagem de vibe coding. Destina-se a usuários que gostam
+de experimentar; espere encontrar algumas imperfeições e consulte as notas da versão
+antes de utilizá-la em tarefas importantes.
+
+O código principal do Open Salamander é licenciado sob a GNU GPL versão 2 ou posterior.
+Alguns componentes e plugins incluídos usam licenças próprias, entre elas GPLv3, MIT,
+Zlib e outras licenças de código aberto. Este aviso resumido não substitui os termos
+dessas licenças; consulte o arquivo LICENSE no repositório e os avisos de terceiros.
+
+Este software é fornecido "no estado em que se encontra", sem qualquer garantia
+expressa ou implícita. A permissão para usar, copiar, modificar e distribuir o
+software é concedida conforme as licenças de código aberto aplicáveis aos arquivos
+e componentes pertinentes. Não deturpe a origem deste fork, identifique
+adequadamente as versões modificadas e mantenha intactos os avisos de licença e
+direitos autorais.

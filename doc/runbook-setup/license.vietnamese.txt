@@ -1,0 +1,17 @@
+Open Samandarin
+
+Open Samandarin là một nhánh cộng đồng dựa trên Open Salamander 5.0.
+Đây là bản dựng mã nguồn mở thử nghiệm do Ondrej Kotas (KRtekTM) tạo ra với sự hỗ trợ
+của AI và phương pháp vibe coding. Phần mềm dành cho những người dùng thích trải nghiệm;
+hãy lưu ý có thể còn thiếu sót và xem ghi chú phát hành trước khi dùng cho công việc quan trọng.
+
+Mã nguồn chính của Open Salamander được cấp phép theo GNU GPL phiên bản 2 trở lên.
+Một số thành phần và plugin đi kèm sử dụng giấy phép riêng, bao gồm GPLv3, MIT, Zlib
+và các giấy phép mã nguồn mở khác. Thông báo ngắn này không thay thế các điều khoản
+giấy phép đó; hãy xem tệp LICENSE trong kho mã nguồn và các thông báo của bên thứ ba.
+
+Phần mềm này được cung cấp "nguyên trạng", không kèm theo bất kỳ bảo đảm rõ ràng
+hay ngụ ý nào. Quyền sử dụng, sao chép, sửa đổi và phân phối được cấp theo các giấy
+phép mã nguồn mở áp dụng cho những tệp và thành phần liên quan. Không trình bày sai
+nguồn gốc của nhánh này, hãy ghi rõ các phiên bản đã sửa đổi và giữ nguyên các thông
+báo về giấy phép cũng như bản quyền.

@@ -1,0 +1,19 @@
+Open Samandarin
+
+Open Samandarin és una bifurcació comunitària basada en Open Salamander 5.0.
+És una versió experimental de codi obert creada per Ondrej Kotas (KRtekTM) amb
+assistència d'IA i seguint l'enfocament vibe coding. Està pensada per a usuaris
+amb ganes d'experimentar; pot tenir aspectes poc polits. Consulteu les notes de la
+versió abans d'utilitzar-la per a tasques importants.
+
+El codi principal d'Open Salamander està subjecte a la GNU GPL versió 2 o posterior.
+Alguns components i connectors inclosos tenen les seves pròpies llicències, com ara
+GPLv3, MIT, Zlib i altres llicències de codi obert. Aquest avís breu no substitueix
+les condicions d'aquestes llicències; consulteu el fitxer LICENSE del repositori i
+els avisos de tercers.
+
+Aquest programari es proporciona «tal com és», sense cap garantia expressa ni implícita.
+El permís per utilitzar-lo, copiar-lo, modificar-lo i distribuir-lo s'atorga d'acord
+amb les llicències de codi obert aplicables als fitxers i components corresponents.
+No tergiverseu l'origen d'aquesta bifurcació, identifiqueu adequadament les versions
+modificades i conserveu intactes els avisos de llicència i de drets d'autor.

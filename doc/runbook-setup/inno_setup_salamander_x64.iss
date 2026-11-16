@@ -1,4 +1,7 @@
 ; | Date | Summary | Reason | Ticket | Model |
+; | 2026-11-16 | Always install the language pack without a task checkbox. | Make the additional UI translations available on every installation. | | openrouter/openai/gpt-6-luna-pro |
+; | 2026-11-16 | Map Brazilian Portuguese installer language to the app language-pack ID. | Launch Samandarin with the existing portuguese.slg translation. | | openrouter/openai/gpt-6-luna-pro |
+; | 2026-11-16 | Add localized license notices for all installer languages. | Show the license notice in the selected setup language instead of falling back to English. | | openrouter/openai/gpt-6-luna-pro |
 ; | 2026-11-15 | Add Catalan, Danish, Finnish, Lithuanian, Norwegian and Slovenian installer languages. | Register new target languages in [Languages], wire up Inno Setup message files and localize custom installer strings. | | nvidia/nemotron-3.5-super-vl:free |
 ; | 2026-11-15 | Keep plugin selection on the full expert list. | Remove the mode switch and simple category selector from the installer. | | openrouter/openai/gpt-6-luna-pro |
 ; | 2026-11-15 | Use Brazilian Portuguese in the installer language list. | Match the requested Portuguese locale and its terminology. | | openrouter/openai/gpt-6-luna-pro |
@@ -122,54 +125,30 @@ Name: "romanian"; MessagesFile: "compiler:Languages\Romanian.isl"; LicenseFile: 
 Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"; LicenseFile: "{#SourcePath}\license.russian.txt"
 Name: "slovak"; MessagesFile: "compiler:Languages\Slovak.isl"; LicenseFile: "{#SourcePath}\license.slovak.txt"
 Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"; LicenseFile: "{#SourcePath}\license.spanish.txt"
-Name: "arabic"; MessagesFile: "compiler:Languages\Arabic.isl"; LicenseFile: "{#SourcePath}\license.txt"
-Name: "bulgarian"; MessagesFile: "compiler:Languages\Bulgarian.isl"; LicenseFile: "{#SourcePath}\license.txt"
-Name: "chinesetraditional"; MessagesFile: "compiler:Languages\ChineseTraditional.isl"; LicenseFile: "{#SourcePath}\license.txt"
-Name: "croatian"; MessagesFile: "compiler:Languages\Croatian.isl"; LicenseFile: "{#SourcePath}\license.txt"
-Name: "greek"; MessagesFile: "compiler:Languages\Greek.isl"; LicenseFile: "{#SourcePath}\license.txt"
-Name: "hebrew"; MessagesFile: "compiler:Languages\Hebrew.isl"; LicenseFile: "{#SourcePath}\license.txt"
-Name: "indonesian"; MessagesFile: "compiler:Languages\Indonesian.isl"; LicenseFile: "{#SourcePath}\license.txt"
-Name: "japanese"; MessagesFile: "compiler:Languages\Japanese.isl"; LicenseFile: "{#SourcePath}\license.txt"
-Name: "korean"; MessagesFile: "compiler:Languages\Korean.isl"; LicenseFile: "{#SourcePath}\license.txt"
-Name: "polish"; MessagesFile: "compiler:Languages\Polish.isl"; LicenseFile: "{#SourcePath}\license.txt"
-Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"; LicenseFile: "{#SourcePath}\license.txt"
-Name: "swedish"; MessagesFile: "compiler:Languages\Swedish.isl"; LicenseFile: "{#SourcePath}\license.txt"
-Name: "turkish"; MessagesFile: "compiler:Languages\Turkish.isl"; LicenseFile: "{#SourcePath}\license.txt"
-Name: "ukrainian"; MessagesFile: "compiler:Languages\Ukrainian.isl"; LicenseFile: "{#SourcePath}\license.txt"
-Name: "vietnamese"; MessagesFile: "compiler:Languages\Vietnamese.isl"; LicenseFile: "{#SourcePath}\license.txt"
-Name: "catalan"; MessagesFile: "compiler:Languages\Catalan.isl"; LicenseFile: "{#SourcePath}\license.txt"
-Name: "danish"; MessagesFile: "compiler:Languages\Danish.isl"; LicenseFile: "{#SourcePath}\license.txt"
-Name: "finnish"; MessagesFile: "compiler:Languages\Finnish.isl"; LicenseFile: "{#SourcePath}\license.txt"
-Name: "lithuanian"; MessagesFile: "compiler:Languages\Lithuanian.isl"; LicenseFile: "{#SourcePath}\license.txt"
-Name: "norwegian"; MessagesFile: "compiler:Languages\Norwegian.isl"; LicenseFile: "{#SourcePath}\license.txt"
-Name: "slovenian"; MessagesFile: "compiler:Languages\Slovenian.isl"; LicenseFile: "{#SourcePath}\license.txt"
+Name: "arabic"; MessagesFile: "compiler:Languages\Arabic.isl"; LicenseFile: "{#SourcePath}\license.arabic.txt"
+Name: "bulgarian"; MessagesFile: "compiler:Languages\Bulgarian.isl"; LicenseFile: "{#SourcePath}\license.bulgarian.txt"
+Name: "chinesetraditional"; MessagesFile: "compiler:Languages\ChineseTraditional.isl"; LicenseFile: "{#SourcePath}\license.chinesetraditional.txt"
+Name: "croatian"; MessagesFile: "compiler:Languages\Croatian.isl"; LicenseFile: "{#SourcePath}\license.croatian.txt"
+Name: "greek"; MessagesFile: "compiler:Languages\Greek.isl"; LicenseFile: "{#SourcePath}\license.greek.txt"
+Name: "hebrew"; MessagesFile: "compiler:Languages\Hebrew.isl"; LicenseFile: "{#SourcePath}\license.hebrew.txt"
+Name: "indonesian"; MessagesFile: "compiler:Languages\Indonesian.isl"; LicenseFile: "{#SourcePath}\license.indonesian.txt"
+Name: "japanese"; MessagesFile: "compiler:Languages\Japanese.isl"; LicenseFile: "{#SourcePath}\license.japanese.txt"
+Name: "korean"; MessagesFile: "compiler:Languages\Korean.isl"; LicenseFile: "{#SourcePath}\license.korean.txt"
+Name: "polish"; MessagesFile: "compiler:Languages\Polish.isl"; LicenseFile: "{#SourcePath}\license.polish.txt"
+Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"; LicenseFile: "{#SourcePath}\license.brazilianportuguese.txt"
+Name: "swedish"; MessagesFile: "compiler:Languages\Swedish.isl"; LicenseFile: "{#SourcePath}\license.swedish.txt"
+Name: "turkish"; MessagesFile: "compiler:Languages\Turkish.isl"; LicenseFile: "{#SourcePath}\license.turkish.txt"
+Name: "ukrainian"; MessagesFile: "compiler:Languages\Ukrainian.isl"; LicenseFile: "{#SourcePath}\license.ukrainian.txt"
+Name: "vietnamese"; MessagesFile: "compiler:Languages\Vietnamese.isl"; LicenseFile: "{#SourcePath}\license.vietnamese.txt"
+Name: "catalan"; MessagesFile: "compiler:Languages\Catalan.isl"; LicenseFile: "{#SourcePath}\license.catalan.txt"
+Name: "danish"; MessagesFile: "compiler:Languages\Danish.isl"; LicenseFile: "{#SourcePath}\license.danish.txt"
+Name: "finnish"; MessagesFile: "compiler:Languages\Finnish.isl"; LicenseFile: "{#SourcePath}\license.finnish.txt"
+Name: "lithuanian"; MessagesFile: "compiler:Languages\Lithuanian.isl"; LicenseFile: "{#SourcePath}\license.lithuanian.txt"
+Name: "norwegian"; MessagesFile: "compiler:Languages\Norwegian.isl"; LicenseFile: "{#SourcePath}\license.norwegian.txt"
+Name: "slovenian"; MessagesFile: "compiler:Languages\Slovenian.isl"; LicenseFile: "{#SourcePath}\license.slovenian.txt"
 
 [CustomMessages]
 english.RemoveUserConfigQuestion=Do you want to remove the Open Samandarin user configuration?
-english.AdditionalLanguages=Additional UI languages (language pack)
-english.LanguagesGroup=Languages:
-chinesesimplified.AdditionalLanguages=其他界面语言（语言包）
-chinesesimplified.LanguagesGroup=语言：
-czech.AdditionalLanguages=Další jazyky rozhraní (jazykový balíček)
-czech.LanguagesGroup=Jazyky:
-dutch.AdditionalLanguages=Extra UI-talen (taalpakket)
-dutch.LanguagesGroup=Talen:
-french.AdditionalLanguages=Langues d''interface supplémentaires (pack de langues)
-french.LanguagesGroup=Langues :
-german.AdditionalLanguages=Zusätzliche UI-Sprachen (Sprachpaket)
-german.LanguagesGroup=Sprachen:
-hungarian.AdditionalLanguages=További felületi nyelvek (nyelvi csomag)
-hungarian.LanguagesGroup=Nyelvek:
-italian.AdditionalLanguages=Lingue UI aggiuntive (language pack)
-italian.LanguagesGroup=Lingue:
-romanian.AdditionalLanguages=Limbi UI suplimentare (pachet de limbi)
-romanian.LanguagesGroup=Limbi:
-russian.AdditionalLanguages=Дополнительные языки интерфейса (языковой пакет)
-russian.LanguagesGroup=Языки:
-slovak.AdditionalLanguages=Ďalšie jazyky rozhrania (jazykový balík)
-slovak.LanguagesGroup=Jazyky:
-spanish.AdditionalLanguages=Idiomas de interfaz adicionales (paquete de idiomas)
-spanish.LanguagesGroup=Idiomas:
 english.FileStorage=File storage:
 english.RegistryKey=Registry key:
 english.RemoveUserConfigFiles=Choose Yes to delete the configuration files, or No to keep your settings.
@@ -593,8 +572,6 @@ slovak.OfficialRuntimeDownload=Oficiálne stiahnutie:
 spanish.RuntimeDependencyNotice=Algunos componentes seleccionados requieren un entorno externo que no se detectó. El componente se instalará igualmente; utilice los enlaces oficiales siguientes.
 spanish.OfficialRuntimeDownload=Descarga oficial:
 arabic.RemoveUserConfigQuestion=هل تريد إزالة تكوين مستخدم Open Samandarin؟
-arabic.AdditionalLanguages=لغات واجهة إضافية (حزمة لغات)
-arabic.LanguagesGroup=اللغات:
 arabic.FileStorage=تخزين الملفات:
 arabic.RegistryKey=مفتاح السجل:
 arabic.RemoveUserConfigFiles=اختر نعم لحذف ملفات التكوين، أو لا للاحتفاظ بإعداداتك.
@@ -619,8 +596,6 @@ arabic.PluginConfigurationExpert=خبير (للمتخصصين والمطورين
 arabic.PluginConfigurationCustom=مخصص
 arabic.InstalledVersionLabel=الإصدار المثبت:
 bulgarian.RemoveUserConfigQuestion=Искате ли да премахнете потребителската конфигурация на Open Samandarin?
-bulgarian.AdditionalLanguages=Допълнителни езици на интерфейса (езиков пакет)
-bulgarian.LanguagesGroup=Езици:
 bulgarian.FileStorage=Файлово хранилище:
 bulgarian.RegistryKey=Ключ в системния регистър:
 bulgarian.RemoveUserConfigFiles=Изберете Да, за да изтриете конфигурационните файлове, или Не, за да запазите настройките.
@@ -645,8 +620,6 @@ bulgarian.PluginConfigurationExpert=Експертна (за специалис�
 bulgarian.PluginConfigurationCustom=Персонализирана
 bulgarian.InstalledVersionLabel=Инсталирана версия:
 chinesetraditional.RemoveUserConfigQuestion=要移除 Open Samandarin 使用者設定嗎？
-chinesetraditional.AdditionalLanguages=其他介面語言（語言套件）
-chinesetraditional.LanguagesGroup=語言：
 chinesetraditional.FileStorage=檔案儲存：
 chinesetraditional.RegistryKey=登錄機碼：
 chinesetraditional.RemoveUserConfigFiles=選擇「是」以刪除設定檔，或選擇「否」以保留設定。
@@ -671,8 +644,6 @@ chinesetraditional.PluginConfigurationExpert=專家（適合專家與開發人�
 chinesetraditional.PluginConfigurationCustom=自訂
 chinesetraditional.InstalledVersionLabel=已安裝版本：
 croatian.RemoveUserConfigQuestion=Želite li ukloniti korisničku konfiguraciju Open Samandarin?
-croatian.AdditionalLanguages=Dodatni jezici sučelja (jezični paket)
-croatian.LanguagesGroup=Jezici:
 croatian.FileStorage=Pohrana datoteka:
 croatian.RegistryKey=Ključ registra:
 croatian.RemoveUserConfigFiles=Odaberite Da za brisanje konfiguracijskih datoteka ili Ne za zadržavanje postavki.
@@ -697,8 +668,6 @@ croatian.PluginConfigurationExpert=Stručna (za stručnjake i programere)
 croatian.PluginConfigurationCustom=Prilagođena
 croatian.InstalledVersionLabel=Instalirana verzija:
 greek.RemoveUserConfigQuestion=Θέλετε να καταργήσετε τη διαμόρφωση χρήστη του Open Samandarin;
-greek.AdditionalLanguages=Πρόσθετες γλώσσες περιβάλλοντος εργασίας (πακέτο γλώσσας)
-greek.LanguagesGroup=Γλώσσες:
 greek.FileStorage=Αποθήκευση αρχείων:
 greek.RegistryKey=Κλειδί μητρώου:
 greek.RemoveUserConfigFiles=Επιλέξτε Ναι για να διαγράψετε τα αρχεία διαμόρφωσης ή Όχι για να διατηρήσετε τις ρυθμίσεις σας.
@@ -723,8 +692,6 @@ greek.PluginConfigurationExpert=Ειδική (για ειδικούς και π�
 greek.PluginConfigurationCustom=Προσαρμοσμένη
 greek.InstalledVersionLabel=Εγκατεστημένη έκδοση:
 hebrew.RemoveUserConfigQuestion=האם להסיר את תצורת המשתמש של Open Samandarin?
-hebrew.AdditionalLanguages=שפות ממשק נוספות (חבילת שפה)
-hebrew.LanguagesGroup=שפות:
 hebrew.FileStorage=אחסון קבצים:
 hebrew.RegistryKey=מפתח רישום:
 hebrew.RemoveUserConfigFiles=בחר כן כדי למחוק את קובצי התצורה, או לא כדי לשמור את ההגדרות.
@@ -749,8 +716,6 @@ hebrew.PluginConfigurationExpert=מומחית (למומחים ולמפתחים)
 hebrew.PluginConfigurationCustom=מותאמת אישית
 hebrew.InstalledVersionLabel=גרסה מותקנת:
 indonesian.RemoveUserConfigQuestion=Apakah Anda ingin menghapus konfigurasi pengguna Open Samandarin?
-indonesian.AdditionalLanguages=Bahasa antarmuka tambahan (paket bahasa)
-indonesian.LanguagesGroup=Bahasa:
 indonesian.FileStorage=Penyimpanan berkas:
 indonesian.RegistryKey=Kunci registri:
 indonesian.RemoveUserConfigFiles=Pilih Ya untuk menghapus berkas konfigurasi, atau Tidak untuk mempertahankan pengaturan Anda.
@@ -775,8 +740,6 @@ indonesian.PluginConfigurationExpert=Ahli (untuk pakar dan pengembang)
 indonesian.PluginConfigurationCustom=Kustom
 indonesian.InstalledVersionLabel=Versi terpasang:
 japanese.RemoveUserConfigQuestion=Open Samandarin のユーザー設定を削除しますか？
-japanese.AdditionalLanguages=追加の UI 言語（言語パック）
-japanese.LanguagesGroup=言語:
 japanese.FileStorage=ファイル保存先:
 japanese.RegistryKey=レジストリキー:
 japanese.RemoveUserConfigFiles=設定ファイルを削除するには「はい」を、設定を保持するには「いいえ」を選択してください。
@@ -801,8 +764,6 @@ japanese.PluginConfigurationExpert=エキスパート（専門家と開発者向
 japanese.PluginConfigurationCustom=カスタム
 japanese.InstalledVersionLabel=インストール済みバージョン:
 korean.RemoveUserConfigQuestion=Open Samandarin 사용자 구성을 제거하시겠습니까?
-korean.AdditionalLanguages=추가 UI 언어(언어 팩)
-korean.LanguagesGroup=언어:
 korean.FileStorage=파일 저장소:
 korean.RegistryKey=레지스트리 키:
 korean.RemoveUserConfigFiles=구성 파일을 삭제하려면 예를, 설정을 유지하려면 아니요를 선택하세요.
@@ -827,8 +788,6 @@ korean.PluginConfigurationExpert=전문가 (전문가 및 개발자용)
 korean.PluginConfigurationCustom=사용자 지정
 korean.InstalledVersionLabel=설치된 버전:
 polish.RemoveUserConfigQuestion=Czy usunąć konfigurację użytkownika Open Samandarin?
-polish.AdditionalLanguages=Dodatkowe języki interfejsu (pakiet językowy)
-polish.LanguagesGroup=Języki:
 polish.FileStorage=Magazyn plików:
 polish.RegistryKey=Klucz rejestru:
 polish.RemoveUserConfigFiles=Wybierz Tak, aby usunąć pliki konfiguracji, lub Nie, aby zachować ustawienia.
@@ -853,8 +812,6 @@ polish.PluginConfigurationExpert=Ekspercka (dla ekspertów i programistów)
 polish.PluginConfigurationCustom=Niestandardowa
 polish.InstalledVersionLabel=Zainstalowana wersja:
 brazilianportuguese.RemoveUserConfigQuestion=Você deseja remover a configuração de usuário do Open Samandarin?
-brazilianportuguese.AdditionalLanguages=Idiomas adicionais da interface (pacote de idiomas)
-brazilianportuguese.LanguagesGroup=Idiomas:
 brazilianportuguese.FileStorage=Armazenamento de arquivos:
 brazilianportuguese.RegistryKey=Chave do Registro:
 brazilianportuguese.RemoveUserConfigFiles=Selecione Sim para excluir os arquivos de configuração ou Não para manter as configurações.
@@ -879,8 +836,6 @@ brazilianportuguese.PluginConfigurationExpert=Especialista (para especialistas e
 brazilianportuguese.PluginConfigurationCustom=Personalizada
 brazilianportuguese.InstalledVersionLabel=Versão instalada:
 swedish.RemoveUserConfigQuestion=Vill du ta bort användarkonfigurationen för Open Samandarin?
-swedish.AdditionalLanguages=Ytterligare gränssnittsspråk (språkpaket)
-swedish.LanguagesGroup=Språk:
 swedish.FileStorage=Fillagring:
 swedish.RegistryKey=Registernyckel:
 swedish.RemoveUserConfigFiles=Välj Ja för att ta bort konfigurationsfilerna eller Nej för att behålla inställningarna.
@@ -905,8 +860,6 @@ swedish.PluginConfigurationExpert=Expert (för experter och utvecklare)
 swedish.PluginConfigurationCustom=Anpassad
 swedish.InstalledVersionLabel=Installerad version:
 turkish.RemoveUserConfigQuestion=Open Samandarin kullanıcı yapılandırmasını kaldırmak istiyor musunuz?
-turkish.AdditionalLanguages=Ek kullanıcı arayüzü dilleri (dil paketi)
-turkish.LanguagesGroup=Diller:
 turkish.FileStorage=Dosya depolama:
 turkish.RegistryKey=Kayıt defteri anahtarı:
 turkish.RemoveUserConfigFiles=Yapılandırma dosyalarını silmek için Evet'i, ayarlarınızı korumak için Hayır'ı seçin.
@@ -931,8 +884,6 @@ turkish.PluginConfigurationExpert=Uzman (uzmanlar ve geliştiriciler için)
 turkish.PluginConfigurationCustom=Özel
 turkish.InstalledVersionLabel=Yüklü sürüm:
 ukrainian.RemoveUserConfigQuestion=Видалити конфігурацію користувача Open Samandarin?
-ukrainian.AdditionalLanguages=Додаткові мови інтерфейсу (мовний пакет)
-ukrainian.LanguagesGroup=Мови:
 ukrainian.FileStorage=Файлове сховище:
 ukrainian.RegistryKey=Ключ реєстру:
 ukrainian.RemoveUserConfigFiles=Виберіть «Так», щоб видалити файли конфігурації, або «Ні», щоб зберегти налаштування.
@@ -957,8 +908,6 @@ ukrainian.PluginConfigurationExpert=Експертна (для фахівців 
 ukrainian.PluginConfigurationCustom=Власна
 ukrainian.InstalledVersionLabel=Встановлена версія:
 vietnamese.RemoveUserConfigQuestion=Bạn có muốn xóa cấu hình người dùng Open Samandarin không?
-vietnamese.AdditionalLanguages=Ngôn ngữ giao diện bổ sung (gói ngôn ngữ)
-vietnamese.LanguagesGroup=Ngôn ngữ:
 vietnamese.FileStorage=Lưu trữ tệp:
 vietnamese.RegistryKey=Khóa đăng ký:
 vietnamese.RemoveUserConfigFiles=Chọn Có để xóa các tệp cấu hình hoặc Không để giữ lại cài đặt.
@@ -1320,8 +1269,6 @@ spanish.InstalledVersionLabel=instalado
 czech.InstalledVersionLabel=nainstalováno
 
 catalan.RemoveUserConfigQuestion=Voleu eliminar la configuració d'usuari d'Open Samandarin?
-catalan.AdditionalLanguages=Idiomes d'interfície addicionals (paquet d'idiomes)
-catalan.LanguagesGroup=Idiomes:
 catalan.FileStorage=Emmagatzematge de fitxers:
 catalan.RegistryKey=Clau del registre:
 catalan.RemoveUserConfigFiles=Trieu Sí per eliminar els fitxers de configuració, o No per conservar la configuració.
@@ -1365,8 +1312,6 @@ catalan.SalamatrixFrameworkNotice=Salamatrix Framework és obligatori i s'inclou
 catalan.InstalledVersionLabel=instal·lat
 
 danish.RemoveUserConfigQuestion=Vil du fjerne Open Samandarin-brugerkonfigurationen?
-danish.AdditionalLanguages=Yderligere UI-sprog (sprogpakke)
-danish.LanguagesGroup=Sprog:
 danish.FileStorage=Filopbevaring:
 danish.RegistryKey=Registreringsnøgle:
 danish.RemoveUserConfigFiles=Vælg Ja for at slette konfigurationsfilerne, eller Nej for at bevare dine indstillinger.
@@ -1410,8 +1355,6 @@ danish.SalamatrixFrameworkNotice=Salamatrix Framework er påkrævet og inkludere
 danish.InstalledVersionLabel=installeret
 
 finnish.RemoveUserConfigQuestion=Haluatko poistaa Open Samandarin käyttäjäasetukset?
-finnish.AdditionalLanguages=Lisäliittymäkielet (kielipaketti)
-finnish.LanguagesGroup=Kielet:
 finnish.FileStorage=Tiedostojen tallennus:
 finnish.RegistryKey=Rekisteriavain:
 finnish.RemoveUserConfigFiles=Valitse Kyllä poistaaksesi asetustiedostot tai Ei säilyttääksesi asetukset.
@@ -1455,8 +1398,6 @@ finnish.SalamatrixFrameworkNotice=Salamatrix Framework on pakollinen ja se sisä
 finnish.InstalledVersionLabel=asennettu
 
 lithuanian.RemoveUserConfigQuestion=Ar norite pašalinti Open Samandarin vartotojų konfigūraciją?
-lithuanian.AdditionalLanguages=Papildomos kalbos (kalbų paketas)
-lithuanian.LanguagesGroup=Kalbos:
 lithuanian.FileStorage=Failų saugojimas:
 lithuanian.RegistryKey=Registracijos raktas:
 lithuanian.RemoveUserConfigFiles=Pasirinkite Taip, kad ištrintumėte konfigūracijos failus, arba Ne, kad išlaikytumėte nustatymus.
@@ -1500,8 +1441,6 @@ lithuanian.SalamatrixFrameworkNotice=Salamatrix Framework yra privaloma ir visad
 lithuanian.InstalledVersionLabel=Įdiegtas
 
 norwegian.RemoveUserConfigQuestion=Vil du fjerne Open Samandarin-brukerkonfigurasjonen?
-norwegian.AdditionalLanguages=Ytterligere UI-språk (språkpakke)
-norwegian.LanguagesGroup=Språk:
 norwegian.FileStorage=Filagring:
 norwegian.RegistryKey=Registreringsnøkkel:
 norwegian.RemoveUserConfigFiles=Velg Ja for å slette konfigurasjonsfilene, eller Nei for å beholde innstillingene dine.
@@ -1545,8 +1484,6 @@ norwegian.SalamatrixFrameworkNotice=Salamatrix Framework er påkrevd og inkluder
 norwegian.InstalledVersionLabel=installert
 
 slovenian.RemoveUserConfigQuestion=Ali želite odstraniti uporabniško konfiguracijo Open Samandarina?
-slovenian.AdditionalLanguages=Dodatni jeziki uporabniškega vmesnika (jezični paket)
-slovenian.LanguagesGroup=Jeziki:
 slovenian.FileStorage=Shranjevanje datotek:
 slovenian.RegistryKey=Ključ registra:
 slovenian.RemoveUserConfigFiles=Izberite Da za brisanje datotek konfiguracije, ali Ne za ohranjanje nastavitev.
@@ -1594,7 +1531,6 @@ slovenian.InstalledVersionLabel=nameščeno
 [Tasks]
 Name: "startmenuicon"; Description: "{cm:StartMenuShortcut}"; GroupDescription: "{cm:Shortcuts}"; Check: not IsPortableInstall
 Name: "desktopicon"; Description: "{cm:DesktopShortcut}"; GroupDescription: "{cm:Shortcuts}"; Flags: unchecked; Check: not IsPortableInstall
-Name: "additionallanguages"; Description: "{cm:AdditionalLanguages}"; GroupDescription: "{cm:LanguagesGroup}"; Flags: checkedonce
 
 [Dirs]
 Name: "{app}\convert"
@@ -1864,7 +1800,7 @@ Source: "{#PayloadDir}\help\english\unrar.chm"; DestDir: "{app}\help\english"; F
 Source: "{#PayloadDir}\help\english\winscp.chm"; DestDir: "{app}\help\english"; Flags: ignoreversion
 Source: "{#PayloadDir}\help\english\wmobile.chm"; DestDir: "{app}\help\english"; Flags: ignoreversion
 Source: "{#PayloadDir}\help\english\zip.chm"; DestDir: "{app}\help\english"; Flags: ignoreversion
-Source: "{#PayloadDir}\lang\langpack.dll"; DestDir: "{app}\lang"; Flags: ignoreversion skipifsourcedoesntexist; Tasks: additionallanguages
+Source: "{#PayloadDir}\lang\langpack.dll"; DestDir: "{app}\lang"; Flags: ignoreversion
 Source: "{#PayloadDir}\msvcp140.dll"; DestDir: "{app}"; Flags: ignoreversion
 #if WebInstaller == False
 Source: "{#PayloadDir}\plugins\7zip\7za.dll"; DestDir: "{app}\plugins\7zip"; Flags: ignoreversion; Check: IsPluginSelected('7zip')
@@ -2302,7 +2238,7 @@ Name: "{autodesktop}\Open Samandarin (x64)"; Filename: "{app}\{#AppToInstallExeN
 Name: "{group}\Open Samandarin (x64)"; Filename: "{app}\{#AppToInstallExeName}"; WorkingDir: "{app}"; Check: ShouldCreateShortcut('startmenu')
 
 [Run]
-Filename: "{app}\{#AppToInstallExeName}"; Parameters: "-welcome -language ""{language}"""; Description: "{cm:LaunchProgram}"; Flags: nowait postinstall; Check: ShouldRunApplication
+Filename: "{app}\{#AppToInstallExeName}"; Parameters: "-welcome -language ""{code:GetApplicationLanguage}"""; Description: "{cm:LaunchProgram}"; Flags: nowait postinstall; Check: ShouldRunApplication
 
 
 [UninstallRun]
@@ -2602,6 +2538,13 @@ end;
 function ShouldRunApplication(): Boolean;
 begin
   Result := (not WizardSilent) or (SilentRunApp = 'yes') or (SilentRunApp = 'y') or (SilentRunApp = '1') or (SilentRunApp = 'true');
+end;
+
+function GetApplicationLanguage(Param: String): String;
+begin
+  Result := ExpandConstant('{language}');
+  if CompareText(Result, 'brazilianportuguese') = 0 then
+    Result := 'portuguese';
 end;
 
 function PadLeft(const Value: String; const Width: Integer): String;
