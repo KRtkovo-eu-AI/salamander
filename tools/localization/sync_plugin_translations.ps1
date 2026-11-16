@@ -1,5 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
-# | 2026-11-16 | Include every plugin language directory when syncing translations. | Newly added language folders must not be omitted from repository translation archives. | | openrouter/openai/gpt-6-luna-pro |
+# | 2026-11-16 | Limit creation of new repository locale directories to sftp. | Newly added sftp translations should not introduce locales for every plugin. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-11 | Add language filtering to plugin translation sync. | Keep both translation sync directions selectable for newly added languages. | | openai/gpt-5.6-luna-pro |
 <#
 .SYNOPSIS
@@ -13,6 +13,8 @@
 
     Plugin discovery is automatic: any directory under src/plugins/*/translations/ that
     contains .slt files is treated as a plugin source.
+    New top-level locale directories are created from plugin translations only for sftp;
+    other plugins are synced only into locale directories already present in translations/.
 
 .PARAMETER RepoRoot
     Path to the repository root. Auto-detected if omitted.
@@ -92,7 +94,7 @@ if ($Languages -and $Languages.Count -gt 0)
 }
 
 # Scan each plugin for a translations/ subdirectory
-foreach ($pluginDir in (Get-ChildItem -LiteralPath $pluginsDir -Directory -Force))
+foreach ($pluginDir in (Get-ChildItem -Path $pluginsDir -Directory))
 {
     if ($requestedModules.Count -gt 0 -and
         $requestedModules -notcontains $pluginDir.Name.ToLowerInvariant())
@@ -107,7 +109,7 @@ foreach ($pluginDir in (Get-ChildItem -LiteralPath $pluginsDir -Directory -Force
     }
 
     # Scan language subdirectories within the plugin
-    foreach ($langDir in (Get-ChildItem -LiteralPath $pluginTranslationsDir -Directory -Force))
+    foreach ($langDir in (Get-ChildItem -Path $pluginTranslationsDir -Directory))
     {
         if ($requestedLanguages.Count -gt 0 -and
             $requestedLanguages -notcontains $langDir.Name.ToLowerInvariant())
@@ -115,7 +117,7 @@ foreach ($pluginDir in (Get-ChildItem -LiteralPath $pluginsDir -Directory -Force
             continue
         }
 
-        $sltFiles = Get-ChildItem -LiteralPath $langDir.FullName -Filter "*.slt" -File -Force
+        $sltFiles = Get-ChildItem -LiteralPath $langDir.FullName -Filter "*.slt" -File
         if (-not $sltFiles)
         {
             continue
@@ -125,6 +127,11 @@ foreach ($pluginDir in (Get-ChildItem -LiteralPath $pluginsDir -Directory -Force
         $targetLangDir = Join-Path $translationsDir $langDir.Name
         if (-not (Test-Path -LiteralPath $targetLangDir))
         {
+            if ($pluginDir.Name -ine "sftp")
+            {
+                continue
+            }
+
             New-Item -ItemType Directory -Path $targetLangDir -Force | Out-Null
             Write-Host "  Created: translations\$($langDir.Name)"
         }
