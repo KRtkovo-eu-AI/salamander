@@ -15,7 +15,7 @@
       "latestVersion": "1.0.3 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_file-lock-inspector_1.0.2_x64/plugin_5.0_file-lock-inspector_1.0.2_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_file-lock-inspector_1.0.3_x64/plugin_5.0_file-lock-inspector_1.0.3_x64.7z",
       "dependencies": [
         "powershellruntime"
       ],
