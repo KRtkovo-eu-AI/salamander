@@ -1,0 +1,193 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Model protected Find queue outcomes during wide traversal. | Keep capacity and Stop distinct from denied access. | #731 | GPT-6.1 Terra |
+// | 2026-11-10 | Exercise wide DFS and exact denied paths. | Preserve ordinary siblings and bound a denied retry to its original path. | #731 | GPT-6.1 Sol |
+#include <windows.h>
+#include <algorithm>
+#include <cstdio>
+#include <memory>
+#include <string>
+#include <vector>
+
+#define HANDLES_Q(value) (value)
+#define HANDLES(value) (value)
+constexpr size_t SAL_MAX_PATH = 32768;
+constexpr DWORD FLI_INFO = 1, FLI_ERROR = 2, FLI_IGNORE = 4;
+constexpr int IDS_FINDLOG_SKIP = 1, IDS_TOOLONGNAME = 2, IDS_DIRERRORFORMAT = 3;
+const char* LoadStr(int) { return "status"; }
+const char* GetErrorText(DWORD) { return "error"; }
+std::string FormatFindError(int, DWORD) { return "directory error"; }
+
+struct CQuadWord { CQuadWord(DWORD, DWORD) {} };
+struct CMaskGroup
+{
+    bool AgreeMasksW(const wchar_t* name, const wchar_t*)
+    {
+        const std::wstring leaf(name);
+        return leaf.size() >= 4 && leaf.substr(leaf.size() - 4) == L".txt";
+    }
+};
+struct CFindIgnore
+{
+    bool Contains(const char*, int) const { return false; }
+};
+struct CDuplicateCandidates {};
+struct TestCriteria
+{
+    bool Test(DWORD, const CQuadWord*, const FILETIME*) { return true; }
+    bool HasTags() const { return false; }
+    bool TestTags(const wchar_t*) const { return true; }
+};
+struct TestSearchingText { void Set(const char*) {} };
+struct CGrepData
+{
+    TestCriteria Criteria;
+    TestSearchingText* SearchingText;
+    bool StopSearch = false;
+    bool SearchIncomplete = false;
+    bool Grep = false;
+    bool StopOnFirst = false;
+    std::vector<std::wstring> found;
+    std::vector<std::string> log;
+    std::vector<DWORD> logFlags;
+    std::vector<std::string> logTexts;
+};
+
+void SalPathAppendW(std::wstring& path, const wchar_t* leaf)
+{
+    if (!path.empty() && path.back() != L'\\')
+        path += L'\\';
+    path += leaf;
+}
+std::wstring SalPathAddExtendedPrefixW(const wchar_t* path)
+{
+    return L"\\\\?\\" + std::wstring(path);
+}
+std::string SalWideToMultiBytePath(const wchar_t* path, UINT encoding)
+{
+    const int length = WideCharToMultiByte(encoding, 0, path, -1, nullptr, 0, nullptr, nullptr);
+    std::string output(static_cast<size_t>(length), '\0');
+    WideCharToMultiByte(encoding, 0, path, -1, output.data(), length, nullptr, nullptr);
+    output.pop_back();
+    return output;
+}
+void AddFindLog(CGrepData* data, DWORD flags, const char* text, const char* path)
+{
+    data->log.emplace_back(path);
+    data->logFlags.push_back(flags);
+    data->logTexts.emplace_back(text);
+}
+void AddFoundItem(const char*, const char*, DWORD, DWORD, DWORD, const FILETIME*, bool, CGrepData* data,
+                  CDuplicateCandidates*, const wchar_t* directory, const wchar_t* leaf)
+{
+    std::wstring path(directory);
+    SalPathAppendW(path, leaf);
+    data->found.push_back(std::move(path));
+    data->StopSearch = data->StopOnFirst;
+}
+BOOL TestFileContent(DWORD, DWORD, const char*, CGrepData*, bool, bool* denied, const wchar_t* path)
+{
+    if (denied && std::wstring(path).find(L"\\denied-file.txt") != std::wstring::npos)
+    {
+        *denied = true;
+        return FALSE;
+    }
+    const HANDLE file = CreateFileW(path, FILE_READ_DATA, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+    if (file == INVALID_HANDLE_VALUE)
+        return FALSE;
+    CloseHandle(file);
+    return TRUE;
+}
+enum class FindQueueResult { Added, Stopped, Limit, Failed };
+void ReportFindScopeLimit(CGrepData* data, const char* path) {
+    if (!data->StopSearch) { data->SearchIncomplete = true; AddFindLog(data, FLI_ERROR, "limit 32", path); }
+}
+struct FindProtectedQueue
+{
+    std::vector<std::wstring> files, directories;
+    bool capacity = false, stopOnAdd = false;
+    FindQueueResult Add(CGrepData* data, const std::wstring& path, CMaskGroup*, BOOL, int,
+             const std::shared_ptr<CFindIgnore>&, const WIN32_FIND_DATAW* file = nullptr)
+    {
+        (file ? files : directories).push_back(path);
+        if (stopOnAdd) data->StopSearch = true;
+        if (capacity) return FindQueueResult::Limit;
+        return path.find(L"\\unavailable-directory") == std::wstring::npos ? FindQueueResult::Added : FindQueueResult::Failed;
+    }
+};
+HANDLE EnumerateFixture(const wchar_t* path, WIN32_FIND_DATAW* file)
+{
+    const std::wstring pattern(path);
+    if (pattern.find(L"\\denied-directory\\*") != std::wstring::npos ||
+        pattern.find(L"\\unavailable-directory\\*") != std::wstring::npos)
+    {
+        SetLastError(ERROR_ACCESS_DENIED);
+        return INVALID_HANDLE_VALUE;
+    }
+    return FindFirstFileW(path, file);
+}
+#define FindFirstFileW EnumerateFixture
+@@TRAVERSAL@@
+#undef FindFirstFileW
+
+int wmain(int argc, wchar_t** argv)
+{
+    if (argc != 3)
+        return 2;
+    const std::wstring root(argv[1]), longParent(argv[2]);
+    CMaskGroup mask;
+    TestSearchingText status;
+    CGrepData data{};
+    data.SearchingText = &status;
+    data.Grep = true;
+    FindProtectedQueue queue;
+    const auto execute = [&](BOOL recurse) {
+        SearchDirectory(root, static_cast<int>(root.size() + 1), &mask, recurse, &data, nullptr, {}, queue);
+    };
+    execute(TRUE);
+    auto expected = std::vector<std::wstring>{root + L"\\root.txt", root + L"\\later\\same.txt",
+        longParent + L"\\ordinary\\deep\\same.txt", longParent + L"\\sibling\\same.txt"};
+    std::sort(expected.begin(), expected.end());
+    std::sort(data.found.begin(), data.found.end());
+    std::sort(queue.directories.begin(), queue.directories.end());
+    if (longParent.size() <= MAX_PATH || data.found != expected ||
+        queue.files != std::vector<std::wstring>{longParent + L"\\ordinary\\denied-file.txt"} ||
+        queue.directories != std::vector<std::wstring>{longParent + L"\\denied-directory", longParent + L"\\unavailable-directory"} ||
+        data.log != std::vector<std::string>{SalWideToMultiBytePath((longParent + L"\\unavailable-directory").c_str(), CP_UTF8)})
+        return 1;
+    std::puts("PASS deep Unicode paths, exact retries and readable siblings");
+
+    data.found.clear();
+    queue = {};
+    execute(FALSE);
+    if (data.found != std::vector<std::wstring>{root + L"\\root.txt"} || !queue.files.empty() || !queue.directories.empty())
+        return 1;
+    std::puts("PASS nonrecursive search never enters children");
+
+    data.found.clear(); data.log.clear(); data.logFlags.clear(); data.logTexts.clear();
+    queue = {}; queue.capacity = true;
+    execute(TRUE);
+    std::sort(data.found.begin(), data.found.end());
+    if (!data.SearchIncomplete || data.found != expected || data.log.size() != 3 ||
+        std::any_of(data.logFlags.begin(), data.logFlags.end(), [](DWORD value) { return value != FLI_ERROR; }) ||
+        std::any_of(data.logTexts.begin(), data.logTexts.end(), [](const std::string& value) { return value != "limit 32"; }))
+        return 1;
+    std::puts("PASS scope capacity reports incomplete, not denied, and preserves ordinary results");
+
+    data.found.clear(); data.log.clear(); data.logFlags.clear(); data.logTexts.clear(); data.SearchIncomplete = false;
+    queue = {}; queue.capacity = true; queue.stopOnAdd = true;
+    execute(TRUE);
+    if (!data.StopSearch || data.SearchIncomplete || !data.log.empty())
+        return 1;
+    std::puts("PASS Stop racing a full queue does not create a false limit report");
+
+    data.found.clear();
+    data.StopSearch = false;
+    queue = {};
+    data.StopOnFirst = true;
+    execute(TRUE);
+    if (data.found.size() != 1 || !queue.files.empty() || !queue.directories.empty())
+        return 1;
+    std::puts("PASS Stop preserves the first result and stops entering children");
+}

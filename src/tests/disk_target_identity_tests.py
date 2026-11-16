@@ -1,5 +1,10 @@
 # SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-10 | Check the disk-only gate for both protected transfers. | Match the current controller condition. | #731 | GPT-6.1 Sol |
+# | 2026-11-10 | Check the protected source gate for Branch View. | Keep confirmed operations tied to the current disk targets. | #731 | GPT-6.1 Sol |
+# | 2026-11-10 | Track the named native transfer dialog. | Preserve the target guards around shielded OK. | #731 | GPT-6 (Codex) |
+# | 2026-11-10 | Check the protected source bypass only in permanent deletion. | Keep transfer target and source revalidation independent. | #731 | GPT-6 (Codex) |
 """Actual disk target snapshot with explicit tab-registry doubles; guard placement contracts."""
 import argparse
 from pathlib import Path
@@ -17,14 +22,20 @@ def controller_contract():
     assert controller.index('!CFilesActionDiskTarget::AllowsBranchTransfer(') < controller.index('diskTarget.Capture(')
     assert controller.index('diskTarget.Capture(MainWindow, target)') < controller.index('CheckPath(TRUE)')
     assert 'memcpy(path, diskTarget.DefaultPath.c_str(), diskTarget.DefaultPath.size() + 1);' in controller
-    assert 'CheckPath(TRUE) == ERROR_SUCCESS && validateDiskTarget()' in controller
+    source = block(controller, 'const auto sourceAvailable =')
+    assert 'CheckPath(TRUE) == ERROR_SUCCESS' in source
+    delete_source = block(controller, 'const auto protectedDeleteSource =')
+    assert 'type == atDelete && permanent && Is(ptDisk) && ProtectedListing' in delete_source
+    assert 'allowProtectedDelete && protectedDeleteSource()' in source
+    assert 'if (!sourceAvailable(true) || !validateDiskTarget())' in controller
+    assert 'sourceAvailable(preparedDelete != nullptr || IsBranchView()) && validateDiskTarget()' in controller
     assert 'BOOL res2 = validateDiskTarget();' in controller
     assert 'if (!validateDiskTarget() ||\n                                !BuildScriptMain(' in controller
     assert 'else if (res2)\n                    {\n                        res2 = BuildScriptMain(' in controller
-    dialog = controller.index('res = (int)CCopyMoveMoreDialog(')
+    dialog = controller.index('CCopyMoveMoreDialog dialog(')
     parser = controller.index('if (ParsePath(')
     assert controller[dialog:parser].count('if (!validateDiskTarget())') >= 2
-    parsed = controller.index('if (IsBranchView() && pathType != PATH_TYPE_WINDOWS)')
+    parsed = controller.index('if ((IsBranchView() || protectedTransferSource) && pathType != PATH_TYPE_WINDOWS)')
     assert 'if (!validateDiskTarget())' in controller[parser:parsed]
     late = controller.index('if (!validateDiskTarget()) cancel = TRUE;')
     assert controller.index('BOOL occupiedSpTooBig') < late < controller.index('!StartProgressDialog(')

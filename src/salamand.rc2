@@ -1,5 +1,8 @@
 ﻿//
 // salamand.rc2 - resources Microsoft Visual C++ does not edit directly
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Identify the application in the UAC image resource. | Keep the application role distinct from the broker. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Embed the host UAC protocol marker. | Detect stale brokers before elevation. | | GPT-6.1 Sol (Codex) |
 //
 
 #ifdef APSTUDIO_INVOKED
@@ -10,6 +13,10 @@
 // Add manually edited resources here...
 
 CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "manifest.xml"
+
+#define SAM_UAC_IMAGE_ROLE SAM_UAC_IMAGE_HOST
+#include "uacbroker/uacprotocol.rc"
+#undef SAM_UAC_IMAGE_ROLE
 
 #define INSIDE_SALAMANDER
 #include "versinfo.rh2"

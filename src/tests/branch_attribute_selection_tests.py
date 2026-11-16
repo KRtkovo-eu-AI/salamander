@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-10 | Keep Branch guards checked around scoped protected metadata preparation. | Preserve modal selection ownership with the new disk-panel path. | #731 | GPT-6.1 Sol (Codex) |
 """Compile actual modal selection guard; assert integration order in the actual controller."""
 import argparse, shutil, tempfile
 from pathlib import Path
@@ -15,9 +17,11 @@ def main():
     assert 'GetLocalTime(&timeModified); // Fast commands still construct' in controller
     assert 'if ((branchAttributes && !branchSelection.IsCurrent(this)) ||' in controller
     assert '!PrepareNtfsConfirmation(this, resTextID, count, str)' in controller
-    check=controller.index('if (CheckPath(TRUE) != ERROR_SUCCESS || (branchAttributes && !branchSelection.IsCurrent(this)))')
+    check=controller.index('if ((!protectedMetadata && CheckPath(TRUE) != ERROR_SUCCESS) ||')
+    assert '(branchAttributes && !branchSelection.IsCurrent(this)))' in controller[check:check+180]
     assert controller.index('chDlg.Execute()') < check < controller.index('GetSelItems(count, indexes)')
-    assert 'BOOL res = (!branchAttributes || branchSelection.IsCurrent(this)) &&' in controller
+    assert 'BOOL res = metadataPreparationError == ERROR_SUCCESS &&' in controller
+    assert '(!branchAttributes || branchSelection.IsCurrent(this)) &&\n                               BuildScriptMain' in controller
     assert 'if (script->Count == 0 || (branchAttributes && !branchSelection.IsCurrent(this)))' in controller
     assert 'if (!branchAttributes || branchSelection.IsCurrent(this))\n                        {\n                            SetSel(FALSE' in controller
     assert 'if (!branchAttributes || branchSelection.IsCurrent(this)) UnselectItemWithName(selection)' in controller

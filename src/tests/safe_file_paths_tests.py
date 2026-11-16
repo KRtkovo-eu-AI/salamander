@@ -5,6 +5,7 @@ import argparse
 import os
 from pathlib import Path
 import shutil
+import struct
 import subprocess
 import tempfile
 import time
@@ -38,6 +39,19 @@ def compiler_environment():
             key, value = line.split("=", 1)
             environment[key.upper()] = value
     return environment
+
+
+def require_arm64_image(executable):
+    with executable.open("rb") as image:
+        dos = image.read(64)
+        if len(dos) == 64 and dos[:2] == b"MZ":
+            image.seek(struct.unpack_from("<I", dos, 60)[0])
+            signature = image.read(4)
+            machine = image.read(2)
+            if signature == b"PE\0\0" and int.from_bytes(machine, "little") == 0xAA64:
+                print(f"Verified ARM64 PE image: {executable.name}", flush=True)
+                return
+    raise RuntimeError(f"Expected an ARM64 PE image: {executable}")
 
 
 def read(path, revision=None):

@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-16 | Select runtime-only staging for validation builds. | Project checks do not produce a complete installer payload. | #731 | GPT-6 |
 # | 2026-11-04 | Queue only the newest build and skip Windows when nothing compiles. | Older pulls stayed in the Windows runner queue, including pulls with no build. | | Grok 4.7 |
 
 name: PR Build
@@ -326,6 +327,7 @@ jobs:
             '/t:Rebuild'
             "/p:Configuration=$($env:BUILD_CONFIGURATION)"
             "/p:Platform=${{ matrix.platform }}"
+            '/p:OpenSalamanderRuntimeStageOnly=true'
             '/p:PreferredToolArchitecture=x64'
             '/warnaserror'
             '/nr:false'
@@ -393,6 +395,7 @@ jobs:
             '/t:Rebuild'
             "/p:Configuration=$($env:BUILD_CONFIGURATION)"
             "/p:Platform=${{ matrix.platform }}"
+            '/p:OpenSalamanderRuntimeStageOnly=true'
             '/p:PreferredToolArchitecture=x64'
             '/warnaserror'
             '/nr:false'

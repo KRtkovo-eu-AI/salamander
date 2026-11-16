@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Accept the typed final Find activity. | Keep Stop and incomplete outcomes after sorting. | #731 | GPT-6.1 Terra |
 # | 2026-11-07 | Check deferred sorting and final Find activity. | Require the last result order before reporting completion. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 # | 2026-11-07 | Verify asynchronous Find sorting boundaries. | Preserve sort semantics and wait for sorted data before hiding duplicate rows. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 
@@ -90,7 +91,7 @@ def check_find(src: Path) -> None:
                   "the selected sort is applied after enumeration")
     require_absent(finish, "CFindActivity::Finished", "a completed label before optional sorting")
     idle = function_slice(finddlg1, "void CFindDialog::OnFindWorkIdle()", "void CFindDialog::EnableToolBar()")
-    require_after(idle, "IsSortingFindResults())", "CFindActivity::Finished",
+    require_after(idle, "IsSortingFindResults())", "FindFinalActivity(",
                   "Find shows completion after the final sort is published")
 
     compare = function_slice(

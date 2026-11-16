@@ -1,5 +1,15 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Deliver folder access indicators to the owning panel. | Reject obsolete results before requesting a repaint. | #731 | GPT-6 |
+// | 2026-11-15 | Explain partial directory selection totals. | Distinguish lower bounds from unknown sizes. | #731 | GPT-6 |
+// | 2026-11-15 | Escape the partial-size prefix in status text. | Preserve highlighted number formatting for lower bounds. | #731 | GPT-6 |
+// | 2026-11-15 | Explain denied size scans and total partial selections. | Report administrator denials and preserve lower-bound sums. | #731 | GPT-6 |
+// | 2026-11-10 | Return the result of preparing Find editor elevation. | Release the caller before any consent dialog. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Dispatch Find F4 with its result context. | Use its owner and full name in the common editor path. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Pass the original Find context to the viewer. | Preserve the selected file attributes and dialog owner. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Forward the selected Find file identity. | Use the originating dialog as the UAC owner. | #731 | GPT-6.1 Sol |
 
 #include "precomp.h"
 #include "viewerpath.h"
@@ -91,6 +101,21 @@ enum
 {
     TREEVIEW_SPLITTER_WIDTH = 4
 };
+
+// A partial disk-directory size contributes a lower bound; an unmeasured item keeps the total unknown.
+static void AccumulateSelectedSize(CQuadWord& total, BOOL& display, bool& partialTotal,
+                                   const CFileData& item, BOOL isDir, BOOL isDisk,
+                                   BOOL sizeValid, BOOL pluginSizeValid, const CQuadWord& pluginSize)
+{
+    const bool partial = isDisk && isDir && !item.SizeValid && item.PluginData == DiskDirectoryPartialSizeMarker;
+    if (pluginSizeValid || (sizeValid && (!isDir || item.SizeValid || partial)))
+    {
+        total += pluginSizeValid ? pluginSize : item.Size;
+        partialTotal |= partial && !pluginSizeValid;
+    }
+    else
+        display = FALSE;
+}
 
 //****************************************************************************
 //
@@ -807,6 +832,18 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
+    case uacFolderProbeContinueMessage:
+    {
+        UacFolderProbeContinue(wParam);
+        return 0;
+    }
+
+    case uacFolderProbeMessage:
+    {
+        UacFolderProbeReady(wParam, lParam);
+        return 0;
+    }
+
     case WM_USER_REFRESHINDEX:
     case WM_USER_REFRESHINDEX2:
     {
@@ -960,13 +997,14 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         COpenViewerData* data = (COpenViewerData*)wParam;
         ViewFile(data->FileName, (BOOL)lParam, 0xFFFFFFFF, data->EnumFileNamesSourceUID,
-                 data->EnumFileNamesLastFileIndex);
+                 data->EnumFileNamesLastFileIndex, data);
         return 0;
     }
 
     case WM_USER_EDITFILE:
     {
-        EditFile((char*)wParam);
+        auto& result = *reinterpret_cast<COpenEditorData*>(wParam);
+        EditFile(result.FileName, 0xFFFFFFFF, &result);
         return 0;
     }
 
@@ -1033,6 +1071,7 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             CQuadWord selectedSize(0, 0);
             BOOL displaySize = (ValidFileData & (VALID_DATA_SIZE | VALID_DATA_PL_SIZE)) != 0;
+            bool partialSelectedSize = false;
             int totalCount = Dirs->Count + Files->Count;
             int files = 0;
             int dirs = 0;
@@ -1055,10 +1094,8 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     else
                         files++;
                     plSizeValid = testPlSize && PluginData.GetByteSize(f, isDir, &plSize);
-                    if (plSizeValid || sizeValid && (!isDir || f->SizeValid))
-                        selectedSize += plSizeValid ? plSize : f->Size;
-                    else
-                        displaySize = FALSE; // soubor nezname velikosti nebo adresar bez zname/vypocitane velikosti
+                    AccumulateSelectedSize(selectedSize, displaySize, partialSelectedSize, *f, isDir, Is(ptDisk),
+                                           sizeValid, plSizeValid, plSize);
                 }
             }
             if (files > 0 || dirs > 0)
@@ -1089,7 +1126,9 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     char text[200];
                     if (displaySize)
                     {
-                        ExpandPluralBytesFilesDirs(text, 200, selectedSize, files, dirs, TRUE);
+                        const int prefix = partialSelectedSize ? 4 : 0;
+                        if (prefix) memcpy(text, "\\>= ", prefix);
+                        ExpandPluralBytesFilesDirs(text + prefix, 200 - prefix, selectedSize, files, dirs, TRUE);
                         LookForSubTexts(text, varPlacements, &varPlacementsCount);
                     }
                     else
@@ -1198,6 +1237,7 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_DESTROY:
     {
+        StopUacFolderProbe(); // Disconnect notifications before the HWND can be reused.
         StopExplorerSortAsync(); // disconnect completion before this HWND can be reused
         //---  zruseni tohoto panelu z pole zdroju pro enumeraci souboru ve viewerech
         EnumFileNamesRemoveSourceUID(HWindow);

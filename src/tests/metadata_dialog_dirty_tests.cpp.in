@@ -1,0 +1,134 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Exercise real metadata dialog events and accepted shield. | Distinguish untouched controls from explicitly edited attributes. | #731 | GPT-6.1 Terra |
+#include <windows.h>
+#include <commctrl.h>
+#include <cstdio>
+#include <cstring>
+#include "@@HEADER@@"
+
+enum { IDC_ARCHIVE=1, IDC_READONLY, IDC_HIDDEN, IDC_SYSTEM, IDC_COMPRESSED, IDC_ENCRYPTED,
+       IDC_RECURSESUBDIRS, IDC_ATTR_CURRENT, IDC_ATTR_MODIFIED_DATE, IDC_ATTR_MODIFIED_TIME,
+       IDC_ATTR_CREATED_DATE, IDC_ATTR_CREATED_TIME, IDC_ATTR_ACCESSED_DATE, IDC_ATTR_ACCESSED_TIME };
+static UINT states[32]{};
+static bool shield = false;
+static int checks = 0, failures = 0;
+static void Check(bool value, const char* message) { ++checks; if (!value) { ++failures; std::printf("FAIL: %s\n", message); } }
+static HWND FakeGetDlgItem(HWND, int id) { return reinterpret_cast<HWND>(static_cast<INT_PTR>(id)); }
+static UINT FakeIsDlgButtonChecked(HWND, int id) { return states[id]; }
+static BOOL FakeCheckDlgButton(HWND, int id, UINT state) { states[id] = state; return TRUE; }
+static DWORD FakeDateTimeGet(HWND, SYSTEMTIME* value) {
+    *value = {}; value->wYear=2025; value->wMonth=2; value->wDay=3; value->wHour=4; value->wMinute=5; return GDT_VALID;
+}
+static BOOL FakeDateTimeSet(HWND, DWORD, const SYSTEMTIME*) { return TRUE; }
+static BOOL FakeEnableWindow(HWND, BOOL) { return TRUE; }
+static HWND FakeSetFocus(HWND h) { return h; }
+static void FakeSetShield(HWND, bool value) { shield = value; }
+#undef GetDlgItem
+#define GetDlgItem FakeGetDlgItem
+#undef IsDlgButtonChecked
+#define IsDlgButtonChecked FakeIsDlgButtonChecked
+#undef CheckDlgButton
+#define CheckDlgButton FakeCheckDlgButton
+#undef DateTime_GetSystemtime
+#define DateTime_GetSystemtime FakeDateTimeGet
+#undef DateTime_SetSystemtime
+#define DateTime_SetSystemtime FakeDateTimeSet
+#undef EnableWindow
+#define EnableWindow FakeEnableWindow
+#undef SetFocus
+#define SetFocus FakeSetFocus
+#undef Button_SetElevationRequiredState
+#define Button_SetElevationRequiredState FakeSetShield
+
+enum TransferType { ttDataToWindow, ttDataFromWindow };
+struct CTransferInfo {
+    TransferType Type = ttDataFromWindow;
+    void CheckBox(int id, int& value) {
+        if (Type == ttDataToWindow) states[id] = static_cast<UINT>(value);
+        else value = static_cast<int>(states[id]);
+    }
+};
+struct CCommonDialog { INT_PTR DialogProc(UINT, WPARAM, LPARAM) { return 0; } };
+struct CChangeAttrDialog : CCommonDialog {
+    HWND HWindow = reinterpret_cast<HWND>(1);
+    HWND HModifiedDate = FakeGetDlgItem(HWindow, IDC_ATTR_MODIFIED_DATE);
+    HWND HModifiedTime = FakeGetDlgItem(HWindow, IDC_ATTR_MODIFIED_TIME);
+    HWND HCreatedDate = FakeGetDlgItem(HWindow, IDC_ATTR_CREATED_DATE);
+    HWND HCreatedTime = FakeGetDlgItem(HWindow, IDC_ATTR_CREATED_TIME);
+    HWND HAccessedDate = FakeGetDlgItem(HWindow, IDC_ATTR_ACCESSED_DATE);
+    HWND HAccessedTime = FakeGetDlgItem(HWindow, IDC_ATTR_ACCESSED_TIME);
+    BOOL SelectionContainsDirectory = FALSE, FileBasedCompression = TRUE, FileBasedEncryption = TRUE;
+    BOOL ArchiveDirty = FALSE, ReadOnlyDirty = FALSE, HiddenDirty = FALSE, SystemDirty = FALSE;
+    BOOL CompressedDirty = FALSE, EncryptedDirty = FALSE;
+    bool (*ElevationShieldProbe)(DWORD, DWORD, const UacF7::MetadataChange&, void*) = nullptr;
+    void* ElevationShieldContext = nullptr;
+    bool ElevationShieldShown = false, ElevationShieldAccepted = false;
+    int Archive=0, ReadOnly=0, Hidden=0, System=0, Compressed=0, Encrypted=0;
+    int ChangeTimeModified=0, ChangeTimeCreated=0, ChangeTimeAccessed=0, RecurseSubDirs=0;
+    SYSTEMTIME TimeModified{}, TimeCreated{}, TimeAccessed{};
+    @@EDITED@@
+    void EnableWindows() {}
+    BOOL GetAndValidateTime(CTransferInfo*, int, int, SYSTEMTIME* out) { *out = {}; return TRUE; }
+    void UpdateElevationShield();
+    void Transfer(CTransferInfo&);
+    INT_PTR DialogProc(UINT, WPARAM, LPARAM);
+};
+@@READ_TIME@@
+@@SHIELD@@
+@@TRANSFER@@
+INT_PTR @@PROC@@
+
+static bool TimestampPreview(DWORD, DWORD, const UacF7::MetadataChange& times, void* context) {
+    return (times.created || times.accessed || times.modified) &&
+           !static_cast<CChangeAttrDialog*>(context)->AnyAttributeEdited();
+}
+int main() {
+    const int attributes[] = {IDC_ARCHIVE, IDC_READONLY, IDC_HIDDEN, IDC_SYSTEM, IDC_COMPRESSED, IDC_ENCRYPTED};
+    for (const int control : attributes) {
+        std::memset(states, 0, sizeof(states));
+        CChangeAttrDialog dialog;
+        dialog.ElevationShieldProbe = TimestampPreview;
+        dialog.ElevationShieldContext = &dialog;
+        dialog.UpdateElevationShield();
+        Check(!dialog.AnyAttributeEdited() && dialog.ElevationShieldShown && shield,
+              "untouched default controls permit timestamp preview");
+        states[control] = BST_CHECKED;
+        dialog.DialogProc(WM_COMMAND, MAKEWPARAM(control, BN_CLICKED), 0);
+        Check(dialog.AnyAttributeEdited() && !dialog.ElevationShieldShown && !shield,
+              "real button event makes timestamp-only preview ineligible");
+        CTransferInfo transfer;
+        dialog.Transfer(transfer);
+        Check(!dialog.ElevationShieldAccepted, "edited attribute cannot accept stale shield");
+        if (control == IDC_COMPRESSED) Check(dialog.EncryptedDirty, "compression click also marks encryption dirty");
+        if (control == IDC_ENCRYPTED) Check(dialog.CompressedDirty, "encryption click also marks compression dirty");
+    }
+    for (const int control : {IDC_COMPRESSED, IDC_ENCRYPTED}) {
+        std::memset(states, 0, sizeof(states));
+        CChangeAttrDialog dialog;
+        dialog.ElevationShieldProbe = TimestampPreview;
+        dialog.ElevationShieldContext = &dialog;
+        dialog.Compressed = control == IDC_COMPRESSED ? 1 : 0;
+        dialog.Encrypted = control == IDC_ENCRYPTED ? 1 : 0;
+        CTransferInfo toWindow; toWindow.Type = ttDataToWindow;
+        dialog.Transfer(toWindow);
+        Check(states[control] == BST_CHECKED && !dialog.AnyAttributeEdited(),
+              "prefilled special checkbox remains untouched");
+        dialog.UpdateElevationShield();
+        Check(dialog.ElevationShieldShown, "prefilled special checkbox permits time-only preview");
+        states[control] = BST_UNCHECKED;
+        dialog.DialogProc(WM_COMMAND, MAKEWPARAM(control, BN_CLICKED), 0);
+        CTransferInfo fromWindow; dialog.Transfer(fromWindow);
+        const int value = control == IDC_COMPRESSED ? dialog.Compressed : dialog.Encrypted;
+        Check(value == 0 && dialog.AnyAttributeEdited() && !dialog.ElevationShieldAccepted && !shield,
+              "explicitly disabling a prefilled special attribute transfers zero and rejects time-only consent");
+    }
+    CChangeAttrDialog clean;
+    clean.ElevationShieldProbe = TimestampPreview; clean.ElevationShieldContext = &clean;
+    std::memset(states, 0, sizeof(states)); clean.UpdateElevationShield();
+    CTransferInfo transfer; clean.Transfer(transfer);
+    Check(clean.ElevationShieldAccepted, "untouched timestamp selection retains shield on acceptance");
+    std::printf("Actual metadata dialog dirty controller: %d checks, %d failures\n", checks, failures);
+    return failures ? 1 : 0;
+}

@@ -1051,6 +1051,21 @@ def main() -> int:
     ):
         print("panel overlays must be lazily cached and drawn from exact panel pixel sizes")
         return 1
+    uac_start = fileswnd4.find("void CFilesWindow::DrawIcon(")
+    uac_end = fileswnd4.find("// FillIntersectionRegion", uac_start)
+    uac_icon = fileswnd4[uac_start:uac_end] if uac_start >= 0 and uac_end > uac_start else ""
+    if (
+        "SHGetStockIconInfo(SIID_SHIELD" not in fileswnd4
+        or "HasUacDeniedItem(f)" not in uac_icon
+        or "if (!isItemUpDir && !(drawFlags & (DRAWFLAG_MASK | DRAWFLAG_DRAGDROP))" not in uac_icon
+        or "DRAWFLAG_MASK | DRAWFLAG_DRAGDROP" not in uac_icon
+        or "GetPanelOverlay(GetFolderUacShield(), badgePixels)" not in uac_icon
+        or "overlayRect->right" not in uac_icon
+        or "overlayRect->bottom" not in uac_icon
+        or uac_icon.rfind("DrawIconEx(hDC, right - badgePixels") < uac_icon.rfind("StateImageList_Draw(")
+    ):
+        print("protected item shields must preserve panel overlays and drag mask consistency")
+        return 1
     if (
         "int iconSize = GetIconSizeForDPI(ICONSIZE_16, iconDPI);" not in plugins2
         or "CopyImage(hIcon, IMAGE_ICON, iconSize, iconSize, 0)" not in plugins2

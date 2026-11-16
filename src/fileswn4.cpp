@@ -1,5 +1,12 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Draw the UAC shield for protected files as well as directories. | Preserve the item's existing icon and shell overlay. | #731 | GPT-6 |
+// | 2026-11-15 | Overlay protected folder icons with the system shield. | Show known denied directory access without replacing shell overlays. | #731 | GPT-6 |
+// | 2026-11-15 | Explain partial size in tile views. | Distinguish skipped protected branches from complete totals. | #731 | GPT-6 |
+// | 2026-11-11 | Render the private disk size marker in tiles. | Keep plugin and archive size behavior unchanged. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Show a lower bound in the disk thumbnail view. | Preserve a visibly partial directory total. | #731 | GPT-6.1 Sol |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -127,6 +134,33 @@ void CFilesWindow::SetFontAndColors(HDC hDC, CHighlightMasksItem* highlightMasks
 //
 // CFilesWindow::DrawIcon
 //
+
+namespace
+{
+// The stock icon is shared by both panels; scaled copies belong to each panel.
+struct CFolderUacShield
+{
+    HICON Icon = NULL;
+    CFolderUacShield()
+    {
+        SHSTOCKICONINFO info{};
+        info.cbSize = sizeof(info);
+        if (SUCCEEDED(SHGetStockIconInfo(SIID_SHIELD, SHGSI_ICON | SHGSI_SMALLICON, &info)))
+            Icon = info.hIcon;
+    }
+    ~CFolderUacShield()
+    {
+        if (Icon != NULL)
+            DestroyIcon(Icon);
+    }
+};
+
+HICON GetFolderUacShield()
+{
+    static CFolderUacShield shield;
+    return shield.Icon;
+}
+}
 
 void CFilesWindow::DrawIcon(HDC hDC, CFileData* f, BOOL isDir, BOOL isItemUpDir,
                             BOOL isItemFocusedOrEditMode, int x, int y, CIconSizeEnum iconSize,
@@ -384,6 +418,21 @@ void CFilesWindow::DrawIcon(HDC hDC, CFileData* f, BOOL isDir, BOOL isItemUpDir,
                             f->IconOverlayIndex, overlayRect, (drawFlags & DRAWFLAG_OVERLAY_ONLY) != 0,
                             iconOverlayFromPlugin, pluginIconOverlaysCount, pluginIconOverlays,
                             panelOverlays, GetWindowDPI());
+    }
+
+    // Keep the existing left-corner shell overlay for both files and folders.
+    // Drag images omit the shield in both color and mask passes.
+    if (!isItemUpDir && !(drawFlags & (DRAWFLAG_MASK | DRAWFLAG_DRAGDROP)) &&
+        HasUacDeniedItem(f))
+    {
+        const int iconPixels = GetIconSize(iconSize);
+        const int badgePixels = max(1, iconPixels / 2);
+        const int right = overlayRect != NULL ? overlayRect->right : x + iconPixels;
+        const int bottom = overlayRect != NULL ? overlayRect->bottom : y + iconPixels;
+        HICON shield = GetPanelOverlay(GetFolderUacShield(), badgePixels);
+        if (shield != NULL)
+            DrawIconEx(hDC, right - badgePixels, bottom - badgePixels, shield,
+                       badgePixels, badgePixels, 0, NULL, DI_NORMAL);
     }
 
     // I don't understand why, but the current bitmap drawing doesn't flicker.
@@ -1698,8 +1747,17 @@ void GetTileTexts(CFileData* f, int isDir,
     {
         plSizeValid = TRUE;
     }
-    if (!plSizeValid && ((validFileData & VALID_DATA_SIZE) == 0 || isDir && !f->SizeValid))
+    // Retain the available subtotal when protected or failed branches were
+    // skipped, and mark it as a lower bound in the disk tile view.
+    const bool partial = isDisk && isDir == 1 && !f->SizeValid &&
+                         f->PluginData == DiskDirectoryPartialSizeMarker;
+    if (!plSizeValid && ((validFileData & VALID_DATA_SIZE) == 0 || isDir && !f->SizeValid && !partial))
         *out1 = 0;
+    else if (partial && !plSizeValid)
+    {
+        memcpy(out1, ">= ", 3);
+        PrintDiskSize(out1 + 3, f->Size, 0);
+    }
     else
         PrintDiskSize(out1, plSizeValid ? plSize : f->Size, 0);
     *out1Len = (int)strlen(out1);

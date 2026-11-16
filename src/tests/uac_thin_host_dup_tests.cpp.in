@@ -1,0 +1,129 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Test thin host duplication privilege restoration. | Preserve thread identity on error paths and avoid broader process access. | #731 | GPT-6 |
+#include <windows.h>
+#include <cstdio>
+#include <cstdlib>
+#include <initializer_list>
+#include <utility>
+
+static HANDLE h(int value) { return reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(value)); }
+struct Handle {
+    HANDLE value = nullptr;
+    Handle() = default;
+    explicit Handle(HANDLE v) : value(v) {}
+    Handle(const Handle&) = delete;
+    Handle& operator=(const Handle&) = delete;
+    Handle(Handle&& other) noexcept : value(std::exchange(other.value, nullptr)) {}
+    Handle& operator=(Handle&& other) noexcept { value = std::exchange(other.value, nullptr); return *this; }
+    explicit operator bool() const { return value != nullptr; }
+    HANDLE get() const { return value; }
+};
+static Handle Adopt(HANDLE value) { return Handle(value); }
+struct State {
+    int opens = 0, debugOpens = 0, tokens = 0, restores = 0, reverts = 0, liveChecks = 0;
+    DWORD firstError = ERROR_ACCESS_DENIED;
+    bool previous = false, failPrevious = false, failToken = false, failDuplicate = false;
+    bool failInstall = false, failLookup = false, failAdjust = false, privilegeMissing = false;
+    bool wrongPid = false, deadPinned = false, deadNew = false, failDebugOpen = false;
+    DWORD requestedRights = 0;
+} state;
+static bool LiveInSession(HANDLE handle, DWORD) {
+    ++state.liveChecks;
+    return handle == h(1) ? !state.deadPinned : !state.deadNew;
+}
+static HANDLE MockOpenProcess(DWORD rights, BOOL, DWORD) {
+    state.requestedRights = rights;
+    if (++state.opens == 1 && state.firstError != ERROR_SUCCESS) {
+        SetLastError(state.firstError); return nullptr;
+    }
+    if (state.opens > 1) {
+        ++state.debugOpens;
+        if (state.failDebugOpen) { SetLastError(ERROR_ACCESS_DENIED); return nullptr; }
+    }
+    return h(2);
+}
+static BOOL MockOpenProcessToken(HANDLE, DWORD, PHANDLE output) {
+    ++state.tokens;
+    if (state.failToken) return FALSE;
+    *output = h(3); return TRUE;
+}
+static BOOL MockDuplicateTokenEx(HANDLE, DWORD, LPSECURITY_ATTRIBUTES, SECURITY_IMPERSONATION_LEVEL level,
+                                 TOKEN_TYPE type, PHANDLE output) {
+    if (state.failDuplicate || level != SecurityImpersonation || type != TokenImpersonation) return FALSE;
+    *output = h(4); return TRUE;
+}
+static BOOL MockOpenThreadToken(HANDLE, DWORD, BOOL, PHANDLE output) {
+    if (state.failPrevious) { SetLastError(ERROR_ACCESS_DENIED); return FALSE; }
+    if (!state.previous) { SetLastError(ERROR_NO_TOKEN); return FALSE; }
+    *output = h(5); return TRUE;
+}
+static BOOL MockSetThreadToken(PHANDLE, HANDLE token) {
+    if (token == h(4)) return state.failInstall ? FALSE : TRUE;
+    if (token == h(5)) { ++state.restores; return TRUE; }
+    return FALSE;
+}
+static BOOL MockRevertToSelf() { ++state.reverts; return TRUE; }
+static BOOL MockLookupPrivilegeValueW(LPCWSTR, LPCWSTR, PLUID output) {
+    if (state.failLookup) return FALSE;
+    output->LowPart = 20; output->HighPart = 0; return TRUE;
+}
+static BOOL MockAdjustTokenPrivileges(HANDLE, BOOL, PTOKEN_PRIVILEGES, DWORD, PTOKEN_PRIVILEGES, PDWORD) {
+    if (state.failAdjust) return FALSE;
+    if (state.privilegeMissing) SetLastError(ERROR_NOT_ALL_ASSIGNED);
+    return TRUE;
+}
+static DWORD MockGetProcessId(HANDLE) { return state.wrongPid ? 99 : 42; }
+#define OpenProcess MockOpenProcess
+#define OpenProcessToken MockOpenProcessToken
+#define DuplicateTokenEx MockDuplicateTokenEx
+#define OpenThreadToken MockOpenThreadToken
+#define SetThreadToken MockSetThreadToken
+#define RevertToSelf MockRevertToSelf
+#define LookupPrivilegeValueW MockLookupPrivilegeValueW
+#define AdjustTokenPrivileges MockAdjustTokenPrivileges
+#define GetProcessId MockGetProcessId
+@@METHOD@@
+
+static int failures = 0;
+static void Check(bool ok, const char* name) { std::printf("%s %s\n", ok ? "PASS" : "FAIL", name); if (!ok) ++failures; }
+int main() {
+    constexpr DWORD minimal = PROCESS_DUP_HANDLE | PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE;
+    state = {}; state.firstError = ERROR_SUCCESS;
+    Check(static_cast<bool>(OpenThinHostForDup(h(1), 42)) && state.requestedRights == minimal && !state.tokens,
+          "ordinary access uses only required rights without token adjustment");
+    for (bool previous : {false, true}) {
+        state = {}; state.previous = previous;
+        Check(static_cast<bool>(OpenThinHostForDup(h(1), 42)) && state.debugOpens == 1 &&
+              state.restores == (previous ? 1 : 0) && state.reverts == (previous ? 0 : 1),
+              previous ? "fallback restores previous impersonation" : "fallback reverts to process token");
+        state = {}; state.previous = previous; state.failDebugOpen = true;
+        Check(!OpenThinHostForDup(h(1), 42) && state.debugOpens == 1 &&
+              state.restores == (previous ? 1 : 0) && state.reverts == (previous ? 0 : 1),
+              "failed privileged open still restores original thread identity");
+        for (int fault = 0; fault < 3; ++fault) {
+            state = {}; state.previous = previous;
+            state.failLookup = fault == 0; state.failAdjust = fault == 1; state.privilegeMissing = fault == 2;
+            Check(!OpenThinHostForDup(h(1), 42) && !state.debugOpens &&
+                  state.restores == (previous ? 1 : 0) && state.reverts == (previous ? 0 : 1),
+                  "privilege failure restores original thread identity without opening host");
+        }
+    }
+    for (int fault = 0; fault < 4; ++fault) {
+        state = {}; state.failToken = fault == 0; state.failDuplicate = fault == 1;
+        state.failPrevious = fault == 2; state.failInstall = fault == 3;
+        Check(!OpenThinHostForDup(h(1), 42) && !state.debugOpens && !state.restores && !state.reverts,
+              "pre-impersonation failure never opens host with privilege");
+    }
+    state = {}; state.firstError = ERROR_INVALID_PARAMETER;
+    Check(!OpenThinHostForDup(h(1), 42) && state.opens == 1 && !state.tokens,
+          "non-access-denied errors do not enable debug privilege");
+    state = {}; state.firstError = ERROR_SUCCESS; state.wrongPid = true;
+    Check(!OpenThinHostForDup(h(1), 42), "wrong process identity is rejected");
+    state = {}; state.deadPinned = true;
+    Check(!OpenThinHostForDup(h(1), 42) && !state.opens, "dead pinned process is rejected before opening");
+    state = {}; state.firstError = ERROR_SUCCESS; state.deadNew = true;
+    Check(!OpenThinHostForDup(h(1), 42), "dead reopened process is rejected");
+    return failures ? 1 : 0;
+}

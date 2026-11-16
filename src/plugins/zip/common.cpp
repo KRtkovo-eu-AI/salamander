@@ -1,7 +1,14 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Clarify protected ZIP parser boundaries. | Explain callback ownership and range validation. | #731 | GPT-6 |
+// | 2026-11-15 | Explain protected ZIP range reads. | Document validation and access through the approved source. | #731 | GPT-6 |
+// | 2026-11-08 | Open verified range sources for ZIP entry reads. | Bound ZIP64 extra-field reads by the actual header. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Read ZIP metadata through a bounded callback. | Validate ZIP64 offsets and keep protected listing on one file. | | GPT-6.1 Sol (Codex) |
 
 #include "precomp.h"
+#include "../../common/zipread.h"
 #include <crtdbg.h>
 #include <ostream>
 #include <stdio.h>
@@ -518,6 +525,28 @@ CZipCommon::~CZipCommon()
         free(Comment);
 }
 
+// Reuse the normal parser on a broker-backed, single-volume source without
+// giving the plugin a handle to the protected archive.
+DWORD CZipCommon::OpenReadSource(const SalZipReadSourceV1& source)
+{
+    Extract = false; // Never search for or open additional volumes.
+    RangeSource = &source;
+    ZipFile = static_cast<CFile*>(calloc(1, sizeof(CFile)));
+    if (!ZipFile)
+        return ERROR_NOT_ENOUGH_MEMORY;
+    ZipFile->File = INVALID_HANDLE_VALUE;
+    ZipFile->Size = source.Size;
+    if (!source.Size || CheckZip() || EOCentrDir.StartDisk ||
+        (EOCentrDir.DiskNum != 0 && (!Zip64 || EOCentrDir.DiskNum != 0xFFFF)) ||
+        EOCentrDir.DiskTotalEntries != EOCentrDir.TotalEntries ||
+        EOCentrDir.CommentLen != ZipFile->Size - EOCentrDirOffs - sizeof(CEOCentrDirRecord))
+        return RangeError ? RangeError : ERROR_INVALID_DATA;
+    if (EOCentrDir.TotalEntries > 4096)
+        return ERROR_FILE_TOO_LARGE;
+
+    return ERROR_SUCCESS;
+}
+
 int CZipCommon::CheckZip()
 {
     CALL_STACK_MESSAGE1("CZipCommon::CheckZip()");
@@ -576,6 +605,20 @@ int CZipCommon::Read(CFile* file, void* buffer, unsigned bytesToRead,
             toRead = unsigned(file->Size - file->FilePointer);
     else
         toRead = 0;
+    // Protected reads use the scoped callback while preserving parser offsets.
+    if (RangeSource && file == ZipFile)
+    {
+        if (toRead != bytesToRead && !bytesRead)
+            RangeError = ERROR_HANDLE_EOF;
+        else if (toRead)
+            RangeError = RangeSource->Read(RangeSource->Context, file->FilePointer, buffer, toRead);
+        if (RangeError)
+            return ERR_CANCEL;
+        file->FilePointer += toRead;
+        if (bytesRead)
+            *bytesRead = toRead;
+        return 0;
+    }
     if (toRead != bytesToRead && !bytesRead)
         return ProcessError(IDS_EOF, 0, file->FileName, file->Flags | PE_NORETRY, skipAll);
     if (toRead)
@@ -886,7 +929,9 @@ int CZipCommon::CreateCFile(CFile** file, LPCTSTR fileName, unsigned int access,
 int CZipCommon::CloseCFile(CFile* file)
 {
     CALL_STACK_MESSAGE1("CZipCommon::CloseCFile()");
-    CloseHandle(file->File);
+    // A range-backed archive has no owned file handle; its source belongs to the host.
+    if (file->File != INVALID_HANDLE_VALUE)
+        CloseHandle(file->File);
     free(file->FileName);
     if (file->OutputBuffer)
         free(file->OutputBuffer);
@@ -1075,7 +1120,8 @@ int CZipCommon::FindEOCentrDirSig(BOOL* success)
                                 break;
                             }
                         }
-                        if (EOCentrDir.CommentLen)
+                        // Protected listing and extraction do not expose the archive comment.
+                        if (!RangeSource && EOCentrDir.CommentLen)
                         {
                             Comment = (char*)malloc(EOCentrDir.CommentLen + 1);
                             if (!Comment)
@@ -1140,7 +1186,8 @@ int CZipCommon::FindEOCentrDirSig(BOOL* success)
                                     break;
                                 }
                             }
-                            if (EOCentrDir.CommentLen)
+                            // The range-backed path also skips comments in this scan branch.
+                            if (!RangeSource && EOCentrDir.CommentLen)
                             {
                                 Comment = (char*)malloc(EOCentrDir.CommentLen + 1);
                                 if (!Comment)
@@ -1298,6 +1345,12 @@ int CZipCommon::FindZip64EOCentrDirLocator()
     if (zip64Locator.Signature != SIG_ZIP64LOCATOR)
         return 0;
 
+    // A protected source cannot follow another volume or an out-of-range ZIP64 record.
+    if (RangeSource && (zip64Locator.Zip64StartDisk || zip64Locator.TotalDisks != 1 ||
+                        ZipFile->FilePointer < sizeof(zip64Locator) + sizeof(CZip64EOCentrDirRecord) ||
+                        zip64Locator.Zip64Offset > ZipFile->FilePointer - sizeof(zip64Locator) - sizeof(CZip64EOCentrDirRecord)))
+        return IDS_ERRFORMAT;
+
     // switch to the disk containing the Zip64 end of central directory record
     if (MultiVol &&
         (EOCentrDir.DiskNum == 0xFFFF ||
@@ -1314,6 +1367,12 @@ int CZipCommon::FindZip64EOCentrDirLocator()
     ZipFile->FilePointer = Zip64EOCentrDirOffs = zip64Locator.Zip64Offset;
     if (Read(ZipFile, &zip64Record, sizeof(zip64Record), NULL, NULL))
         return IDS_NODISPLAY;
+
+    // Recheck the located ZIP64 record before trusting its counts and offsets.
+    if (RangeSource && (zip64Record.Signature != SIG_ZIP64EOCENTRDIR ||
+                        zip64Record.DiskNum || zip64Record.StartDisk ||
+                        zip64Record.DiskTotalEntries != zip64Record.TotalEntries))
+        return IDS_ERRFORMAT;
 
     // replace the data with corrected values
     Zip64 = true;
@@ -1354,7 +1413,8 @@ int CZipCommon::FindZip64EOCentrDirLocator()
     {
         CZip64EOCentrDirRecordVer2 zip64RecordVer2;
 
-        if (Read(ZipFile, &zip64RecordVer2, sizeof(zip64Record), NULL, NULL))
+        // The bounded source must read only the actual version-two record size.
+        if (Read(ZipFile, &zip64RecordVer2, RangeSource ? sizeof(zip64RecordVer2) : sizeof(zip64Record), NULL, NULL))
             return IDS_NODISPLAY;
         if ((zip64RecordVer2.Method != CM_STORED) || (zip64RecordVer2.AlgID != 0))
         {
@@ -1375,6 +1435,9 @@ int CZipCommon::CheckForExtraBytes()
     if (MultiVol)
         return 0;
 
+    // Reject overflow and out-of-range central-directory data before computing its end.
+    if (RangeSource && (CentrDirOffs > ZipFile->Size || CentrDirSize > ZipFile->Size - CentrDirOffs))
+        return IDS_ERRFORMAT;
     QWORD endOfCentrDir = CentrDirOffs + CentrDirSize;
     QWORD expectedEndOfCentrDir = Zip64 ? Zip64EOCentrDirOffs : EOCentrDirOffs;
 
@@ -1569,21 +1632,28 @@ void CZipCommon::ProcessHeader(CFileHeader* fileHeader, CFileInfo* fileInfo)
         unsigned iterator = sizeof(CFileHeader) + fileHeader->NameLen;
 
         // locate the Zip64 extra header
+        // Bound every extra field before reading ZIP64 values from archive bytes.
+        const unsigned extraEnd = sizeof(CFileHeader) + fileHeader->NameLen + fileHeader->ExtraLen;
         BOOL found = FALSE;
-        while (iterator + 4 < sizeof(CFileHeader) + fileHeader->NameLen + fileHeader->ExtraLen)
+        WORD fieldSize = 0;
+        while (extraEnd - iterator >= 4)
         {
-            if (NEXT(WORD) == ZIP64_HEADER_ID)
+            const WORD tag = NEXT(WORD);
+            fieldSize = NEXT(WORD);
+            if (fieldSize > extraEnd - iterator)
+                break;
+            if (tag == ZIP64_HEADER_ID)
             {
                 found = TRUE;
                 break;
             }
-            iterator += NEXT(WORD);
+            iterator += fieldSize;
         }
 
         // read the values from the header
         if (found)
         {
-            if (NEXT(WORD) >= expectedZip64Size)
+            if (fieldSize >= expectedZip64Size)
             {
                 if (fileInfo->Size == 0xFFFFFFFF)
                     fileInfo->Size = NEXT(QWORD);

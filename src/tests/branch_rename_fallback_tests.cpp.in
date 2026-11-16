@@ -1,5 +1,17 @@
 // SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Cover case-only F2 and inline rename fallback. | Verify the controller delegates alias validation to the no-replace broker. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Cover directory Quick Rename elevation and cancellation. | Verify inline rename uses the same guarded path as F2. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Model the Branch View rename identity and generation. | Compile the production rename guard in the native fixture. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Verify F2 consent for an ordinary directory. | Cover direct elevation, cancellation, and Quick Rename boundaries. | #731 | GPT-6.1 Sol (Codex) |
+// | 2026-11-10 | Verify shielded F2 retry and its fallback boundaries. | Retain native consent and link-specific confirmation. | #731 | GPT-6 (Codex) |
+// | 2026-11-10 | Exercise rename from a protected listing. | Verify the target probe, consent and collision behavior. | #731 | GPT-6 (Codex) |
+// | 2026-11-08 | Model junction rename consent dependencies. | Continue compiling the real Branch View rename implementation. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Model the source type in the rename test fixture. | Keep compiling the real panel code for Branch View. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Model the symbolic-link rename consent dependencies. | Compile the shared panel implementation in the Branch View test. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-07 | Model the shared rename confirmation dependencies in the Branch View fixture. | Compile the actual panel rename function and check that Branch View stays outside the broker pilot. | | GPT-6.1 Sol (Codex) |
 #include <windows.h>
 #include <string>
 #include <vector>
@@ -16,16 +28,49 @@ std::string SalWideToMultiBytePath(const wchar_t*,UINT=CP_UTF8);
 #define HANDLES_Q(call) (call)
 #define HANDLES(call) (call)
 static constexpr int IDS_TOOLONGNAME=1,IDS_ERRORRENAMINGFILE=2,ptDisk=1,ptPluginFS=2,FS_SERVICE_QUICKRENAME=1;
+static constexpr int IDS_UAC_RENAME_CONFIRM=3,IDS_AS_ADMIN_TITLE=4,IDS_RENAME_TITLE=5,IDS_UAC_MKDIR_UNKNOWN=6,IDS_UAC_RENAME_SYMLINK_CONFIRM=7,IDS_UAC_RENAME_JUNCTION_CONFIRM=8,IDS_UAC_RENAME_DIRECTORY_CONFIRM=9;
+static constexpr UINT MSGBOXEX_OKCANCEL=1,MSGBOXEX_ICONQUESTION=2,MSGBOXEX_SHIELDONDEFBTN=4,MSGBOXEX_DEFBUTTON2=8,MSGBOXEX_SHIELDONOKBTN=16;
 static int Errors=0,LegacyCalls=0,Remaps=0,Updates=0,Sleeps=0,Wakes=0,Checks=0,Failed=0;
+static int ElevationAttempts=0;
+static int ConsentCalls=0,ConsentAnswer=IDCANCEL,ScopedPreparations=0,ExecutedRenames=0,TargetQueries=0,OverwriteFallbacks=0;
+static DWORD ForcedRenameError=ERROR_SUCCESS,ForcedAttributesError=ERROR_SUCCESS,PreparationError=ERROR_SUCCESS,ExecutionError=ERROR_SUCCESS,ReportedError=ERROR_SUCCESS;
+static bool ExecutionUnknown=false,PrepareOrdinary=false,PrepareLink=false,PreparedDirectory=false;
+struct MSGBOXEX_PARAMS { HWND HParent; const char* Text; const char* Caption; UINT Flags; const char* AliasBtnNames; };
+static int SalMessageBoxEx(const MSGBOXEX_PARAMS*) { ++ConsentCalls; return ConsentAnswer; }
+namespace UacF7
+{
+struct PreparedLeaf
+{
+    struct Result { DWORD error; bool unknown; };
+    bool Prepare(const std::wstring&, const std::wstring&) { ++ElevationAttempts; return PrepareOrdinary; }
+    bool PrepareRenameDirectory(const std::wstring&, const std::wstring&) { PreparedDirectory=true; return PrepareOrdinary; }
+    bool IsJunctionRename() const { return false; }
+    bool PrepareRenameLink(const std::wstring&, const std::wstring&, bool) { ++ElevationAttempts; return PrepareLink; }
+    Result Execute(HWND) const { ++ExecutedRenames; return {ExecutionError, ExecutionUnknown}; }
+};
+struct ListingSession
+{
+    std::wstring Root,LastSource,LastTarget;
+    bool Open=true;
+    bool Contains(const std::wstring& path) const
+    {
+        return Open && path.size()>Root.size() && path.compare(0,Root.size(),Root)==0 && path[Root.size()]==L'\\';
+    }
+    DWORD PrepareRename(const std::wstring& path,const std::wstring& target,PreparedLeaf&,bool directory)
+    {
+        ++ScopedPreparations;LastSource=path;LastTarget=target;PreparedDirectory=directory;return PreparationError;
+    }
+};
+}
 static const char* LoadStr(int){return "test";}
-static const char* GetErrorText(DWORD){return "test error";}
+static const char* GetErrorText(DWORD error){ReportedError=error;return "test error";}
 static int SalMessageBox(HWND,const char*,const char*,UINT){++Errors;return IDOK;}
 static void GetFileOverwriteInfoW(char* text,size_t,HANDLE,DWORD){strcpy_s(text,101,"owned test");}
-static BOOL TryBypassDosNameOverwriteW(const std::wstring&,const std::wstring&,const std::wstring&,DWORD*){return FALSE;}
+static BOOL TryBypassDosNameOverwriteW(const std::wstring&,const std::wstring&,const std::wstring&,DWORD*){++OverwriteFallbacks;return FALSE;}
 static void ClearReadOnlyAttrW(const std::wstring& path,DWORD attrs){SetFileAttributesW(path.c_str(),attrs&~FILE_ATTRIBUTE_READONLY);}
 struct COverwriteDlg { COverwriteDlg(HWND,const char*,const char*,const char*,const char*,BOOL){} int Execute(){return IDNO;} };
 struct CFileData {
- std::string Mirror;std::wstring Wide,Parent;const char* Name=nullptr;const wchar_t* NameW=nullptr;
+ std::string Mirror;std::wstring Wide,Parent;const char* Name=nullptr;const wchar_t* NameW=nullptr;DWORD Attr=FILE_ATTRIBUTE_NORMAL;
  bool UseWideName()const{return true;}
  void Assign(const std::wstring& name){Wide=name;Mirror=SalWideToMultiBytePath(name.c_str(),CP_UTF8);Name=Mirror.c_str();NameW=Wide.c_str();}
 };
@@ -50,11 +95,14 @@ class CFilesWindow {
 public:
  BOOL Branch=TRUE,Current=TRUE;HWND HWindow=NULL;Rows Storage,Empty;Rows* Files=&Storage;Rows* Dirs=&Empty;
  Visible VisibleItemsArray,VisibleItemsArraySurround;EditFacade QuickRenameWindow;FakeFS FS;
+ UacF7::ListingSession* ProtectedListing=nullptr;
  char NextFocusName[32768]={};std::string Root;
  BOOL IsBranchView(){return Branch;}BOOL Is(int type){return type==ptDisk;}
  int GetCaretIndex(){return 0;}const char* GetPath(){return Root.c_str();}
  FakeFS* GetPluginFS(){return &FS;}HWND GetListBoxHWND(){return HWindow;}
  const char* GetItemCacheKeyPtr(const CFileData& f){return f.Name;}
+ std::string GetItemCacheKey(const CFileData& f){return GetItemCacheKeyPtr(f);}
+ ULONGLONG GetBranchViewGeneration() const {return 1;}
  const CFileData* GetBranchViewFileByCacheKey(const char*){return Current?&Storage.Item:NULL;}
  std::wstring GetItemDirectoryW(const CFileData& f){return f.Parent;}
  std::wstring GetItemFullPathW(const CFileData& f){return f.Parent+L"\\"+f.Wide;}
@@ -62,7 +110,8 @@ public:
  void BranchItemRenamed(const char*,const CFileData&,const std::wstring&){++Remaps;}
  void QuickRenameEnd(){QuickRenameWindow.Closed=true;if(QuickRenameWindow.HWindow){DestroyWindow(QuickRenameWindow.HWindow);QuickRenameWindow.HWindow=NULL;}}
  void RenameFileInternal(CFileData*,const char*,BOOL,BOOL*,BOOL*);
- void RenameFileInternalW(CFileData*,const std::wstring&,BOOL,BOOL*,BOOL*);
+ enum class RenameDialogConsent { None, Plain, Shielded };
+ void RenameFileInternalW(CFileData*,const std::wstring&,BOOL,BOOL*,BOOL*,RenameDialogConsent=RenameDialogConsent::None);
  BOOL HandeQuickRenameWindowKey(WPARAM);
  HWND ForcedAnsiEdit(const char* formatedFileName) {
   std::wstring formatedFileNameW=MultiByteFileNameToWideBest(formatedFileName);CFileData* f=&Storage.Item;
@@ -72,7 +121,22 @@ public:
   return hWnd;
  }
 };
+static BOOL RenameForControllerTest(LPCWSTR source,LPCWSTR target,DWORD flags)
+{
+ if(ForcedRenameError){SetLastError(ForcedRenameError);return FALSE;}
+ return MoveFileExW(source,target,flags);
+}
+static DWORD AttributesForControllerTest(LPCWSTR path)
+{
+ ++TargetQueries;
+ if(ForcedAttributesError){SetLastError(ForcedAttributesError);return INVALID_FILE_ATTRIBUTES;}
+ return GetFileAttributesW(path);
+}
+#define MoveFileExW RenameForControllerTest
+#define GetFileAttributesW AttributesForControllerTest
 @@RENAME_WIDE@@
+#undef GetFileAttributesW
+#undef MoveFileExW
 void CFilesWindow::RenameFileInternal(CFileData* f,const char* formatedFileName,BOOL isDir,BOOL* mayChange,BOOL* tryAgain)
 {
 @@BRANCH_ROUTE@@
@@ -86,6 +150,145 @@ static std::wstring Exact(const std::wstring& path){return SalPathAddExtendedPre
 static std::vector<std::wstring> OwnedFiles;
 static void Write(const std::wstring& path,const char* content){HANDLE h=CreateFileW(Exact(path).c_str(),GENERIC_WRITE,0,NULL,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,NULL);Check(h!=INVALID_HANDLE_VALUE,"create owned source");if(h!=INVALID_HANDLE_VALUE){OwnedFiles.push_back(path);DWORD n=0;Check(WriteFile(h,content,(DWORD)strlen(content),&n,NULL)&&n==strlen(content),"write owned contents");CloseHandle(h);}}
 static std::string Read(const std::wstring& path){HANDLE h=CreateFileW(Exact(path).c_str(),GENERIC_READ,0,NULL,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,NULL);if(h==INVALID_HANDLE_VALUE)return "ABSENT";char text[64]={};DWORD n=0;ReadFile(h,text,63,&n,NULL);CloseHandle(h);return std::string(text,n);}
+static void CheckProtectedRenameController(HWND owner,const std::wstring& parent)
+{
+ using Consent=CFilesWindow::RenameDialogConsent;
+ CFilesWindow panel;panel.Branch=FALSE;panel.HWindow=owner;panel.Storage.Count=1;
+ UacF7::ListingSession listing;listing.Root=parent;panel.ProtectedListing=&listing;
+ auto& file=panel.Storage.Item;file.Parent=parent;
+ const std::wstring source=L"source-\u6771.txt",target=L"renamed-\u017e.txt";
+ BOOL change=FALSE,retry=FALSE;
+ const auto reset=[&] {
+  file.Assign(source);file.Attr=FILE_ATTRIBUTE_NORMAL;panel.Branch=FALSE;listing.Open=true;listing.Root=parent;
+  ConsentCalls=ScopedPreparations=ExecutedRenames=TargetQueries=0;ConsentAnswer=IDCANCEL;
+  ForcedRenameError=ForcedAttributesError=ERROR_ACCESS_DENIED;
+  PreparationError=ExecutionError=ReportedError=ERROR_SUCCESS;ExecutionUnknown=PrepareOrdinary=PrepareLink=PreparedDirectory=false;
+  change=retry=FALSE;
+ };
+ reset();int attempts=ElevationAttempts,errors=Errors;
+ panel.RenameFileInternalW(&file,target,FALSE,&change,&retry);
+ Check(ScopedPreparations==1&&TargetQueries==0&&ElevationAttempts==attempts&&ConsentCalls==1&&ExecutedRenames==0,
+       "protected rename prepares through the listing without requiring target visibility or a local source handle");
+ Check(!retry&&file.Wide==source&&Errors==errors&&listing.LastSource==parent+L"\\"+source&&listing.LastTarget==target,
+       "declined protected rename retains the selected Unicode source and stops retrying");
+
+ reset();ConsentAnswer=IDOK;int updates=Updates;
+ panel.RenameFileInternalW(&file,target,FALSE,&change,&retry);
+ Check(ExecutedRenames==1&&!retry&&file.Wide==target&&Updates==updates+1&&TargetQueries==0,
+       "confirmed protected rename uses the existing successful metadata and focus path");
+
+ reset();updates=Updates;
+ panel.RenameFileInternalW(&file,target,FALSE,&change,&retry,Consent::Shielded);
+ Check(ScopedPreparations==1&&ConsentCalls==0&&ExecutedRenames==1&&!retry&&file.Wide==target&&Updates==updates+1,
+       "shielded F2 acceptance goes directly to Windows consent for the verified rename");
+
+ reset();ExecutionError=ERROR_CANCELLED;
+ panel.RenameFileInternalW(&file,target,FALSE,&change,&retry,Consent::Shielded);
+ Check(ScopedPreparations==1&&ConsentCalls==0&&ExecutedRenames==1&&!retry&&file.Wide==source,
+       "cancelling Windows consent after shielded F2 preserves the source");
+
+ reset();listing.Open=false;ForcedAttributesError=ERROR_FILE_NOT_FOUND;PrepareOrdinary=true;
+ panel.RenameFileInternalW(&file,target,FALSE,&change,&retry,Consent::Shielded);
+ Check(ScopedPreparations==0&&TargetQueries==1&&ConsentCalls==0&&ExecutedRenames==1&&!retry&&file.Wide==target,
+       "shielded F2 also uses direct Windows consent when the normal retry can verify the source");
+
+ reset();listing.Open=false;PrepareOrdinary=true;ConsentAnswer=IDOK;
+ const std::wstring caseTarget=L"SOURCE-\u6771.TXT";
+ panel.RenameFileInternalW(&file,caseTarget,FALSE,&change,&retry);
+ Check(TargetQueries==0&&ConsentCalls==1&&ExecutedRenames==1&&!retry&&file.Wide==caseTarget,
+       "case-only rename reaches the verified no-replace request without a misleading existing-target probe");
+
+ reset();listing.Open=false;PrepareOrdinary=true;ConsentAnswer=IDOK;ExecutionError=ERROR_FILE_INVALID;int caseFallback=OverwriteFallbacks;
+ panel.RenameFileInternalW(&file,caseTarget,FALSE,&change,&retry);
+ Check(TargetQueries==0&&ExecutedRenames==1&&retry&&file.Wide==source&&ReportedError==ERROR_FILE_INVALID&&OverwriteFallbacks==caseFallback,
+       "a substituted case-only alias is rejected without entering the legacy overwrite path");
+
+ reset();ConsentAnswer=IDOK;file.Attr=FILE_ATTRIBUTE_DIRECTORY;
+ panel.RenameFileInternalW(&file,caseTarget,TRUE,&change,&retry,Consent::Shielded);
+ Check(ScopedPreparations==1&&PreparedDirectory&&ConsentCalls==0&&ExecutedRenames==1&&!retry&&file.Wide==caseTarget,
+       "shielded directory case-only rename reuses the selected listing identity");
+
+ reset();file.Attr=FILE_ATTRIBUTE_REPARSE_POINT;ForcedAttributesError=ERROR_FILE_NOT_FOUND;PrepareLink=true;
+ panel.RenameFileInternalW(&file,target,FALSE,&change,&retry,Consent::Shielded);
+ Check(ScopedPreparations==0&&ConsentCalls==1&&ExecutedRenames==0&&!retry&&file.Wide==source,
+       "a shielded regular-file confirmation never skips link-specific confirmation");
+
+ reset();ConsentAnswer=IDOK;ExecutionError=ERROR_ALREADY_EXISTS;int fallback=OverwriteFallbacks;
+ panel.RenameFileInternalW(&file,target,FALSE,&change,&retry);
+ Check(ExecutedRenames==1&&retry&&file.Wide==source&&ReportedError==ERROR_ALREADY_EXISTS&&OverwriteFallbacks==fallback&&TargetQueries==0,
+       "broker collision preserves the source and never enters the legacy overwrite fallback");
+
+ reset();PreparationError=ERROR_FILE_EXISTS;fallback=OverwriteFallbacks;
+ panel.RenameFileInternalW(&file,target,FALSE,&change,&retry,Consent::Shielded);
+ Check(ConsentCalls==0&&ExecutedRenames==0&&retry&&ReportedError==ERROR_FILE_EXISTS&&OverwriteFallbacks==fallback,
+       "shielded F2 still requires scoped preparation and does not widen to an overwrite");
+
+ reset();ConsentAnswer=IDOK;ExecutionError=ERROR_CANCELLED;
+ panel.RenameFileInternalW(&file,target,FALSE,&change,&retry);
+ Check(ExecutedRenames==1&&!retry&&file.Wide==source,
+       "cancelled Windows consent leaves the selected source and exits the rename retry");
+
+ reset();ConsentAnswer=IDOK;ExecutionUnknown=true;ExecutionError=ERROR_BROKEN_PIPE;errors=Errors;
+ panel.RenameFileInternalW(&file,target,FALSE,&change,&retry);
+ Check(ExecutedRenames==1&&!retry&&file.Wide==source&&Errors==errors+1,
+       "unknown broker outcome reports once and does not replay the rename");
+
+ reset();listing.Root=parent+L"-other";
+ panel.RenameFileInternalW(&file,target,FALSE,&change,&retry);
+ Check(ScopedPreparations==0&&ExecutedRenames==0&&ConsentCalls==0&&TargetQueries==1,
+       "a protected panel never supplies a grant for a sibling-prefix path");
+
+ reset();listing.Open=false;
+ panel.RenameFileInternalW(&file,target,FALSE,&change,&retry);
+ Check(ScopedPreparations==0&&ExecutedRenames==0&&ConsentCalls==0,
+       "a disconnected listing cannot prepare a protected rename");
+
+ reset();file.Attr=FILE_ATTRIBUTE_DIRECTORY;
+ panel.RenameFileInternalW(&file,target,TRUE,&change,&retry);
+ Check(PreparedDirectory&&ScopedPreparations==1&&ConsentCalls==1&&ExecutedRenames==0&&!retry&&file.Wide==source,
+       "Quick Rename offers explicit consent for the exact directory and preserves it when declined");
+
+ reset();file.Attr=FILE_ATTRIBUTE_DIRECTORY;ConsentAnswer=IDOK;
+ panel.RenameFileInternalW(&file,target,TRUE,&change,&retry);
+ Check(PreparedDirectory&&ScopedPreparations==1&&ConsentCalls==1&&ExecutedRenames==1&&!retry&&file.Wide==target,
+       "approved Quick Rename uses the verified directory and updates the selected row");
+
+ reset();file.Attr=FILE_ATTRIBUTE_DIRECTORY;ConsentAnswer=IDOK;ExecutionError=ERROR_CANCELLED;
+ panel.RenameFileInternalW(&file,target,TRUE,&change,&retry);
+ Check(PreparedDirectory&&ScopedPreparations==1&&ConsentCalls==1&&ExecutedRenames==1&&!retry&&file.Wide==source,
+       "cancelled Windows consent preserves the Quick Rename directory");
+
+ reset();file.Attr=FILE_ATTRIBUTE_DIRECTORY;listing.Open=false;PrepareOrdinary=true;ForcedAttributesError=ERROR_FILE_NOT_FOUND;
+ panel.RenameFileInternalW(&file,target,TRUE,&change,&retry);
+ Check(PreparedDirectory&&ScopedPreparations==0&&TargetQueries==1&&ConsentCalls==1&&ExecutedRenames==0&&!retry,
+       "Quick Rename outside a listing still requires an explicit Administrator choice");
+
+ reset();file.Attr=FILE_ATTRIBUTE_DIRECTORY;listing.Open=false;PrepareOrdinary=true;ForcedAttributesError=ERROR_FILE_NOT_FOUND;
+ panel.RenameFileInternalW(&file,target,TRUE,&change,&retry,Consent::Shielded);
+ Check(PreparedDirectory&&ScopedPreparations==0&&ConsentCalls==0&&ExecutedRenames==1&&!retry&&file.Wide==target,
+       "shielded F2 in a readable parent uses one verified directory retry without a second app prompt");
+
+ reset();file.Attr=FILE_ATTRIBUTE_DIRECTORY;ExecutionError=ERROR_CANCELLED;
+ panel.RenameFileInternalW(&file,target,TRUE,&change,&retry,Consent::Shielded);
+ Check(PreparedDirectory&&ScopedPreparations==1&&ConsentCalls==0&&ExecutedRenames==1&&!retry&&file.Wide==source,
+       "a protected listing prepares the exact directory and cancelled Windows consent keeps its name");
+
+ reset();file.Attr=FILE_ATTRIBUTE_DIRECTORY;
+ panel.RenameFileInternalW(&file,target,TRUE,&change,&retry,Consent::Plain);
+ Check(PreparedDirectory&&ScopedPreparations==1&&ConsentCalls==1&&ExecutedRenames==0&&!retry&&file.Wide==source,
+       "plain F2 retains the explicit Administrator choice after unexpected access denial");
+
+ reset();file.Attr=FILE_ATTRIBUTE_REPARSE_POINT;
+ panel.RenameFileInternalW(&file,target,FALSE,&change,&retry);
+ Check(ScopedPreparations==0&&ConsentCalls==0,"link rename does not borrow the protected regular-file capability");
+
+ reset();panel.Branch=TRUE;
+ panel.RenameFileInternalW(&file,target,FALSE,&change,&retry);
+ Check(ScopedPreparations==1&&ConsentCalls==1&&ExecutedRenames==0&&!retry&&file.Wide==source,
+       "a current Branch View row uses the verified listing but still requires explicit rename consent");
+
+ ForcedRenameError=ForcedAttributesError=ERROR_SUCCESS;
+}
 int wmain()
 {
  DWORD size=GetCurrentDirectoryW(0,NULL);std::vector<wchar_t> cwd(size);if(!GetCurrentDirectoryW(size,cwd.data()))return 2;
@@ -127,6 +330,8 @@ int wmain()
  }
  CFilesWindow ordinary;BOOL change=FALSE,retry=TRUE;ordinary.Branch=FALSE;ordinary.RenameFileInternal(NULL,"ordinary.txt",FALSE,&change,&retry);
  Check(LegacyCalls==1&&!change,"ordinary panel still selects untouched legacy remainder");
+ Check(ElevationAttempts==0,"Branch View does not offer a broker rename");
+ CheckProtectedRenameController(owner,longParent);
  Check(DestroyWindow(owner)!=FALSE,"destroy owned control parent");
  // A deliberately failing mutation must also leave no deep fixture behind.
  for(const auto& file:OwnedFiles)if(GetFileAttributesW(Exact(file).c_str())!=INVALID_FILE_ATTRIBUTES){Check(file.rfind(root+L"\\",0)==0&&DeleteFileW(Exact(file).c_str()),"cleanup leftover owned source after failure");}

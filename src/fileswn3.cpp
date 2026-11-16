@@ -1,5 +1,13 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Restart access probes when either panel array is reordered. | Preserve complete file and directory coverage across sort changes. | #731 | GPT-6 |
+// | 2026-11-15 | Schedule scoped folder access indicators. | Keep slow access checks away from panel listing and rendering. | #731 | GPT-6 |
+// | 2026-11-15 | Explain buffered protected panel listings. | Preserve the ordinary panel rendering path after authorization. | #731 | GPT-6 |
+// | 2026-11-11 | Initialize disk rows with the private data marker. | Leave archive and plugin rows on the released ABI. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Initialize partial disk size state. | A new listing starts without an observed size. | #731 | GPT-6.1 Sol |
+// | 2026-11-07 | Render the verified broker listing through the existing disk panel. | Use exact wide names and keep preview providers out of protected listings. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -638,6 +646,9 @@ void CFilesWindow::FinishExplorerSortAsync(CExplorerSortAsyncData* data)
             SortExplorerNameExtAux(*Files, 0, Files->Count - 1, ReverseSort);
         ExplorerSortContext = NULL;
         ReindexBranchViewFiles();
+        if (UacFolderProbeRun && (!UacFolderProbeGeneration ||
+            UacFolderProbeNext < static_cast<size_t>(Dirs->Count) + static_cast<size_t>(Files->Count)))
+            StartUacFolderProbe(); // Restart only an incomplete snapshot after reordering.
         if (UseSystemIcons || UseThumbnails)
             WakeupIconCacheThread();
 
@@ -781,6 +792,8 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
 {
     CALL_STACK_MESSAGE1("CFilesWindow::ReadDirectory()");
 
+    StopUacFolderProbe(); // Invalidate results from the listing being replaced.
+
     class CAutoRefreshRestore
     {
     public:
@@ -822,7 +835,10 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
     //  TRACE_I("ReadDirectory: begin");
 
     //  MainWindow->ReleaseMenuNew();  // in case of it's about this directory
+    // A live protected session supplies buffered rows to the same panel renderer as local enumeration.
     const bool branchListing = IsBranchView() != FALSE;
+    const bool protectedListing = ProtectedListing && ProtectedListing->Contains(GetPathW());
+    const bool bufferedListing = branchListing || protectedListing;
     HiddenDirsFilesReason = 0;
     HiddenDirsCount = HiddenFilesCount = 0;
 
@@ -876,7 +892,8 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         CIconSizeEnum iconSize = GetIconSizeForCurrentViewMode();
         IconCache->SetIconSize(iconSize, GetIconSize(iconSize));
 
-        BOOL readThumbnails = (GetViewMode() == vmThumbnails);
+        // External thumbnail providers cannot use the panel's scoped broker session.
+        BOOL readThumbnails = !protectedListing && GetViewMode() == vmThumbnails;
 
         CALL_STACK_MESSAGE1("CFilesWindow::ReadDirectory::disk1");
         // choosing plugins which can load thumbnails (for optimization)
@@ -907,7 +924,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         // the full on-disk name never passes through that fixed UTF-8 buffer.
         const bool useWideDiskPath = GetPathW() != NULL && GetPathW()[0] != 0 &&
                                      (GetACP() == CP_UTF8 || strlen(GetPath()) >= MAX_PATH);
-        if (branchListing)
+        if (bufferedListing)
             SetCurrentDirectoryToSystem();
         else if (useWideDiskPath)
         {
@@ -940,7 +957,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
 
         //--- getting drive type (we will not bother network drives with getting shares)
         UINT drvType = branchListing ? GetPathDriveType() : MyGetDriveType(GetPath());
-        BOOL testShares = !branchListing && drvType != DRIVE_REMOTE;
+        BOOL testShares = !bufferedListing && drvType != DRIVE_REMOTE;
         if (testShares)
             Shares.PrepareSearch(GetPath());
         switch (drvType)
@@ -977,6 +994,10 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
             break;
         }
         }
+
+        // Avoid reopening protected entries through the system icon provider.
+        if (protectedListing)
+            UseSystemIcons = FALSE;
 
         const char* s = GetPath();
         char* st = fileName;
@@ -1056,7 +1077,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         BOOL addtoIconCache;
         CFileData file = {0};
         // inicialization of structure members which will not be changed later
-        file.PluginData = -1; // -1 just like that, ignored
+        file.PluginData = DiskItemNoPluginData;
         file.Selected = 0;
         file.SizeValid = 0;
         file.Dirty = 0; // unnecessary, just for the form
@@ -1074,7 +1095,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         // after 2000 ms we will show a window with a cancel prompt
         char buf[32768 + 1000];
         _snprintf_s(buf, _countof(buf), _TRUNCATE, LoadStr(IDS_READINGPATHESC), GetPath());
-        if (!branchListing) CreateSafeWaitWindow(buf, NULL, 2000, TRUE, MainWindow->HWindow);
+        if (!bufferedListing) CreateSafeWaitWindow(buf, NULL, 2000, TRUE, MainWindow->HWindow);
 
         DWORD lastEscCheckTime;
         //lastEscCheckTime = GetTickCount() - 200;  // the first ESC will go immediately
@@ -1091,22 +1112,23 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         // Legacy narrow panel consumers have fixed basename buffers. Keep
         // their UTF-8-safe display mirror bounded; NameW and Branch metadata
         // remain exact and are authoritative for every filesystem action.
-        auto loadBranchEntry = [&](size_t index) -> BOOL {
-            if (index >= BranchView->Entries.size()) { SetLastError(ERROR_NO_MORE_FILES); return FALSE; }
-            fileDataW = BranchView->Entries[index].Data;
+        const size_t bufferedCount = branchListing ? BranchView->Entries.size() : ProtectedListingEntries.size();
+        auto loadBufferedEntry = [&](size_t index) -> BOOL {
+            if (index >= bufferedCount) { SetLastError(ERROR_NO_MORE_FILES); return FALSE; }
+            fileDataW = branchListing ? BranchView->Entries[index].Data : ProtectedListingEntries[index];
             CopyFindDataWToA(fileDataW, fileData);
             return TRUE;
         };
         BOOL wideSearch = FALSE;
         HANDLE search;
         size_t branchIndex = 0;
-        if (branchListing)
+        if (bufferedListing)
         {
             wideSearch = TRUE;
-            search = BranchView->Entries.empty() ? INVALID_HANDLE_VALUE : (HANDLE)1;
+            search = bufferedCount == 0 ? INVALID_HANDLE_VALUE : (HANDLE)1;
             if (search != INVALID_HANDLE_VALUE)
             {
-                loadBranchEntry(0);
+                loadBufferedEntry(0);
             }
             else SetLastError(ERROR_NO_MORE_FILES);
         }
@@ -1129,7 +1151,8 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         if (search == INVALID_HANDLE_VALUE)
         {
             DWORD err = GetLastError();
-            DestroySafeWaitWindow();
+            if (!bufferedListing)
+                DestroySafeWaitWindow();
             if (err == ERROR_FILE_NOT_FOUND || err == ERROR_NO_MORE_FILES)
             {
                 if (!upDir)
@@ -1221,7 +1244,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 NumberOfItemsInCurDir++;
 
                 // test ESC - doesn't user want to interrupt reading?
-                if (!branchListing && GetTickCount() - lastEscCheckTime >= 200) // 5 times per second
+                if (!bufferedListing && GetTickCount() - lastEscCheckTime >= 200) // 5 times per second
                 {
                     if (UserWantsToCancelSafeWaitWindow())
                     {
@@ -1345,7 +1368,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                     if (search != NULL)
                     {
                         DestroySafeWaitWindow();
-                        if (!branchListing) HANDLES(FindClose(search));
+                        if (!bufferedListing) HANDLES(FindClose(search));
                     }
                     TRACE_E(LOW_MEMORY);
                     SetCurrentDirectoryToSystem();
@@ -1407,7 +1430,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                         if (search != NULL)
                         {
                             DestroySafeWaitWindow();
-                            if (!branchListing) HANDLES(FindClose(search));
+                            if (!bufferedListing) HANDLES(FindClose(search));
                         }
                         TRACE_E(LOW_MEMORY);
                         SetCurrentDirectoryToSystem();
@@ -1463,7 +1486,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                         if (search != NULL)
                         {
                             DestroySafeWaitWindow();
-                            if (!branchListing) HANDLES(FindClose(search));
+                        if (!bufferedListing) HANDLES(FindClose(search));
                         }
                         SetCurrentDirectoryToSystem();
                         Files->DestroyMembers();
@@ -1553,7 +1576,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                         if (search != NULL)
                         {
                             DestroySafeWaitWindow();
-                            if (!branchListing) HANDLES(FindClose(search));
+                            if (!bufferedListing) HANDLES(FindClose(search));
                         }
                         SetCurrentDirectoryToSystem();
                         Files->DestroyMembers();
@@ -1714,14 +1737,17 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
 #endif                     // _WIN64
                     break; // the second pass (adding ".." or win64 redirected-dir)
                 }
-            } while (branchListing ? loadBranchEntry(++branchIndex) :
+            } while (bufferedListing ? loadBufferedEntry(++branchIndex) :
                      wideSearch ? (FindNextFileW(search, &fileDataW) ? (CopyFindDataWToA(fileDataW, fileData), TRUE) : FALSE) : FindNextFile(search, &fileData));
             DWORD err = GetLastError();
 
             if (search != NULL) // the first pass
             {
-                DestroySafeWaitWindow();
-                if (!branchListing) HANDLES(FindClose(search));
+                if (!bufferedListing)
+                {
+                    DestroySafeWaitWindow();
+                    HANDLES(FindClose(search));
+                }
             }
 
             if (testFindNextErr && err != ERROR_NO_MORE_FILES)
@@ -1738,9 +1764,9 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         {
             upDir = FALSE;
             *(fileNameEnd - 1) = 0; // it's not logical, but times ".." are from current directory
-            if (!UNCRootUpDir && !branchListing)
+            if (!UNCRootUpDir && !bufferedListing)
                 search = HANDLES_Q(FindFirstFile(fileName, &fileData));
-            else if (branchListing) search = INVALID_HANDLE_VALUE;
+            else if (bufferedListing) search = INVALID_HANDLE_VALUE;
             else
                 search = INVALID_HANDLE_VALUE;
             if (search == INVALID_HANDLE_VALUE)
@@ -1766,12 +1792,12 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 fileData.dwReserved0 = fileData.dwReserved1 = 0;
             }
             else
-                if (!branchListing) HANDLES(FindClose(search));
+                if (!bufferedListing) HANDLES(FindClose(search));
             search = NULL;                                              // the second/third pass
             fileData.dwFileAttributes |= FILE_ATTRIBUTE_DIRECTORY;      // this is ptDisk
             fileData.dwFileAttributes &= ~FILE_ATTRIBUTE_REPARSE_POINT; // need to remove flag FILE_ATTRIBUTE_REPARSE_POINT, otherwise link overlay will be on ".."
             strcpy(fileData.cFileName, "..");
-            if (branchListing) wcscpy_s(fileDataW.cFileName, L"..");
+            if (bufferedListing) wcscpy_s(fileDataW.cFileName, L"..");
             fileData.cAlternateFileName[0] = 0;
             st = fileData.cFileName;
             len = (int)strlen(st);
@@ -1784,7 +1810,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
     FIND_NEXT_WIN64_REDIRECTEDDIR:
 
         BOOL dirWithSameNameExists;
-        if (!branchListing && foundWin64RedirectedDirs < 10 &&
+        if (!bufferedListing && foundWin64RedirectedDirs < 10 &&
             AddWin64RedirectedDir(GetPath(), Dirs, &fileData, &foundWin64RedirectedDirs, &dirWithSameNameExists))
         {
             foundWin64RedirectedDirs++; // e.g. under system32 there can be 5, I've added some reserve to 10...
@@ -1830,6 +1856,8 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
 
         // sorting of Files and Dirs according to the current sorting method
         SortDirectory();
+
+        StartUacFolderProbe(); // Probe an independent path snapshot after displaying the listing.
 
         if (UseSystemIcons || UseThumbnails)
         {
@@ -2756,6 +2784,9 @@ void CFilesWindow::SortDirectory(CFilesArray* files, CFilesArray* dirs)
     SortedWithDetectNum = Configuration.SortDetectNumbers;
     VisibleItemsArray.InvalidateArr();
     VisibleItemsArraySurround.InvalidateArr();
+    if (sortingPanelListing && UacFolderProbeRun && (!UacFolderProbeGeneration ||
+        UacFolderProbeNext < static_cast<size_t>(Dirs->Count) + static_cast<size_t>(Files->Count)))
+        StartUacFolderProbe(); // A partial index snapshot must not span two sort orders.
 }
 
 #ifndef _WIN64

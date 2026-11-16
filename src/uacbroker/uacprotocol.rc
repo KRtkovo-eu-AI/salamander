@@ -1,0 +1,11 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Embed the image role with the protocol version. | Reject mismatched executable roles. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Embed the UAC protocol version. | Check the paired binaries without running them. | | GPT-6.1 Sol (Codex) |
+#include "uacprotocol.h"
+
+LANGUAGE 0, 0
+SAM_UAC_PROTOCOL_RESOURCE RCDATA
+{
+    SAM_UAC_PROTOCOL_VERSION, SAM_UAC_IMAGE_ROLE
+}

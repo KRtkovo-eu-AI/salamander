@@ -2,11 +2,14 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-12 | Locate readiness predicate before its scoped lock helper. | Keep scheduling contract coverage after removal of redundant queues. | #731 | GPT-6 (Codex) |
+# | 2026-11-11 | Check identity guards without assuming adjacent read-only preparation. | Preserve wide-path and stale-target coverage after overwrite preparation. | #731 | GPT-6 (Codex) |
 # | 2026-11-07 | Cover Copy/Move reset-and-hide behavior. | Reset and hide options must reset values before collapsing the dialog. |  | openai/gpt-5.6-luna-pro |
 # | 2026-11-07 | Verify Copy/Move reset restores the configured wait behavior. | Reset options and defaults must derive Wait until from the transfer preference. |  | openai/gpt-5.6-luna-pro |
 # | 2026-11-05 | Cover Copy/Move Save options as defaults for transfer, conflict, and wait. | Regression for dialog defaults that were not persisted. | https://github.com/KRtkovo-eu-AI/salamander/issues/734 | Composer |
 
 from pathlib import Path
+import re
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -28,6 +31,36 @@ def function_slice(text: str, start: str, end: str) -> str:
     if first < 0 or last < 0:
         raise AssertionError(f"Cannot locate function section: {start}")
     return text[first:last]
+
+
+def require_target_guard_before_clear(section: str, description: str) -> None:
+    """A failed identity check must return before any target mutation."""
+    if description == "copy":
+        marker = 'if (!THIN_VALIDATE_SCAN(&thin, op, dlgData, false))'
+        start = section.find(marker)
+        clear = section.find('WorkerClearReadOnlyW(', start + len(marker))
+        if start < 0 or clear < 0:
+            raise AssertionError('Missing copy identity guard before read-only clearing')
+        guarded = section[start:clear]
+        require(guarded, 'THIN_SCAN_PROBE_ERROR(&thin)', 'copy probe failure handling')
+        require(guarded, 'goto NORMAL_ERROR;', 'copy probe errors do not authorize mutation')
+        require(guarded, 'return ReturnCopyConflictChanged(in, dlgData);',
+                'copy returns changed identity for a new decision and closes its source')
+        if re.search(r'\b(?:WorkerClearReadOnlyW|DeleteFileW|SetFileAttributesW|MoveFileW|MoveFileExW)\s*\(', guarded):
+            raise AssertionError('Target mutation precedes copy read-only clearing')
+        return
+    guard = re.search(
+        r'if\s*\(!ValidateInjectedTargetIdentity\(op,\s*dlgData\)\)\s*'
+        r'\{\s*dlgData\.ConflictTargetChanged\s*=\s*TRUE;\s*return\s+TRUE;\s*\}',
+        section)
+    if not guard:
+        raise AssertionError(f"Missing {description} identity guard and early return")
+    clear = section.find('WorkerClearReadOnlyW(', guard.end())
+    if clear < 0:
+        raise AssertionError(f"Missing {description} read-only target clearing after guard")
+    before_clear = section[guard.end():clear]
+    if re.search(r'\b(?:WorkerClearReadOnlyW|DeleteFileW|SetFileAttributesW|MoveFileW|MoveFileExW)\s*\(', before_clear):
+        raise AssertionError(f"Target mutation precedes {description} read-only clearing")
 
 
 def main() -> None:
@@ -466,7 +499,7 @@ def main() -> None:
             "one-task fallback rolls back speculative directories")
     for function_start, function_end in (
         ("BOOL COperations::GetNextConflictPromptItem", "void COperations::SetConflictChangedEvent"),
-        ("BOOL COperations::IsConflictItemReadyLocked", "void COperations::RebuildConflictQueuesLocked"),
+        ("BOOL COperations::IsConflictItemReadyLocked", "class CScopedConflictLock"),
         ("void COperations::AdmitConflictSubtreeLocked", "BOOL COperations::BeginConflictScan"),
         ("void COperations::PublishConflictScanResult", "BOOL COperations::GetNextConflictRequest"),
     ):
@@ -652,8 +685,44 @@ def main() -> None:
             "authorized overwrite carries scanned identity")
     require(conflict_worker, "GetFileInformationByHandle(out, &openedInfo)",
             "move checks the actual opened target handle")
-    require(conflict_worker, "openedFileIndex != dlgData.InjectedTargetFileIndex",
-            "copy refuses an unexpectedly replaced target")
+    legacy = function_slice(conflict_worker, 'static BOOL ValidateInjectedLegacyIdentity(',
+                            '#ifdef SAM_UAC_THIN_COPY_TEST')
+    require(legacy, 'volume == dialogData.InjectedTargetVolumeSerial && index == dialogData.InjectedTargetFileIndex',
+            'copy validates both parts of the originally scanned identity')
+    thin_scan = function_slice(conflict_worker, 'static BOOL ThinValidateInjectedTarget(',
+                               '#define THIN_VALIDATE_SCAN')
+    require(thin_scan, 'ValidateInjectedLegacyIdentity(operation, dialogData)',
+            'thin copy invokes the ordinary legacy identity check')
+    require(thin_scan, 'info.dwVolumeSerialNumber == dialogData.InjectedTargetVolumeSerial',
+            'protected copy compares the observed volume')
+    require(thin_scan, 'index == dialogData.InjectedTargetFileIndex',
+            'protected copy compares the observed file identity')
+    identity_open = function_slice(conflict_worker,
+        'static BOOL GetParallelFileIdentity(const std::wstring& path, DWORD& volumeSerial,\n                                    ULONGLONG& fileIndex)\n{',
+        'static BOOL GetParallelDirectoryIdentity(')
+    require(identity_open, 'GetFileInformationByHandle(file, &info)',
+            'ordinary identity is obtained from the opened file')
+    require(identity_open, 'info.dwVolumeSerialNumber', 'ordinary identity carries the volume')
+    require(identity_open, 'info.nFileIndexHigh', 'ordinary identity carries the file index')
+    thin_open = function_slice(conflict_worker, 'HANDLE CThinCopyWorker::Open(',
+                               'HANDLE CThinCopyWorker::CancelReceivedHandle(')
+    require(thin_open, 'scan.legacyVolume = dialog.InjectedTargetVolumeSerial;',
+            'protected overwrite forwards the scanned volume')
+    require(thin_open, 'scan.legacyIndex = dialog.InjectedTargetFileIndex;',
+            'protected overwrite forwards the scanned file index')
+    broker_worker = (ROOT / 'src/uacbroker/uacbroker.cpp').read_text(encoding='utf-8-sig')
+    broker_check = function_slice(broker_worker, 'DWORD CheckThinScanEvidence(', 'DWORD OpenThinOverwriteTarget(')
+    require(broker_check, 'GetFileInformationByHandle(file, &current)',
+            'broker checks scanned identity on the actual opened target')
+    require(broker_check, 'current.dwVolumeSerialNumber == expected.legacyVolume && index == expected.legacyIndex',
+            'broker compares both parts of the scanned identity')
+    broker_open = function_slice(broker_worker, 'DWORD OpenThinOverwriteTarget(', 'DWORD DiscardThinOwnedTarget(')
+    checked = broker_open.index('CheckThinScanEvidence(anchor.get(), *scan)')
+    if checked >= broker_open.index('SetFileInformationByHandle(') or checked >= broker_open.index('FILE_OVERWRITE'):
+        raise AssertionError('Broker mutates the target before checking scanned identity')
+    copy_body = function_slice(conflict_worker, 'BOOL DoCopyFile(', 'BOOL DoMoveFile(')
+    require(copy_body, 'THIN_VALIDATE_SCAN(&thin, op, dlgData, true)',
+            'copy checks the original identity before replacing the target')
     require(fileswn6, "type == atMove && script->CopyMoveConflictMode == CMCM_SCAN_AHEAD",
             "scan-ahead disables whole-directory fast move generation")
     require(fileswn6, "fastDirectoryMove = FALSE",
@@ -662,18 +731,36 @@ def main() -> None:
            "whole-directory MoveFile conflicts are not advertised as mergeable")
     require(conflict_worker, "ValidateInjectedTargetIdentity(op, dlgData)",
             "destructive pathname boundaries validate expected identity")
-    require(conflict_worker, "if (!ValidateInjectedTargetIdentity(op, dlgData))\n                                    {\n                                        dlgData.ConflictTargetChanged = TRUE;\n                                        return TRUE;\n                                    }\n                                    BOOL chAttr = WorkerClearReadOnlyW",
-            "copy validates before clearing target attributes")
-    require(conflict_worker, "if (!ValidateInjectedTargetIdentity(op, dlgData))\n                    {\n                        dlgData.ConflictTargetChanged = TRUE;\n                        return TRUE;\n                    }\n                    WorkerClearReadOnlyW",
-            "move validates before clearing target attributes")
+    copy_branch = function_slice(conflict_worker,
+        "if (targetCannotOpenForWrite || mustDeleteFileBeforeOverwrite", "if (!tgtNameCaseCorrected)")
+    require_target_guard_before_clear(copy_branch, "copy")
+    move_function = function_slice(conflict_worker, "BOOL DoMoveFile(", "BOOL DoDeleteFile(")
+    move_prepare = move_function.index('UacF7::PreparedTransfer moveOverwrite;')
+    move_guard = move_function.rfind('if (!ValidateInjectedTargetIdentity(op, dlgData))', 0, move_prepare)
+    if move_guard < 0:
+        raise AssertionError('Missing move overwrite validation before preparation')
+    require_target_guard_before_clear(move_function[move_guard:], "move")
     require(conflict_worker, "script->RequeueChangedConflictItem(i)",
             "identity changes requeue rather than cancel")
     require(conflict_worker, "op.ConflictDecision = cmcdNone",
             "changed targets require a new user decision")
     require(progress, '#include "common/widepath.h"',
             "progress conflict metadata uses shared wide path API")
-    require(progress, "SalMultiByteToWidePath(operation.TargetName",
-            "progress target UTF-8/ACP wide conversion")
+    automatic = function_slice(progress, 'void CProgressDialog::PromptNextConflict()',
+                               'void CProgressDialog::SetConflictPanelExpanded(')
+    manual = function_slice(progress, 'if (command == IDC_PROGRESS_SOLVE || command == IDC_PROGRESS_SKIP)',
+                            'if (command == IDC_PROGRESS_OVERWRITE_ALL || command == IDC_PROGRESS_SKIP_ALL)')
+    for prompt, section in (('automatic', automatic), ('manual', manual)):
+        for name in ('target', 'source'):
+            name_cap = name.capitalize()
+            require(section, f'const std::string {name}Name = operation.{name_cap}Name != NULL',
+                    f'{prompt} progress owned {name} name')
+            require(section, f'operation.{name_cap}NameWValid ? operation.{name_cap}NameW :',
+                    f'{prompt} progress {name} preserves an existing wide path')
+            require(section, f'SalMultiByteToWidePath({name}Name.c_str(), IsValidPathUtf8Text({name}Name.c_str()) ? CP_UTF8 : CP_ACP)',
+                    f'{prompt} progress {name} UTF-8/ACP wide conversion')
+            require(section, f'{name}Path = SalPathAddExtendedPrefixW({name}Path.c_str());',
+                    f'{prompt} progress {name} supports extended paths')
     forbid(progress, "SalMultiByteToWidePathUtf8OrAcp",
            "fileswn anonymous wide conversion helper")
     forbid(conflict_worker, "conflictPass", "unsafe two-pass execution")

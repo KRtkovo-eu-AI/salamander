@@ -1,0 +1,83 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Exercise native transfer text selection. | Keep ordinary prompts and scoped thin-copy wording distinct. | #731 | GPT-6 |
+#include <cstdio>
+
+enum {
+    IDS_UAC_MOVE_CONFIRM = 1, IDS_UAC_COPY_CONFIRM, IDS_UAC_RENAME_DIRECTORY_CONFIRM,
+    IDS_UAC_COPY_OVERWRITE_IGNORE_ADS_CONFIRM, IDS_UAC_COPY_OVERWRITE_CONFIRM,
+    IDS_UAC_TREE_COPY_CONFIRM, IDS_UAC_COPY_COMPRESSED_SECURITY_CONFIRM,
+    IDS_UAC_COPY_SECURITY_CONFIRM, IDS_UAC_COPY_ENCRYPTED_CONFIRM,
+    IDS_UAC_COPY_COMPRESSED_CONFIRM, IDS_UAC_COPY_IGNORE_ADS_CONFIRM,
+    IDS_UAC_THIN_COPY_CONFIRM
+};
+namespace UacF7 {
+#ifdef SAM_UAC_THIN_COPY_TEST
+enum class TransferPromptKind { Standard, ThinPlainCopy };
+#endif
+}
+struct Request {
+    bool move=false, tree=false, directoryMove=false, overwrite=false, ignore=false;
+    bool security=false, compression=false, encrypted=false;
+    bool IsMove() const { return move; }
+    bool IsTree() const { return tree; }
+    bool IsDirectoryMove() const { return directoryMove; }
+    bool IsOverwrite() const { return overwrite; }
+    bool IgnoresAds() const { return ignore; }
+    bool PreservesSecurity() const { return security; }
+    bool PreservesCompression() const { return compression; }
+    bool PreservesEncryption() const { return encrypted; }
+};
+struct Prompt {
+    Request request;
+#ifdef SAM_UAC_THIN_COPY_TEST
+    UacF7::TransferPromptKind kind = UacF7::TransferPromptKind::Standard;
+#endif
+};
+int Select(const Prompt& prompt) {
+@PRODUCTION_SELECTION@
+    return confirmText;
+}
+int main() {
+    int failures=0, checks=0;
+    const auto check = [&](bool ok, const char* name) { ++checks; if (!ok) { ++failures; std::printf("FAIL: %s\n", name); } };
+    Prompt p;
+    check(Select(p)==IDS_UAC_COPY_CONFIRM, "ordinary copy retains its ADS-preserving prompt");
+    p.request.move=true;
+    check(Select(p)==IDS_UAC_MOVE_CONFIRM, "ordinary move retains its prompt");
+    p={}; p.request.directoryMove=true;
+    check(Select(p)==IDS_UAC_RENAME_DIRECTORY_CONFIRM, "directory move takes precedence");
+    p={}; p.request.overwrite=true;
+    check(Select(p)==IDS_UAC_COPY_OVERWRITE_CONFIRM, "overwrite retains its prompt");
+    p.request.ignore=true;
+    check(Select(p)==IDS_UAC_COPY_OVERWRITE_IGNORE_ADS_CONFIRM, "overwrite ignore-stream prompt retained");
+    p={}; p.request.tree=true;
+    check(Select(p)==IDS_UAC_TREE_COPY_CONFIRM, "tree prompt retained");
+    p={}; p.request.security=true;
+    check(Select(p)==IDS_UAC_COPY_SECURITY_CONFIRM, "security prompt retained");
+    p.request.compression=true;
+    check(Select(p)==IDS_UAC_COPY_COMPRESSED_SECURITY_CONFIRM, "compressed security prompt retained");
+    p={}; p.request.encrypted=true;
+    check(Select(p)==IDS_UAC_COPY_ENCRYPTED_CONFIRM, "EFS prompt retained");
+    p={}; p.request.compression=true;
+    check(Select(p)==IDS_UAC_COPY_COMPRESSED_CONFIRM, "compression prompt retained");
+    p={}; p.request.ignore=true;
+    check(Select(p)==IDS_UAC_COPY_IGNORE_ADS_CONFIRM, "ignore-stream prompt retained");
+#ifdef SAM_UAC_THIN_COPY_TEST
+    p={}; p.kind=UacF7::TransferPromptKind::ThinPlainCopy;
+    check(Select(p)==IDS_UAC_THIN_COPY_CONFIRM, "thin plain copy describes unsupported alternate streams");
+    p.request.move=true;
+    check(Select(p)==IDS_UAC_MOVE_CONFIRM, "thin flag cannot relabel move");
+    p.request.move=false; p.request.tree=true;
+    check(Select(p)==IDS_UAC_TREE_COPY_CONFIRM, "thin flag cannot relabel tree");
+    p.request.tree=false; p.request.overwrite=true;
+    check(Select(p)==IDS_UAC_COPY_OVERWRITE_CONFIRM, "thin flag cannot obscure overwrite prompt");
+    p.request.overwrite=false; p.request.security=true;
+    check(Select(p)==IDS_UAC_COPY_SECURITY_CONFIRM, "thin flag cannot obscure security prompt");
+    p.request.security=false; p.request.ignore=true;
+    check(Select(p)==IDS_UAC_COPY_IGNORE_ADS_CONFIRM, "thin flag cannot obscure explicit ignore-stream prompt");
+#endif
+    std::printf("prompt selection: %d checks, %d failures\n", checks, failures);
+    return failures ? 1 : 0;
+}

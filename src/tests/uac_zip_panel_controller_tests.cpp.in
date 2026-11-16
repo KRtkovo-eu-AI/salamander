@@ -1,0 +1,174 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-11 | Test protected ZIP session setup with controlled consent. | Preserve explicit consent and existing session reuse. | #731 | GPT-6.1 Terra |
+#include <windows.h>
+#include <memory>
+#include <string>
+#include <cstdio>
+#include <cstdlib>
+#include <vector>
+#include <objbase.h>
+#define HANDLES_Q(x) (x)
+#define HANDLES(x) (x)
+#define NOHANDLES(x) (x)
+
+constexpr int IDS_UAC_ZIP_TITLE = 1, IDS_UAC_ZIP_CONFIRM = 2;
+struct CSalamanderDirectory {};
+struct CPluginDataInterfaceAbstract {};
+struct CQuadWord {};
+using SalListZipPanelV1 = void (*)();
+struct CPluginData {
+    bool InitDLL(HWND, BOOL) { return true; }
+    HMODULE GetPluginDLL() { return nullptr; }
+};
+struct PluginCollection {
+    CPluginData plugin;
+    CPluginData* GetPluginDataFromSuffix(const char*) { return &plugin; }
+} Plugins;
+FARPROC StubGetProcAddress(HMODULE, const char*) { return reinterpret_cast<FARPROC>(1); }
+#define GetProcAddress StubGetProcAddress
+std::wstring SalMultiByteToWidePath(const char* source, UINT) {
+    if (!source || !*source) return {};
+    const int needed = MultiByteToWideChar(CP_UTF8, 0, source, -1, nullptr, 0);
+    std::wstring result(static_cast<size_t>(needed), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, source, -1, result.data(), needed);
+    result.pop_back();
+    return result;
+}
+bool IsValidPathUtf8Text(const char*) { return true; }
+std::wstring SalPathRemoveExtendedPrefixW(const wchar_t* source) { return source; }
+struct Scenario {
+    bool prepare = true, consent = true;
+    DWORD start = ERROR_SUCCESS;
+    int prepareCalls = 0, consentCalls = 0, startCalls = 0;
+    std::wstring path;
+} scenario;
+bool ConfirmProtectedRead(HWND, int, int, const std::wstring& path) {
+    ++scenario.consentCalls; scenario.path = path; return scenario.consent;
+}
+namespace UacF7 {
+constexpr DWORD archiveReadBlock = 65536;
+class ArchiveReadSession {
+    bool opened = false;
+public:
+    int begins = 0, ends = 0, reads = 0;
+    DWORD readError = 0;
+    ULONGLONG Size() const { return 70ULL * 1024 * 1024; }
+    DWORD BeginRead() { ++begins; return ERROR_SUCCESS; }
+    DWORD EndRead() { ++ends; return ERROR_SUCCESS; }
+    DWORD Read(ULONGLONG, void* bytes, DWORD count) { ++reads; memset(bytes, 0x71, count); return readError; }
+    bool Prepare(const std::wstring& path) { ++scenario.prepareCalls; scenario.path = path; return scenario.prepare; }
+    DWORD Start(HWND) { ++scenario.startCalls; opened = scenario.start == ERROR_SUCCESS; return scenario.start; }
+    bool IsOpen() const { return opened; }
+};
+}
+@@LISTING@@
+@@SETUP@@
+struct CFileData { struct { ULONGLONG Value; } Size; };
+using SalZipWrite = DWORD (WINAPI *)(void*, const BYTE*, DWORD);
+DWORD readResult = 0;
+ULONGLONG emitted = 0;
+std::wstring SalPathAddExtendedPrefixW(const wchar_t* path) { return path; }
+class CFilesWindow {
+public:
+    DWORD ReadProtectedZipViewer(const CFileData&, const char*, HANDLE&);
+    DWORD ReadProtectedZipEntry(const CFileData&, const char*, ULONGLONG maxBytes, SalZipWrite write, void* context) {
+        std::vector<BYTE> bytes(65536, 0x5a);
+        ULONGLONG left = emitted;
+        if (left > maxBytes) return ERROR_FILE_TOO_LARGE;
+        while (left) {
+            DWORD count = static_cast<DWORD>(left < bytes.size() ? left : bytes.size());
+            DWORD error = write(context, bytes.data(), count);
+            if (error) return error;
+            left -= count;
+        }
+        return readResult;
+    }
+};
+@@VIEWER@@
+int checks = 0;
+void Check(bool ok, const char* message) {
+    ++checks;
+    if (!ok) { std::fprintf(stderr, "FAIL: %s\n", message); std::exit(1); }
+}
+DWORD Setup(const char* path, UacF7::ArchiveReadSession* existing,
+            std::unique_ptr<UacF7::ArchiveReadSession>& created) {
+    CSalamanderDirectory directory; CPluginData* plugin = nullptr; CPluginDataInterfaceAbstract* data = nullptr;
+    CQuadWord size; FILETIME time{};
+    const auto error = ReadProtectedZip(nullptr, path, directory, plugin, data, size, time, existing, created);
+    (void)directory; (void)data; (void)size; (void)time;
+    return error;
+}
+int main() {
+    {
+        UacF7::ArchiveReadSession session;
+        ProtectedZipListing listing{session}; listing.independentWindows = true;
+        std::vector<BYTE> bytes(UacF7::archiveReadBlock);
+        for (ULONGLONG offset = 0; offset < 65ULL * 1024 * 1024; offset += bytes.size())
+            Check(ProtectedZipListing::Read(&listing, offset, bytes.data(), static_cast<DWORD>(bytes.size())) == ERROR_SUCCESS, "large archive read continues across windows");
+        Check(session.begins == session.reads && session.ends == session.reads && session.reads > 1024, "large archive uses paired bounded windows");
+        session.readError = ERROR_CRC;
+        Check(ProtectedZipListing::Read(&listing, 66ULL * 1024 * 1024, bytes.data(), 1) == ERROR_CRC && listing.cachedSize == 0, "failed read does not publish cached bytes");
+    }
+    {
+        CFilesWindow window; CFileData file{{17ULL * 1024 * 1024 + 3}}; emitted = file.Size.Value;
+        HANDLE handle = nullptr;
+        Check(window.ReadProtectedZipViewer(file, "large.bin", handle) == ERROR_SUCCESS && handle, "large ZIP entry creates viewer handle");
+        LARGE_INTEGER size{};
+        Check(GetFileSizeEx(handle, &size) && static_cast<ULONGLONG>(size.QuadPart) == file.Size.Value, "large entry retains full length");
+        LARGE_INTEGER end{}; end.QuadPart = size.QuadPart - 1;
+        BYTE byte = 0; DWORD done = 0;
+        Check(SetFilePointerEx(handle, end, nullptr, FILE_BEGIN) && ReadFile(handle, &byte, 1, &done, nullptr) && done == 1 && byte == 0x5a, "viewer reads last entry byte");
+        Check(!WriteFile(handle, &byte, 1, &done, nullptr) && GetLastError() == ERROR_ACCESS_DENIED, "viewer handle cannot write");
+        std::vector<wchar_t> path(32768);
+        DWORD length = GetFinalPathNameByHandleW(handle, path.data(), static_cast<DWORD>(path.size()), FILE_NAME_NORMALIZED);
+        Check(length && length < path.size(), "temporary entry has path for cleanup check");
+        HANDLE other = CreateFileW(path.data(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                   nullptr, OPEN_EXISTING, 0, nullptr);
+        Check(other == INVALID_HANDLE_VALUE, "temporary entry cannot be opened independently");
+        CloseHandle(handle);
+        Check(GetFileAttributesW(path.data()) == INVALID_FILE_ATTRIBUTES, "temporary entry deleted after close");
+        handle = nullptr; readResult = ERROR_CRC;
+        Check(window.ReadProtectedZipViewer(file, "bad.bin", handle) == ERROR_CRC && !handle, "invalid entry publishes no handle");
+        readResult = 0; emitted = 1;
+        Check(window.ReadProtectedZipViewer(file, "short.bin", handle) == ERROR_HANDLE_EOF && !handle, "short entry publishes no handle");
+    }
+    {
+        scenario = {}; std::unique_ptr<UacF7::ArchiveReadSession> created;
+        Check(Setup("C:\\ordinary.zip", nullptr, created) == ERROR_SUCCESS, "new protected archive opens");
+        Check(created && created->IsOpen() && scenario.prepareCalls == 1 && scenario.consentCalls == 1 && scenario.startCalls == 1, "one preparation, consent and launch");
+    }
+    {
+        scenario = {}; scenario.consent = false; std::unique_ptr<UacF7::ArchiveReadSession> created;
+        Check(Setup("C:\\cancel.zip", nullptr, created) == ERROR_CANCELLED, "declined consent returns cancellation");
+        Check(created && !created->IsOpen() && scenario.startCalls == 0, "decline does not launch broker");
+    }
+    {
+        scenario = {}; scenario.start = ERROR_ACCESS_DENIED; std::unique_ptr<UacF7::ArchiveReadSession> created;
+        Check(Setup("C:\\failed.zip", nullptr, created) == ERROR_ACCESS_DENIED, "launch failure propagated");
+        Check(created && !created->IsOpen(), "failed launch does not expose an open session");
+    }
+    {
+        scenario = {}; scenario.prepare = false; std::unique_ptr<UacF7::ArchiveReadSession> created;
+        Check(Setup("C:\\failed.zip", nullptr, created) == ERROR_ACCESS_DENIED, "failed identity preparation rejected");
+        Check(scenario.consentCalls == 0 && scenario.startCalls == 0, "failed preparation does not offer or start elevation");
+    }
+    {
+        scenario = {}; UacF7::ArchiveReadSession existing; Check(existing.Prepare(L"C:\\existing.zip") && !existing.Start(nullptr), "prepare existing session");
+        scenario = {}; std::unique_ptr<UacF7::ArchiveReadSession> created;
+        Check(Setup("C:\\existing.zip", &existing, created) == ERROR_SUCCESS && !created, "existing archive session reused");
+        Check(scenario.prepareCalls == 0 && scenario.consentCalls == 0 && scenario.startCalls == 0, "refresh does not reauthorize");
+    }
+    {
+        scenario = {}; std::unique_ptr<UacF7::ArchiveReadSession> created;
+        Check(Setup("C:\\not-zip.7z", nullptr, created) == ERROR_NOT_SUPPORTED, "other formats remain unsupported");
+        Check(scenario.prepareCalls == 0 && scenario.consentCalls == 0, "other formats never enter elevation");
+    }
+    {
+        scenario = {}; std::unique_ptr<UacF7::ArchiveReadSession> created;
+        const std::string path = "C:\\" + std::string(300, 'x') + "\\žluťoučký-東.zip";
+        Check(Setup(path.c_str(), nullptr, created) == ERROR_SUCCESS, "long Unicode ZIP path accepted");
+        Check(scenario.path == SalMultiByteToWidePath(path.c_str(), CP_UTF8), "exact path reaches preparation and consent");
+    }
+    std::printf("PASS: %d protected ZIP session setup checks\n", checks);
+}

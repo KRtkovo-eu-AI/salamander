@@ -1,0 +1,193 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Probe dequeued WM_DROPFILES ownership. | Measure cleanup when a target window dies before dispatch. | #731 | GPT-6 (Codex) |
+#include <windows.h>
+#include <shellapi.h>
+#include <shlobj.h>
+#include <cstdio>
+#include <cstring>
+#include <cwchar>
+
+struct State { int delivered=0; int released=0; bool correct=false; bool passToDefault=false; bool waiting=false; HDROP duringDestroy=nullptr; };
+struct ModalState { HWND target=nullptr; bool destroyed=false; };
+
+@@REFRESH_DROP_BRANCH@@
+
+static INT_PTR CALLBACK CloseFromModal(HWND dialog, UINT message, WPARAM, LPARAM parameter)
+{
+    if (message==WM_INITDIALOG) {
+        SetWindowLongPtrW(dialog,GWLP_USERDATA,parameter);
+        PostMessageW(dialog,WM_APP+711,0,0);
+        return TRUE;
+    }
+    if (message==WM_APP+711) {
+        auto* state=reinterpret_cast<ModalState*>(GetWindowLongPtrW(dialog,GWLP_USERDATA));
+        state->destroyed=DestroyWindow(state->target)!=FALSE;
+        EndDialog(dialog,IDOK);
+        return TRUE;
+    }
+    return FALSE;
+}
+
+static bool DestroyThroughModal(HWND target, HINSTANCE instance)
+{
+    struct Template { DLGTEMPLATE dialog; WORD menu; WORD type; WORD title; } data{};
+    data.dialog.style=WS_POPUP|WS_CAPTION|DS_MODALFRAME;
+    data.dialog.cx=100; data.dialog.cy=40;
+    ModalState state{target,false};
+    const INT_PTR result=DialogBoxIndirectParamW(instance,&data.dialog,nullptr,CloseFromModal,
+                                                  reinterpret_cast<LPARAM>(&state));
+    return result==IDOK && state.destroyed;
+}
+
+static LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wp, LPARAM lp)
+{
+    auto* state=reinterpret_cast<State*>(GetWindowLongPtrW(window,GWLP_USERDATA));
+    if (message==WM_NCCREATE) {
+        state=static_cast<State*>(reinterpret_cast<CREATESTRUCTW*>(lp)->lpCreateParams);
+        SetWindowLongPtrW(window,GWLP_USERDATA,reinterpret_cast<LONG_PTR>(state));
+    }
+    if (state && message==WM_DESTROY && state->duringDestroy) {
+        HDROP drop=state->duringDestroy;
+        state->duringDestroy=nullptr;
+        SendMessageW(window,WM_DROPFILES,reinterpret_cast<WPARAM>(drop),0);
+        return 0;
+    }
+    if (state && message==WM_DROPFILES) {
+        if (state->waiting) {
+            ++state->delivered;
+            const LRESULT result=RefreshDropBranch(wp);
+            ++state->released;
+            return result;
+        }
+        if (state->passToDefault) {
+            ++state->delivered;
+            return CallWindowProcW(DefWindowProcW,window,message,wp,lp);
+        }
+        HDROP drop=reinterpret_cast<HDROP>(wp);
+        wchar_t path[128]{}; // Fixed test-only path, not a product path buffer.
+        state->correct=DragQueryFileW(drop,0xFFFFFFFF,nullptr,0)==1 &&
+            DragQueryFileW(drop,0,path,_countof(path))>0 && wcscmp(path,L"C:\\fixture\\東.txt")==0;
+        ++state->delivered;
+        DragFinish(drop);
+        ++state->released;
+        return 0;
+    }
+    return DefWindowProcW(window,message,wp,lp);
+}
+
+static HDROP MakeDrop()
+{
+    static constexpr wchar_t path[]=L"C:\\fixture\\東.txt";
+    const SIZE_T bytes=sizeof(DROPFILES)+sizeof(path)+sizeof(wchar_t);
+    HGLOBAL memory=GlobalAlloc(GMEM_MOVEABLE|GMEM_ZEROINIT,bytes);
+    if (!memory) return nullptr;
+    auto* drop=static_cast<DROPFILES*>(GlobalLock(memory));
+    if (!drop) { GlobalFree(memory); return nullptr; }
+    drop->pFiles=sizeof(DROPFILES);
+    drop->fWide=TRUE;
+    std::memcpy(reinterpret_cast<BYTE*>(drop)+sizeof(DROPFILES),path,sizeof(path));
+    GlobalUnlock(memory);
+    return reinterpret_cast<HDROP>(memory);
+}
+
+static bool Allocated(HDROP drop)
+{
+    return (GlobalFlags(reinterpret_cast<HGLOBAL>(drop)) & GMEM_INVALID_HANDLE)==0;
+}
+
+static HWND Create(State& state, HINSTANCE instance)
+{
+    return CreateWindowExW(0,L"UacHdropOwnershipProbe",L"",0,0,0,0,0,
+                           HWND_MESSAGE,nullptr,instance,&state);
+}
+
+int main()
+{
+    int count=0,failures=0;
+    auto check=[&](bool ok,const char* message) { ++count; if(!ok) { ++failures; std::printf("FAIL: %s\n",message); } };
+    HINSTANCE instance=GetModuleHandleW(nullptr);
+    WNDCLASSW wc{}; wc.hInstance=instance; wc.lpfnWndProc=WindowProc; wc.lpszClassName=L"UacHdropOwnershipProbe";
+    if (!RegisterClassW(&wc)) return 2;
+
+    State normal{};
+    HWND first=Create(normal,instance);
+    HDROP normalDrop=MakeDrop();
+    if (!first || !normalDrop) return 3;
+    check(PostMessageW(first,WM_DROPFILES,reinterpret_cast<WPARAM>(normalDrop),0)!=FALSE,"normal post succeeds");
+    MSG message{};
+    check(PeekMessageW(&message,first,WM_DROPFILES,WM_DROPFILES,PM_REMOVE)!=FALSE,"normal drop is dequeued");
+    DispatchMessageW(&message);
+    check(normal.delivered==1 && normal.released==1 && normal.correct,"normal dispatch reads and releases exactly once");
+    check(!Allocated(normalDrop),"normal DragFinish releases global memory");
+    DestroyWindow(first);
+
+    State late{};
+    HWND second=Create(late,instance);
+    HDROP lateDrop=MakeDrop();
+    if (!second || !lateDrop) return 4;
+    check(PostMessageW(second,WM_DROPFILES,reinterpret_cast<WPARAM>(lateDrop),0)!=FALSE,"late post succeeds");
+    message={};
+    check(PeekMessageW(&message,second,WM_DROPFILES,WM_DROPFILES,PM_REMOVE)!=FALSE,"late drop is dequeued before destroy");
+    check(DestroyThroughModal(second,instance),"nested modal destroys target after dequeue");
+    DispatchMessageW(&message);
+    check(late.delivered==0 && late.released==0,"dispatch to destroyed target does not reach receiver");
+    check(Allocated(lateDrop),"dequeued HDROP remains allocated when dispatch cannot reach target");
+    DragFinish(lateDrop);
+    check(!Allocated(lateDrop),"holder can release undelivered HDROP once");
+
+    State failed{};
+    HWND third=Create(failed,instance);
+    if (!third || !DestroyWindow(third)) return 5;
+    HDROP failedDrop=MakeDrop();
+    if (!failedDrop) return 6;
+    check(PostMessageW(third,WM_DROPFILES,reinterpret_cast<WPARAM>(failedDrop),0)==FALSE,
+          "post to known destroyed HWND fails");
+    check(Allocated(failedDrop),"failed post leaves ownership with sender");
+    DragFinish(failedDrop);
+    check(!Allocated(failedDrop),"sender can release failed-post HDROP");
+
+    State fallback{}; fallback.passToDefault=true;
+    HWND fourth=Create(fallback,instance);
+    HDROP defaultDrop=MakeDrop();
+    if (!fourth || !defaultDrop) return 7;
+    check(PostMessageW(fourth,WM_DROPFILES,reinterpret_cast<WPARAM>(defaultDrop),0)!=FALSE,
+          "fallback post succeeds");
+    message={};
+    check(PeekMessageW(&message,fourth,WM_DROPFILES,WM_DROPFILES,PM_REMOVE)!=FALSE,
+          "fallback drop is dequeued");
+    DispatchMessageW(&message);
+    const bool retained=Allocated(defaultDrop);
+    std::printf("CallWindowProc(DefWindowProc) retains supplied HDROP: %s\n",retained ? "true" : "false");
+    check(fallback.delivered==1,"default fallback was invoked once");
+    if (retained) DragFinish(defaultDrop);
+    check(!Allocated(defaultDrop),"fallback test leaves no HDROP allocation");
+    DestroyWindow(fourth);
+
+    State waiting{}; waiting.waiting=true;
+    HWND fifth=Create(waiting,instance);
+    HDROP waitingDrop=MakeDrop();
+    if (!fifth || !waitingDrop) return 8;
+    check(PostMessageW(fifth,WM_DROPFILES,reinterpret_cast<WPARAM>(waitingDrop),0)!=FALSE,
+          "drop while refresh waits is posted");
+    message={};
+    check(PeekMessageW(&message,fifth,WM_DROPFILES,WM_DROPFILES,PM_REMOVE)!=FALSE,
+          "waiting drop is dequeued");
+    DispatchMessageW(&message);
+    check(waiting.delivered==1 && waiting.released==1 && !waiting.correct && !Allocated(waitingDrop),
+          "production refresh branch ignores and releases delivered HDROP exactly once");
+    DestroyWindow(fifth);
+
+    State closing{}; closing.waiting=true;
+    HWND sixth=Create(closing,instance);
+    HDROP closingDrop=MakeDrop();
+    if (!sixth || !closingDrop) return 9;
+    closing.duringDestroy=closingDrop;
+    check(DestroyWindow(sixth)!=FALSE,"test begins viewer destruction");
+    check(closing.delivered==1 && closing.released==1 && !closing.correct && !Allocated(closingDrop),
+          "drop delivered reentrantly while closing is ignored and released once");
+
+    std::printf("Checks: %d; failures: %d; pointer bits: %zu\n",count,failures,sizeof(void*)*8);
+    return failures ? 1 : 0;
+}
