@@ -1,0 +1,54 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\norwegian\hypervm\hypervm.atp"
+TEXTVERSION,"1.11 (x64)"
+VERSION,"1,11,0,197"
+
+[TRANSLATION]
+LANGID,1044
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"Hyper-V-maskiner"
+47,1,"Om pluginet"
+
+[STRINGTABLE 1]
+48,1,"Vis lokale Hyper-V-maskiner i panelet."
+49,1,"https://samandarin.net/"
+50,1,"Vis &Hyper-V-maskinvinduet"
+51,1,"Lag &VHD"
+52,1,"&Knytt VHD"
+60,1,"Opprett og knytt virtuell harddisk"
+61,1,"Knytt virtuell harddisk"
+62,1,"Koble fra virtuell disk"
+63,1,"Lokasjon:"
+
+[STRINGTABLE 2]
+64,1,"Bla..."
+65,1,"Virtuell diskstørrelse:"
+66,1,"Format for virtuell disk"
+67,1,"Type for virtuell disk"
+68,1,"Støtter virtuelle disker opp til 2040 GB."
+69,1,"Støtter virtuelle disker større enn 2040 GB (støttet maksimum 64 TB) og er motstandsdyktig mot strømbrudd."
+70,1,"Fast størrelse, anbefalt"
+71,1,"Dynamisk utvidbar"
+72,1,"Den virtuelle harddiskfilen allokeres maksimal størrelse når den opprettes."
+73,1,"Den virtuelle harddiskfilen vokser til maksimal størrelse etter hvert som data skrives."
+74,1,"Read-only."
+75,1,"Angi plasseringen av virtuell harddisk på maskinen."
+76,1,"Angi plasseringen av virtuell harddisk på datamaskinen."
+77,1,"Koble fra virtuell disk {0}?"
+78,1,"Virtuell disk tilknyttet: {0}"
+79,1,"Ingen Hyper-V-maskiner funnet."
+
+[STRINGTABLE 3]
+80,1,"Konfigurering"
+81,1,"Ikke konfigurert."
+82,1,"OK"
+83,1,"Avbryt"
+84,1,"Virtuelle disker (*.vhd;*.vhdx)|*.vhd;*.vhdx"
+85,1,"Hyper-V-maskiner"
+86,1,"Opprett og knytt virtuell harddisk"
+87,1,"Knytt virtuell harddisk"
+

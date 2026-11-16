@@ -1,0 +1,59 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\catalan\portables\portables.atp"
+TEXTVERSION,"0.7 (x64)"
+VERSION,"0,7,0,197"
+
+[TRANSLATION]
+LANGID,1027
+AUTHOR,"Open Salamander"
+WEB,"https://samandarin.net/"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+128,1,"{!}%d dispositiu seleccionat{2:s|0||1|s}"
+129,1,"Cap dispositiu"
+130,1,"Dispositius portàtils"
+131,1,"Cancel·la"
+132,1,"Preparant..."
+133,1,"Fitxer:"
+134,1,"Total:"
+135,1,"Minimitza"
+136,1,"Pausa"
+137,1,"El dispositiu portàtil ha deixat de respondre. Desconnecteu-lo i torneu-lo a connectar. El panell Portables tornarà a la llista de dispositius."
+138,1,"%s de %s copiats"
+139,1,"Còpia"
+140,1,"Mou"
+141,1,"Suprimeix"
+142,1,"Copiant"
+143,1,"Moguent"
+
+[STRINGTABLE 1]
+144,1,"Suprimint"
+145,1,"a"
+146,1,"%s de %s moguts"
+147,1,"%s de %s processats"
+148,1,"S'estan suprimint els elements seleccionats"
+149,1,"%s '%s' ha fallat (0x%08X)."
+150,1,"Reanomena"
+151,1,"Crea una carpeta"
+152,1,"Visualitza"
+153,1,"El nom encara és al dispositiu. L'element no s'ha creat de nou."
+154,1,"Un fitxer no pot substituir una carpeta."
+155,1,"Una carpeta no pot substituir un fitxer."
+156,1,"Ja existeix un element amb aquest nom."
+157,1,"?"
+
+[STRINGTABLE 2]
+8192,1,"Dispositius portàtils"
+8193,1,"Gestiona dispositius portàtils."
+
+[STRINGTABLE 3]
+9216,1,"Quant al connector"
+
+[STRINGTABLE 4]
+10240,1,"Error en canviar de directori"
+10241,1,"Camí: "%s"\r\nError: %s"
+
+[STRINGTABLE 5]
+19457,1,"El camí especificat conté el camí d'un fitxer."
+

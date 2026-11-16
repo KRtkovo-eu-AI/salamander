@@ -1,0 +1,83 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\slovenian\textviewer\textviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1060
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 8500]
+310,129,1,"Konfiguracija Prism Text Viewer"
+8701,7,7,296,86,1,"Zmogljivost"
+8700,17,21,276,18,1,"&Ohranite Prism Viewer za hitrejše odpiranje"
+8702,17,44,276,40,1,"En pregledovalnik ostane pripravljen do 60 s po zaprtju datoteke. Porabi dodaten pomnilnik (približno 100 MB ali več). Prva datoteka se odpre normalno."
+1,197,108,50,14,1,"OK"
+2,253,108,50,14,1,"Prekliči"
+
+[STRINGTABLE 0]
+46,1,"Prism Text Viewer"
+47,1,"O vtičniku"
+
+[STRINGTABLE 1]
+48,1,"Izvorni pregledovalnik besedil z označevanjem sintakse Prism.js."
+49,1,"https://samandarin.net/"
+50,1,"Ni mogoče pripraviti dogodka za sinhronizacijo pregledovalnika."
+52,1,"&Datoteka"
+53,1,"&Pogled"
+54,1,"&Zapri\tEsc"
+55,1,"&Osveži\tF5"
+56,1,"&Povečaj\tCtrl++"
+57,1,"&Pomanjšaj\tCtrl+-"
+58,1,"&Ponastavi\tCtrl+0"
+59,1,"Nalaganje"
+60,1,"Pripravljen"
+61,1,"WebView2 ni mogoče inicializirati."
+62,1,"Ni mogoče odpreti te datoteke."
+63,1,"Prikaži &številke"
+
+[STRINGTABLE 2]
+64,1,"&Prelomi\tF2"
+65,1,"Prikaži &presledke"
+66,1,"Označevanje &sintakse"
+67,1,"&Samodejno"
+68,1,"&Barve"
+69,1,"&Visual Studio"
+70,1,"Privzeti &Prism"
+71,1,"&Lastno"
+72,1,"Uredi &lastno"
+73,1,"Uredi lastno"
+74,1,"&Shrani"
+75,1,"Prekliči"
+76,1,"Svetla"
+77,1,"Temna"
+78,1,"Komentar"
+79,1,"Ločila"
+
+[STRINGTABLE 3]
+80,1,"Ključna"
+81,1,"Krmilna beseda"
+82,1,"Ime razreda"
+83,1,"Funkcija"
+84,1,"Niz"
+85,1,"Število"
+86,1,"Boolean"
+87,1,"Spremenljivka"
+88,1,"Imenski prostor"
+89,1,"Regularni izraz"
+90,1,"Ni mogoče shraniti palete barv po meri."
+91,1,"Salamatrix.UI ni na voljo."
+92,1,"Ni mogoče odpreti okna nastavitev vtičnika."
+93,1,"&Uredi"
+94,1,"&Kopiraj\tCtrl+C"
+95,1,"Izberi &vse\tCtrl+A"
+
+[STRINGTABLE 4]
+96,1,"&Poišči...\tCtrl+F"
+97,1,"Poišči &naslednje\tF3"
+98,1,"Poišči &prejšnje\tShift+F3"
+99,1,"&Pojdi na vrstico...\tCtrl+G"
+100,1,"&Natisni...\tCtrl+P"
+

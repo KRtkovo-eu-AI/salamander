@@ -1,0 +1,75 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\slovenian\automation\automation.atp"
+TEXTVERSION,"2.9 (x64)"
+VERSION,"2,9,0,197"
+
+[TRANSLATION]
+LANGID,1060
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 100]
+205,64,1,"Vnosno polje"
+1150,8,8,189,8,1,"Poziv:"
+101,8,18,189,12,1,""
+1,48,42,50,14,1,"OK"
+2,107,42,50,14,1,"Prekliči"
+
+[DIALOG 101]
+332,143,1,"Konfiguracija avtomatike"
+375,8,9,67,8,1,"&Imeniki skriptov:"
+371,8,19,316,73,1,""
+1001,8,102,105,10,1,"Vklopi &odkrivanje napak"
+1,75,121,50,14,1,"OK"
+2,141,121,50,14,1,"Prekliči"
+9,207,121,50,14,1,"&Pomoč"
+
+[MENU 106]
+0,1,"[POPUP]"
+40013,1,"Brskaj…"
+40014,1,"Imenik Salamander"
+40015,1,"Spremenljivka okolja"
+
+[STRINGTABLE 0]
+1,1,"Avtomatika"
+2,1,"Avtomatizira pogoste naloge s skripti."
+3,1,"O vtičniku"
+
+[STRINGTABLE 1]
+128,1,"Napaka skripta avtomatike"
+129,1,"Line:\t%u\r\n"
+130,0,"Column:\t%u\r\n"
+131,1,"Error:\t%s"
+132,1,"Zaženi osredotočen skript"
+134,1,"Napredek operacije"
+135,1,"Source:\t%s\r\n"
+136,1,"Odpri meni skriptov"
+137,1,"(brez skripta)"
+138,1,"Izvajanje skripta '%s' ni uspelo.\r\n%s"
+139,1,"Neznana napaka."
+140,1,"1\t&Prekliči"
+141,1,"1\t&Odkrivanje\t2\t&Prekliči"
+142,1,"Imenik skriptov"
+143,1,"Izberite repozitorij skriptov."
+
+[STRINGTABLE 2]
+144,1,"Prekliči skript"
+145,1,"Prekliči delujoč skript\tCtrl+Break"
+146,1,"Okno Samandarin je zaklenjeno z vtičnikom Avtomatika. Končajte izvajanje skripta."
+147,1,"Inicializacija skriptnega pogona ni uspela."
+
+[STRINGTABLE 3]
+256,1,"Neveljaven arhiv."
+257,1,"Trenutne poti ni mogoče zapreti."
+258,1,"Pot je bila okrnjena."
+259,1,"Ko je okno prikazano, ni mogoče spremeniti lastnosti ali klicati metode %s."
+260,1,"Ko je okno skrito, ni mogoče spremeniti lastnosti ali klicati metode %s."
+261,1,"Napaka nalaganja vtičnika."
+262,1,"Napaka vtičnika"
+263,1,"Premik datoteke v predpomnilnik ni uspel."
+264,1,"Napaka sintakse maske."
+265,1,"V vsebnik je mogoče dodati samo komponente."
+266,1,"V vsebnik ni mogoče dodati obrazcev."
+267,1,"Izvajanje skripta je uporabnik prekinil."
+

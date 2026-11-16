@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\danish\unole\unole.atp"
+TEXTVERSION,"1.4 (x64)"
+VERSION,"1,4,0,197"
+
+[TRANSLATION]
+LANGID,1030
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"UnOLE2"
+1001,1,"Ikke nok hukommelse."
+1002,1,"Kan ikke åbne Compoundfil %s.\n"
+1003,1,"Kan ikke få hukommelsesallokator.\n"
+1004,1,"Kan ikke skrive fil.\n"
+1005,1,"Kan ikke danne fil %s.\n"
+1006,1,"Åbner ikke strøm %s.\n"
+1007,1,"Kan ikke skrive fil.\n"
+
+[STRINGTABLE 1]
+1008,1,"Ukendt fejl opstod."
+1014,1,"Kan ikke tilføje arkivindgang til fillisten."
+1015,1,"Udpakker Compoundfil"
+1017,1,"udpakning..."
+1018,1,"udpakning: "
+
+[STRINGTABLE 2]
+1025,1,"Undskyld, pluginet er udløbet. Tjek vores websted for en nyere version."
+
+[STRINGTABLE 3]
+1041,1,"Fejl"
+1042,1,"Gennemse og udtræk OLE Compound-filer."
+1043,1,"Om plugin"
+

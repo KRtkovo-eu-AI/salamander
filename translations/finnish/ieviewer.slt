@@ -1,0 +1,18 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\finnish\ieviewer\ieviewer.atp"
+TEXTVERSION,"1.14 (x64)"
+VERSION,"1,14,0,197"
+
+[TRANSLATION]
+LANGID,1035
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+10100,1,"Internet Explorer Viewer"
+10101,1,"Internet Explorer Vieweria ei voitu avata.\nIlmoita ongelmasta: support@altap.cz."
+10102,1,"Virhe"
+10103,1,"Kevyt HTML- ja XML-katselin Internet Explorerin pohjalta."
+10105,1,"Lisäosasta"
+

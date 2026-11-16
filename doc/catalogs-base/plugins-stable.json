@@ -1,7 +1,16 @@
 {
   "schemaVersion": 6,
   "catalogName": "Plugins Stable",
-  "generatedAt": "2026-08-31T02:56:50Z",
+  "generatedAt": "2026-11-14T00:00:00Z",
+  "changelog": [
+    {
+      "date": "2026-11-14",
+      "summary": "Refresh stable plugin release URLs to published versions.",
+      "reason": "The stable catalog versions must match their published, SHA-256-verified release assets.",
+      "ticket": "",
+      "model": "openrouter/openai/gpt-6-luna-pro"
+    }
+  ],
   "plugins": [
     {
       "id": "7zip",
@@ -25,7 +34,7 @@
       "latestVersion": "1.36 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.net",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_7zip_1.35_x64/plugin_5.0_7zip_1.35_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_7zip_1.36_x64/plugin_5.0_7zip_1.36_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/7zip.png",
       "packageType": "plugin",
       "security": {
@@ -313,7 +322,7 @@
       "latestVersion": "1.38 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_ftp_1.37_x64/plugin_5.0_ftp_1.37_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_ftp_1.38_x64/plugin_5.0_ftp_1.38_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/ftp.png",
       "packageType": "plugin",
       "security": {
@@ -533,7 +542,7 @@
       "latestVersion": "1.18 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_mmviewer_1.17_x64/plugin_5.0_mmviewer_1.17_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_mmviewer_1.18_x64/plugin_5.0_mmviewer_1.18_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/mmviewer.png",
       "packageType": "plugin",
       "security": {
@@ -709,7 +718,7 @@
       "latestVersion": "2.27 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_pictview_2.26_x64/plugin_5.0_pictview_2.26_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_pictview_2.27_x64/plugin_5.0_pictview_2.27_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/pictview.png",
       "packageType": "plugin",
       "security": {
@@ -797,7 +806,7 @@
       "latestVersion": "1.17 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_regedt_1.16_x64/plugin_5.0_regedt_1.16_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_regedt_1.17_x64/plugin_5.0_regedt_1.17_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/regedit.png",
       "packageType": "plugin",
       "security": {
@@ -885,7 +894,7 @@
       "latestVersion": "0.10 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_samandarin_0.9_x64/plugin_5.0_samandarin_0.9_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_samandarin_0.10_x64/plugin_5.0_samandarin_0.10_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/samandarin.png",
       "packageType": "plugin",
       "security": {
@@ -929,7 +938,7 @@
       "latestVersion": "0.15 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_serviceexplorer_0.014_x64/plugin_5.0_serviceexplorer_0.014_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_serviceexplorer_0.15_x64/plugin_5.0_serviceexplorer_0.15_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/serviceexplorer.png",
       "packageType": "plugin",
       "security": {
@@ -1105,7 +1114,7 @@
       "latestVersion": "1.5 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_textviewer_1.03_x64/plugin_5.0_textviewer_1.03_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_textviewer_1.5_x64/plugin_5.0_textviewer_1.5_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/textviewer.png",
       "packageType": "plugin",
       "dependencies": [
@@ -1248,7 +1257,7 @@
       "latestVersion": "1.6 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_unchm_1.06_x64/plugin_5.0_unchm_1.06_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_unchm_1.6_x64/plugin_5.0_unchm_1.6_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/plugin.png",
       "packageType": "plugin",
       "security": {
@@ -1384,7 +1393,7 @@
       "latestVersion": "1.3 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_unole_1.03_x64/plugin_5.0_unole_1.03_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_unole_1.3_x64/plugin_5.0_unole_1.3_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/plugin.png",
       "packageType": "plugin",
       "security": {
@@ -1408,7 +1417,7 @@
       "latestVersion": "3.4 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_unrar_3.04_x64/plugin_5.0_unrar_3.04_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_unrar_3.4_x64/plugin_5.0_unrar_3.4_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/plugin.png",
       "packageType": "plugin",
       "security": {
@@ -1452,7 +1461,7 @@
       "latestVersion": "1.5 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_webview2renderviewer_1.04_x64/plugin_5.0_webview2renderviewer_1.04_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_webview2renderviewer_1.5_x64/plugin_5.0_webview2renderviewer_1.5_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/webview2.png",
       "packageType": "plugin",
       "dependencies": [

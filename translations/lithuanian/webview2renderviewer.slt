@@ -1,0 +1,41 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\lithuanian\webview2renderviewer\webview2renderviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1063
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"WebView2 peržiūra"
+47,1,"Apie įskiepį"
+
+[STRINGTABLE 1]
+48,1,"Peržiūra, rodanti HTML, Markdown ir žiniatinklio dokumentus per WebView2."
+49,1,"https://samandarin.net/"
+50,1,"Nepavyko paruošti peržiūrai reikalingo sinchronizavimo įvykio."
+51,1,"Pasirinkta byla per didelė atidarymui. Nepalaikomi didesni kaip 32 MB failai."
+52,1,"&Failas"
+53,1,"&Vaizdas"
+54,1,"&Uždaryti\tEsc"
+55,1,"&Atnaujinti\tF5"
+56,1,"&Didinti\tCtrl++"
+57,1,"&Mažinti\tCtrl+-"
+58,1,"&Atstatyti\tCtrl+0"
+59,1,"Įkeliama..."
+60,1,"Paruošta"
+61,1,"Nepavyko paleisti WebView2 atvaizdavimo."
+62,1,"Nepavyko atidaryti pasirinktą bylą."
+63,1,"Rodyti &eilučių nr."
+
+[STRINGTABLE 2]
+64,1,"&Laužyti eilutes\tF2"
+65,1,"Rodyti &tarpus"
+66,1,"&Redaguoti"
+67,1,"&Kopijuoti\tCtrl+C"
+68,1,"Pasirinkti &viską\tCtrl+A"
+69,1,"&Spausdinti...\tCtrl+P"
+

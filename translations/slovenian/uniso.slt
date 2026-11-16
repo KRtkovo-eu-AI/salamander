@@ -1,0 +1,111 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\slovenian\uniso\uniso.atp"
+TEXTVERSION,"1.40 (x64)"
+VERSION,"1,40,0,197"
+
+[TRANSLATION]
+LANGID,1060
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 1200]
+220,83,1,"Konfiguracija UnISO"
+1201,8,11,188,10,1,"&Počisti atribut za branje pri kopiranju iz arhiva"
+1202,8,23,198,10,1,"&Prikaži sejo kot imenik (omogoči dostop do vseh sej)"
+1203,8,35,124,10,1,"&Prikaži zagonski disk kot datoteko"
+3000,2,58,216,1,1,""
+1,108,64,50,14,1,"OK"
+2,163,64,50,14,1,"Prekliči"
+
+[STRINGTABLE 0]
+1000,1,"UnISO"
+1001,1,"Datoteke ni mogoče odpreti."
+1002,1,"Nedoločena napaka."
+1003,1,"Razpakiranje arhiva ISO"
+1004,1,"Napaka pri razpakiranju."
+1005,1,"Datoteke ni mogoče obdelati."
+1006,1,"Premalo pomnilnika."
+1007,1,"O vtičniku"
+
+[STRINGTABLE 1]
+1009,1,"Brskajte in izvlecite datoteke ISO CD/DVD."
+1010,1,"Ni mogoče ustvariti začasnega imenika."
+1011,1,"Ni mogoče izbrisati začasne datoteke."
+1012,1,"Neznana oblika datoteke ali ni veljavna slika ISO.\n\nČe ste prepričani, da je veljavna, pišite na support@altap.cz in pomagajte nam podpreti to obliko."
+1013,1,"Ni mogoče odpreti '%s'."
+1014,1,"Ni uspelo ustvariti začasne datoteke."
+1015,1,"Ni mogoče nastaviti atributov datoteke."
+1016,1,"Ni mogoče ustvariti imenika '%s'."
+1020,1,"Da"
+1021,1,"Ne"
+1022,1,"Napaka"
+1023,1,"Opozorilo"
+
+[STRINGTABLE 2]
+1024,1,"Pri branju večsejne slike je prišlo do napak.\n\nPrikazane so samo pravilno prebrane seje."
+1025,1,"Neznana vrsta skladbe."
+1026,1,"Neznana strategija dodeljevanja (%d).\n\nPišite na support@altap.cz in nam pomagajte rešiti težavo."
+1027,1,"Slaba oblika datoteke .CCD.\n\nPrikaz slike je lahko nepopolna."
+1028,1,"Manjka datoteka .CCD.\n\nPrikaz slike je lahko nepopolen."
+1029,1,"Ni mogoče prebrati sektorja #%08X."
+1030,1,"Neveljaven UDF ID."
+1031,1,"Napaka pri branju strukture imenika v sektorju #%08X.\n\nNepopolna vsebina ISO slike."
+1032,1,"Notranja napaka vtičnika."
+1033,1,"Napaka pri branju tabele navideznega dodeljevanja v sektorju #%08X."
+1034,1,"Manjka tabela navideznega dodeljevanja."
+1035,1,"Slab korenski ICB.\n\nNi mogoče prebrati imenika."
+1036,1,"Datoteka "%s" se ne izvleče.\n\nNeskladje velikosti datoteke in blokov ICB."
+1037,1,"Ni mogoče odpreti #%d."
+1038,1,"Ta datoteka je slika diskete, trdega diska ali particije trdega diska.\nPreimenujte datoteko v .ima, da aktivirate vtičnik UnFAT."
+1039,1,"Ta slika diska vsebuje datotečni sistem APFS.\nTa datotečni sistem še ni podprt."
+
+[STRINGTABLE 3]
+1050,1,"Ni mogoče prebrati glave particije. Premajhna."
+1051,1,"Poškodovane strukture vodje particij."
+1052,1,"Ta slika diska ne vsebuje particije HFS Plus."
+1053,1,"Ta slika diska vsebuje HFS in ne datotečnega sistema HFS Plus.\nHFS ni podprt."
+1054,1,"Ni mogoče iti na blok #%08X.\nDatoteka %s ne bo izločena."
+1055,1,"Ni mogoče iti na blok #%08X."
+
+[STRINGTABLE 4]
+1056,1,"Nepodprta vrsta korena BTree v datoteki Catalog."
+1057,1,"Datoteka Catalog je razdrobljena na več kot 8 fragmentov, kar ni podprto."
+1058,1,"Datoteka '%s' je razdrobljena na več kot 8 fragmentov, kar ni podprto.\nDatoteka ne bo izločena."
+1059,1,"Ta slika diska vsebuje predolgo pot, ki jo Open Samandarin ne obvlada."
+1060,1,"Ni mogoče končati zaradi predolga imena."
+1070,1,"Ni mogoče prebrati glave paketa. Premajhna."
+1071,1,"Ta paket je šifriran.\nŠifrirani paketi niso podprti."
+
+[STRINGTABLE 5]
+1072,1,"Ta datoteka očitno ni paket DMG ali je nepopolna.\nNe vsebuje veljavne nožne informacije DMG."
+1073,1,"Ta datoteka očitno ni veljaven paket DMG ali je nepopolna.\nNe vsebuje veljavnega seznama lastnosti."
+1074,1,"Ta paket ne vsebuje podatkovnega bloka particije HFS Plus, ki se začne na %I64u.\nBlok je potreben za pravilno obravnavo paketa."
+1075,1,"Ni mogoče prebrati podatkov s slike diska na %I64u."
+1076,1,"Ni mogoče iti na položaj %I64u v sliki diska."
+1077,1,"Interna napaka: Nepodprta metoda skoka."
+1078,1,"Ta slika diska vsebuje blok, stisnjen z neznano metodo.\nTakšne slike diska niso podprte."
+1079,1,"Razpakiranje bloka ZLIB ni uspelo. Slika diska je poškodovana."
+1080,1,"Razpakiranje bloka BZIP2 ni uspelo. Slika diska je poškodovana."
+1085,1,"Ta datoteka očitno ni stisnjena slika ISZ ali je nepopolna.\nNe vsebuje veljavne glave ISZ."
+1086,1,"Ni mogoče prebrati glave stisnjene slike. Premajhna."
+1087,1,"Ta slika je segmentirana.\nSegmentirane slike niso podprte."
+
+[STRINGTABLE 6]
+1088,1,"Ta slika je šifrirana.\nŠifrirane slike niso podprte."
+1100,1,"Napaka branja"
+1101,1,"Napaka pisanja"
+1102,1,"Avdio skladb ni mogoče izločiti."
+1103,1,"Preklic operacije, počakajte..."
+
+[STRINGTABLE 7]
+1150,1,"Informacije o sliki\n\n"
+1151,1,"Informacije o sliki "%s"\n\n"
+
+[STRINGTABLE 8]
+1152,1,"Število sej: %d"
+1153,1,"\nSeja %d\n"
+1154,1,"  Število skladb: %d\n"
+1155,1,"  Skladba %d, %s, Velikost %d KB\n"
+1156,1,"  Skladba %d, %s, Velikost %d KB - "%s"\n"
+

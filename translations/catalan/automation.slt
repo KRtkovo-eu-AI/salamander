@@ -1,0 +1,75 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\catalan\automation\automation.atp"
+TEXTVERSION,"2.9 (x64)"
+VERSION,"2,9,0,197"
+
+[TRANSLATION]
+LANGID,1027
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 100]
+205,64,1,"Entrada"
+1150,8,8,189,8,1,"Text:"
+101,8,18,189,12,1,""
+1,48,42,50,14,1,"OK"
+2,107,42,50,14,1,"Cancel·la"
+
+[DIALOG 101]
+332,143,1,"Config. d'automatització"
+375,8,9,67,8,1,"&Dirs. d'scripts:"
+371,8,19,316,73,1,""
+1001,8,102,105,10,1,"Activa &depuració script"
+1,75,121,50,14,1,"OK"
+2,141,121,50,14,1,"Cancel·la"
+9,207,121,50,14,1,"A&juda"
+
+[MENU 106]
+0,1,"[POPUP]"
+40013,1,"Navega…"
+40014,1,"Directori Salamander"
+40015,1,"Variable d'entorn"
+
+[STRINGTABLE 0]
+1,1,"Automat."
+2,1,"Automatitza tasques amb scripts."
+3,1,"Connector"
+
+[STRINGTABLE 1]
+128,1,"Error de script"
+129,1,"Line:\t%u\r\n"
+130,1,"Column:\t%u\r\n"
+131,1,"Error:\t%s"
+132,1,"Executa script"
+134,1,"Progrés operació"
+135,1,"Source:\t%s\r\n"
+136,1,"Obre menú scripts"
+137,1,"(cap script)"
+138,1,"Error en executar '%s'.\r\n%s"
+139,1,"Error incert."
+140,1,"1\t&Avorta"
+141,1,"1\t&Depura\t2\t&Avorta"
+142,1,"Directori scripts"
+143,1,"Trieu el directori de scripts."
+
+[STRINGTABLE 2]
+144,1,"Avorta"
+145,1,"Atura script en curs\tCtrl+Break"
+146,1,"Finestra de Samandarin bloquejada pel connector Automation. Acabeu l'script."
+147,1,"No s'ha pogut iniciar el motor de script."
+
+[STRINGTABLE 3]
+256,1,"Arxiu no vàlid."
+257,1,"No es pot tancar ruta actual."
+258,1,"S'ha truncat el camí."
+259,1,"No es pot canviar la propietat ni cridar %s amb la finestra visible."
+260,1,"No es pot canviar la propietat ni cridar %s amb la finestra oculta."
+261,1,"Error carregant connector"
+262,1,"Error de plugin"
+263,1,"Error en moure fitxer a la memòria cau"
+264,1,"Sintaxi de màscara"
+265,1,"Només s'hi poden afegir components"
+266,1,"No es poden afegir formularis al contenidor."
+267,1,"L'usuari ha avortat l'script."
+

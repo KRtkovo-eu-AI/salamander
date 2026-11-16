@@ -1,0 +1,18 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\lithuanian\ieviewer\ieviewer.atp"
+TEXTVERSION,"1.14 (x64)"
+VERSION,"1,14,0,197"
+
+[TRANSLATION]
+LANGID,1063
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+10100,1,"Internet Explorer Viewer"
+10101,1,"Nepavyko atidaryti Internet Explorer Viewer.\nApie problemą praneškite support@altap.cz."
+10102,1,"Klaida"
+10103,1,"Lengva HTML ir XML peržiūrė, pagrįsta Internet Explorer."
+10105,1,"Apie pluginą"
+

@@ -1,0 +1,75 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\norwegian\pak\pak.atp"
+TEXTVERSION,"1.74 (x64)"
+VERSION,"1,74,0,197"
+
+[TRANSLATION]
+LANGID,1044
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 100]
+194,73,1,"Optimaliser PAK-fil"
+300,8,9,53,8,1,"Gyldig data:"
+101,64,9,118,8,1,""
+301,8,20,53,8,1,"Total størrelse:"
+102,64,20,118,8,1,""
+302,8,31,52,8,1,"Sløst plass:"
+103,64,31,118,8,1,""
+303,8,44,178,1,1,""
+1,41,53,50,14,1,"Optimer"
+2,101,53,50,14,1,"Avbryt"
+
+[STRINGTABLE 0]
+500,1,"Åpne fil feilet: %s"
+501,1,"Kan ikke initialisere paklib. En fil er åpen."
+502,1,"Kan ikke åpne fil. En fil er åpen."
+503,1,"Får ikke filstørrelse: %s"
+504,1,"Ugyldig dataformat."
+505,1,"For lite minne."
+506,1,"gjeldende PAK-sentralkatalog"
+507,1,"Kan ikke sette filpeker: %s"
+508,1,"Kan ikke lese fra fil: %s"
+509,1,"Kan ikke hente filpeker: %s"
+510,1,"Skriving til fil feilet: %s"
+511,1,"Kan ikke legge til fil: for langt navn."
+
+[STRINGTABLE 1]
+1000,1,"PAK"
+1001,1,"For lite minne."
+1002,1,"Kan ikke legge til i liste."
+1003,1,"Kan ikke laste paklib.dll eller hente prosedyre: "
+1004,1,"Pakker ut PAK-arkiv - %s"
+1005,1,"klargjør data..."
+1006,1,"pakker ut..."
+1007,1,"pakker ut: "
+
+[STRINGTABLE 2]
+1008,1,"Kan ikke fullføre operasjonen pga. langt stinavn."
+1009,1,"Kan ikke sette filpeker: "
+1010,1,"Kan ikke hente filpeker: "
+1011,1,"Kan ikke skrive til fil:"
+1013,1,"Kan ikke åpne fil: "
+1014,1,"Kan ikke fullføre operasjonen pga. lang maske."
+1015,1,"Sletter fra PAK-arkiv - %s"
+1016,1,"sletter..."
+1017,1,"sletter: "
+1018,1,"avbryter operasjonen, vent..."
+1019,1,"Pakking til PAK-arkiv - %s"
+1020,1,"Kan ikke legge til fil: For stor."
+1021,1,"pakker..."
+1022,1,"Kan ikke legge til fil: For langt navn."
+1023,1,"pakker: "
+
+[STRINGTABLE 3]
+1024,1,"Kan ikke lese fra fil: "
+1025,1,"Kan ikke koble pluginet til Open Samandarin."
+1026,1,"optimerer, vent litt..."
+1027,1,"Optimerer PAK-arkiv - %s"
+1028,1,"Sletting av filer ble ikke fullført. Du må kanskje kjøre PAK-optimalisering fra PAK Plugin-menyen for å unngå sløsing av diskplass."
+1029,1,"&Optimer PAK"
+1030,1,"Beklager, pluginet har utløpt. Se nettstedet vårt for nyere versjon."
+1031,1,"Bla og pakk ut Quake PAK-arkiver."
+1032,1,"Om pluginet"
+

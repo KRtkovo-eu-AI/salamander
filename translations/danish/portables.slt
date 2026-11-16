@@ -1,0 +1,59 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\danish\portables\portables.atp"
+TEXTVERSION,"0.7 (x64)"
+VERSION,"0,7,0,197"
+
+[TRANSLATION]
+LANGID,1030
+AUTHOR,"Open Salamander"
+WEB,"https://samandarin.net/"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+128,1,"{!}%d valgt enhed{2:s|0||1|s}"
+129,1,"0 enheder"
+130,1,"Portable enheder"
+131,1,"Afbryd"
+132,1,"Klargør..."
+133,1,"Fil:"
+134,1,"Total:"
+135,1,"Minimer"
+136,1,"Pause"
+137,1,"Den portable enhed svarer ikke længere. Frakobl og tilslut den igen. Panelet Portable enheder vender tilbage til enhedslisten."
+138,1,"%s/%s kopieret"
+139,1,"Kopi"
+140,1,"Flyt"
+141,1,"Slet"
+142,1,"Kopiere"
+143,1,"Flytte"
+
+[STRINGTABLE 1]
+144,1,"Slette"
+145,1,"->"
+146,1,"%s/%s flyttet"
+147,1,"%s af %s behandlet"
+148,1,"Sletter valgte objekter"
+149,1,"%s '%s' fejlet (0x%08X)."
+150,1,"Omdøb"
+151,1,"Opret mappe"
+152,1,"Vis"
+153,1,"Navnet er stadig på enheden. Elementet blev ikke oprettet igen."
+154,1,"Fil kan ikke erstatte en mappe."
+155,1,"Mappe kan ikke erstatte en fil."
+156,1,"Der findes et element med dette navn."
+157,1,"?"
+
+[STRINGTABLE 2]
+8192,1,"Portable enheder"
+8193,1,"Styr portable enheder."
+
+[STRINGTABLE 3]
+9216,1,"Om plugin"
+
+[STRINGTABLE 4]
+10240,1,"Fejl ved skift af mappe"
+10241,1,"Sti: "%s"\r\nFejl: %s"
+
+[STRINGTABLE 5]
+19457,1,"Den angivne sti indeholder sti til en fil."
+

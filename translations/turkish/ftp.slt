@@ -116,7 +116,7 @@ COMMENT,"turkish (automatic AI translation)"
 9,358,142,50,14,1,"Yardım"
 
 [DIALOG 580]
-596,301,1,"Gelişmiş Ayarlar"
+328,301,1,"Gelişmiş Ayarlar"
 3000,7,10,50,8,1,"&Proxy sunucu:"
 531,84,8,179,89,1,""
 532,270,7,50,14,1,"&Ekle"
@@ -345,7 +345,7 @@ COMMENT,"turkish (automatic AI translation)"
 778,7,81,150,12,1,"İşlem bitince bu ileti kutusunu &kapat"
 
 [DIALOG 779]
-489,64,1,""
+244,64,1,""
 780,10,9,226,8,1,""
 781,10,19,225,130,1,""
 782,292,47,197,12,1,"&Yalnızca kuyruğa ekle (etkin bağlantıda işleme)"
@@ -354,7 +354,7 @@ COMMENT,"turkish (automatic AI translation)"
 9,157,42,50,14,1,"Yardım"
 
 [DIALOG 785]
-549,61,1,"Silmeyi onayla"
+331,61,1,"Silmeyi onayla"
 1,112,39,50,14,1,"&Evet"
 2,169,39,50,14,1,"&Hayır"
 788,8,8,18,20,1,""
@@ -362,7 +362,7 @@ COMMENT,"turkish (automatic AI translation)"
 787,352,40,197,12,1,"&Yalnızca kuyruğa ekle (etkin bağlantıda işleme)"
 
 [DIALOG 795]
-522,200,1,"Özellik değiştir"
+278,200,1,"Özellik değiştir"
 796,7,10,264,8,1,""
 3000,7,26,84,51,1," Sahip "
 3001,97,26,84,51,1," Grup "

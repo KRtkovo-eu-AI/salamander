@@ -1,0 +1,109 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\slovenian\unrar\unrar.atp"
+TEXTVERSION,"3.5 (x64)"
+VERSION,"3,5,0,197"
+
+[TRANSLATION]
+LANGID,1060
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 100]
+194,95,1,"Naslednji arhivni zvezek"
+117,12,9,170,32,1,"Vstavite disk z naslednjim arhivnim zvezkom ali poiščite ustrezno datoteko.\n\nPritisnite OK, ko ste pripravljeni."
+300,12,48,50,8,1,"&Ime datoteke:"
+101,12,58,155,12,1,""
+102,170,58,13,12,1,"..."
+1,39,76,50,14,1,"OK"
+2,102,76,50,14,1,"Prekliči"
+
+[DIALOG 103]
+352,85,1,"Napaka"
+300,6,10,26,8,1,"Ime:"
+104,36,10,309,8,1,""
+301,2,23,30,8,1,"Napaka:"
+302,36,23,309,16,1,"Datoteke ni mogoče izluščiti, ker se nadaljuje v prejšnjem zvezku. Za izluščenje morate začeti z zvezkom, kjer se datoteka začne."
+105,36,44,183,12,1,"&Tega sporočila v prihodnje ne prikaži."
+1,121,63,50,14,1,"OK"
+2,181,63,50,14,1,"Prekliči"
+
+[DIALOG 106]
+220,115,1,"Konfiguracija UnRAR"
+107,12,10,200,12,1,"&Samodejno preskoči datoteke iz prejšnjih zvezkov"
+116,12,32,197,12,1,"&Ne prikaži opozorila, ko vsebina celotnega arhiva"
+300,23,22,154,8,1,"pri razpakiranju."
+301,23,44,111,8,1,"ni mogoče navesti."
+302,6,60,208,1,1,""
+117,12,70,200,12,1,"Prikaži stolpec "&Pakirano" pri navajanju arhiva"
+303,6,90,208,1,1,""
+1,57,96,50,14,1,"OK"
+2,112,96,50,14,1,"Prekliči"
+
+[DIALOG 108]
+350,80,1,"Vnesite geslo"
+113,18,18,18,20,1,""
+300,57,10,202,8,1,"Ta datoteka je šifrirana. Vnesite geslo za dešifriranje."
+301,57,25,35,8,1,"Datoteka:"
+104,97,25,240,8,1,""
+302,57,38,37,8,1,"&Geslo:"
+110,97,36,157,12,1,""
+1,30,58,50,14,1,"&OK"
+112,90,58,50,14,1,"&Vse"
+109,150,58,50,14,1,"&Preskoči"
+111,210,58,50,14,1,"&Preskoči vse"
+2,270,58,50,14,1,"Prekliči"
+
+[DIALOG 115]
+213,105,1,"UnRAR - Pozor"
+300,11,8,194,24,1,"Ni mogoče navesti vseh datotek v večdelnem arhivu (in jih prikazati v plošči), saj nekaterih zvezkov arhiva ni mogoče najti."
+301,11,39,194,16,1,"Za navedbo celotne vsebine arhiva kopirajte vse zvezke arhiva v isti imenik."
+105,11,64,157,12,1,"&Tega sporočila v prihodnje ne prikaži"
+302,5,81,202,1,1,""
+1,155,87,50,14,1,"OK"
+
+[STRINGTABLE 0]
+1000,1,"UnRAR"
+1001,1,"Premalo pomnilnika."
+1002,1,"Ni mogoče dobiti imena modula."
+1003,1,"Ni mogoče naložiti '%s'."
+1004,1,"Ne dobim naslova postopka."
+1005,1,"Arhiv je poškodovan. (Napačno geslo?)"
+1006,1,"Datoteka ni v znanem formatu ali ni veljaven arhiv RAR. (Napačno geslo?)"
+1007,1,"Ni mogoče odpreti arhiva."
+
+[STRINGTABLE 1]
+1008,1,"Neznana napaka."
+1009,1,"Ni mogoče odpreti nosilca."
+1010,1,"Ni mogoče prebrati arhiva."
+1011,1,"Arhivi RAR (*.R*)"
+1012,1,"Izberite arhiv"
+1013,1,"Napaka v stisnjenih podatkih. CRC ni enak. (Napačno geslo?)"
+1014,1,"Arhivnega vpisa ni mogoče dodati na seznam."
+1015,1,"Razpakiranje arhiva - %s"
+1016,1,"priprava podatkov in ustvarjanje map..."
+1017,1,"razpakiranje"
+1018,1,"razpakiranje: "
+1019,1,"Ni mogoče dobiti kazalca: "
+1020,1,"Ni mogoče zapisati:"
+1021,1,"Ni mogoče nastaviti kazalca:"
+1022,1,"Ni mogoče dokončati operacije zaradi predolge poti."
+1023,1,"Ni mogoče dokončati zaradi predolge maske."
+
+[STRINGTABLE 2]
+1024,1,"Vnesite vsaj en znak."
+1027,1,"Datoteke (*.*)"
+1028,1,"Hiba"
+1029,1,"Ni datoteke"
+1030,1,"Napačna različica unrar.dll. Ponovno namestite vtičnik UnRAR."
+1031,1,"Videti je, da je to večdelni arhiv. Če je tako, izberite prvi zvezek arhiva in pritisnite OK.\n\nČe to ni večdelni arhiv, pritisnite Prekliči."
+1032,1,"Izberite prvi del"
+1033,1,"Brskaj in razpakiraj arhive RAR."
+1034,1,"O vtičniku"
+1035,1,"Datoteka v arhivu ni najdena."
+1036,1,"Geslo je napačno. Črke v geslu vnesite z upoštevanjem velikih in malih črk. Preverite, da ni po nesreči vključen CapsLock."
+
+[STRINGTABLE 3]
+1040,1,"Stisnjeno"
+1041,1,"Stisnjena velikost"
+

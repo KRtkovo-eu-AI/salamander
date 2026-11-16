@@ -1,0 +1,38 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\lithuanian\peviewer\peviewer.atp"
+TEXTVERSION,"3.2 (x64)"
+VERSION,"3,2,0,197"
+
+[TRANSLATION]
+LANGID,1063
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 8501]
+346,154,1,"PE peržiūros konfigūracija"
+1300,7,7,64,8,1,"&Galimos sekcijos:"
+8700,7,17,105,130,1,""
+8702,119,17,50,14,1,"&Įdėk->"
+8703,119,35,50,14,1,"<- &Išimti"
+1301,176,7,64,8,1,"&Matomos sekcijos:"
+8701,176,17,105,130,1,""
+8704,289,17,50,14,1,"&Aukštyn"
+8705,289,35,50,14,1,"&Žemyn"
+1,289,97,50,14,1,"OK"
+2,289,115,50,14,1,"Atšaukti"
+8706,289,133,50,14,1,"At&statyti"
+
+[STRINGTABLE 0]
+1016,1,"Apie įskiepį"
+
+[STRINGTABLE 1]
+10100,1,"PE peržiūra"
+10101,1,"Nepavyko atidaryti %s."
+10102,1,"Nepavyko sukurti laikinojo failo."
+10103,1,"Įvyko išimtis.\n\nPeržiūrimas failas: %s\n\nJei manote, kad failas nėra pažeistas, atsiųskite šį failą adresu support@altap.cz.\nAtkursime ir ištaisysime peržiūros klaidą. Ačiū už bendradarbiavimą!"
+10104,1,"Rodyti informaciją apie Portable Executable failus, pvz., EXE, DLL ir kt."
+
+[STRINGTABLE 2]
+10118,1,"Plugin konfigūracijoje nepasirinkta Portable Executable sekcija.\nNaudokite Options > Plugin Configuration > Portable Executable Viewer\n„Open Samandarin“ pagrindiniame lange matomų sekcijų nustatymui."
+

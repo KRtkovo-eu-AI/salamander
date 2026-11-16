@@ -1,0 +1,20 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\danish\demomenu\demomenu.atp"
+TEXTVERSION,"1.0.3 (x64)"
+VERSION,"1,0,3,197"
+
+[TRANSLATION]
+LANGID,1030
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"DemoMenu"
+47,1,"Om plug-in"
+
+[STRINGTABLE 1]
+48,1,"Dette plug-in skal hjælpe dig med at lave dit eget menu-plug-in."
+49,1,"samandarin.net"
+50,1,"&Testkommando"
+

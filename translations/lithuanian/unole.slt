@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\lithuanian\unole\unole.atp"
+TEXTVERSION,"1.4 (x64)"
+VERSION,"1,4,0,197"
+
+[TRANSLATION]
+LANGID,1063
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"UnOLE2"
+1001,1,"Nepakanka atminties."
+1002,1,"Negalima atidaryti OLE %s.\n"
+1003,1,"Negauta atminties paskirstytojo.\n"
+1004,1,"Negalima rašyti failą.\n"
+1005,1,"Failas %s nesukariamas.\n"
+1006,1,"Srautas %s neatsidaro.\n"
+1007,1,"Negalima rašyti failą.\n"
+
+[STRINGTABLE 1]
+1008,1,"Įvyko nežinoma klaida."
+1014,1,"Nepavyko pridėti archyvo įrašo į failų sąrašą."
+1015,1,"Išpakuojamas OLE failas"
+1017,1,"išpakuojama..."
+1018,1,"išpakuojama: "
+
+[STRINGTABLE 2]
+1025,1,"Atsiprašome, papildinys pasibaigė. Naują versiją rasite mūsų svetainėje."
+
+[STRINGTABLE 3]
+1041,1,"Klaida"
+1042,1,"Peržiūrėkite ir ištraukite OLE failus."
+1043,1,"Apie papildinį"
+

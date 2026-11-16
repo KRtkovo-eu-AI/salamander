@@ -1,0 +1,20 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\slovenian\demomenu\demomenu.atp"
+TEXTVERSION,"1.0.3 (x64)"
+VERSION,"1,0,3,197"
+
+[TRANSLATION]
+LANGID,1060
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"DemoMeni"
+47,1,"O vtičniku"
+
+[STRINGTABLE 1]
+48,1,"Ta vtičnik vam bo pomagal izdelati lastno razširitev menija."
+49,1,"samandarin.net"
+50,1,"&Testni ukaz"
+

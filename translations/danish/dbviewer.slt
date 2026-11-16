@@ -1,0 +1,228 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\danish\dbviewer\dbviewer.atp"
+TEXTVERSION,"1.28 (x64)"
+VERSION,"1,28,0,197"
+
+[TRANSLATION]
+LANGID,1030
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 12200]
+235,181,1,"Egenskab"
+1,179,162,50,14,1,"OK"
+13000,4,155,227,1,1,""
+12201,5,5,224,143,1,""
+
+[DIALOG 12220]
+282,105,1,"Databasefremviser-konfiguration"
+13000,6,10,270,35,1,"Font"
+12221,13,23,50,14,1,"&Font"
+12222,69,23,200,14,1,""
+13001,6,48,270,27,1,"Vinduesposition"
+12223,14,58,69,12,1,"&Gem ved lukning"
+12224,107,58,163,12,1,"S&et til Salamanders hovedvindues position"
+12225,13,85,60,14,1,"CSV-valg..."
+1,113,85,50,14,1,"OK"
+2,168,85,50,14,1,"Afbryd"
+9,223,85,50,14,1,"Hjælp"
+
+[DIALOG 12240]
+282,178,1,"Felter"
+12241,6,6,270,142,1,""
+13000,4,153,274,1,1,""
+12242,6,159,69,14,1,"&Gendan standard"
+1,115,159,50,14,1,"OK"
+2,170,159,50,14,1,"Afbryd"
+9,225,159,50,14,1,"Hjælp"
+
+[DIALOG 12250]
+303,137,1,"CSV-valg"
+13000,6,6,90,101,1,"&Skilletegn"
+12264,15,18,60,12,1,"Auto-valg"
+12261,15,32,60,12,1,"Tabulator"
+12260,15,46,60,12,1,"Semikolon (;)"
+12259,15,60,60,12,1,"Komma (,)"
+12258,15,74,60,12,1,"Mellemrum ( )"
+12257,15,88,32,12,1,"Andet"
+12256,49,88,16,12,1,""
+13001,106,6,90,101,1,"&Tekstafgrænser"
+12262,115,18,60,12,1,"Auto-valg"
+12255,115,32,74,12,1,"Dobbelttegn (" )"
+12254,115,46,60,12,1,"Enkelttegn (')"
+12253,115,60,60,12,1,"Ingen"
+13002,206,6,90,101,1,"&Første række"
+12263,215,18,60,12,1,"Auto-valg"
+12265,215,32,76,12,1,"Som kolonnenavne"
+12266,215,46,60,12,1,"Som data"
+1,136,118,50,14,1,"OK"
+2,191,118,50,14,1,"Annuller"
+9,246,118,50,14,1,"Hjælp"
+12252,6,118,63,14,1,"Sæt som &standard"
+
+[DIALOG 12300]
+210,131,1,"Find"
+13000,28,11,174,1,1,""
+13001,9,7,17,8,1,"&Find"
+12301,16,17,182,64,1,""
+13002,38,47,164,1,1,""
+13003,9,43,42,8,1,"Indstillinger"
+12302,16,53,66,12,1,"Søg &fremad"
+12303,16,65,72,12,1,"Søg &baglæns"
+12304,113,53,57,12,1,"&Hele ord"
+12305,113,65,118,12,1,"&Følsom over for store bogstaver"
+12306,113,77,75,12,1,"&Regulært udtryk"
+13004,8,102,194,1,1,""
+1,20,110,50,14,1,"OK"
+2,80,110,50,14,1,"Annuller"
+9,140,110,50,14,1,"Hjælp"
+
+[DIALOG 12400]
+123,54,1,"Gå til post"
+13000,8,9,29,8,1,"&Post:"
+100,40,7,74,12,1,""
+1,8,32,50,14,1,"OK"
+2,65,32,50,14,1,"Annuller"
+
+[STRINGTABLE 0]
+11089,1,"Databasefremviser"
+11090,1,"Vis dBase-, FoxPro- og CSV-databasefiler."
+11092,1,"Om pluginnet"
+11101,1,"Nogle Databasefremviser-vinduer er åbne. Vil du lukke dem?"
+
+[STRINGTABLE 1]
+11110,1,"Der er ikke mere hukommelse."
+11111,1,"Filen har et ukendt databaseformat."
+11112,1,"Filen fandtes ikke."
+11113,1,"Fejl ved læsning af databasefilen. Den kan være trunkeret."
+11114,1,"Fejl ved skrivning af databasefilen."
+11115,1,"Fejl ved søgning i databasefilen."
+11116,1,"Memofilen er ikke tilgængelig."
+11117,1,"Memofilen er beskadiget."
+
+[STRINGTABLE 2]
+11120,1,"Databasefiler (*.csv;*.dbf;*.jsonl;*.txt)|*.csv;*.dbf;*.jsonl;*.txt|Alle filer (*.*)|*.*|"
+11121,1,"%d pt. %s (%s)"
+11122,1,"Konfigurationen er allerede åbnet."
+11123,1,"Navn"
+11124,1,"Type"
+11125,1,"Bred"
+11126,1,"Decimal"
+11130,1,"dBase II"
+11131,1,"dBase III"
+11132,1,"dBase IV"
+11133,1,"dBase V"
+11134,1,"Visual dBase 7"
+11135,1,"FoxPro"
+
+[STRINGTABLE 3]
+11136,1,"Ukendt"
+11140,1,"Tegn"
+11141,1,"Tal"
+11142,1,"Logisk"
+11143,1,"Dato"
+11144,1,"Memo"
+11145,1,"Flydepunkt"
+11146,1,"Binær"
+11147,1,"Generel"
+11148,1,"Billede"
+11149,1,"Valuta"
+11150,1,"Dato/tid"
+11151,1,"Heltal"
+
+[STRINGTABLE 4]
+11152,1,"Ukendt"
+11153,1,"Double"
+11154,1,"Timestamp"
+11155,1,"Autoinkrement"
+11160,1,"Mindst ét felt skal være synligt."
+11162,1,"Ingen gyldige felter i denne database."
+11163,1,"Sand"
+11164,1,"Falsk"
+11165,1,"Ændret"
+11166,1,"Stør"
+11167,1,"Version"
+
+[STRINGTABLE 5]
+11168,1,"Antal poster"
+11169,1,"Feltantal"
+11170,1,"Memofeltantal"
+11171,1,"Hovedstr."
+11172,1,"Poststr."
+11173,1,"Kodeside"
+
+[STRINGTABLE 6]
+11194,1,"Fejl i regulært udtryk"
+11195,1,"Find"
+11196,1,"Finder ikke strengen '%s'."
+11197,1,"Finder ikke et match for det regulære udtryk '%s'."
+
+[STRINGTABLE 7]
+11200,1,"&Fil"
+11201,1,"&Åbn...\tCtr+O"
+11202,1,"&Opdater\tCtr+R"
+11203,1,"&Egenskaber...\tCtrl+F1"
+11204,1,"&Andre filer"
+11205,1,"&Forrige\tBackspace"
+11206,1,"&Næste\tSpace"
+11207,1,"Forrige va&lgte\tCtrl+Backspace"
+11208,1,"Næste &valgte\tCtrl+Space"
+11209,1,"F&ørste\tShift+Backspace"
+11210,1,"&Sidste\tShift+Space"
+11211,1,"Afsl&ut\tAlt+F4"
+
+[STRINGTABLE 8]
+11217,1,"&Rediger"
+11218,1,"&Kopiér\tCtrl+C"
+11219,1,"&Markér alle\tCtrl+A"
+11220,1,"&Find...\tCtrl+F"
+11221,1,"Find &næste\tCtrl+N"
+11222,1,"Find f&orrige\tCtrl+P"
+11223,1,"&Skift bogmærke\tCtrl+F2"
+11224,1,"Næste &bogmærke\tF2"
+11225,1,"Forrige bogm&aerke\tShift+F2"
+11226,1,"&Ryd alle bogmærker\tCtrl+Shift+F2"
+11230,1,"&Vis"
+11231,1,"&Gå til post...\tG"
+
+[STRINGTABLE 9]
+11232,1,"F&elter...\tI"
+11233,1,"&Fuld skærm\tF11"
+
+[STRINGTABLE 10]
+11250,1,"&Konverter"
+11251,1,"&Auto-vælg"
+11252,1,"&Konverter ikke"
+11253,1,"Sæt som standard"
+11254,1,"Næste\tF8"
+11255,1,"Forrige\tShift+F8"
+
+[STRINGTABLE 11]
+11270,1,"&Indstillinger"
+11271,1,"C&SV-indstillinger..."
+11272,1,"&Konfiguration..."
+
+[STRINGTABLE 12]
+11280,1,"&Hjælp"
+11281,1,"&Om..."
+11282,1,"&Indhold\tF1"
+11283,1,"&Indeks..."
+11284,1,"&Søg..."
+
+[STRINGTABLE 13]
+11500,1,"Kopier\tCtrl+C"
+11501,1,"Åbn\tCtrl+O"
+11502,1,"Find\tCtrl+F"
+11503,1,"Egenskaber\tCtrl+F1"
+
+[STRINGTABLE 14]
+11504,1,"Fuld skærm\tF11"
+11505,1,"Aktuel post/Antal poster\tG"
+
+[STRINGTABLE 15]
+11520,1,"Brug &standardfont"
+11521,1,"Brug &brugerfont..."
+11522,1,"standardfont"
+11523,1,"brugerfont"
+

@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\danish\unchm\unchm.atp"
+TEXTVERSION,"1.7 (x64)"
+VERSION,"1,7,0,197"
+
+[TRANSLATION]
+LANGID,1030
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"UnCHM"
+1001,1,"Kan ikke åbne fil."
+1002,1,"Uspecificeret fejl"
+1003,1,"Udpakker CHM-arkiv"
+1004,1,"Fejl ved udpakning."
+1005,1,"Kan ikke håndtere filen."
+1006,1,"Ikke nok hukommelse."
+1007,1,"Om plugin"
+
+[STRINGTABLE 1]
+1009,1,"Gennemse og udpak CHM-filer."
+1010,1,"Kan ikke oprette midlertidig mappe."
+1011,1,"Kan ikke slette tempfilen."
+1012,1,"Ukendt filformat eller ugyldigt CHM-billede.\n\nHvis du er sikker på, at det er gyldigt, kontakt support@altap.cz og hjælp os med at understøtte formatet."
+1013,1,"Kan ikke åbne filen."
+1014,1,"Oprettelse af midlertidig fil fejlede."
+1015,1,"Kan ikke angive attributter."
+1016,1,"Kan ikke oprette mappen '%s'."
+1020,1,"Ja"
+1021,1,"Nej"
+1022,1,"Fejl"
+1023,1,"Advarsel"
+
+[STRINGTABLE 2]
+1032,1,"Intern pluginfejl."
+
+[STRINGTABLE 3]
+1100,1,"Læsefejl"
+1101,1,"Skrivefejl"
+
+[STRINGTABLE 4]
+1105,1,"Ugyldigt tal."
+1106,1,"annullerer operation, vent venligst"
+1107,1,"CHMLIB Library Copyright © 2001-2010 Jed Wing"
+

@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-16 | Include every plugin language directory when syncing translations. | Newly added language folders must not be omitted from repository translation archives. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-11 | Add language filtering to plugin translation sync. | Keep both translation sync directions selectable for newly added languages. | | openai/gpt-5.6-luna-pro |
 <#
 .SYNOPSIS
@@ -91,7 +92,7 @@ if ($Languages -and $Languages.Count -gt 0)
 }
 
 # Scan each plugin for a translations/ subdirectory
-foreach ($pluginDir in (Get-ChildItem -Path $pluginsDir -Directory))
+foreach ($pluginDir in (Get-ChildItem -LiteralPath $pluginsDir -Directory -Force))
 {
     if ($requestedModules.Count -gt 0 -and
         $requestedModules -notcontains $pluginDir.Name.ToLowerInvariant())
@@ -106,7 +107,7 @@ foreach ($pluginDir in (Get-ChildItem -Path $pluginsDir -Directory))
     }
 
     # Scan language subdirectories within the plugin
-    foreach ($langDir in (Get-ChildItem -Path $pluginTranslationsDir -Directory))
+    foreach ($langDir in (Get-ChildItem -LiteralPath $pluginTranslationsDir -Directory -Force))
     {
         if ($requestedLanguages.Count -gt 0 -and
             $requestedLanguages -notcontains $langDir.Name.ToLowerInvariant())
@@ -114,7 +115,7 @@ foreach ($pluginDir in (Get-ChildItem -Path $pluginsDir -Directory))
             continue
         }
 
-        $sltFiles = Get-ChildItem -LiteralPath $langDir.FullName -Filter "*.slt" -File
+        $sltFiles = Get-ChildItem -LiteralPath $langDir.FullName -Filter "*.slt" -File -Force
         if (-not $sltFiles)
         {
             continue

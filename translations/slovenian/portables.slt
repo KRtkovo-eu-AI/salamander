@@ -1,0 +1,59 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\slovenian\portables\portables.atp"
+TEXTVERSION,"0.7 (x64)"
+VERSION,"0,7,0,197"
+
+[TRANSLATION]
+LANGID,1060
+AUTHOR,"Open Salamander"
+WEB,"https://samandarin.net/"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+128,1,"{!}%d izbranih naprav{2:s|0||1|s}"
+129,1,"Ni naprav"
+130,1,"Prenosne naprave"
+131,1,"Opusti"
+132,1,"Priprava..."
+133,1,"Dat.:"
+134,1,"Vsota:"
+135,1,"Zmanjšaj"
+136,1,"Pavza"
+137,1,"Prenosna naprava se ne odziva. Odklopite jo in jo ponovno priklopite. Plošča Prenosne naprave se bo vrnila na seznam naprav."
+138,1,"%s/%s kopirano"
+139,1,"Kop."
+140,1,"Prem."
+141,1,"Briši"
+142,1,"Kopiram"
+143,1,"Premik"
+
+[STRINGTABLE 1]
+144,1,"Brisanje"
+145,1,"na"
+146,1,"%s/%s premik"
+147,1,"%s/%s obdelano"
+148,1,"Brisanje izbranih"
+149,1,"%s '%s' padlo (0x%08X)."
+150,1,"Preim."
+151,1,"Ustvari mapo"
+152,1,"Pog."
+153,1,"Ime je še vedno na napravi. Element ni bil ponovno ustvarjen."
+154,1,"Datoteka ne more zamenjati mape."
+155,1,"Mape ne more zamenjati datoteke."
+156,1,"Element s tem imenom že obstaja."
+157,1,"?"
+
+[STRINGTABLE 2]
+8192,1,"Prenosne naprave"
+8193,1,"Upravljaj prenosne napr."
+
+[STRINGTABLE 3]
+9216,1,"O vtičniku"
+
+[STRINGTABLE 4]
+10240,1,"Napaka menjave imenika"
+10241,1,"Pot: "%s"\r\nNapaka: %s"
+
+[STRINGTABLE 5]
+19457,1,"Navedena pot vsebuje pot do datoteke."
+

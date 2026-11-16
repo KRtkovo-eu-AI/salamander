@@ -1,0 +1,18 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\norwegian\ieviewer\ieviewer.atp"
+TEXTVERSION,"1.14 (x64)"
+VERSION,"1,14,0,197"
+
+[TRANSLATION]
+LANGID,1044
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+10100,1,"Internet Explorer Viewer"
+10101,1,"Kunne ikke åpne Internet Explorer Viewer.\nRapporter problemet til support@altap.cz."
+10102,1,"Feil"
+10103,1,"Lett HTML- og XML-visning basert på Internet Explorer."
+10105,1,"Om plugin"
+

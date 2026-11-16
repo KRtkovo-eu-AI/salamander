@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\finnish\unlha\unlha.atp"
+TEXTVERSION,"1.16 (x64)"
+VERSION,"1,16,0,197"
+
+[TRANSLATION]
+LANGID,1035
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1,1,"LZH-tiedosto virheellinen tai tuntematon"
+2,1,"Otsikontarkistussummavirhe.\nArkisto vioittunut; kaikkia tiedostoja ei listata."
+3,1,"Muisti loppu."
+4,1,"Kirjoitusvirhe"
+5,1,"UnLHA"
+6,1,"Virhe avattaessa arkistoa."
+7,1,"Arkistomerkintää ei voitu lisätä listaan."
+8,1,"Arkisto sisältää yhden tai useamman UNIX-symbolisen linkin, joita ei näytetä."
+10,1,"Tiedostoa ei voi purkaa"
+11,1,"Virhe pakatuissa tiedoissa. CRC ei täsmää."
+12,1,"Virhe luettaessa arkistoa."
+13,1,"Puretaan LHA-arkistoa - %s"
+14,1,"tietojen valmistelu, kansioiden luonti..."
+15,1,"puretaan: "
+
+[STRINGTABLE 1]
+16,1,"puretaan..."
+17,1,"Toimintoa ei voi lopettaa pitkän polkunimen vuoksi."
+18,1,"Toimintoa ei voi lopettaa pitkän maskin vuoksi."
+19,1,"Tuntematon pakkausmenetelmä. Tiedostoa ei voida purkaa."
+20,1,"tuntematon menetelmä ohitettu..."
+21,1,"Selaa ja pura LHA-arkistoja."
+22,1,"Tietoa lisäosasta"
+

@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\norwegian\unole\unole.atp"
+TEXTVERSION,"1.4 (x64)"
+VERSION,"1,4,0,197"
+
+[TRANSLATION]
+LANGID,1044
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"UnOLE2"
+1001,1,"Utilstrekkelig minne."
+1002,1,"Kan ikke åpne OLE-fil %s.\n"
+1003,1,"Kunne ikke skaffe minneallokator.\n"
+1004,1,"Skriver ikke til fil.\n"
+1005,1,"Kan ikke lage fil %s.\n"
+1006,1,"Åpner ikke strøm %s.\n"
+1007,1,"Skriver ikke til fil.\n"
+
+[STRINGTABLE 1]
+1008,1,"Ukjent feil oppsto."
+1014,1,"Kunne ikke legge til arkivoppføring i listen."
+1015,1,"Pakker ut OLE-fil"
+1017,1,"pakker ut..."
+1018,1,"pakker ut: "
+
+[STRINGTABLE 2]
+1025,1,"Beklager, pluginet har utløpt. Sjekk nettstedet vårt for nyere versjon."
+
+[STRINGTABLE 3]
+1041,1,"Feil"
+1042,1,"Bla og pakk ut sammensatte OLE-filer."
+1043,1,"Om plugin"
+

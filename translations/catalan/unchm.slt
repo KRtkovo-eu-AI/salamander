@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\catalan\unchm\unchm.atp"
+TEXTVERSION,"1.7 (x64)"
+VERSION,"1,7,0,197"
+
+[TRANSLATION]
+LANGID,1027
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"UnCHM"
+1001,1,"No es pot obrir."
+1002,1,"Error desconegut."
+1003,1,"Desempaquetant CHM"
+1004,1,"Error en desempaquetar"
+1005,1,"No es pot gestionar."
+1006,1,"Memòria insuficient."
+1007,1,"Quant al plugin"
+
+[STRINGTABLE 1]
+1009,1,"Explora i extreu fitxers CHM."
+1010,1,"No s'ha creat el directori temporal"
+1011,1,"No es pot suprimir el fitxer."
+1012,1,"Format de fitxer desconegut o CHM no vàlid.\n\nSi creieu que és una imatge CHM vàlida, escriviu a support@altap.cz i ajudeu-nos a admetre el format."
+1013,1,"No es pot obrir."
+1014,1,"No s'ha creat el fitxer temporal."
+1015,1,"No es pot definir atributs."
+1016,1,"No es crea el directori '%s'."
+1020,1,"Sí"
+1021,1,"No"
+1022,1,"Error"
+1023,1,"Avís"
+
+[STRINGTABLE 2]
+1032,1,"Error intern del plugin"
+
+[STRINGTABLE 3]
+1100,1,"Error de lectura"
+1101,1,"Error d'escriptura"
+
+[STRINGTABLE 4]
+1105,1,"Número invàlid."
+1106,1,"Cancel·lant l'operació, espereu..."
+1107,1,"CHMLIB Library Copyright © 2001-2010 Jed Wing"
+

@@ -2,6 +2,7 @@
 # | 2026-11-11 | Preserve array-valued parameters and limit synchronization to the selected languages. | Prevent PowerShell positional binding errors and avoid copying unrelated plugin archives for each job. | | openai/gpt-5.6-luna-pro |
 # | 2026-11-11 | Use real concurrent AI batches and reusable workspaces. | Reduce translation latency and avoid rebuilding the full workspace for every interactive archive. | | openai/gpt-5.6-luna-pro |
 # | 2026-11-05 | Register fifteen major-language translation stubs. | Empty language folders need LANGID metadata before AI batch translation. | | Composer |
+# | 2026-11-15 | Add Catalan, Danish, Finnish, Lithuanian, Norwegian and Slovenian localization stubs. | Register new target languages with Windows LANGID metadata for the AI translation pipeline. | | nvidia/nemotron-3.5-super-vl:free |
 <# .SYNOPSIS Headlessly translates every selected language/module using OpenRouter (default), Cursor, or OpenAI. #>
 [CmdletBinding()] param(
  [string]$BuildRoot=".\build\out\salamand\Release_x64", [string[]]$Languages, [string[]]$Modules,
@@ -32,11 +33,11 @@ $unknown=@($selectedModules | Where-Object {$availableModules -notcontains $_});
 $syncScript=Join-Path $PSScriptRoot 'sync_plugin_translations.ps1'; if(Test-Path $syncScript){ & $syncScript -RepoRoot $repoRoot -Languages $selectedLanguages }
 
 $langIdByLanguage = @{
- arabic = 1025; bulgarian = 1026; chinesesimplified = 2052; chinesetraditional = 1028
- croatian = 1050; czech = 1029; dutch = 1043; french = 1036; german = 1031; greek = 1032
+ arabic = 1025; bulgarian = 1026; catalan = 1027; chinesesimplified = 2052; chinesetraditional = 1028
+ croatian = 1050; czech = 1029; danish = 1030; dutch = 1043; finnish = 1035; french = 1036; german = 1031; greek = 1032
  hebrew = 1037; hungarian = 1038; indonesian = 1057; italian = 1040; japanese = 1041
- korean = 1042; polish = 1045; portuguese = 1046; romanian = 1048; russian = 1049
- slovak = 1051; spanish = 3082; swedish = 1053; turkish = 1055; ukrainian = 1058
+ korean = 1042; lithuanian = 1063; norwegian = 1044; polish = 1045; portuguese = 1046; romanian = 1048; russian = 1049
+ slovak = 1051; slovenian = 1060; spanish = 3082; swedish = 1053; turkish = 1055; ukrainian = 1058
  vietnamese = 1066
 }
 function Set-SltLangId([string]$Path,[string]$Language){

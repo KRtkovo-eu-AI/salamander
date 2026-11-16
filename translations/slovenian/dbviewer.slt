@@ -1,0 +1,228 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\slovenian\dbviewer\dbviewer.atp"
+TEXTVERSION,"1.28 (x64)"
+VERSION,"1,28,0,197"
+
+[TRANSLATION]
+LANGID,1060
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 12200]
+235,181,1,"Lastnosti"
+1,179,162,50,14,1,"OK"
+13000,4,155,227,1,1,""
+12201,5,5,224,143,1,""
+
+[DIALOG 12220]
+282,105,1,"Pregledovalnik baze podatkov"
+13000,6,10,270,35,1,"Pisava"
+12221,13,23,50,14,1,"&Pisava"
+12222,69,23,200,14,1,""
+13001,6,48,270,27,1,"Položaj okna"
+12223,14,58,70,12,1,"&Shrani ob zaprtju"
+12224,107,58,163,12,1,"&Nastavi položaj na glavno okno Salamanderja"
+12225,13,85,60,14,1,"Možnosti CSV..."
+1,113,85,50,14,1,"OK"
+2,168,85,50,14,1,"Prekliči"
+9,223,85,50,14,1,"Pomoč"
+
+[DIALOG 12240]
+282,178,1,"Polja"
+12241,6,6,270,142,1,""
+13000,4,153,274,1,1,""
+12242,6,159,69,14,1,"&Obnovi privzete"
+1,115,159,50,14,1,"OK"
+2,170,159,50,14,1,"Prekliči"
+9,225,159,50,14,1,"Pomoč"
+
+[DIALOG 12250]
+303,137,1,"Možnosti CSV"
+13000,6,6,90,101,1,"&Ločilo"
+12264,15,18,71,12,1,"Samodejna izbira"
+12261,15,32,60,12,1,"Tabulator"
+12260,15,46,60,12,1,"Podpica (;)"
+12259,15,60,60,12,1,"Vejica (,)"
+12258,15,74,60,12,1,"Presledek ( )"
+12257,15,88,34,12,1,"Drugo"
+12256,49,88,16,12,1,""
+13001,106,6,90,101,1,"&Kvalifikator besedila"
+12262,115,18,71,12,1,"Samodejna izbira"
+12255,115,32,82,12,1,"Dvojni narekovaji (")"
+12254,115,46,60,12,1,"Narekovaji (')"
+12253,115,60,60,12,1,"Brez"
+13002,206,6,90,101,1,"&Prva vrstica"
+12263,215,18,71,12,1,"Samodejna izbira"
+12265,215,32,76,12,1,"Kot imena stolpcev"
+12266,215,46,60,12,1,"Kot podatki"
+1,136,118,50,14,1,"OK"
+2,191,118,50,14,1,"Prekliči"
+9,246,118,50,14,1,"Pomoč"
+12252,6,118,63,14,1,"Nastavi kot &privzeto"
+
+[DIALOG 12300]
+210,131,1,"Najdi"
+13000,28,11,174,1,1,""
+13001,9,7,20,8,1,"&Najdi"
+12301,16,17,182,64,1,""
+13002,38,47,164,1,1,""
+13003,9,43,32,8,1,"Možnosti"
+12302,16,53,66,12,1,"Išči &naprej"
+12303,16,65,72,12,1,"Išči &nazaj"
+12304,113,53,57,12,1,"Cele &besede"
+12305,113,65,84,12,1,"Občutljivo na &velikost"
+12306,113,77,75,12,1,"Regularni &izraz"
+13004,8,102,194,1,1,""
+1,20,110,50,14,1,"OK"
+2,80,110,50,14,1,"Prekliči"
+9,140,110,50,14,1,"Pomoč"
+
+[DIALOG 12400]
+123,54,1,"Na zapis"
+13000,8,9,29,8,1,"&Zapis:"
+100,40,7,74,12,1,""
+1,8,32,50,14,1,"OK"
+2,65,32,50,14,1,"Prekliči"
+
+[STRINGTABLE 0]
+11089,1,"Pregledovalnik zbirke podatkov"
+11090,1,"Prikaz datotek dBase, FoxPro in CSV."
+11092,1,"O vtičniku"
+11101,1,"Nekatera okna pregledovalnika so odprta. Ali jih želite zapreti?"
+
+[STRINGTABLE 1]
+11110,1,"Ni dovolj pomnilnika."
+11111,1,"Datoteka ima neznano obliko zbirke."
+11112,1,"Datoteka ni najdena."
+11113,1,"Napaka pri branju datoteke zbirke. Morda je okrnjena."
+11114,1,"Napaka pri pisanju datoteke zbirke."
+11115,1,"Napaka pri iskanju datoteke zbirke."
+11116,1,"Datoteka z opombami ni na voljo."
+11117,1,"Datoteka z opombami je poškodovana."
+
+[STRINGTABLE 2]
+11120,1,"Datoteke zbirke (*.csv;*.dbf;*.jsonl;*.txt)|*.csv;*.dbf;*.jsonl;*.txt|Vse datoteke (*.*)|*.*|"
+11121,1,"%d toč. %s (%s)"
+11122,1,"Konfiguracija je že odprta."
+11123,1,"Ime"
+11124,1,"Tip"
+11125,1,"Širina"
+11126,1,"Decimalke"
+11130,1,"dBase II"
+11131,1,"dBase III"
+11132,1,"dBase IV"
+11133,1,"dBase V"
+11134,1,"Visual dBase 7"
+11135,1,"FoxPro"
+
+[STRINGTABLE 3]
+11136,1,"Neznano"
+11140,1,"Znak"
+11141,1,"Število"
+11142,1,"Logično"
+11143,1,"Datum"
+11144,1,"Memo"
+11145,1,"Plavajoča vejica"
+11146,1,"Binarno"
+11147,1,"Splošno"
+11148,1,"Slika"
+11149,1,"Valuta"
+11150,1,"Datum/čas"
+11151,1,"Celo število"
+
+[STRINGTABLE 4]
+11152,1,"Neznano"
+11153,1,"Dvojno"
+11154,1,"Časovni žig"
+11155,1,"Samodejno povečevanje"
+11160,1,"Vidno mora biti vsaj eno polje."
+11162,1,"V tej zbirki podatkov ni veljavnih polj."
+11163,1,"Res"
+11164,1,"Neres"
+11165,1,"Spremenjeno"
+11166,1,"Velikost"
+11167,1,"Različica"
+
+[STRINGTABLE 5]
+11168,1,"Število zapisov"
+11169,1,"Število polj"
+11170,1,"Število memo-polj"
+11171,1,"Velikost glave"
+11172,1,"Velikost zapisa"
+11173,1,"Kodna stran"
+
+[STRINGTABLE 6]
+11194,1,"Napaka regularnega izraza"
+11195,1,"Išči"
+11196,1,"Ni mogoče najti niza '%s'."
+11197,1,"Ni najdeno ujemanja za regularni izraz '%s'."
+
+[STRINGTABLE 7]
+11200,1,"&Datoteka"
+11201,1,"&Odpri...\tCtr+O"
+11202,1,"&Osveži\tCtr+R"
+11203,1,"&Lastnosti...\tCtrl+F1"
+11204,1,"&Druge datoteke"
+11205,1,"&Prejšnji\tBackspace"
+11206,1,"&Naprej\tSpace"
+11207,1,"&Prejšnji izbrani\tCtrl+Backspace"
+11208,1,"&Naslednji izbrani\tCtrl+Space"
+11209,1,"&Prvi\tShift+Backspace"
+11210,1,"&Zadnji\tShift+Space"
+11211,1,"&Izhod\tAlt+F4"
+
+[STRINGTABLE 8]
+11217,1,"&Urejanje"
+11218,1,"&Kopiraj\tCtrl+C"
+11219,1,"&Izberi vse\tCtrl+A"
+11220,1,"&Išči...\tCtrl+F"
+11221,1,"Išči &naprej\tCtrl+N"
+11222,1,"Išči &prejšnje\tCtrl+P"
+11223,1,"&Preklopi zaznamek\tCtrl+F2"
+11224,1,"&Naslednji zaznamek\tF2"
+11225,1,"&Prejšnji zaznamek\tShift+F2"
+11226,1,"Počisti &vse zaznamke\tCtrl+Shift+F2"
+11230,1,"&Pogled"
+11231,1,"&Pojdi na zapis...\tG"
+
+[STRINGTABLE 9]
+11232,1,"&Polja...\tI"
+11233,1,"&Cel zaslon\tF11"
+
+[STRINGTABLE 10]
+11250,1,"&Pretvori"
+11251,1,"&Samodejno izberi"
+11252,1,"&Ne pretvori"
+11253,1,"Nastavi kot privzeto"
+11254,1,"Naprej\tF8"
+11255,1,"Prejšnji\tShift+F8"
+
+[STRINGTABLE 11]
+11270,1,"&Možnosti"
+11271,1,"&Možnosti CSV..."
+11272,1,"&Konfiguracija..."
+
+[STRINGTABLE 12]
+11280,1,"&Pomoč"
+11281,1,"&O programu..."
+11282,1,"&Vsebina\tF1"
+11283,1,"&Indeks..."
+11284,1,"&Išči..."
+
+[STRINGTABLE 13]
+11500,1,"Kopiraj\tCtrl+C"
+11501,1,"Odpri\tCtrl+O"
+11502,1,"Najdi\tCtrl+F"
+11503,1,"Lastnosti\tCtrl+F1"
+
+[STRINGTABLE 14]
+11504,1,"Cel zaslon\tF11"
+11505,1,"Trenutni zapis/št. zapisov\tG"
+
+[STRINGTABLE 15]
+11520,1,"&Privzeta pisava"
+11521,1,"&Pisava po meri..."
+11522,1,"privzeta pisava"
+11523,1,"pisava po meri"
+

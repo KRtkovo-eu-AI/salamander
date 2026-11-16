@@ -207,7 +207,7 @@ SLGINCOMPLETE,""
 2,270,57,50,14,1,"キャンセル"
 
 [DIALOG 191]
-273,289,1,"ディレクトリの比較"
+255,289,1,"ディレクトリの比較"
 1150,9,6,206,8,1,"最初は、両方のパネルですべての名前が選択されていません。"
 1151,9,15,186,8,1,"1 つのパネルにのみ存在するファイルが選択されます。"
 1152,9,31,116,8,1,"同じ名前のファイルを比較する"
@@ -265,7 +265,7 @@ SLGINCOMPLETE,""
 9,153,43,50,14,1,"ヘルプ"
 
 [DIALOG 205]
-269,257,1,""
+255,257,1,""
 209,10,9,207,8,1,""
 210,10,19,208,131,1,""
 362,223,18,23,14,1,""
@@ -1897,7 +1897,7 @@ SLGINCOMPLETE,""
 2,434,300,80,14,1,"キャンセル"
 
 [DIALOG 8201]
-269,302,1,""
+255,302,1,""
 209,10,9,235,8,1,""
 6261,10,19,235,44,1,""
 1817,10,82,65,8,1,"転送モード(&T):"
@@ -4273,7 +4273,7 @@ SLGINCOMPLETE,""
 14523,1,"閉じる"
 14524,1,"Windows 設定ガイド"
 14525,1,"Windows の長いパスサポート"
-14526,0,"An administrator can enable the Windows policy:\nComputer Configuration > Administrative Templates > System > Filesystem > Enable Win32 long paths.\n\nIts registry equivalent is REG_DWORD LongPathsEnabled = 1 under:\nHKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\FileSystem\n\nRestart affected applications; restarting Windows may also be necessary. Applications must support long paths themselves. This is not a way to override a security denial, and Shell or the target program may still reject the path. Salamander does not change this setting."
+14526,1,"An administrator can enable the Windows policy:\nComputer Configuration > Administrative Templates > System > Filesystem > Enable Win32 long paths.\n\nIts registry equivalent is REG_DWORD LongPathsEnabled = 1 under:\nHKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\FileSystem\n\nRestart affected applications; restarting Windows may also be necessary. Applications must support long paths themselves. This is not a way to override a security denial, and Shell or the target program may still reject the path. Salamander does not change this setting."
 14527,1,"Windows エラー："
 
 [STRINGTABLE 187]

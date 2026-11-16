@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\lithuanian\unchm\unchm.atp"
+TEXTVERSION,"1.7 (x64)"
+VERSION,"1,7,0,197"
+
+[TRANSLATION]
+LANGID,1063
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"UnCHM"
+1001,1,"Neatidaryti failo."
+1002,1,"Nenurodyta klaida."
+1003,1,"Išpakuoju CHM archyvą"
+1004,1,"Išpakuoti nepavyko."
+1005,1,"Neapdorojamas šis failas."
+1006,1,"Nepakanka atminties."
+1007,1,"Apie įskiepį"
+
+[STRINGTABLE 1]
+1009,1,"CHM peržiūra ir išpakavimas."
+1010,1,"Nepavyksta sukurti laikiną katalogą."
+1011,1,"Negali ištrinti laikino failo."
+1012,1,"Nežinomas failo formatas arba netinkamas CHM vaizdas.\n\nJei vaizdas tikrai tinkamas, rašykite support@altap.cz ir padėkite jį palaikyti."
+1013,1,"Neatidaryti šio failo."
+1014,1,"Nepavyko sukurti laikinojo failo."
+1015,1,"Nepavyko nustatyti atributų."
+1016,1,"Negalima sukurti katalogo '%s'."
+1020,1,"Taip"
+1021,1,"Ne"
+1022,1,"Klaida"
+1023,1,"Įspėjimas"
+
+[STRINGTABLE 2]
+1032,1,"Vidinė įskiepio klaida."
+
+[STRINGTABLE 3]
+1100,1,"Skaitymo klaida"
+1101,1,"Rašymo klaida"
+
+[STRINGTABLE 4]
+1105,1,"Netinkamas nr."
+1106,1,"operacija atšaukiama, palaukite..."
+1107,1,"CHMLIB Library Copyright © 2001-2010 Jed Wing"
+

@@ -1,0 +1,64 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\danish\tar\tar.atp"
+TEXTVERSION,"3.36 (x64)"
+VERSION,"3,36,0,197"
+
+[TRANSLATION]
+LANGID,1030
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+11200,1,"TAR-pluginfejl"
+11201,1,"Ukendt eller ikke understøttet arkivformat."
+11202,1,"Ugyldige data i TAR-header - beskadiget arkiv."
+11203,1,"Dårlig fil-/headerkontrolsum - beskadiget arkiv."
+11204,1,"Intern fejl: beskadiget datastruktur for fil."
+11205,1,"Ukendt bloksignatur - springes over"
+11206,1,"Krævet fil blev ikke fundet i arkivet."
+11207,1,"Hukommelsesallokeringsfejl"
+
+[STRINGTABLE 1]
+11240,1,"LZH-arkiver understøttes ikke."
+
+[STRINGTABLE 2]
+11250,1,"Udpak"
+11251,1,"Udtrækker "
+11252,1,"Springes "
+11260,1,"GZip-fejl"
+11261,1,"Ukendt komprimeringsmetode, kan ikke udtrækkes."
+11262,1,"Filen er krypteret. Kryptering understøttes ikke i GZip-arkiver."
+11263,1,"Den tilhører et arkiv i flere dele. Multipart-GZip-arkiver understøttes ikke."
+
+[STRINGTABLE 3]
+11264,1,"Ukendte flag i GZip-headeren, kan ikke udtrækkes."
+11265,1,"Fejl ved åbning af arkiv: "
+11266,1,"For tidlig filafslutning fundet."
+11267,1,"Fejl ved læsning af arkiv: "
+11268,1,"Fejl ved skrivning til fil: "
+11269,1,"WriteFile-funktionen nægtede at skrive alle de ønskede data."
+11270,1,"Ugyldig blok i GZip-strømmen, kan ikke udtrækkes."
+11271,1,"Intern fejl i TAR-pluginnet, kontakt os på e-mail support@altap.cz."
+11272,1,"Hukommelsesallokeringsfejl"
+11273,1,"CRC-fejl."
+11274,1,"Uventede data i komprimeret strøm - beskadiget arkiv."
+11275,1,"Fejl ved søgning i arkivfil: "
+
+[STRINGTABLE 4]
+11280,1,"RPM-viser"
+11281,1,"RPM-fejl"
+11282,1,"Kan ikke oprette tempfilnavn."
+11283,1,"Kan ikke oprette tempfil."
+11284,1,"Filen blev ikke genkendt som et RPM-arkiv."
+11285,1,"Den RPM-version, arkivet kræver, understøttes ikke."
+11286,1,"Ukendt RPM-arkivsignatur fundet."
+11291,1,"Filposten har en dårlig signatur."
+11292,1,"Beskadiget filheaderpost."
+11293,1,"Ukendt format for cpio-header."
+
+[STRINGTABLE 5]
+11299,1,"TAR"
+11300,1,"Gennemse og udtræk Unix-arkiver."
+11301,1,"Om plugin"
+

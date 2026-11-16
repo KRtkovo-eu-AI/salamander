@@ -1,0 +1,58 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\danish\demoview\demoview.atp"
+TEXTVERSION,"1.0.4 (x64)"
+VERSION,"1,0,4,197"
+
+[TRANSLATION]
+LANGID,1030
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 490]
+205,61,1,"Fremviser"
+3000,4,6,199,41,1,"Vindueposition"
+491,11,17,69,12,1,"&Gem ved lukning"
+492,11,29,156,12,1,"&Sæt til position af Salamander-vindue"
+
+[STRINGTABLE 0]
+46,1,"DemoView"
+47,1,"Om plugin"
+
+[STRINGTABLE 1]
+48,1,"Pluginnet hjælper dig med at lave dit eget fremviserplugin."
+49,1,"samandarin.net"
+50,1,"Der er opstået en undtagelse i DemoView, informer forfatterne!\nHvis du har arbejdet med en .DMV-fil, da undtagelsen opstod,\nforsøg at genskabe fejlen med denne .DMV-fil, og hvis undtagelsen\nopstår igen, send os denne .DMV-fil (vi vil genskabe og rette fejlen).\nTak!"
+51,1,"petr.solin@altap.cz"
+52,1,"Konfigurationen er allerede åbnet."
+53,1,"Nogle DemoView-fremviservinduer er åbne. Vil du lukke dem?"
+54,1,"DemoView-konfiguration"
+55,1,"Forkert nummer!"
+56,1,"DemoView-filer (*.dmv)|*.dmv|Alle filer (*.*)|*.*|"
+
+[STRINGTABLE 2]
+2000,1,"&Filer"
+2001,1,"&Åbn\tCtrl+O"
+2002,1,"&Afslut"
+2010,1,"&Redigér"
+2011,1,"&Klip\tCtrl+X"
+2012,1,"&Kopiér\tCtrl+C"
+2013,1,"&Indsæt\tCtrl+V"
+
+[STRINGTABLE 3]
+2020,1,"&Vis"
+2021,1,"&Filter"
+2022,1,"Filter"
+2025,1,"&Indstillinger"
+2026,1,"&Konfiguration..."
+
+[STRINGTABLE 4]
+2032,1,"&Hjælp"
+2033,1,"&Om"
+
+[STRINGTABLE 5]
+2500,1,"Klip\tCtrl+X"
+2501,1,"Kopiér\tCtrl+C"
+2502,1,"Indsæt\tCtrl+V"
+2503,1,"Filter\tCtrl+U"
+

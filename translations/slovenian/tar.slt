@@ -1,0 +1,64 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\slovenian\tar\tar.atp"
+TEXTVERSION,"3.36 (x64)"
+VERSION,"3,36,0,197"
+
+[TRANSLATION]
+LANGID,1060
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+11200,1,"Napaka TAR"
+11201,1,"Format arhiva ni prepoznan ali ni podprt."
+11202,1,"Napačni podatki v glavi TAR, arhiv poškodovan."
+11203,1,"Slaba vsota datoteke ali glave - pokvarjen arhiv"
+11204,1,"Notranja napaka: pokvarjena struktura datoteke"
+11205,1,"Neznan podpis bloka - preskakujem."
+11206,1,"Zahtevana datoteka v arhivu ni najdena."
+11207,1,"Napaka pomnilnika."
+
+[STRINGTABLE 1]
+11240,1,"Arhivi LZH še niso podprti."
+
+[STRINGTABLE 2]
+11250,1,"Razpakiraj"
+11251,1,"Izvlečenje "
+11252,1,"Preskoči "
+11260,1,"Napaka GZip"
+11261,1,"Neznana metoda stiskanja, ni mogoče izvleči."
+11262,1,"Ta datoteka je šifrirana. Šifriranje v arhivih GZip ni podprto."
+11263,1,"Ta datoteka je del večdelnega arhiva. Večdelni arhivi GZip niso podprti."
+
+[STRINGTABLE 3]
+11264,1,"Neznane zastavice v glavi GZip, ni mogoče izvleči."
+11265,1,"Napaka ob odpiranju arhiva: "
+11266,1,"Prezgodnje končanje datoteke."
+11267,1,"Napaka ob branju arhiva: "
+11268,1,"Napaka ob pisanju v datoteko: "
+11269,1,"Funkcija WriteFile ni zapisala vseh zahtevanih podatkov."
+11270,1,"Neveljaven blok v toku GZip, ni mogoče izvleči."
+11271,1,"Notranja napaka v vtičniku TAR, obvestite nas po e-pošti support@altap.cz."
+11272,1,"Napaka pomnilnika."
+11273,1,"Napaka CRC"
+11274,1,"Nepričakovani podatki v stisnjenem toku, arhiv pokvarjen"
+11275,1,"Napaka pri iskanju v arhivu: "
+
+[STRINGTABLE 4]
+11280,1,"Ogled RPM"
+11281,1,"Napaka RPM"
+11282,1,"Napaka izdelave imena začasne datoteke."
+11283,1,"Napaka izdelave začasne datoteke."
+11284,1,"Datoteka ni bila prepoznana kot arhiv RPM."
+11285,1,"Različica RPM, ki jo zahteva ta arhiv, ni podprta."
+11286,1,"Naleteno je na neznan podpis arhiva RPM."
+11291,1,"Zapis datoteke ima slab podpis."
+11292,1,"Poškodovana glava datoteke."
+11293,1,"Neznan format glave cpio."
+
+[STRINGTABLE 5]
+11299,1,"TAR"
+11300,1,"Prebrskaj in izvleči arhive Unix."
+11301,1,"O vtičniku"
+

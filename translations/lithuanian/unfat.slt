@@ -1,0 +1,30 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\lithuanian\unfat\unfat.atp"
+TEXTVERSION,"1.4 (x64)"
+VERSION,"1,4,0,197"
+
+[TRANSLATION]
+LANGID,1063
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"UnFAT"
+1001,1,"Apie įskiepį"
+1003,1,"Naršyti ir išgauti FAT 12, 16 ir 32 atvaizdus."
+
+[STRINGTABLE 1]
+1100,1,"Klaida atveriant "%s"."
+1101,1,"Klaida skaitant "%s"."
+1102,1,"Klaida analizuojant "%s".\n\n%s"
+1103,1,"Sugadintas įkrovos sektorius arba tai nėra FAT 12, 16 ar 32 atvaizdas."
+
+[STRINGTABLE 2]
+1104,1,"Klaida skaitant katalogą iš "%s".\n%s\nSektorius: %d, Poslinkis: 0x%s\n\nFailas nėra FAT 12, 16 ar 32 atvaizdas."
+1106,1,"Klaida skaitant failą iš "%s".\n%s\nKlasteris: %d\n\nFailas nėra FAT 12, 16 ar 32 atvaizdas."
+1107,1,"Rašymo klaida"
+1108,1,"Failas "%s" atrodo kaip viso kietojo disko atvaizdas.\nTokie atvaizdai nepalaikomi UnFAT įskiepiu."
+1109,1,"Išgaunama: FAT atvaizdas %s"
+1110,1,"išgaunama: %s"
+

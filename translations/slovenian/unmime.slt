@@ -1,0 +1,40 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\slovenian\unmime\unmime.atp"
+TEXTVERSION,"1.17 (x64)"
+VERSION,"1,17,0,197"
+
+[TRANSLATION]
+LANGID,1060
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 101]
+251,111,1,"Konfiguracija UnMIME"
+2000,7,7,40,8,1,"Možnosti"
+2001,49,11,196,1,1,""
+1000,18,20,76,10,1,"Seznam &glav pošte"
+1001,18,35,80,10,1,"Seznam &telesa"
+1003,31,50,210,10,1,"Dodaj &nabor znakov k imenu datoteke, če ni US-ASCII"
+1002,18,65,69,10,1,"Seznam &prilog"
+2002,6,82,239,1,1,""
+1,137,90,50,14,1,"OK"
+2,194,90,50,14,1,"Prekliči"
+
+[STRINGTABLE 0]
+1,1,"UnMIME"
+2,1,"Ni bilo mogoče odpreti."
+3,1,"Premalo pomnilnika."
+4,1,"Arhivskega vnosa ni mogoče dodati na seznam."
+5,1,"Ta datoteka vsebuje enega ali več blokov z neznanim kodiranjem.\nTi bloki ne bodo dekodirani."
+6,1,"Napaka zapisa"
+7,1,"Razpakiranje pošte - %s"
+8,1,"razpakiranje:"
+9,1,"Razčlenjevanje"
+10,1,"En ali več blokov %s je okvarjenih ali ima\nneznano obliko in ne bodo dekodirani."
+11,1,"Slab CRC v enem ali več blokov %s.\nTi bloki ne bodo dekodirani."
+12,1,"Brskaj in izloči datoteke MIME/Base64, UU/XXEncode, yEncode in BinHex."
+13,1,"O vtičniku"
+14,1,"Opozorilo: ta datoteka vsebuje Mac vir fork.\nTa fork ne bo razpakiran."
+15,1,"Tega &ne pokaži znova"
+

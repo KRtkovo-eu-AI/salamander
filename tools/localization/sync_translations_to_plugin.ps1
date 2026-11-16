@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-16 | Sync new locale archives even when a plugin has no translation tree yet. | Every repository language containing a plugin archive must reach its plugin. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-11 | Sync top-level translation archives into plugin translation trees. | Plugin submodules can contain stale copies of the current repository translations. | | openai/gpt-5.6-luna-pro |
 # | 2026-11-11 | Keep WhatIf side-effect free for new language directories. | Directory creation must happen only after ShouldProcess approves the copy. | | openai/gpt-5.6-luna-pro |
 <#
@@ -12,8 +13,9 @@
     every plugin-owned .slt file, the matching archive from
     translations/{lang}/ is copied into the plugin tree. A language directory
     is also created when translations/{lang}/{plugin}.slt exists, which lets
-    newly added repository languages enter the plugin submodule. Missing source
-    files are skipped and reported; plugin-only files are not deleted.
+    newly added repository languages enter the plugin submodule. A missing plugin
+    translations/ tree is created when a matching repository archive exists. Missing
+    source files are skipped and reported; plugin-only files are not deleted.
 
 .PARAMETER RepoRoot
     Path to the repository root. Auto-detected if omitted.
@@ -97,7 +99,7 @@ if ($Languages -and $Languages.Count -gt 0)
     $requestedLanguages = @(Expand-Names $Languages)
 }
 
-$pluginDirs = @(Get-ChildItem -Path $pluginsDir -Directory)
+$pluginDirs = @(Get-ChildItem -LiteralPath $pluginsDir -Directory -Force)
 if ($requestedModules.Count -gt 0)
 {
     $availableModules = @($pluginDirs | ForEach-Object { $_.Name.ToLowerInvariant() })
@@ -121,29 +123,28 @@ foreach ($pluginDir in $pluginDirs)
     }
 
     $pluginTranslationsDir = Join-Path $pluginDir.FullName "translations"
-    if (-not (Test-Path -LiteralPath $pluginTranslationsDir))
-    {
-        continue
-    }
-
     $languageNames = @{}
-    foreach ($langDir in (Get-ChildItem -Path $pluginTranslationsDir -Directory))
+    if (Test-Path -LiteralPath $pluginTranslationsDir)
     {
-        $languageNames[$langDir.Name] = $true
+        foreach ($langDir in (Get-ChildItem -LiteralPath $pluginTranslationsDir -Directory -Force))
+        {
+            $languageNames[$langDir.Name] = $langDir.Name
+        }
     }
 
     # Include repository languages that have this plugin's archive but are not
-    # present in the submodule yet.
-    foreach ($repoLanguageDir in (Get-ChildItem -Path $translationsDir -Directory))
+    # present in the submodule yet. This also creates a missing translations/
+    # tree when the plugin has not had localized archives before.
+    foreach ($repoLanguageDir in (Get-ChildItem -LiteralPath $translationsDir -Directory -Force))
     {
         $repoModuleArchive = Join-Path $repoLanguageDir.FullName "$moduleName.slt"
         if (Test-Path -LiteralPath $repoModuleArchive)
         {
-            $languageNames[$repoLanguageDir.Name] = $true
+            $languageNames[$repoLanguageDir.Name] = $repoLanguageDir.Name
         }
     }
 
-    foreach ($languageName in ($languageNames.Keys | Sort-Object))
+    foreach ($languageName in ($languageNames.Values | Sort-Object -Unique))
     {
         if ($requestedLanguages.Count -gt 0 -and
             $requestedLanguages -notcontains $languageName.ToLowerInvariant())
@@ -161,14 +162,18 @@ foreach ($pluginDir in $pluginDirs)
         $sltFiles = @()
         if (Test-Path -LiteralPath $langDir)
         {
-            $sltFiles = @(Get-ChildItem -LiteralPath $langDir -Filter "*.slt" -File)
+            $sltFiles = @(Get-ChildItem -LiteralPath $langDir -Filter "*.slt" -File -Force)
         }
-        if ($sltFiles.Count -eq 0)
+
+        # Add this plugin's repository archive even when another .slt already
+        # exists in the plugin language directory.
+        $newArchive = Join-Path $translationsDir "$languageName\$moduleName.slt"
+        $hasModuleArchive = @($sltFiles | Where-Object { $_.Name -ieq "$moduleName.slt" }).Count -gt 0
+        if ((Test-Path -LiteralPath $newArchive) -and -not $hasModuleArchive)
         {
-            $newArchive = Join-Path $translationsDir "$languageName\$moduleName.slt"
-            if (Test-Path -LiteralPath $newArchive)
-            {
-                $sltFiles = @([pscustomobject]@{ Name = "$moduleName.slt"; FullName = (Join-Path $langDir "$moduleName.slt") })
+            $sltFiles += [pscustomobject]@{
+                Name = "$moduleName.slt"
+                FullName = (Join-Path $langDir "$moduleName.slt")
             }
         }
 

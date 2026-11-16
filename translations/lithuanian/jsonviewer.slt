@@ -1,0 +1,21 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\lithuanian\jsonviewer\jsonviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1063
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"JSON Viewer .NET"
+47,1,"Apie plėtinį"
+
+[STRINGTABLE 1]
+48,1,"Vidinė peržiūra JSON dokumentams, naudojanti valdomą WinForms sąsają."
+49,1,"https://samandarin.net/"
+50,1,"Nepavyko paruošti peržiūrai reikalingo sinchronizavimo įvykio."
+51,1,"Pasirinktas JSON failas per didelis atidaryti. Nepalaikomi didesni nei 8 MB failai."
+

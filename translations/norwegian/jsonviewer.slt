@@ -1,0 +1,21 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\norwegian\jsonviewer\jsonviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1044
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"JSON Viewer .NET"
+47,1,"Om plugin"
+
+[STRINGTABLE 1]
+48,1,"Intern visning av JSON-dokumenter med administrert WinForms UI."
+49,1,"https://samandarin.net/"
+50,1,"Kunne ikke forberede synkroniseringshendelsen visningen krever."
+51,1,"Den valgte JSON-filen er for stor til å åpnes. Filer over 8 MB støttes ikke."
+

@@ -1,0 +1,54 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\catalan\hypervm\hypervm.atp"
+TEXTVERSION,"1.11 (x64)"
+VERSION,"1,11,0,197"
+
+[TRANSLATION]
+LANGID,1027
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"Màquines Hyper-V"
+47,1,"Info plugin"
+
+[STRINGTABLE 1]
+48,1,"Mostra les màquines Hyper-V locals al plafó."
+49,1,"https://samandarin.net/"
+50,1,"Mostra &màquines Hyper-V"
+51,1,"Crea &VHD"
+52,1,"Munta &VHD"
+60,1,"Crea i munta un disc dur virtual"
+61,1,"Munta un disc dur virtual"
+62,1,"Desmunta un disc dur virtual"
+63,1,"Ubicació:"
+
+[STRINGTABLE 2]
+64,1,"Navega..."
+65,1,"Mida del disc virtual:"
+66,1,"Format del disc virtual"
+67,1,"Tipus de disc virtual"
+68,1,"Admet discos virtuals de fins a 2040 GB."
+69,1,"Admet discos virtuals de més de 2040 GB (màxim admès: 64 TB) i resisteix les interrupcions del subministrament elèctric."
+70,1,"Mida fixa (recomanada)"
+71,1,"Expansió dinàmica"
+72,1,"El fitxer del disc dur virtual s'assigna a la mida màxima en crear-lo."
+73,1,"El fitxer del disc dur virtual creix fins a la mida màxima a mesura que s'hi escriuen dades."
+74,1,"Només lectura"
+75,1,"Indica la ubicació del disc virtual a la màquina."
+76,1,"Indica la ubicació del disc virtual a l'ordinador."
+77,1,"Desmuntar disc virtual {0}?"
+78,1,"Disc virtual connectat: {0}"
+79,1,"No hi ha màquines Hyper-V."
+
+[STRINGTABLE 3]
+80,1,"Configuració"
+81,1,"Sense configuració"
+82,1,"D'acord"
+83,1,"Cancel·la"
+84,1,"Discs virtuals (*.vhd;*.vhdx)|*.vhd;*.vhdx"
+85,1,"Màquines Hyper-V"
+86,1,"Crea i munta un disc dur virtual"
+87,1,"Munta un disc dur virtual"
+

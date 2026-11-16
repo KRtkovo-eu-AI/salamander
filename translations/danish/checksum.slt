@@ -1,0 +1,116 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\danish\checksum\checksum.atp"
+TEXTVERSION,"2.5 (x64)"
+VERSION,"2,5,0,197"
+
+[TRANSLATION]
+LANGID,1030
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 1000]
+344,84,1,"Beregn checksums"
+1001,5,5,334,54,1,"List1"
+1007,5,68,42,8,1,"Beregner:"
+1006,50,68,105,8,1,"Progress1"
+1002,162,65,55,14,1,"Inds&til..."
+1003,223,65,55,14,1,"&Gem..."
+1004,284,65,55,14,1,"&Stop"
+1005,5,68,48,8,1,"klippebord-tip"
+
+[DIALOG 1001]
+189,109,1,"Checksumkonfiguration"
+300,8,5,174,76,1," Beregn checksums "
+100,15,16,105,10,1,"&CRC/SFV"
+101,15,28,105,10,1,"&MD5"
+102,15,40,105,10,1,"SHA-&1"
+103,15,52,105,10,1,"SHA-&256"
+104,15,64,105,10,1,"SHA-&512"
+1,14,88,50,14,1,"OK"
+2,69,88,50,14,1,"Afbryd"
+9,124,88,50,14,1,"Hjælp"
+
+[DIALOG 2000]
+260,84,1,""
+1001,5,5,250,54,1,"List1"
+1007,5,68,34,8,1,"Validerer:"
+1006,42,68,101,8,1,"Progress1"
+2002,5,68,140,8,1,""
+2001,149,65,50,14,1,"&Fokus"
+1004,205,65,50,14,1,"&Stop"
+
+[STRINGTABLE 0]
+1,1,"Checksum"
+2,1,"Om plugin"
+3,1,"Checksumkontrol og -beregning for SFV, MD5, SHA-1, SHA-256 og SHA-512."
+4,1,"Ingen hukommelse"
+5,1,"Fejl ved filåbning"
+6,1,"Læsefejl"
+7,1,"Skrivefejl"
+
+[STRINGTABLE 1]
+40,1,"Sprunget over"
+41,1,"Beregner..."
+42,1,"Afbrydet"
+43,1,"Højreklik for at kopiere en checksum til udklipsholder."
+44,1,"Kopier &CRC i udklipsholder\tCtrl+C"
+45,1,"Kopier &MD5 til udklipsholder\tCtrl+M"
+46,1,"Kopier SHA-&1 til udklipsholder\tCtrl+1"
+47,1,"Kopier SHA-&256 til udklipsholder\tCtrl+2"
+
+[STRINGTABLE 2]
+48,1,"Kopiér SHA-&512 til udklipsholder\tCtrl+5"
+52,1,"Kopiér &alle værdier"
+53,1,"&Fjern punkt\tDelete"
+54,1,"Filen '%s' findes allerede.\nVil du overskrive den?"
+55,1,"Fejl ved oprettelse."
+56,1,"Filer, der blev sprunget over eller annulleret, blev ikke gemt."
+57,1,"Kan ikke åbne filen '%s'."
+58,1,"Mangler"
+59,1,"Den valgte fil har ingen SFV-, MD5-, SHA1-, SHA256- eller SHA512-udvidelse. Vil du fortsætte alligevel?"
+60,1,"Den valgte fil er ikke gyldig SFV-, MD5-, SHA-1-, SHA-256- eller SHA-512-fil."
+61,1,"Verificerer"
+62,1,"OK"
+63,1,"Korrupt"
+
+[STRINGTABLE 3]
+65,1,"&Verificer checksums"
+66,1,"&Beregn checksums..."
+67,1,"Konfigurationen er allerede åbnet."
+68,1,"Ændringerne træder i kraft, når vinduet 'Beregn checksums' åbnes næste gang."
+70,1,"Filerne OK"
+71,1,"%d korrupte, %d mangler, %d udladt"
+72,1,"Open Samandarin er optaget. Den ønskede kommando kan ikke udføres. Prøv igen senere."
+74,1,"&Luk"
+75,1,"Læser mappehierarki, vent venligst..."
+76,1,"Fejl ved mappe-læsning"
+77,1,"0 filer"
+78,1,"Tjek checksums"
+79,1,"Fil"
+
+[STRINGTABLE 4]
+80,1,"Stør"
+81,1,"Status"
+82,1,"CRC"
+83,1,"MD5"
+84,1,"SHA-1"
+85,1,"SHA-256"
+86,1,"SHA-512"
+90,1,"Gem checksumfil"
+91,1,"SFV-filer (*.sfv)|*.sfv|"
+92,1,"MD5-filer (*.md5)|*.md5|"
+93,1,"SHA-1-filer (*.sha1)|*.sha1|"
+94,1,"SHA-256-filer (*.sha256)|*.sha256|"
+95,1,"SHA-512-filer (*.sha512)|*.sha512|"
+
+[STRINGTABLE 5]
+100,1,"Tjek CRC"
+101,1,"Tjek MD5"
+102,1,"Tjek SHA-1"
+103,1,"Tjek SHA-256"
+104,1,"Tjek SHA-512"
+
+[STRINGTABLE 6]
+120,1,"Operationen kan ikke fuldføres, for langt navn."
+

@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\slovenian\unlha\unlha.atp"
+TEXTVERSION,"1.16 (x64)"
+VERSION,"1,16,0,197"
+
+[TRANSLATION]
+LANGID,1060
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1,1,"Neveljavna LZH datoteka, neznan format."
+2,1,"Napaka kontrolne vsote glave.\nArhiv je poškodovan, seznam je nepopoln."
+3,1,"Ni pomnilnika."
+4,1,"Napaka zapisa"
+5,1,"UnLHA"
+6,1,"Ni mogoče odpreti arhiva."
+7,1,"Vnos arhiva ni mogoče dodati na seznam datotek"
+8,1,"Arhiv vsebuje eno ali več UNIX simbolnih povezav, ki ne bodo prikazane."
+10,1,"Razpakiranje ni mogoče."
+11,1,"Napaka stisnjenih podatkov. CRC se ne ujema."
+12,1,"Napaka pri branju arhiva."
+13,1,"Razpakiranje LHA - %s"
+14,1,"priprava podatkov in ustvarjanje map..."
+15,1,"razpakiranje: "
+
+[STRINGTABLE 1]
+16,1,"razpakiranje"
+17,1,"Ni mogoče dokončati operacije zaradi predolge poti."
+18,1,"Ni mogoče dokončati zaradi predolge maske."
+19,1,"Neznana metoda stiskanja. Datoteka ni mogoče razpakirati."
+20,1,"neznana metoda preskočena"
+21,1,"Brskaj in razpakiraj arhive LHA"
+22,1,"O vtičniku"
+

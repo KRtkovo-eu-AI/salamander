@@ -1,0 +1,111 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\norwegian\uniso\uniso.atp"
+TEXTVERSION,"1.40 (x64)"
+VERSION,"1,40,0,197"
+
+[TRANSLATION]
+LANGID,1044
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 1200]
+220,83,1,"UnISO-konfigurasjon"
+1201,8,11,188,10,1,"&Fjern skrivebeskyttelse ved kopiering fra arkiv"
+1202,8,23,198,10,1,"&Vis sesjon som mappe (tillat tilgang til alle sesjoner)"
+1203,8,35,108,10,1,"V&is oppstartsbilde som fil"
+3000,2,58,216,1,1,""
+1,108,64,50,14,1,"OK"
+2,163,64,50,14,1,"Avbryt"
+
+[STRINGTABLE 0]
+1000,1,"UnISO"
+1001,1,"Åpne fil feilet."
+1002,1,"Uspesifisert feil."
+1003,1,"Pakk ut ISO-arkivet"
+1004,1,"Feil ved arkivutpakking."
+1005,1,"Kan ikke håndtere filen."
+1006,1,"Ikke nok minne."
+1007,1,"Om plugin"
+
+[STRINGTABLE 1]
+1009,1,"Bla gjennom og pakk ut CD/DVD ISO-filer."
+1010,1,"Kan ikke opprette tempmappe."
+1011,1,"Kan ikke slette tempfil."
+1012,1,"Ukjent filformat eller ikke et gyldig ISO-bilde.\n\nHvis du er sikker, kontakt support@altap.cz og hjelp oss å støtte dette formatet."
+1013,1,"Kan ikke åpne '%s'."
+1014,1,"Oppretting av midlertidig fil feilet."
+1015,1,"Angi filattributter feilet."
+1016,1,"Kan ikke opprette mappe '%s'."
+1020,1,"Ja"
+1021,1,"Nei"
+1022,1,"Feil"
+1023,1,"Varsel"
+
+[STRINGTABLE 2]
+1024,1,"Det oppsto feil ved lesing av multisesjonbilde.\n\nViser kun korrekt leste sesjoner."
+1025,1,"Ukjent sportype."
+1026,1,"Ukjent tildelingsstrategi (%d).\n\nKontakt support@altap.cz og hjelp oss å fikse dette problemet."
+1027,1,"Dårlig .CCD-filformat.\n\nBildet kan være ufullstendig."
+1028,1,"Mangler .CCD-fil.\n\nBildet kan være ufullstendig."
+1029,1,"Kan ikke lese #%08X."
+1030,1,"Ugyldig UDF-tag-ID."
+1031,1,"Feil ved lesing av katalogstruktur ved sektor #%08X.\n\nUfullstendig ISO-innhold."
+1032,1,"Intern pluginfeil."
+1033,1,"Lesing av virtuell allokeringstabell ved #%08X feilet."
+1034,1,"Ingen virtuell allokeringstabell."
+1035,1,"Feil rot-ICB.\n\nKan ikke lese katalogstruktur."
+1036,1,"Filen "%s" kan ikke pakkes ut.\n\nFilstørrelse passer ikke med ICB-blokker."
+1037,1,"Kan ikke åpne spor #%d"
+1038,1,"Denne filen ser ut som et diskett-, harddisk- eller partisjonsbilde.\nPrøv å gi filen nytt navn til .ima for å aktivere UnFAT-pluginet."
+1039,1,"Dette diskbildet inneholder filsystemet APFS.\nDette filsystemet støttes ikke ennå."
+
+[STRINGTABLE 3]
+1050,1,"Kunne ikke lese partisjonsheaderen. Fil for liten."
+1051,1,"Korrupte Partition Manager-strukturer."
+1052,1,"Dette diskbildet inneholder ingen HFS Plus-partisjon."
+1053,1,"Dette diskbildet inneholder HFS og ikke filsystemet HFS Plus.\nHFS støttes ikke."
+1054,1,"Kan ikke søke til blokk #%08X.\n%s blir ikke ekstrahert."
+1055,1,"Kan ikke søke i blokk #%08X"
+
+[STRINGTABLE 4]
+1056,1,"Ustøttet BTree-rotknotetype i katalogfilen."
+1057,1,"Katalogfilen er fragmentert i mer enn 8 fragmenter, noe som ikke støttes."
+1058,1,"Filen '%s' er fragmentert i mer enn 8 fragmenter, noe som ikke støttes.\nFilen vil ikke bli ekstrahert."
+1059,1,"Dette diskbildet har en for lang sti som Open Samandarin ikke håndterer."
+1060,1,"Kan ikke fullføre grunnet for langt navn."
+1070,1,"Kan ikke lese pakkeheaderen. Fil for liten."
+1071,1,"Denne pakken er kryptert.\nKrypterte pakker støttes ikke."
+
+[STRINGTABLE 5]
+1072,1,"Denne filen er ikke en DMG-pakke eller er ufullstendig.\nDen inneholder ikke en gyldig DMG-fot."
+1073,1,"Denne filen er ikke en gyldig DMG-pakke, eller er ufullstendig.\nDen inneholder ikke en gyldig Property List."
+1074,1,"Denne pakken mangler en datablokk for HFS Plus-partisjonen som starter ved %I64u.\nBlokken er nødvendig for riktig håndtering av pakken."
+1075,1,"Kan ikke lese data fra diskbildet ved posisjon %I64u."
+1076,1,"Kan ikke søke i diskbildet til posisjon %I64u."
+1077,1,"Intern feil: Ustøttet søkemetode."
+1078,1,"Dette diskbildet inneholder en blokk komprimert med en ukjent metode.\nSlike diskbilder støttes ikke."
+1079,1,"Utpakking av ZLIB-blokk feilet. Diskbildet er korrupt."
+1080,1,"Utpakking av BZIP2-blokk feilet. Diskbildet er korrupt."
+1085,1,"Denne filen ser ikke ut til å være et komprimert ISZ-bilde.\nDen er ufullstendig eller har ingen gyldig ISZ-header."
+1086,1,"Kan ikke lese komprimert bildeheader. Fil for liten."
+1087,1,"Dette bildet er segmentert.\nSegmenterte bilder støttes ikke."
+
+[STRINGTABLE 6]
+1088,1,"Dette bildet er kryptert.\nKrypterte bilder støttes ikke."
+1100,1,"Lesefeil"
+1101,1,"Skrivefeil"
+1102,1,"Lydspor kan ikke pakkes ut."
+1103,1,"Avbryter operasjonen, vent ..."
+
+[STRINGTABLE 7]
+1150,1,"Informasjon om bilde\n\n"
+1151,1,"Info om bildet "%s"\n\n"
+
+[STRINGTABLE 8]
+1152,1,"Antall økter: %d"
+1153,1,"\nØkt %d\n"
+1154,1,"  Antall spor: %d\n"
+1155,1,"  Spor: %d, %s, Størrelse: %d KB\n"
+1156,1,"  Spor: %d, %s, Størrelse: %d KB - "%s"\n"
+

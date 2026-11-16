@@ -1,0 +1,83 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\catalan\textviewer\textviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1027
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 8500]
+310,129,1,"Configuració visor text Prism"
+8701,7,7,296,86,1,"Rendiment"
+8700,17,21,276,18,1,"&Manté visor Prism llest per obrir més ràpid"
+8702,17,44,276,40,1,"Manté un visor llest fins a 60 segons desprès de tancar un fitxer. Això utilitza memòria extra (uns 100 MB o més). El primer fitxer s'obre normalment."
+1,197,108,50,14,1,"OK"
+2,253,108,50,14,1,"Avorta"
+
+[STRINGTABLE 0]
+46,1,"Visor text Prism"
+47,1,"Informació"
+
+[STRINGTABLE 1]
+48,1,"Visor natiu que mostra fitxers de text amb ressaltat de sintaxi Prism.js."
+49,1,"https://samandarin.net/"
+50,1,"No s'ha pogut crear l'esdeveniment de sincronització del visor."
+52,1,"&Arxiu"
+53,1,"&Vista"
+54,1,"&Tanca\tEsc"
+55,1,"&Refresca\tF5"
+56,1,"Zoom &In\tCtrl++"
+57,1,"Zoom &Out\tCtrl+-"
+58,1,"&Reset\tCtrl+0"
+59,1,"Carrega..."
+60,1,"Ready"
+61,1,"No s'ha pogut iniciar el render WebView2."
+62,1,"No s'ha pogut obrir el fitxer."
+63,1,"Mostra &Números"
+
+[STRINGTABLE 2]
+64,1,"&Envolta\tF2"
+65,1,"Mostra &Espais"
+66,1,"Sintaxi &Resaltada"
+67,1,"&Automàtic"
+68,1,"&Colors"
+69,1,"&Visual Studio"
+70,1,"Defecte &Prism"
+71,1,"&Propi"
+72,1,"Edita &Propi"
+73,1,"Edita propi"
+74,1,"&Desa"
+75,1,"Cancel"
+76,1,"Clar"
+77,1,"Fosc"
+78,1,"Coment"
+79,1,"Puntuació"
+
+[STRINGTABLE 3]
+80,1,"Clau"
+81,1,"Paraula clau"
+82,1,"Nom classe"
+83,1,"Funció"
+84,1,"Cadena"
+85,1,"Número"
+86,1,"Booleà"
+87,1,"Variable"
+88,1,"Espai noms"
+89,1,"Expressió regular"
+90,1,"No s'ha pogat desar la paleta de colors."
+91,1,"Salamatrix.UI no disponible."
+92,1,"No s'ha pogat obrir el diàleg de configuració."
+93,1,"&Edita"
+94,1,"&Copiar\tCtrl+C"
+95,1,"Seleccionar &Tot\tCtrl+A"
+
+[STRINGTABLE 4]
+96,1,"&Cerca...\tCtrl+F"
+97,1,"&Següent\tF3"
+98,1,"&Anterior\tShift+F3"
+99,1,"&Anar a línia\tCtrl+G"
+100,1,"&Imprimeix\tCtrl+P"
+

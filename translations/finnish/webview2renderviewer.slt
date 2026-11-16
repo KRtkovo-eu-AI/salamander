@@ -1,0 +1,41 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\finnish\webview2renderviewer\webview2renderviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1035
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"WebView2-esikatselu"
+47,1,"Lisäosasta"
+
+[STRINGTABLE 1]
+48,1,"Katselin renderöidyille HTML-, Markdown- ja verkkodokumenteille WebView2:lla."
+49,1,"https://samandarin.net/"
+50,1,"Katselimen synkronointitapahtuman valmistelu epäonnistui."
+51,1,"Valittu tiedosto on liian suuri. Yli 32 MB:n tiedostot eivät ole tuettuja."
+52,1,"&Tiedosto"
+53,1,"&Näkymä"
+54,1,"&Sulje\tEsc"
+55,1,"&Päivitä\tF5"
+56,1,"&Lähennä\tCtrl++"
+57,1,"&Loitonna\tCtrl+-"
+58,1,"&Nollaa\tCtrl+0"
+59,1,"Ladataan"
+60,1,"Valmis"
+61,1,"WebView2-renderöinnin alustus epäonnistui."
+62,1,"Tiedoston avaaminen epäonnistui."
+63,1,"&Rivinumerot"
+
+[STRINGTABLE 2]
+64,1,"&Rivitys\tF2"
+65,1,"&Välilyönnit"
+66,1,"&Muokkaa"
+67,1,"&Kopioi\tCtrl+C"
+68,1,"&Valitse kaikki\tCtrl+A"
+69,1,"&Tulosta\tCtrl+P"
+

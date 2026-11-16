@@ -3,6 +3,7 @@
 # | 2026-11-11 | Preserve dialog control rows during width expansion. | Prevent invalid SLT structure when a state-1 control precedes translatable controls. | | openai/gpt-5.6-luna-pro |
 # | 2026-11-11 | Test fallback persistence and row-level request counts. | Ensure permanent validation failures are skipped by future runs while remaining buildable. | | openai/gpt-5.6-luna-pro |
 # | 2026-11-11 | Verify row-level retry request counts. | Prevent valid translations from being resent after one technical-token failure. | | openai/gpt-5.6-luna-pro |
+# | 2026-11-15 | Add Catalan, Danish, Finnish, Lithuanian, Norwegian and Slovenian localization stubs. | Register new target languages with Windows LANGID metadata for the AI translation pipeline. | | nvidia/nemotron-3.5-super-vl:free |
 import importlib.util, io, json, os, shutil, sys, tempfile, unittest, urllib.error
 from pathlib import Path
 P=Path(__file__).parents[1]/"translate_slt_with_openai.py"; spec=importlib.util.spec_from_file_location("slt",P); slt=importlib.util.module_from_spec(spec); sys.modules["slt"]=slt; spec.loader.exec_module(slt)
@@ -93,6 +94,48 @@ class Tests(unittest.TestCase):
   self.assertEqual(info["locale"],"it-IT")
   self.assertEqual(info["langid"],1040)
   self.assertEqual(info["script"],"Italian Latin with accents")
+
+ def test_catalan_language_metadata(self):
+  info=slt.language_info("catalan")
+  self.assertEqual(info["name"],"Catalan")
+  self.assertEqual(info["locale"],"ca-ES")
+  self.assertEqual(info["langid"],1027)
+  self.assertEqual(info["script"],"Catalan Latin with accents")
+
+ def test_danish_language_metadata(self):
+  info=slt.language_info("danish")
+  self.assertEqual(info["name"],"Danish")
+  self.assertEqual(info["locale"],"da-DK")
+  self.assertEqual(info["langid"],1030)
+  self.assertEqual(info["script"],"Danish Latin")
+
+ def test_finnish_language_metadata(self):
+  info=slt.language_info("finnish")
+  self.assertEqual(info["name"],"Finnish")
+  self.assertEqual(info["locale"],"fi-FI")
+  self.assertEqual(info["langid"],1035)
+  self.assertEqual(info["script"],"Finnish Latin with ä/ö")
+
+ def test_lithuanian_language_metadata(self):
+  info=slt.language_info("lithuanian")
+  self.assertEqual(info["name"],"Lithuanian")
+  self.assertEqual(info["locale"],"lt-LT")
+  self.assertEqual(info["langid"],1063)
+  self.assertEqual(info["script"],"Lithuanian Latin with diacritics")
+
+ def test_norwegian_language_metadata(self):
+  info=slt.language_info("norwegian")
+  self.assertEqual(info["name"],"Norwegian")
+  self.assertEqual(info["locale"],"nb-NO")
+  self.assertEqual(info["langid"],1044)
+  self.assertEqual(info["script"],"Norwegian Latin")
+
+ def test_slovenian_language_metadata(self):
+  info=slt.language_info("slovenian")
+  self.assertEqual(info["name"],"Slovenian")
+  self.assertEqual(info["locale"],"sl-SI")
+  self.assertEqual(info["langid"],1060)
+  self.assertEqual(info["script"],"Slovenian Latin with accents")
 
  def test_translation_updates_langid_even_without_untranslated_items(self):
   os.environ["CURSOR_API_KEY"]="test"

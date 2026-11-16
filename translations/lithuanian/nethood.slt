@@ -1,0 +1,40 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\lithuanian\nethood\nethood.atp"
+TEXTVERSION,"1.11 (x64)"
+VERSION,"1,11,0,197"
+
+[TRANSLATION]
+LANGID,1063
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 102]
+220,127,1,"Tinklo konfigūracija"
+1201,7,7,106,10,1,"Rodyti &adm. bendrinamus"
+1203,13,22,159,10,1,"Rodyti adm. bendrinamus kaip &paslėptus"
+1202,7,37,204,10,1,"Rodyti elementus iš &Mano tinklo vietų aukšt. kataloge"
+1204,7,52,168,10,1,"Rodyti tinklo &kompiuterius aukšt. kataloge"
+1206,7,67,155,10,1,"Rodyti &diskus per nuotolinį darbalaukį"
+1205,7,82,137,10,1,"&Skenuoti tinklą paleidus Salamander"
+3000,7,99,206,1,1,""
+1,30,106,50,14,1,"OK"
+2,85,106,50,14,1,"Atšaukti"
+9,140,106,50,14,1,"Žinynas"
+
+[STRINGTABLE 0]
+128,1,"Tinklas"
+129,1,"Suteikia prieigą prie tinklo kompiuterių."
+
+[STRINGTABLE 1]
+1024,1,"Pastaba"
+1025,1,"{!}<%d> pažymėtas objektas{|1|s}"
+1026,1,"Tinklas"
+1027,1,"Tinklo skenavimas"
+1028,1,"Tinklas nepasiekiamas."
+1029,1,"Apie įskiepį"
+1030,1,"%1 - %2"
+1031,1,"Šis kompiuteris"
+1032,1,"Pagrindinis kompiuteris"
+1033,1,"Diskai iš %s"
+

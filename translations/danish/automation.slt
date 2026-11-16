@@ -1,0 +1,75 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\danish\automation\automation.atp"
+TEXTVERSION,"2.9 (x64)"
+VERSION,"2,9,0,197"
+
+[TRANSLATION]
+LANGID,1030
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 100]
+205,64,1,"Inputbok"
+1150,8,8,189,8,1,"Prompt:"
+101,8,18,189,12,1,""
+1,48,42,50,14,1,"OK"
+2,107,42,50,14,1,"Afbrud"
+
+[DIALOG 101]
+332,143,1,"Automatisering opsætning"
+375,8,9,67,8,1,"&Scriptkataloger:"
+371,8,19,316,73,1,""
+1001,8,102,105,10,1,"Aktivér script&debugging"
+1,75,121,50,14,1,"OK"
+2,141,121,50,14,1,"Afbrud"
+9,207,121,50,14,1,"&Hjælp"
+
+[MENU 106]
+0,1,"[POPUP]"
+40013,1,"Browse…"
+40014,1,"Salamander-katalog"
+40015,1,"Miljøvariabel"
+
+[STRINGTABLE 0]
+1,1,"Automation"
+2,1,"Automatiserer opgaver med scripts."
+3,1,"Om plugin"
+
+[STRINGTABLE 1]
+128,1,"Automationsscriptfejl"
+129,1,"Line:\t%u\r\n"
+130,0,"Column:\t%u\r\n"
+131,1,"Error:\t%s"
+132,1,"Kør script i fokus"
+134,1,"Driftsfremskridt"
+135,1,"Kilde:\t%s\r\n"
+136,1,"Åbn scriptmenu"
+137,1,"uden script"
+138,1,"Kunne ikke køre script '%s'.\r\n%s"
+139,1,"Ukendt fejl."
+140,1,"1\t&Stop"
+141,1,"1\t&Debug\t2\t&Stop"
+142,1,"Scriptkatalog"
+143,1,"Vælg scriptkataloget."
+
+[STRINGTABLE 2]
+144,1,"Stop script"
+145,1,"Stop kørende script\tCtrl+Break"
+146,1,"Samandarin-vinduet er låst af Automation-pluginnet. Afslut scriptet."
+147,1,"Kunne ikke initialisere scripting-motoren."
+
+[STRINGTABLE 3]
+256,1,"Ugyldigt arkiv."
+257,1,"Aktuel sti kan ikke lukkes."
+258,1,"Stien blev afkortet."
+259,1,"Kan ikke ændre egenskaben eller kalde metoden %s, mens vinduet vises."
+260,1,"Kan ikke ændre egenskaben eller kalde metoden %s, mens vinduet er skjult."
+261,1,"Pluginnet indlæstes ikke."
+262,1,"Pluginfejl."
+263,1,"Kunne ikke flytte filen til diskcachen."
+264,1,"Syntaxfejl i filmasken."
+265,1,"Kun komponenter kan tilføjes til beholderen."
+266,1,"Formularer kan ikke tilføjes hertil."
+267,1,"Brugeren afbrød scriptudførelsen."
+

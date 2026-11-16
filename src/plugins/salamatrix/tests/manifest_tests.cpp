@@ -1,10 +1,14 @@
 // SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Test manifests with expanded locale lists. | Ensure localized extensions remain valid beyond the former 32-locale limit. | | openai/gpt-6-luna-pro |
 
 #include "../salamatrix_manifest.h"
 
 #include <stdio.h>
 #include <string.h>
+#include <string>
 #include <vector>
 
 static int g_failures = 0;
@@ -25,6 +29,35 @@ static bool Parse(
     CExtensionManifestError& error)
 {
     return manifest.Parse(json, strlen(json), error);
+}
+
+static std::string ManifestWithLocaleCount(size_t count)
+{
+    std::string json =
+        "{\"schema\":2,\"id\":\"LocaleLimit\",\"runtime\":\"JS\","
+        "\"entryPoint\":\"main.js\",\"locales\":{";
+    for (size_t i = 0; i < count; ++i)
+    {
+        if (i != 0)
+            json += ",";
+        const std::string tag = "x-" + std::to_string(i);
+        json += "\"" + tag + "\":\"locales/" + tag + ".json\"";
+    }
+    json += "}}";
+    return json;
+}
+
+static void TestLocaleCountLimit()
+{
+    CExtensionManifest manifest;
+    CExtensionManifestError error;
+    std::string json = ManifestWithLocaleCount(33);
+    CHECK(Parse(json.c_str(), manifest, error));
+    CHECK(manifest.Locales.size() == 33);
+
+    json = ManifestWithLocaleCount(65);
+    CHECK(!Parse(json.c_str(), manifest, error));
+    CHECK(!error.Message.empty());
 }
 
 static void TestCompleteManifest()
@@ -511,6 +544,7 @@ int wmain(int argc, wchar_t** argv)
     TestCompleteManifest();
     TestDefaults();
     TestLocaleText();
+    TestLocaleCountLimit();
     TestSettingMigrations();
     TestInvalidDocuments();
     TestCapabilityDeclarationCompatibility();

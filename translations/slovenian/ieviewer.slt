@@ -1,0 +1,18 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\slovenian\ieviewer\ieviewer.atp"
+TEXTVERSION,"1.14 (x64)"
+VERSION,"1,14,0,197"
+
+[TRANSLATION]
+LANGID,1060
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+10100,1,"Internet Explorer Viewer"
+10101,1,"Ni mogoče odpreti Internet Explorer Viewer.\nTežavo prijavite na support@altap.cz."
+10102,1,"Napaka"
+10103,1,"Lahkotni pregledovalnik HTML in XML z Internet Explorerjem."
+10105,1,"O vtičniku"
+

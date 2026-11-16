@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\slovenian\unole\unole.atp"
+TEXTVERSION,"1.4 (x64)"
+VERSION,"1,4,0,197"
+
+[TRANSLATION]
+LANGID,1060
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"UnOLE2"
+1001,1,"Premalo pomnilnika."
+1002,1,"Ne morem odpreti datoteke %s.\n"
+1003,1,"Ne morem dobiti dodeljevalnika.\n"
+1004,1,"Ni zapisa v datoteko.\n"
+1005,1,"Ne morem ustvariti %s.\n"
+1006,1,"Ni mogoče odpreti %s.\n"
+1007,1,"Ni zapisa v datoteko.\n"
+
+[STRINGTABLE 1]
+1008,1,"Neznana napaka."
+1014,1,"Ni mogoče dodati vnosa arhiva na seznam."
+1015,1,"Razpakiranje datoteke"
+1017,1,"razpakiram..."
+1018,1,"razpakiram: "
+
+[STRINGTABLE 2]
+1025,1,"Žal, vtičnik je potekel. Za novejšo različico obiščite naše spletno mesto."
+
+[STRINGTABLE 3]
+1041,1,"Napaka"
+1042,1,"Prebrskaj in razpakiraj OLE datoteke."
+1043,1,"O vtičniku"
+

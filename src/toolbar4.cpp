@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Keep the bottom toolbar available with incomplete localized labels. | Some language resources have non-ASCII separators or fewer than twelve labels. | | OpenAI GPT-6 Luna Pro |
 // | 2026-11-10 | Enable clipboard copy from plugin FS selections. | Reuse the capability-aware file copy enabler for the toolbar command. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-04 | Offer the middle-toolbar button catalog in panel toolbars. | Panel customize listed only a subset, so Hot Paths and the other shared commands could not be placed next to Change Drive. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7
 
@@ -1270,6 +1271,44 @@ static int TruncateUtf8TextToByteLimit(const char* text, int textLen, int byteLi
     return count;
 }
 
+static int GetBottomTBSeparatorLength(const char* text)
+{
+    if (*text == ',')
+        return 1;
+
+    // LoadStr returns UTF-8. Accept the common localized comma characters too,
+    // so translated text does not turn the whole row into one toolbar label.
+    if (strncmp(text, "\xE3\x80\x81", 3) == 0 || // U+3001 IDEOGRAPHIC COMMA
+        strncmp(text, "\xEF\xBC\x8C", 3) == 0)   // U+FF0C FULLWIDTH COMMA
+        return 3;
+    if (strncmp(text, "\xD8\x8C", 2) == 0)       // U+060C ARABIC COMMA
+        return 2;
+
+    return 0;
+}
+
+static BOOL IsBottomTBTextUntranslated(const char* text, int textLen,
+                                       const char* englishText, int englishTextLen)
+{
+    while (textLen > 0 && (*text == ' ' || *text == '\t'))
+    {
+        text++;
+        textLen--;
+    }
+    while (textLen > 0 && (text[textLen - 1] == ' ' || text[textLen - 1] == '\t'))
+        textLen--;
+
+    while (englishTextLen > 0 && (*englishText == ' ' || *englishText == '\t'))
+    {
+        englishText++;
+        englishTextLen--;
+    }
+    while (englishTextLen > 0 && (englishText[englishTextLen - 1] == ' ' || englishText[englishTextLen - 1] == '\t'))
+        englishTextLen--;
+
+    return textLen > 0 && textLen == englishTextLen && memcmp(text, englishText, textLen) == 0;
+}
+
 struct CBottomTBData
 {
     DWORD Index;
@@ -1396,47 +1435,122 @@ CBottomToolBar::CBottomToolBar(HWND hNotifyWindow, CObjectOrigin origin)
     Padding.TextRight = 2;      // prostor za textem
 }
 
-// naplni v poli BottomTBData promennou 'Text', kterou vycte z resourcu
-// 'state' udava radek v poli BottomTBData a 'BottomTBData' oznacuje retezec s textama
-// texty pro jednotlive klavesy jsou oddeleny znakem ';'
+static BOOL InitBottomTBTextFromToolTip(CBottomTBStateEnum state, int index, BOOL requireTranslation)
+{
+    const DWORD buttonIndex = BottomTBData[state][index].Index;
+    if (buttonIndex >= TBBE_TERMINATOR)
+        return FALSE;
+
+    const int textResID = ToolBarButtons[buttonIndex].ToolTipResID;
+    if (textResID == 0)
+        return FALSE;
+
+    const char* text = LoadStr(textResID);
+    if (text == NULL)
+        return FALSE;
+
+    if (requireTranslation)
+    {
+        const char* englishText = LoadStr(textResID, HInstance);
+        if (englishText == NULL ||
+            IsBottomTBTextUntranslated(text, (int)strcspn(text, "\t\r\n"),
+                                      englishText, (int)strcspn(englishText, "\t\r\n")))
+            return FALSE;
+    }
+
+    int count = (int)strcspn(text, "\t\r\n");
+    if (count > BOTTOMTB_TEXT_MAX)
+    {
+        TRACE_E("Bottom Toolbar tooltip text state:" << state << " index:" << index
+                                                      << " exceeds " << BOTTOMTB_TEXT_MAX << " bytes");
+        count = TruncateUtf8TextToByteLimit(text, count, BOTTOMTB_TEXT_MAX);
+    }
+
+    BottomTBData[state][index].TextLen = count;
+    if (count > 0)
+        memmove(BottomTBData[state][index].Text, text, count);
+    return TRUE;
+}
+
+// Loads up to twelve localized labels. Incomplete translated rows are padded
+// from button tooltips so a malformed row cannot suppress the whole toolbar.
 BOOL CBottomToolBar::InitDataResRow(CBottomTBStateEnum state, int textResID)
 {
     CALL_STACK_MESSAGE2("CBottomToolBar::InitDataResRow(, %d)", textResID);
     const char* row = LoadStr(textResID);
+    const char* englishRow = LoadStr(textResID, HInstance);
+    if (row == NULL)
+        row = "";
+    if (englishRow == NULL)
+        englishRow = "";
 
-    int index = 0;
+    const char* labels[12];
+    int labelLengths[12];
     const char* begin = row;
-    const char* end;
-    do
+    const char* end = NULL;
+    int fieldCount = 0;
+    while (fieldCount < 12)
     {
         end = begin;
-        while (*end != 0 && *end != ',')
+        int separatorLength = 0;
+        while (*end != 0 && (separatorLength = GetBottomTBSeparatorLength(end)) == 0)
             end++;
-        if (index < 12)
+
+        labels[fieldCount] = begin;
+        labelLengths[fieldCount] = (int)(end - begin);
+        fieldCount++;
+        if (*end == 0)
+            break;
+        begin = end + separatorLength;
+    }
+    const BOOL rowComplete = fieldCount == 12 && end != NULL && *end == 0;
+
+    const char* englishLabels[12];
+    int englishLabelLengths[12];
+    const char* englishBegin = englishRow;
+    const char* englishEnd = NULL;
+    int englishFieldCount = 0;
+    while (englishFieldCount < 12)
+    {
+        englishEnd = englishBegin;
+        while (*englishEnd != 0 && *englishEnd != ',')
+            englishEnd++;
+
+        englishLabels[englishFieldCount] = englishBegin;
+        englishLabelLengths[englishFieldCount] = (int)(englishEnd - englishBegin);
+        englishFieldCount++;
+        if (*englishEnd == 0)
+            break;
+        englishBegin = englishEnd + 1;
+    }
+    const BOOL englishRowComplete = englishFieldCount == 12 && englishEnd != NULL && *englishEnd == 0;
+
+    for (int index = 0; index < 12; index++)
+    {
+        const BOOL terminator = BottomTBData[state][index].Index >= TBBE_TERMINATOR;
+        const int count = rowComplete && !terminator ? labelLengths[index] : 0;
+        BOOL textLoaded = FALSE;
+
+        if (!terminator && rowComplete && englishRowComplete &&
+            IsBottomTBTextUntranslated(labels[index], count,
+                                       englishLabels[index], englishLabelLengths[index]))
+            textLoaded = InitBottomTBTextFromToolTip(state, index, TRUE);
+
+        if (!textLoaded && !terminator && count == 0)
+            textLoaded = InitBottomTBTextFromToolTip(state, index, FALSE);
+
+        if (!textLoaded)
         {
-            int count = (int)(end - begin);
-            if (count > BOTTOMTB_TEXT_MAX)
+            int textLen = count;
+            if (textLen > BOTTOMTB_TEXT_MAX)
             {
                 TRACE_E("Bottom Toolbar text state:" << state << " index:" << index << " exceeds " << BOTTOMTB_TEXT_MAX << " bytes");
-                count = GetACP() == CP_UTF8 ? TruncateUtf8TextToByteLimit(begin, count, BOTTOMTB_TEXT_MAX) : BOTTOMTB_TEXT_MAX;
+                textLen = TruncateUtf8TextToByteLimit(labels[index], textLen, BOTTOMTB_TEXT_MAX);
             }
-            if (BottomTBData[state][index].Index == TBBE_TERMINATOR)
-                count = 0;
-            BottomTBData[state][index].TextLen = count;
-            if (count > 0)
-                memmove(BottomTBData[state][index].Text, begin, count);
-            begin = end + 1;
+            BottomTBData[state][index].TextLen = textLen;
+            if (textLen > 0)
+                memmove(BottomTBData[state][index].Text, labels[index], textLen);
         }
-        else
-        {
-            TRACE_E("Bottom Toolbar text state:" << state << " index:" << index << " exceeds array range");
-        }
-        index++;
-    } while (*end != 0);
-    if (index != 12)
-    {
-        TRACE_E("Bottom Toolbar text state:" << state << " does not contains all 12 items.");
-        return FALSE;
     }
     return TRUE;
 }

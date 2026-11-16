@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Allow extension manifests to declare up to 64 locales. | Keep extensions registrable as their localized language sets grow. | | openai/gpt-6-luna-pro |
 
 /*
     Salamatrix Framework for Open Salamander
@@ -1067,8 +1070,8 @@ bool CExtensionManifest::Parse(
     {
         if (locales->Type != JsonObject)
             return SetValidationError(error, "locales must be an object mapping language tags to JSON files");
-        if (locales->Object.size() > 32)
-            return SetValidationError(error, "Manifest contains more than 32 locales");
+        if (locales->Object.size() > 64)
+            return SetValidationError(error, "Manifest contains more than 64 locales");
         for (size_t i = 0; i < locales->Object.size(); ++i)
         {
             const std::string& language = locales->Object[i].first;

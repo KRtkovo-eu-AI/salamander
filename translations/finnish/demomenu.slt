@@ -1,0 +1,20 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\finnish\demomenu\demomenu.atp"
+TEXTVERSION,"1.0.3 (x64)"
+VERSION,"1,0,3,197"
+
+[TRANSLATION]
+LANGID,1035
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"DemoMenu"
+47,1,"Lisäosasta"
+
+[STRINGTABLE 1]
+48,1,"Tämä lisäosa auttaa sinua tekemään oman valikkolaajennuksesi."
+49,1,"samandarin.net"
+50,1,"&Testikomento"
+

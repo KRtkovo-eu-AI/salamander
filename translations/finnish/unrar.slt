@@ -1,0 +1,109 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\finnish\unrar\unrar.atp"
+TEXTVERSION,"3.5 (x64)"
+VERSION,"3,5,0,197"
+
+[TRANSLATION]
+LANGID,1035
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 100]
+194,95,1,"Seuraava arkistotilavuus"
+117,12,9,170,32,1,"Aseta levy, jossa on arkiston seuraava tilavuus, tai etsi sopiva tiedosto levyltä.\n\nValmiina paina OK."
+300,12,48,54,8,1,"&Tiedoston nimi:"
+101,12,58,155,12,1,""
+102,170,58,13,12,1,"..."
+1,39,76,50,14,1,"OK"
+2,102,76,50,14,1,"Peruuta"
+
+[DIALOG 103]
+352,85,1,"Virhe"
+300,6,10,26,8,1,"Nimi:"
+104,36,10,309,8,1,""
+301,6,23,26,8,1,"Virhe:"
+302,36,23,309,16,1,"Tiedostoa ei voi purkaa, koska se jatkuu edellisestä tilavuudesta. Puraaksesi sen aloita tilavuudesta, josta tiedosto alkaa."
+105,36,44,183,12,1,"&Älä näytä tätä viestiä jatkossa."
+1,121,63,50,14,1,"OK"
+2,181,63,50,14,1,"Peruuta"
+
+[DIALOG 106]
+220,115,1,"UnRAR-asetukset"
+107,12,10,200,12,1,"&Ohita automaattisesti edellisistä jatkuvat tiedostot"
+116,12,32,197,12,1,"&Älä näytä huomiota, kun koko arkiston sisältö"
+300,23,22,154,8,1,"purettaessa."
+301,23,44,111,8,1,"ei voida listata."
+302,6,60,208,1,1,""
+117,12,70,200,12,1,"Näytä "&Pakattu"-sarake listatessa"
+303,6,90,208,1,1,""
+1,57,96,50,14,1,"OK"
+2,112,96,50,14,1,"Peruuta"
+
+[DIALOG 108]
+350,80,1,"Syötä salasana"
+113,18,18,18,20,1,""
+300,57,10,204,8,1,"Tämä tiedosto on salattu. Syötä salasana purkamista varten."
+301,57,25,34,8,1,"Tiedosto:"
+104,97,25,240,8,1,""
+302,57,38,37,8,1,"&Salasana:"
+110,97,36,157,12,1,""
+1,30,58,50,14,1,"&OK"
+112,90,58,50,14,1,"&Kaikki"
+109,150,58,50,14,1,"O&hita"
+111,210,58,50,14,1,"&Ohita kaikki"
+2,270,58,50,14,1,"Peruuta"
+
+[DIALOG 115]
+213,105,1,"UnRAR - Huomio"
+300,11,8,194,24,1,"Kaikkia monitilavuuksisen arkiston tiedostoja ei voida listata (eikä näyttää paneelissa), koska joitakin tilavuuksia ei löydy."
+301,11,39,194,16,1,"Listataksesi koko arkiston sisällön kopioi kaikki tilavuudet samaan hakemistoon."
+105,11,64,157,12,1,"&Älä näytä tätä viestiä jatkossa"
+302,5,81,202,1,1,""
+1,155,87,50,14,1,"OK"
+
+[STRINGTABLE 0]
+1000,1,"UnRAR"
+1001,1,"Muisti ei riitä."
+1002,1,"Moduulin tiedostonimi ei saatu."
+1003,1,"Kirjastoa '%s' ei ladattu."
+1004,1,"Toimenpiteen osoitetta ei saatu."
+1005,1,"Arkisto on vioittunut (Väärä salasana?)"
+1006,1,"Tiedosto on tuntematon muoto tai ei ole RAR-arkisto. (Väärä salasana?)"
+1007,1,"Arkistotiedostoa ei avattu."
+
+[STRINGTABLE 1]
+1008,1,"Ilmeni tuntematon virhe."
+1009,1,"Arkiston osaa ei voitu avata."
+1010,1,"Arkistotiedostoa ei luettu."
+1011,1,"RAR-arkistot (*.R*)"
+1012,1,"Valitse arkisto"
+1013,1,"Virhe pakatussa datassa. CRC ei täsmää. (Väärä salasana?)"
+1014,1,"Arkistomerkintää ei voitu lisätä listaan."
+1015,1,"Puretaan RAR-arkistoa - %s"
+1016,1,"valmistetaan dataa ja luodaan kansioita..."
+1017,1,"puretaan..."
+1018,1,"puretaan: "
+1019,1,"Tiedoston osoitin ei saatu: "
+1020,1,"Ei voitu kirjoittaa:"
+1021,1,"Ei voitu asettaa osoitinta: "
+1022,1,"Liian pitkän polunnimen vuoksi toiminto ei valmistu."
+1023,1,"Liian pitkän maskin vuoksi toiminto ei valmistu."
+
+[STRINGTABLE 2]
+1024,1,"Syötä vähintään yksi merkki."
+1027,1,"Kaikki tiedostot"
+1028,1,"Virhe"
+1029,1,"Tiedosto puuttuu"
+1030,1,"Väärä unrar.dll-versio. Asenna UnRAR-laajennus uudelleen."
+1031,1,"Tämä näyttää moniosaiselta arkistolta. Jos on, valitse ensimmäinen arkiston osa ja paina OK.\n\nJos se ei ole moniosainen arkisto, paina Peruuta."
+1032,1,"Valitse 1. osa"
+1033,1,"Selaa ja pura RAR-arkistoja."
+1034,1,"Laajennuksesta"
+1035,1,"Arkistossa ei ole tiedostoa."
+1036,1,"Salasana on väärä. Salasanan kirjaimet on syötettävä oikeassa kirjainkoossa. Varmista, ettei CapsLock ole vahingossa päällä."
+
+[STRINGTABLE 3]
+1040,1,"Pakattu"
+1041,1,"Pakattu tiedostokoko"
+

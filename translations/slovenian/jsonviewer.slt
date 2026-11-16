@@ -1,0 +1,21 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\slovenian\jsonviewer\jsonviewer.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1060
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"JSON Viewer .NET"
+47,1,"O vtičniku"
+
+[STRINGTABLE 1]
+48,1,"Notranji pregledovalnik za dokumente JSON z upravljanim WinForms UI."
+49,1,"https://samandarin.net/"
+50,1,"Ni mogoče pripraviti dogodka sinhronizacije za pregledovalnik."
+51,1,"Izbrane datoteke JSON ni mogoče odpreti. Datoteke, večje od 8 MB, niso podprte."
+

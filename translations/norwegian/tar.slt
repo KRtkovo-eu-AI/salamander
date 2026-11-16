@@ -1,0 +1,64 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\norwegian\tar\tar.atp"
+TEXTVERSION,"3.36 (x64)"
+VERSION,"3,36,0,197"
+
+[TRANSLATION]
+LANGID,1044
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+11200,1,"TAR-pluginfeil"
+11201,1,"Ukjent eller ikke støttet arkivformat."
+11202,1,"Ugyldige data i TAR-hodet - arkivet er ødelagt."
+11203,1,"Feil kontrollsum i fil/hode - ødelagt arkiv."
+11204,1,"Intern feil: filens datastruktur er ødelagt."
+11205,1,"Ukjent blokksignatur - hopper over."
+11206,1,"Påkrevd fil finnes ikke i arkivet."
+11207,1,"Feil ved minnetildeling."
+
+[STRINGTABLE 1]
+11240,1,"LZH-arkiv støttes ennå ikke."
+
+[STRINGTABLE 2]
+11250,1,"Utpakk"
+11251,1,"Pakker ut "
+11252,1,"Overses "
+11260,1,"GZip-feil"
+11261,1,"Ukjent komprimeringsmetode, kan ikke pakke ut."
+11262,1,"Denne filen er kryptert. Kryptering støttes ikke i GZip-arkiv."
+11263,1,"Denne filen er en del av et flerdelts arkiv. Flerdelte GZip-arkiv støttes ikke."
+
+[STRINGTABLE 3]
+11264,1,"Ukjente flagg i GZip-hodet, kan ikke pakke ut."
+11265,1,"Åpningsfeil for arkivfil: "
+11266,1,"For tidlig filslutt oppdaget."
+11267,1,"Lesefeil for arkivfil: "
+11268,1,"Skrivefeil for utdatafil: "
+11269,1,"WriteFile-funksjonen nektet å skrive alle forespurte data."
+11270,1,"Ugyldig blokk i GZip-strømmen, kan ikke pakke ut."
+11271,1,"Intern feil i TAR-pluginen, gi oss beskjed på e-post support@altap.cz."
+11272,1,"Feil ved minnetildeling."
+11273,1,"CRC-feil."
+11274,1,"Uventede data i komprimert strøm, ødelagt arkiv."
+11275,1,"Feil ved søking i arkivfil: "
+
+[STRINGTABLE 4]
+11280,1,"RPM-leser"
+11281,1,"RPM-feil"
+11282,1,"Kan ikke lage midlertidig filnavn."
+11283,1,"Kan ikke lage midlertidig fil."
+11284,1,"Filen ble ikke gjenkjent som et RPM-arkiv."
+11285,1,"RPM-versjonen som arkivet krever, støttes ikke."
+11286,1,"Ukjent RPM-arkivsignatur oppdaget."
+11291,1,"Filposten har en dårlig signatur."
+11292,1,"Ødelagt filhodepost."
+11293,1,"Ukjent format for cpio-hode."
+
+[STRINGTABLE 5]
+11299,1,"TAR"
+11300,1,"Bla og pakk ut Unix-arkiv."
+11301,1,"Om plugin"
+

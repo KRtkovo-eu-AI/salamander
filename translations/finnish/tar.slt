@@ -1,0 +1,64 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\finnish\tar\tar.atp"
+TEXTVERSION,"3.36 (x64)"
+VERSION,"3,36,0,197"
+
+[TRANSLATION]
+LANGID,1035
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+11200,1,"TAR-lisäosavirhe"
+11201,1,"Arkistomuotoa ei tunnistettu tai sitä ei tueta."
+11202,1,"Virheellinen TAR-otsikko – arkisto vioittunut."
+11203,1,"Tarkistussumma virheellinen – arkisto vioittunut."
+11204,1,"Sisäinen virhe: tiedostorakenne vioittunut."
+11205,1,"Tuntematon tunniste – ohitetaan."
+11206,1,"Vaadittu tiedosto puuttuu arkistosta."
+11207,1,"Muistinvarausvirhe."
+
+[STRINGTABLE 1]
+11240,1,"LZH-arkistoja ei tueta vielä."
+
+[STRINGTABLE 2]
+11250,1,"Pura"
+11251,1,"Puretaan "
+11252,1,"Ohitetaan"
+11260,1,"GZip-virhe"
+11261,1,"Tuntematon pakkausmenetelmä, ei voida purkaa."
+11262,1,"Tämä tiedosto on salattu. Salausta ei tueta GZip-arkistoissa."
+11263,1,"Tämä tiedosto on osa moniosaisesta arkistosta. Moniosaisia GZip-arkistoja ei tueta."
+
+[STRINGTABLE 3]
+11264,1,"Tuntemattomia lippuja GZip-otsikossa, ei voida purkaa."
+11265,1,"Virhe avattaessa arkistoa: "
+11266,1,"Tiedosto päättyy ennenaikaisesti."
+11267,1,"Virhe luettaessa arkistoa: "
+11268,1,"Virhe kirjoitettaessa: "
+11269,1,"WriteFile-funktio ei kirjoittanut kaikkia pyydettyjä tietoja."
+11270,1,"GZip-virrassa virheellinen lohko, purku ei onnistu."
+11271,1,"Sisäinen virhe TAR-lisäosassa, ilmoita osoitteeseen support@altap.cz."
+11272,1,"Muistinvarausvirhe."
+11273,1,"CRC-virhe."
+11274,1,"Odottamatonta dataa virrassa, arkisto vioittunut."
+11275,1,"Virhe haettaessa arkistosta: "
+
+[STRINGTABLE 4]
+11280,1,"RPM-näkymä"
+11281,1,"RPM-virhe"
+11282,1,"Virhe väliaikaisen nimen luonnissa."
+11283,1,"Virhe välitiedoston luonnissa."
+11284,1,"Tiedostoa ei tunnistettu RPM-arkistoksi."
+11285,1,"Tämän arkiston pyytämää RPM-versiota ei tueta."
+11286,1,"Tuntematon RPM-arkistotunniste havaittu."
+11291,1,"Tiedostotietueen tunniste virhe."
+11292,1,"Vioittunut otsikkotietue."
+11293,1,"Tuntematon cpio-otsikon muoto."
+
+[STRINGTABLE 5]
+11299,1,"TAR"
+11300,1,"Selaa ja pura Unix-arkistoja."
+11301,1,"Plug-inistä"
+

@@ -24,11 +24,14 @@
   "locales": {
     "ar": "locales/ar.json",
     "bg": "locales/bg.json",
+    "ca": "locales/ca.json",
     "cs": "locales/cs.json",
+    "da": "locales/da.json",
     "de": "locales/de.json",
     "el": "locales/el.json",
     "en": "locales/en.json",
     "es": "locales/es.json",
+    "fi": "locales/fi.json",
     "fr": "locales/fr.json",
     "he": "locales/he.json",
     "hr": "locales/hr.json",
@@ -37,12 +40,15 @@
     "it": "locales/it.json",
     "ja": "locales/ja.json",
     "ko": "locales/ko.json",
+    "lt": "locales/lt.json",
+    "nb": "locales/nb.json",
     "nl": "locales/nl.json",
     "pl": "locales/pl.json",
     "pt": "locales/pt.json",
     "ro": "locales/ro.json",
     "ru": "locales/ru.json",
     "sk": "locales/sk.json",
+    "sl": "locales/sl.json",
     "sv": "locales/sv.json",
     "tr": "locales/tr.json",
     "uk": "locales/uk.json",
@@ -61,3 +67,4 @@
     }
   ]
 }
+

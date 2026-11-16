@@ -1,0 +1,58 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\slovenian\demoview\demoview.atp"
+TEXTVERSION,"1.0.4 (x64)"
+VERSION,"1,0,4,197"
+
+[TRANSLATION]
+LANGID,1060
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 490]
+205,61,1,"Pogled"
+3000,4,6,199,41,1,"Položaj okna"
+491,11,17,78,12,1,"&Shrani ob zapiranju"
+492,11,29,156,12,1,"&Nastavi na položaj okna Salamandra"
+
+[STRINGTABLE 0]
+46,1,"DemoView"
+47,1,"O vtičniku"
+
+[STRINGTABLE 1]
+48,1,"Ta vtičnik vam pomaga ustvariti lastni vtičnik za pregled."
+49,1,"samandarin.net"
+50,1,"V DemoView je prišlo do izjeme, obvestite avtorje!\nČe ste delali z neko datoteko .DMV, ko se je izjema zgodila,\nposkusite napako ponoviti s to datoteko .DMV in če se izjema\nponovno pojavi, nam pošljite to datoteko .DMV (napako bomo ponovili in odpravili).\nHvala!"
+51,1,"petr.solin@altap.cz"
+52,1,"Konfiguracija je že odprta."
+53,1,"Imate odprta okna pregledovalnika DemoView. Jih želite zapreti?"
+54,1,"Konfiguracija DemoView"
+55,1,"Neveljavna številka!"
+56,1,"DemoView (*.dmv)|*.dmv|Vse datoteke (*.*)|*.*|"
+
+[STRINGTABLE 2]
+2000,1,"&Datoteke"
+2001,1,"&Odpri\tCtrl+O"
+2002,1,"&Izhod"
+2010,1,"&Urejanje"
+2011,1,"&Izreži\tCtrl+X"
+2012,1,"&Kopiraj\tCtrl+C"
+2013,1,"&Prilepi\tCtrl+V"
+
+[STRINGTABLE 3]
+2020,1,"&Pogled"
+2021,1,"&Filter"
+2022,1,"Filter"
+2025,1,"&Možnosti"
+2026,1,"&Konfiguracija..."
+
+[STRINGTABLE 4]
+2032,1,"&Pomoč"
+2033,1,"&O programu"
+
+[STRINGTABLE 5]
+2500,1,"Izreži\tCtrl+X"
+2501,1,"Kopiraj\tCtrl+C"
+2502,1,"Prilepi\tCtrl+V"
+2503,1,"Filter\tCtrl+U"
+

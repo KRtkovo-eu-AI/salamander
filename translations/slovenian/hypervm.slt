@@ -1,0 +1,54 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\slovenian\hypervm\hypervm.atp"
+TEXTVERSION,"1.11 (x64)"
+VERSION,"1,11,0,197"
+
+[TRANSLATION]
+LANGID,1060
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"Hyper-V stroji"
+47,1,"O vtičniku"
+
+[STRINGTABLE 1]
+48,1,"Prikaži lokalne stroje Hyper-V v podoknu."
+49,1,"https://samandarin.net/"
+50,1,"Prikaži &okno strojev Hyper-V"
+51,1,"Naredi &VHD"
+52,1,"&Poveži VHD"
+60,1,"Ustvari in priklopi virtualni disk"
+61,1,"Priklopi virtualni disk"
+62,1,"Odklopi virtualni disk"
+63,1,"Lokacija:"
+
+[STRINGTABLE 2]
+64,1,"Brskaj..."
+65,1,"Velikost VHD:"
+66,1,"Format virtualnega diska"
+67,1,"Vrsta virtualnega diska"
+68,1,"Podpira virtualne diske do 2040 GB."
+69,1,"Podpira virtualne diske, večje od 2040 GB (največ 64 TB), in je odporen na izpad napajanja."
+70,1,"Fiksna (priporočeno)"
+71,1,"Dinamično širjenje"
+72,1,"Datoteki virtualnega diska se ob ustvarjanju dodeli največja velikost."
+73,1,"Datoteka virtualnega diska narašča do največje velikosti, ko se vanjo zapisujejo podatki."
+74,1,"Samo za branje."
+75,1,"Določite lokacijo virtualnega diska v tem stroju."
+76,1,"Določite lokacijo virtualnega diska v računalniku."
+77,1,"Odklopiti virtualni disk {0}?"
+78,1,"Virtualni disk priključen: {0}"
+79,1,"Ni najdenih strojev Hyper-V."
+
+[STRINGTABLE 3]
+80,1,"Konfiguracija"
+81,1,"Še ni konfiguracije."
+82,1,"OK"
+83,1,"Prekliči"
+84,1,"Virtualni diski (*.vhd;*.vhdx)|*.vhd;*.vhdx"
+85,1,"Hyper-V stroji"
+86,1,"Ustvari in priklopi virtualni disk"
+87,1,"Priklopi virtualni disk"
+

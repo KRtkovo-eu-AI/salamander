@@ -1,0 +1,40 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\finnish\nethood\nethood.atp"
+TEXTVERSION,"1.11 (x64)"
+VERSION,"1,11,0,197"
+
+[TRANSLATION]
+LANGID,1035
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 102]
+220,127,1,"Verkon määritys"
+1201,7,7,106,10,1,"Näytä &hallinnolliset jaot"
+1203,13,22,159,10,1,"Näytä hallinnolliset jaot &piilokohteina"
+1202,7,37,204,10,1,"Näytä &Omat verkkopaikat ylimmän tason hakemistossa"
+1204,7,52,168,10,1,"Näytä verkko&tietokoneet ylimmällä tasolla"
+1206,7,67,155,10,1,"Näytä etätyöpöydän kautta liitetyt &levyt"
+1205,7,82,137,10,1,"&Skannaa verkko Salamander-startissa"
+3000,7,99,206,1,1,""
+1,30,106,50,14,1,"OK"
+2,85,106,50,14,1,"Peruuta"
+9,140,106,50,14,1,"Ohje"
+
+[STRINGTABLE 0]
+128,1,"Verkko"
+129,1,"Tarjoaa pääsyn verkon tietokoneisiin."
+
+[STRINGTABLE 1]
+1024,1,"Kommentti"
+1025,1,"{!}<%d> valittu kohde{|1|s}"
+1026,1,"Verkko"
+1027,1,"Verkon skannaus…"
+1028,1,"Verkko ei ole saatavilla."
+1029,1,"Tietoa laajennuksesta"
+1030,1,"%1 on %2"
+1031,1,"Lähitietokone"
+1032,1,"Isäntäkone"
+1033,1,"%s levyt"
+

@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\lithuanian\diskdir\diskdir.atp"
+TEXTVERSION,"1.1 (x64)"
+VERSION,"1,1,0,197"
+
+[TRANSLATION]
+LANGID,1063
+AUTHOR,"KRtkovo.eu"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 200]
+278,94,1,"Kurti DiskDir katalogą"
+1004,8,9,38,8,1,"Katalogas:"
+1001,42,9,228,8,1,""
+1005,8,23,262,1,1,""
+1002,16,32,100,12,1,"Taip pat kelio vardai"
+1003,16,48,126,12,1,"Rekursiškai pakuoti poaplankius"
+1006,8,66,262,1,1,""
+1,84,74,50,14,1,"OK"
+2,144,74,50,14,1,"Atšaukti"
+
+[STRINGTABLE 0]
+100,1,"DiskDir"
+101,1,"Kuria ir naršo su Total Commander suderinamus DiskDir katalogus."
+102,1,"DiskDir"
+103,1,"Apie DiskDir"
+104,1,"Gimtoji DiskDir suderinamų katalogų pagalba.\n\nKatalogo failuose yra vardai, dydžiai ir laiko žymos, o ne turinys."
+105,1,"DiskDir katalogas"
+106,1,"Katalogo kelias netinkamas ar per ilgas."
+107,1,"Katalogo pavadinimą jau naudoja aplankas."
+108,1,"The catalog already exists:\n\n"
+109,1,"\n\nAr norite jį perrašyti?"
+110,1,"DiskDir kataloguose nesaugomas failų turinys, todėl failų perkelti negalima."
+111,1,"Pridėti įrašų į esamą DiskDir katalogą nepalaikoma."
+
+[STRINGTABLE 1]
+112,1,"Nepavyksta kurti DiskDir katalogo."
+113,1,"Kataloge įrašytas originalus failas nepasiekiamas."
+114,1,"Vienas ar keli kataloge įrašyti originalūs failai nepasiekiami."
+115,1,"Katalogas neatidaromas."
+116,1,"Katalogas per didelis."
+117,1,"Katalogas neskaitomas."
+118,1,"UTF-8 kataloge yra netinkamas tekstas."
+119,1,"Faile nėra galiojančio DiskDir katalogo."
+120,1,"DiskDir katalogas nerašomas."
+

@@ -1,0 +1,58 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\finnish\demoview\demoview.atp"
+TEXTVERSION,"1.0.4 (x64)"
+VERSION,"1,0,4,197"
+
+[TRANSLATION]
+LANGID,1035
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 490]
+205,61,1,"Katselin"
+3000,4,6,199,41,1,"Ikkunan sijainti"
+491,11,17,84,12,1,"&Tallenna suljettaessa"
+492,11,29,156,12,1,"As&eta Salamanderin ikkunan sijaintiin"
+
+[STRINGTABLE 0]
+46,1,"DemoView"
+47,1,"Tietoa liitännäisestä"
+
+[STRINGTABLE 1]
+48,1,"Tämä liitännäinen auttaa luomaan oman katselinliitännäisen."
+49,1,"samandarin.net"
+50,1,"DemoView:ssä tapahtui poikkeus, ilmoita tekijöille!\nJos työskentelit .DMV-tiedoston parissa poikkeuksen sattuessa,\nyritä toistaa virhe tällä .DMV-tiedostolla ja jos poikkeus\ntapahtuu uudelleen, lähetä meille tämä .DMV-tiedosto (korjaamme virheen).\nKiitos!"
+51,1,"petr.solin@altap.cz"
+52,1,"Määritys on jo avoinna."
+53,1,"Osa DemoView-katselinikkunoista on avoinna. Haluatko sulkea ne?"
+54,1,"DemoView-määritykset"
+55,1,"Virheellinen numero!"
+56,1,"DemoView-tiedostot (*.dmv)|*.dmv|Kaikki (*.*)|*.*|"
+
+[STRINGTABLE 2]
+2000,1,"&Tiedostot"
+2001,1,"&Avaa\tCtrl+O"
+2002,1,"&Lopeta"
+2010,1,"&Muokkaa"
+2011,1,"&Leikkaa\tCtrl+X"
+2012,1,"&Kopioi\tCtrl+C"
+2013,1,"&Liitä\tCtrl+V"
+
+[STRINGTABLE 3]
+2020,1,"&Näytä"
+2021,1,"&Suodatin"
+2022,1,"Suodatin"
+2025,1,"&Asetukset"
+2026,1,"&Määritykset..."
+
+[STRINGTABLE 4]
+2032,1,"&Ohje"
+2033,1,"&Tietoa"
+
+[STRINGTABLE 5]
+2500,1,"Leik\tCtrl+X"
+2501,1,"Kopi\tCtrl+C"
+2502,1,"Liitä\tCtrl+V"
+2503,1,"Suodin\tCtrl+U"
+

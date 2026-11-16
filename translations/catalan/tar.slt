@@ -1,0 +1,64 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\catalan\tar\tar.atp"
+TEXTVERSION,"3.36 (x64)"
+VERSION,"3,36,0,197"
+
+[TRANSLATION]
+LANGID,1027
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+11200,1,"Error plugin TAR"
+11201,1,"Format d'arxiu no reconegut o no suportat."
+11202,1,"Capçalera TAR invàlida - arxiu corrupte."
+11203,1,"Comprovació incorrecta - arxiu corrupte."
+11204,1,"Error intern: estructura de dades corrupte."
+11205,1,"Signatura desconeguda - s'omite."
+11206,1,"Fitxer necessari no trobat a l'arxiu."
+11207,1,"Error d'assignació"
+
+[STRINGTABLE 1]
+11240,1,"Arxius LZH encara no suportats."
+
+[STRINGTABLE 2]
+11250,1,"Treure"
+11251,1,"Extreient "
+11252,1,"Ometint "
+11260,1,"Error GZip"
+11261,1,"Mètode de compressió desconegut, no s'extreu."
+11262,1,"Aquest fitxer està xifrat. El xifratge no és admitit en arxius GZip."
+11263,1,"Aquest fitxer forma part d'un arxiu multipart. Arxius multipart GZip no suportats."
+
+[STRINGTABLE 3]
+11264,1,"Capçalera GZip amb indicadors desconeguts, no s'extreu."
+11265,1,"Error obrint l'arxiu: "
+11266,1,"S'ha trobat un final prematuro."
+11267,1,"Error llegint l'arxiu: "
+11268,1,"Error al fitxer de sortida: "
+11269,1,"WriteFile no pot escriure totes les sol·licitats."
+11270,1,"Bloc no vàlid al flux GZip, impossible extreure."
+11271,1,"Error intern al complement TAR, contacteu-nos a support@altap.cz."
+11272,1,"Error d'assignació:"
+11273,1,"Error CRC."
+11274,1,"Dades inesperades, flux comprimit, arxiu corromput."
+11275,1,"Error al cercar en l'arxiu: "
+
+[STRINGTABLE 4]
+11280,1,"Visor RPM"
+11281,1,"Error RPM"
+11282,1,"Error al crear fitxer temporal."
+11283,1,"Error de fitxer temporal."
+11284,1,"El fitxer no es reconeix com a arxiu RPM."
+11285,1,"La versió RPM sol·licitada per aquest arxiu no és compatible."
+11286,1,"S'ha trobat signatura RPM desconeguda."
+11291,1,"Signatura de fitxer no vàlida."
+11292,1,"Capçalera del fitxer danada."
+11293,1,"Format cpio desconegut."
+
+[STRINGTABLE 5]
+11299,1,"TAR"
+11300,1,"Navega i extreu arxius Unix."
+11301,1,"Sobre plugin"
+

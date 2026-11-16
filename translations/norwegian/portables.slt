@@ -1,0 +1,59 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\norwegian\portables\portables.atp"
+TEXTVERSION,"0.7 (x64)"
+VERSION,"0,7,0,197"
+
+[TRANSLATION]
+LANGID,1044
+AUTHOR,"Open Salamander"
+WEB,"https://samandarin.net/"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+128,1,"{!}%d valgte enheter{2:s|0||1|s}"
+129,1,"Ingen enheter"
+130,1,"Portable enheter"
+131,1,"Avbryt"
+132,1,"Forbereder..."
+133,1,"Fil:"
+134,1,"Total:"
+135,1,"Minimer"
+136,1,"Pause"
+137,1,"Den portable enheten sluttet å svare. Koble den fra og koble den til igjen. Portables-panelet går tilbake til enhetslisten."
+138,1,"%s av %s kopiert"
+139,1,"Kopier"
+140,1,"Flytt"
+141,1,"Slett"
+142,1,"Kopierer"
+143,1,"Flytter"
+
+[STRINGTABLE 1]
+144,1,"Sletter"
+145,1,"til"
+146,1,"%s av %s flyttet"
+147,1,"%s av %s behandlet"
+148,1,"Sletter valgte elementer"
+149,1,"%s '%s' feilet (0x%08X)."
+150,1,"Omdøp"
+151,1,"Opprett mappe"
+152,1,"Vis"
+153,1,"Navnet finnes fortsatt på enheten. Det ble ikke opprettet igjen."
+154,1,"En fil erstatter ikke en mappe."
+155,1,"En mappe erstatter ikke en fil."
+156,1,"Et element med navnet finnes allerede."
+157,1,"?"
+
+[STRINGTABLE 2]
+8192,1,"Portable enheter"
+8193,1,"Administrer enhetene."
+
+[STRINGTABLE 3]
+9216,1,"Om plugin"
+
+[STRINGTABLE 4]
+10240,1,"Feil ved katalogbytte"
+10241,1,"Bane: "%s"\r\nFeil: %s"
+
+[STRINGTABLE 5]
+19457,1,"Den angitte banen inneholder en filbane."
+

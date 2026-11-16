@@ -1,0 +1,38 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\slovenian\peviewer\peviewer.atp"
+TEXTVERSION,"3.2 (x64)"
+VERSION,"3,2,0,197"
+
+[TRANSLATION]
+LANGID,1060
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 8501]
+346,154,1,"Konfiguracija pregledovalnika PE"
+1300,7,7,64,8,1,"&Dosegljivi odseki:"
+8700,7,17,105,130,1,""
+8702,119,17,50,14,1,"&Dodaj→"
+8703,119,35,50,14,1,"←&Odstrani"
+1301,176,7,58,8,1,"&Vidni odseki:"
+8701,176,17,105,130,1,""
+8704,289,17,50,14,1,"&Dvigni"
+8705,289,35,50,14,1,"&Navzdol"
+1,289,97,50,14,1,"OK"
+2,289,115,50,14,1,"Prekliči"
+8706,289,133,50,14,1,"&Reset"
+
+[STRINGTABLE 0]
+1016,1,"O vtičniku"
+
+[STRINGTABLE 1]
+10100,1,"Pregledovalnik PE"
+10101,1,"Ni mogoče odpreti %s."
+10102,1,"Ni uspelo ustvariti začasne datoteke."
+10103,1,"Prišlo je do izjeme.\n\nPregledana datoteka: %s\n\nČe menite, da datoteka ni poškodovana, pošljite jo na support@altap.cz.\nNapako bomo ponovili in odpravili. Hvala za sodelovanje!"
+10104,1,"Prikaži informacije o datotekah Portable Executable, npr. EXE, DLL ipd."
+
+[STRINGTABLE 2]
+10118,1,"Ni izbrane sekcije Portable Executable v konfiguraciji vtičnika.\nV glavnem oknu Open Salamander uporabite Options > Plugin Configuration > Portable Executable Viewer\nza nastavitev vidnih sekcij."
+

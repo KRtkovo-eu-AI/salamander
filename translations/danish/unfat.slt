@@ -1,0 +1,30 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\danish\unfat\unfat.atp"
+TEXTVERSION,"1.4 (x64)"
+VERSION,"1,4,0,197"
+
+[TRANSLATION]
+LANGID,1030
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"UnFAT"
+1001,1,"Om plugin"
+1003,1,"Gennemse og udpak FAT 12/16/32-diskbilleder."
+
+[STRINGTABLE 1]
+1100,1,"Åbningsfejl: "%s"."
+1101,1,"Læsefejl: "%s"."
+1102,1,"Tolkningsfejl: "%s".\n\n%s"
+1103,1,"Bootsektoren er beskadiget, eller filen er ikke et FAT 12/16/32-billede."
+
+[STRINGTABLE 2]
+1104,1,"Fejl ved læsning af mappe i "%s".\n%s\nSektor: %d, Offset: 0x%s\n\nFilen er ikke et gyldigt FAT 12/16/32-billede."
+1106,1,"Fejl ved læsning af fil "%s".\n%s\nKlynge: %d\n\nFilen er ikke et gyldigt FAT 12/16/32-billede."
+1107,1,"Fejl ved skrivning"
+1108,1,"Filen "%s" ser ud til at være et billede af hele harddisken.\nUnderstøttes ikke af UnFAT-pluginnet."
+1109,1,"Udtrækker FAT-billede %s"
+1110,1,"udtrækker: %s"
+

@@ -1,0 +1,88 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\slovenian\unarj\unarj.atp"
+TEXTVERSION,"1.24 (x64)"
+VERSION,"1,24,0,197"
+
+[TRANSLATION]
+LANGID,1060
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 100]
+194,110,1,"Naslednji zvezek arhiva"
+300,12,9,170,32,1,"Vstavite disk z naslednjim zvezkom ali poiščite ustrezno datoteko.\n\nKo ste pripravljeni, pritisnite OK."
+301,12,48,60,8,1,"Prejšnji zvezek:"
+103,73,48,109,12,1,""
+302,12,62,60,8,1,"&Naslednji zvezek:"
+101,12,72,155,12,1,""
+102,170,72,13,12,1,"..."
+1,39,91,50,14,1,"OK"
+2,102,91,50,14,1,"Prekliči"
+
+[DIALOG 103]
+352,85,1,"Napaka"
+300,6,10,26,8,1,"Ime:"
+104,36,10,309,8,1,""
+301,2,23,30,8,1,"Napaka:"
+302,36,23,309,16,1,"Datoteke ni mogoče izvleči, ker se nadaljuje iz prejšnjega zvezka. Za izvlečenje te datoteke začnite z zvezkom, kjer se začne."
+105,36,44,183,12,1,"&Tega sporočila ne prikaži v prihodnje."
+1,121,63,50,14,1,"OK"
+2,181,63,50,14,1,"Prekliči"
+
+[DIALOG 106]
+220,85,1,"Konfiguracija UnARJ"
+300,23,22,154,8,1,"pri razpakiranju."
+107,12,10,197,12,1,"&Samodejno preskoči nadaljevanja iz prejšnjega zvezka"
+301,23,44,111,8,1,"se ne da navesti."
+116,12,32,197,12,1,"&Ne prikaži opozorila, ko je prikazana celotna vsebina"
+302,6,60,208,1,1,""
+1,57,66,50,14,1,"OK"
+2,112,66,50,14,1,"Prekliči"
+
+[DIALOG 115]
+213,107,1,"UnARJ - Pozornost"
+300,11,10,194,24,1,"Vseh datotek v večzvezkovnem arhivu ni mogoče navesti (in videti v plošči), ker nekaterih zvezkov ni mogoče najti."
+301,11,41,192,16,1,"Za navedbo celotne vsebine arhiva kopirajte vse zvezke v isti imenik."
+105,11,66,157,12,1,"&Tega sporočila ne prikaži v prihodnje"
+302,5,83,203,1,1,""
+1,153,89,50,14,1,"OK"
+
+[STRINGTABLE 0]
+1000,1,"UnARJ"
+1001,1,"Premalo pomnilnika."
+1002,1,"Nepričakovan konec arhiva."
+1005,1,"Arhiv je poškodovan."
+1006,1,"Datoteka ima neznano obliko ali ni veljaven arhiv ARJ."
+1007,1,"Ni mogoče odpreti arhiva."
+
+[STRINGTABLE 1]
+1008,1,"Neznana napaka."
+1010,1,"Ni mogoče dostopati do arhiva."
+1011,1,"Datoteke ARJ (*.A*)"
+1012,1,"Izberi arhiv"
+1013,1,"Napaka v stisnjenih podatkih. CRC ni enak."
+1014,1,"Ni mogoče dodati vnosa arhiva na seznam."
+1015,1,"Razpakiranje ARJ - %s"
+1016,1,"priprava podatkov in ustvarjanje map..."
+1017,1,"odpiram..."
+1018,1,"odpiram: "
+1019,1,"Ni mogoče dobiti kazalca: "
+1020,1,"Ni mogoče pisati v dat.:"
+1021,1,"Ne morem nastaviti kazalca: "
+1022,1,"Operacije ni mogoče končati zaradi predolge poti."
+1023,1,"Operacije ni mogoče končati - predolga maska."
+
+[STRINGTABLE 2]
+1024,1,"Neznana verzija stisnjene datoteke."
+1025,1,"Neznan tip stisnjene datoteke."
+1026,1,"Datoteka uporablja metodo, ki je vtičnik UnARJ ne podpira."
+1027,1,"Žal šifrirane datoteke niso podprte."
+1028,1,"Neveljaven nosilec ali neznana struktura."
+1029,1,"Žal je vtičnik potekel. Za novejšo različico preverite naše spletno mesto."
+1030,1,"Datoteke ni."
+1031,1,"Napaka"
+1032,1,"Vse dat. (*.*)"
+1033,1,"Prebrskaj in razpakiraj ARJ."
+1034,1,"O vtičniku"
+

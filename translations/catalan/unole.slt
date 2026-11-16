@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\catalan\unole\unole.atp"
+TEXTVERSION,"1.4 (x64)"
+VERSION,"1,4,0,197"
+
+[TRANSLATION]
+LANGID,1027
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"UnOLE2"
+1001,1,"Memòria insuficient."
+1002,1,"No s'ha pogut obrir %s.\n"
+1003,1,"No hi ha assignador de memòria.\n"
+1004,1,"No es pot escriure.\n"
+1005,1,"No es pot crear %s.\n"
+1006,1,"No es pot obrir %s.\n"
+1007,1,"No es pot escriure.\n"
+
+[STRINGTABLE 1]
+1008,1,"Error desconegut."
+1014,1,"No es pot afegir l'entrada a la llista."
+1015,1,"Desempaquetant fitxer"
+1017,1,"extraient..."
+1018,1,"extraient: "
+
+[STRINGTABLE 2]
+1025,1,"Ho sentim, el connector ha caducat. Consulteu el web per a una versió nova."
+
+[STRINGTABLE 3]
+1041,1,"Error"
+1042,1,"Explora i extreu fitxers composts OLE."
+1043,1,"Connector"
+

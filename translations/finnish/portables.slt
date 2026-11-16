@@ -1,0 +1,59 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\finnish\portables\portables.atp"
+TEXTVERSION,"0.7 (x64)"
+VERSION,"0,7,0,197"
+
+[TRANSLATION]
+LANGID,1035
+AUTHOR,"Open Salamander"
+WEB,"https://samandarin.net/"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+128,1,"{!}%d valittua laitetta{2:s|0||1|s}"
+129,1,"Ei laitteita"
+130,1,"Kannettavat laitteet"
+131,1,"Peruuta"
+132,1,"Valmistetaan"
+133,1,"Tiedosto:"
+134,1,"Yhteensä:"
+135,1,"Pienennä"
+136,1,"Tauko"
+137,1,"Kannettava laite ei vastannut. Irrota ja liitä se uudelleen. Kannettavat-paneeli palaa laiteluetteloon."
+138,1,"%s / %s kopioitu"
+139,1,"Kopioi"
+140,1,"Siirrä"
+141,1,"Poista"
+142,1,"Kopioidaan"
+143,1,"Siirretään"
+
+[STRINGTABLE 1]
+144,1,"Poistetaan"
+145,1,"→"
+146,1,"%s/%s siirretty"
+147,1,"%s/%s käsitelty"
+148,1,"Poistetaan valitut kohteet"
+149,1,"%s '%s' epäonnistui (0x%08X)."
+150,1,"Nimeä uudelleen"
+151,1,"Luo kansio"
+152,1,"Näytä"
+153,1,"Nimi on edelleen laitteessa. Kohdetta ei luotu uudelleen."
+154,1,"Tiedosto ei voi korvata kansiota."
+155,1,"Kansio ei voi korvata tiedostoa."
+156,1,"Samanniminen kohde on jo olemassa."
+157,1,"?"
+
+[STRINGTABLE 2]
+8192,1,"Kannettavat laitteet"
+8193,1,"Hallinnoi kannettavia laitteita."
+
+[STRINGTABLE 3]
+9216,1,"Tietoa liitännäisestä"
+
+[STRINGTABLE 4]
+10240,1,"Hakemiston vaihdon virhe"
+10241,1,"Polku: "%s"\r\nVirhe: %s"
+
+[STRINGTABLE 5]
+19457,1,"Määritetty polku sisältää polun tiedostoon."
+

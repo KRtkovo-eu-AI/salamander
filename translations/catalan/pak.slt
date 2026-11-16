@@ -1,0 +1,75 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\catalan\pak\pak.atp"
+TEXTVERSION,"1.74 (x64)"
+VERSION,"1,74,0,197"
+
+[TRANSLATION]
+LANGID,1027
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 100]
+194,73,1,"Optimitzar arxiu PAK"
+300,8,9,53,8,1,"Dades vàlides:"
+101,64,9,118,8,1,""
+301,8,20,49,8,1,"Mida total:"
+102,64,20,118,8,1,""
+302,8,31,52,8,1,"Espai perdut:"
+103,64,31,118,8,1,""
+303,8,44,178,1,1,""
+1,41,53,50,14,1,"Millora"
+2,101,53,50,14,1,"Atura"
+
+[STRINGTABLE 0]
+500,1,"No es pot obrir: %s"
+501,1,"No es pot iniciar paklib. Ja hi ha un fitxer obert."
+502,1,"No es pot obrir. Ja hi ha un fitxer obert"
+503,1,"No s'obté la mida: %s"
+504,1,"Format no vàlid."
+505,1,"Memòria insuficient."
+506,1,"Directori central PAK actual"
+507,1,"No es pot fixar el punter: %s"
+508,1,"No es pot llegir: %s"
+509,1,"No es pot llegir el punter: %s"
+510,1,"No es pot escriure: %s"
+511,1,"No es pot afegir el fitxer: nom llarg."
+
+[STRINGTABLE 1]
+1000,1,"PAK"
+1001,1,"Memòria insuficient."
+1002,1,"No pot afegir a la llista."
+1003,1,"No es pot carregar paklib.dll ni obtenir l'adreça: "
+1004,1,"Desempaquetant PAK - %s"
+1005,1,"preparant..."
+1006,1,"extreient..."
+1007,1,"extreient: "
+
+[STRINGTABLE 2]
+1008,1,"No es pot acabar l'operació: camí massa llarg."
+1009,1,"No es pot fixar el punter: "
+1010,1,"No es pot llegir el punter: "
+1011,1,"No es pot escriure:"
+1013,1,"No es pot obrir: "
+1014,1,"No es pot acabar: màscara massa llarga."
+1015,1,"Suprimint de l'arxiu PAK - %s"
+1016,1,"suprimint"
+1017,1,"treient: "
+1018,1,"cancel·lant operació, espereu..."
+1019,1,"Empaquetant arxiu PAK - %s"
+1020,1,"No es pot afegir el fitxer gran."
+1021,1,"compactant"
+1022,1,"No es pot afegir el fitxer: nom llarg."
+1023,1,"compact: "
+
+[STRINGTABLE 3]
+1024,1,"No es pot llegir fitxer: "
+1025,1,"No es pot connectar a Open Samandarin."
+1026,1,"optimitzant, espereu..."
+1027,1,"Optimitzant arxiu PAK - %s"
+1028,1,"No s'ha acabat de suprimir els fitxers. Potser cal executar l'optimització PAK des del menú del connector PAK per no malbaratar espai de disc."
+1029,1,"&Millora PAK"
+1030,1,"Ho sentim, el connector ha caducat. Consulteu el web per a una versió nova."
+1031,1,"Explora i extreu arxius PAK de Quake."
+1032,1,"Sobre plugin"
+

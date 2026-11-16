@@ -1,7 +1,16 @@
 {
   "schemaVersion": 6,
   "catalogName": "Extension Runtimes",
-  "generatedAt": "2026-08-31T02:56:50Z",
+  "generatedAt": "2026-11-14T00:00:00Z",
+  "changelog": [
+    {
+      "date": "2026-11-14",
+      "summary": "Refresh the Salamatrix release URL to version 0.7.13.",
+      "reason": "The stable catalog version must match the published, SHA-256-verified release asset.",
+      "ticket": "",
+      "model": "openrouter/openai/gpt-6-luna-pro"
+    }
+  ],
   "plugins": [
     {
       "id": "salamatrix",
@@ -35,7 +44,7 @@
       "latestVersion": "0.7.13 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://salamatrix.samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrix_0.7.10_x64/plugin_5.0_salamatrix_0.7.10_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrix_0.7.13_x64/plugin_5.0_salamatrix_0.7.13_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/salamatrix.png",
       "packageType": "plugin",
       "security": {

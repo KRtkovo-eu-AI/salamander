@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\finnish\unchm\unchm.atp"
+TEXTVERSION,"1.7 (x64)"
+VERSION,"1,7,0,197"
+
+[TRANSLATION]
+LANGID,1035
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"UnCHM"
+1001,1,"Avaus epäonnistui."
+1002,1,"Määrittämätön virhe."
+1003,1,"Puretaan CHM-arkistoa"
+1004,1,"Virhe purettaessa."
+1005,1,"Tiedostoa ei voi käsitellä."
+1006,1,"Muistia ei riitä."
+1007,1,"Tietoa lisäosasta"
+
+[STRINGTABLE 1]
+1009,1,"Selaa ja pura CHM-tiedostoja."
+1010,1,"Väliaikaishakemistoa ei voi luoda."
+1011,1,"Väliaikaistiedosto ei poistu."
+1012,1,"Tuntematon tiedostomuoto tai virheellinen CHM-kuva.\n\nJos tämä on kelvollinen CHM-kuva, ota yhteyttä: support@altap.cz ja auta meitä tukemaan tätä muotoa."
+1013,1,"Tiedostoa ei voi avata."
+1014,1,"Väliaikaistiedostoa ei voitu luoda."
+1015,1,"Määritteitä ei voi asettaa."
+1016,1,"Hakemistoa '%s' ei voi luoda."
+1020,1,"Kyllä"
+1021,1,"Ei"
+1022,1,"Virhe"
+1023,1,"Varoitus"
+
+[STRINGTABLE 2]
+1032,1,"Sisäinen lisäosavirhe."
+
+[STRINGTABLE 3]
+1100,1,"Lukuvirhe"
+1101,1,"Kirjoitusvirhe"
+
+[STRINGTABLE 4]
+1105,1,"Virheellinen luku."
+1106,1,"peruutetaan toimintoa, odottakaa..."
+1107,1,"CHMLIB Library Copyright © 2001-2010 Jed Wing"
+

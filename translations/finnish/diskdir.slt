@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\finnish\diskdir\diskdir.atp"
+TEXTVERSION,"1.1 (x64)"
+VERSION,"1,1,0,197"
+
+[TRANSLATION]
+LANGID,1035
+AUTHOR,"KRtkovo.eu"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 200]
+278,94,1,"Luo DiskDir-luettelo"
+1004,8,9,29,8,1,"Luettelo"
+1001,42,9,228,8,1,""
+1005,8,23,262,1,1,""
+1002,16,32,100,12,1,"Pakkaa polkunimetkin"
+1003,16,48,126,12,1,"Pakkaa alikansiot rekursiivisesti"
+1006,8,66,262,1,1,""
+1,84,74,50,14,1,"OK"
+2,144,74,50,14,1,"Peruuta"
+
+[STRINGTABLE 0]
+100,1,"DiskDir"
+101,1,"Luo ja selaa Total Commander DiskDir-yhteensopivia luetteloita."
+102,1,"DiskDir"
+103,1,"DiskDir-tieto"
+104,1,"Alkuperäinen DiskDir-yhteensopiva luettelotuki.\n\nSisältää vain nimet, koot ja aikaleimat, ei tiedostosisältöä."
+105,1,"DiskDir-luettelo"
+106,1,"Luettelopolku on virheellinen tai liian pitkä."
+107,1,"Hakemisto käyttää jo luettelonimeä."
+108,1,"The catalog already exists:\n\n"
+109,1,"\n\nHaluatko korvata sen?"
+110,1,"DiskDir-luettelot eivät tallenna sisältöä, joten tiedostoja ei voi siirtää."
+111,1,"Olemassa olevaan DiskDir-luetteloon ei voi lisätä merkintöjä."
+
+[STRINGTABLE 1]
+112,1,"DiskDir-luetteloa ei voitu luoda."
+113,1,"Luettelossa merkitty alkuperäinen tiedosto puuttuu."
+114,1,"Yksi tai useampi luettelossa merkitty alkuperäinen tiedosto puuttuu."
+115,1,"Luetteloa ei voi avata."
+116,1,"Luettelo on liian suuri."
+117,1,"Luetteloa ei voi lukea."
+118,1,"UTF-8-luettelo sisältää virhetekstiä."
+119,1,"Tiedosto ei sisällä kelvollista DiskDir-luetteloa."
+120,1,"DiskDir-luetteloa ei voi kirjoittaa."
+

@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\danish\unlha\unlha.atp"
+TEXTVERSION,"1.16 (x64)"
+VERSION,"1,16,0,197"
+
+[TRANSLATION]
+LANGID,1030
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1,1,"Ugyldig LZH-fil eller ukendt filformat."
+2,1,"Fejl i headerkontrolsum.\nArkivet er beskadiget - alle filer vises ikke."
+3,1,"Hukommelsesfejl"
+4,1,"Skrivefejl"
+5,1,"UnLHA"
+6,1,"Fejl ved åbning af arkiv."
+7,1,"Kan ikke tilføje arkivpost til fillisten."
+8,1,"Arkivet indeholder et eller flere UNIX-symbolske links, som ikke vises."
+10,1,"Kan ikke udpakke filen."
+11,1,"Fejl i komprimerede data. CRC stemmer ikke."
+12,1,"Fejl ved arkivlæsning."
+13,1,"Udpakker LHA-arkiv - %s"
+14,1,"forbereder data og opretter mapper..."
+15,1,"udpakker: "
+
+[STRINGTABLE 1]
+16,1,"udpakker..."
+17,1,"Kan ikke fuldføre pga. for langt stinavn."
+18,1,"Kan ikke fuldføre pga. for lang maske."
+19,1,"Ukendt komprimeringsmetode. Filen kan ikke udpakkes."
+20,1,"ukendt metode sprunget over..."
+21,1,"Gennemse og udpak LHA-arkiver."
+22,1,"Om plugin"
+

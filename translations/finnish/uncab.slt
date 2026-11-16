@@ -1,0 +1,95 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\finnish\uncab\uncab.atp"
+TEXTVERSION,"1.30 (x64)"
+VERSION,"1,30,0,197"
+
+[TRANSLATION]
+LANGID,1035
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 100]
+221,122,1,"Seuraava CAB-levy"
+112,12,9,198,32,1,""
+300,12,48,40,8,1,"Levynimi:"
+110,54,48,156,8,1,""
+301,12,59,40,8,1,"CAB-nimi:"
+111,54,59,156,8,1,""
+302,12,70,23,8,1,"&Polku:"
+101,12,80,182,12,1,""
+102,197,80,13,12,1,"..."
+1,106,103,50,14,1,"OK"
+2,160,103,50,14,1,"Peruuta"
+303,6,97,209,1,1,""
+
+[DIALOG 103]
+352,85,1,"Virhe"
+300,6,10,26,8,1,"Nimi:"
+104,36,10,309,8,1,""
+301,6,23,26,8,1,"Virhe:"
+302,36,23,309,16,1,"Tiedostoa ei voida purkaa, koska se jatkuu edellisestä levystä. Puraaksesi tiedoston sinun on aloitettava levystä, josta tiedosto alkaa."
+105,36,44,183,12,1,"&Älä näytä tätä viestiä jatkossa."
+108,91,63,50,14,1,"&Ohita"
+109,151,63,50,14,1,"Ohita &Kaikki"
+2,211,63,50,14,1,"Peruuta"
+
+[DIALOG 106]
+220,85,1,"UnCAB-määritykset"
+300,23,22,154,8,1,"purettaessa."
+107,12,10,197,12,1,"&Ohita automaattisesti edellisen levyn tiedostot"
+301,23,44,111,8,1,"ei voida listata."
+116,12,32,197,12,1,"&Älä näytä huomiota kun koko arkiston sisältö"
+302,6,60,208,1,1,""
+1,57,66,50,14,1,"OK"
+2,112,66,50,14,1,"Peruuta"
+
+[DIALOG 115]
+213,108,1,"UnCAB - Huomio"
+300,11,9,193,24,1,"Kaikkia moniosaisen arkiston tiedostoja ei voida luetella (eikä nähdä paneelissa), koska joitakin arkiston osia ei löydy."
+301,11,40,193,16,1,"Luettele koko arkiston sisältö kopioimalla kaikki arkiston osat samaan hakemistoon ja avaa ENSIMMÄINEN osa."
+105,11,65,157,12,1,"&Älä näytä tätä viestiä jatkossa"
+302,5,83,202,1,1,""
+1,154,90,50,14,1,"OK"
+
+[STRINGTABLE 0]
+1000,1,"UnCAB"
+1001,1,"Muisti ei riitä."
+
+[STRINGTABLE 1]
+1008,1,"Tuntematon virhe."
+1012,1,"Valitse kansio"
+1014,1,"Arkistomerkinnän lisääminen epäonnistui."
+1015,1,"Puretaan CAB-arkisto - %s"
+1016,1,"valmistellaan tietoja, luodaan hakemistoja..."
+1017,1,"puretaan..."
+1018,1,"puretaan: "
+1019,1,"Osoittimen hakuvirhe: "
+1020,1,"Tiedoston kirjoitusvirhe"
+1021,1,"Osoittimen asetusvirhe: "
+1022,1,"Toiminto keskeytyy liian pitkän polkunimen vuoksi."
+1023,1,"Toiminto keskeytyy liian pitkän maskin vuoksi."
+
+[STRINGTABLE 2]
+1025,1,"Valitettavasti lisäosa on vanhentunut. Tarkista sivultamme uudempi versio."
+1026,1,"Tiedoston luonti/avausvirhe."
+1027,1,"Tiedoston lukuvirhe."
+1028,1,"Kaappia ei löydy."
+1029,1,"Kaappitiedostossa ei ole oikeaa muotoa."
+1030,1,"Kaappitiedoston versio on tuntematon."
+1031,1,"Kaappi on vioittunut."
+1032,1,"Tuntematon pakkaustyyppi kaappikansiossa."
+1033,1,"Kaappitiedoston tietojen purku epäonnistui."
+1034,1,"Sarjan kaappien RESERVE-koot eivät ole samat."
+1035,1,"Keskeytys."
+1036,1,"Valitse '%s' sisältävä kansio."
+1037,1,"Väärä kaappitiedosto."
+1038,1,"Ei löytynyt."
+1039,1,"ohitetaan"
+
+[STRINGTABLE 3]
+1040,1,"Syötä levy, jonka kaapin volyymin numero on %d, tai etsi sopiva kaappitiedosto levyltä.\n\nPaina OK, kun valmis."
+1041,1,"Virhe"
+1042,1,"Selaa ja pura CAB-arkistoja."
+1043,1,"Lisäosasta"
+

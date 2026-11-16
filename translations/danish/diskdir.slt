@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\danish\diskdir\diskdir.atp"
+TEXTVERSION,"1.1 (x64)"
+VERSION,"1,1,0,197"
+
+[TRANSLATION]
+LANGID,1030
+AUTHOR,"KRtkovo.eu"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 200]
+278,94,1,"Opret DiskDir-katalog"
+1004,8,9,29,8,1,"Katalog:"
+1001,42,9,228,8,1,""
+1005,8,23,262,1,1,""
+1002,16,32,100,12,1,"Pak også sti-navne"
+1003,16,48,126,12,1,"Pak undermapper rekursivt"
+1006,8,66,262,1,1,""
+1,84,74,50,14,1,"OK"
+2,144,74,50,14,1,"Afbryd"
+
+[STRINGTABLE 0]
+100,1,"DiskDir"
+101,1,"Opretter og gennemser Total Commander DiskDir-kompatible kataloger."
+102,1,"DiskDir"
+103,1,"Om DiskDir"
+104,1,"Indbygget DiskDir-understøttelse.\n\nKatalogfiler indeholder navne, størrelser og tidsstempler, ikke filindhold."
+105,1,"DiskDir-katalog"
+106,1,"Katalogstien er ugyldig eller for lang."
+107,1,"Katalognavnet bruges allerede af en mappe."
+108,1,"The catalog already exists:\n\n"
+109,1,"\n\nVil du overskrive det?"
+110,1,"DiskDir-kataloger gemmer ikke filindhold, så kildefiler kan ikke flyttes."
+111,1,"Poster kan ikke tilføjes til et eksisterende DiskDir-katalog."
+
+[STRINGTABLE 1]
+112,1,"Kan ikke oprette DiskDir-kataloget."
+113,1,"Den oprindelige fil i kataloget er ikke tilgængelig."
+114,1,"En eller flere oprindelige filer i kataloget er ikke tilgængelige."
+115,1,"Kan ikke åbne kataloget."
+116,1,"Kataloget er for stort."
+117,1,"Kan ikke læse kataloget."
+118,1,"UTF-8-kataloget har ugyldig tekst."
+119,1,"Filen indeholder ikke et gyldigt DiskDir-katalog."
+120,1,"Kan ikke skrive DiskDir-kataloget."
+

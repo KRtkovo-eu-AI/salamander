@@ -1,0 +1,88 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\catalan\unarj\unarj.atp"
+TEXTVERSION,"1.24 (x64)"
+VERSION,"1,24,0,197"
+
+[TRANSLATION]
+LANGID,1027
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 100]
+194,110,1,"Volum següent"
+300,12,9,170,32,1,"Insereu el disc amb el volum següent o localitzeu el fitxer al disc.\n\nPremeu OK quan esteu preparat."
+301,12,48,60,8,1,"Volum anterior:"
+103,73,48,109,12,1,""
+302,12,62,49,8,1,"&Següent:"
+101,12,72,155,12,1,""
+102,170,72,13,12,1,"..."
+1,39,91,50,14,1,"OK"
+2,102,91,50,14,1,"Cancel"
+
+[DIALOG 103]
+352,85,1,"Error"
+300,6,10,26,8,1,"Nom:"
+104,36,10,309,8,1,""
+301,6,23,26,8,1,"Error:"
+302,36,23,309,16,1,"El fitxer no pot extreure perquè continua d'un volum anterior. Per extreure aquest fitxer, heu de començar per un volum on el fitxer comença."
+105,36,44,183,12,1,"&No mostrar aquest missatge en el futur."
+1,121,63,50,14,1,"OK"
+2,181,63,50,14,1,"Cancel"
+
+[DIALOG 106]
+220,85,1,"Configuració UnARJ"
+300,23,22,154,8,1,"al descomprimir"
+107,12,10,197,12,1,"&Omet automàticament fitxers del volum anterior."
+301,23,44,111,8,1,"no pot llistar."
+116,12,32,197,12,1,"&No mostrar l'atenció si l'arxiu és complet."
+302,6,60,208,1,1,""
+1,57,66,50,14,1,"OK"
+2,112,66,50,14,1,"Cancel"
+
+[DIALOG 115]
+213,107,1,"UnARJ - Atenció"
+300,11,10,194,24,1,"No es pot llistar fitxers de l'arxiu multivolum (ni veure-los en el panell), perquè alguns volum de l'arxiu no es poden troba."
+301,11,41,192,16,1,"Per llistar tot l'arxiu, copieu els volums de l'arxiu al mateix directori."
+105,11,66,157,12,1,"&No mostrar aquest missatge en el futur."
+302,5,83,203,1,1,""
+1,153,89,50,14,1,"OK"
+
+[STRINGTABLE 0]
+1000,1,"UnARJ"
+1001,1,"Memòria insuficient"
+1002,1,"Final inesperat de l'arxiu."
+1005,1,"L'arxiu està corrupt."
+1006,1,"El fitxer té un format desconegut o no és ARJ vàlid."
+1007,1,"No es pot obrir l'arxiu."
+
+[STRINGTABLE 1]
+1008,1,"Error desconegut."
+1010,1,"No es pot accedir a l'arxiu."
+1011,1,"Arxius ARJ (*.A*)"
+1012,1,"Seleccionar arxiu"
+1013,1,"Dades incorrectes. CRC no coincideix."
+1014,1,"No s'ha pogut afegir l'entrada d'arxiu."
+1015,1,"Descomprimint ARJ - %s"
+1016,1,"preparant dades i creant directoris..."
+1017,1,"extreient..."
+1018,1,"extreient: "
+1019,1,"Error al obtenir el punter: "
+1020,1,"No s'ha pogut escriure:"
+1021,1,"Error al definir el punter: "
+1022,1,"No s'ha pogut completar per camí massa llarg."
+1023,1,"No s'ha pogut completar: màscara massa llarga."
+
+[STRINGTABLE 2]
+1024,1,"Versió de fitxer desconeguda."
+1025,1,"Tipus de fitxer desconegut."
+1026,1,"El fitxer utilitza un mètode no suportat per UnARJ."
+1027,1,"No es suporten fitxers xifrats."
+1028,1,"Estructura d'arxiu o volum invàlid."
+1029,1,"El complement ha expirat. Visiteu el nostre web per una versió més recènt."
+1030,1,"No s'ha trobat:"
+1031,1,"Error"
+1032,1,"Fitxers (*.*)"
+1033,1,"Navegueu i extregiu arxius ARJ."
+1034,1,"H complement"
+

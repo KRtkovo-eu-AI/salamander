@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\slovenian\diskdir\diskdir.atp"
+TEXTVERSION,"1.1 (x64)"
+VERSION,"1,1,0,197"
+
+[TRANSLATION]
+LANGID,1060
+AUTHOR,"KRtkovo.eu"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 200]
+278,94,1,"Ustvari katalog DiskDir"
+1004,8,9,29,8,1,"Katalog:"
+1001,42,9,228,8,1,""
+1005,8,23,262,1,1,""
+1002,16,32,100,12,1,"Pakiraj tudi imena poti"
+1003,16,48,126,12,1,"Pakiraj rekurzivno podmape"
+1006,8,66,262,1,1,""
+1,84,74,50,14,1,"OK"
+2,144,74,50,14,1,"Prekliči"
+
+[STRINGTABLE 0]
+100,1,"DiskDir"
+101,1,"Ustvarja in pregleduje kataloge, združljive s Total Commander DiskDir."
+102,1,"DiskDir"
+103,1,"O DiskDir"
+104,1,"Izvorna podpora za kataloge, združljive z DiskDir.\n\nKatalogi imajo imena, velikosti in časovne žige, ne vsebin."
+105,1,"Katalog DiskDir"
+106,1,"Pot kataloga je neveljavna ali predolga."
+107,1,"Ime kataloga je že v uporabi kot imenik."
+108,1,"The catalog already exists:\n\n"
+109,1,"\n\nGa želite prepisati?"
+110,1,"Katalogi DiskDir ne shranjujejo vsebin, zato datotek ni mogoče premeščati."
+111,1,"Dodajanje vnosov v obstoječi katalog DiskDir ni podprto."
+
+[STRINGTABLE 1]
+112,1,"Ni mogoče ustvariti kataloga DiskDir."
+113,1,"Izvirna datoteka, zabeležena v katalogu, ni na voljo."
+114,1,"Ena ali več izvirnih datotek, zabeleženih v katalogu, ni na voljo."
+115,1,"Ni mogoče odpreti kataloga."
+116,1,"Katalog je prevelik."
+117,1,"Ni mogoče prebrati kataloga."
+118,1,"Besedilo kataloga UTF-8 je neveljavno."
+119,1,"Datoteka ne vsebuje veljavnega kataloga DiskDir."
+120,1,"Ni mogoče zapisati kataloga DiskDir."
+

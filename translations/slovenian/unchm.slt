@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\slovenian\unchm\unchm.atp"
+TEXTVERSION,"1.7 (x64)"
+VERSION,"1,7,0,197"
+
+[TRANSLATION]
+LANGID,1060
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"UnCHM"
+1001,1,"Ni mogoče odpreti."
+1002,1,"Nedoločena napaka."
+1003,1,"Razpakiranje CHM"
+1004,1,"Napaka razpakiranja."
+1005,1,"Datoteke ni mogoče obdelati."
+1006,1,"Ni dovolj pomnilnika."
+1007,1,"O vtičniku"
+
+[STRINGTABLE 1]
+1009,1,"Prebrskaj in razpakiraj CHM."
+1010,1,"Ni mogoče ustvariti začasne mape."
+1011,1,"Datoteke ni mogoče izbrisati."
+1012,1,"Neznana oblika datoteke ali neveljavna slika CHM.\n\nČe ste prepričani, da je veljavna slika CHM, pišite na support@altap.cz in pomagajte podpreti to obliko."
+1013,1,"Datoteke ni mogoče odpreti."
+1014,1,"Ni uspelo ustvariti začasne datoteke."
+1015,1,"Datoteke ni mogoče nastaviti."
+1016,1,"Ni mogoče ustvariti mape '%s'."
+1020,1,"Da"
+1021,1,"Ne"
+1022,1,"Napaka"
+1023,1,"Opozorilo"
+
+[STRINGTABLE 2]
+1032,1,"Notranja napaka vtičnika."
+
+[STRINGTABLE 3]
+1100,1,"Napaka branja"
+1101,1,"Napaka pisanja"
+
+[STRINGTABLE 4]
+1105,1,"Neveljavna številka."
+1106,1,"preklicevanje operacije, počakajte..."
+1107,1,"CHMLIB Library Copyright © 2001-2010 Jed Wing"
+

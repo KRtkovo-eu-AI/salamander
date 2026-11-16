@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\norwegian\unchm\unchm.atp"
+TEXTVERSION,"1.7 (x64)"
+VERSION,"1,7,0,197"
+
+[TRANSLATION]
+LANGID,1044
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"UnCHM"
+1001,1,"Kan ikke åpne fil."
+1002,1,"Uspesifisert feil."
+1003,1,"Pakker ut CHM-arkiv"
+1004,1,"Feil ved utpakking."
+1005,1,"Kan ikke håndtere filen."
+1006,1,"Utilstrekkelig minne."
+1007,1,"Om plugin"
+
+[STRINGTABLE 1]
+1009,1,"Bla og pakk ut CHM-filer."
+1010,1,"Kan ikke lage midlertidig katalog."
+1011,1,"Kan ikke slette tempfil."
+1012,1,"Ukjent filformat eller ugyldig CHM-fil.\n\nHvis du er sikker på at dette er gyldig, kontakt support@altap.cz og hjelp oss å støtte dette formatet."
+1013,1,"Kan ikke åpne filen."
+1014,1,"Oppretting av tempfil mislyktes."
+1015,1,"Kan ikke angi attributter."
+1016,1,"Kan ikke lage katalogen '%s'."
+1020,1,"Ja"
+1021,1,"Nei"
+1022,1,"Feil"
+1023,1,"Varsel"
+
+[STRINGTABLE 2]
+1032,1,"Intern pluginfeil."
+
+[STRINGTABLE 3]
+1100,1,"Lesefeil"
+1101,1,"Skrivefeil"
+
+[STRINGTABLE 4]
+1105,1,"Ugyldig tall."
+1106,1,"Avbryter operasjonen, vent..."
+1107,1,"CHMLIB Library Copyright © 2001-2010 Jed Wing"
+

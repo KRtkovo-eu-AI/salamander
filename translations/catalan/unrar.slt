@@ -1,0 +1,109 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\catalan\unrar\unrar.atp"
+TEXTVERSION,"3.5 (x64)"
+VERSION,"3,5,0,197"
+
+[TRANSLATION]
+LANGID,1027
+AUTHOR,"Open Salamander"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 100]
+194,95,1,"Volum següent"
+117,12,9,170,32,1,"Insereix el disc del volum següent o localitza el fitxer adequat al disc.\n\nPrem OK quan estiguis a punt."
+300,12,48,42,8,1,"&Fitxer:"
+101,12,58,155,12,1,""
+102,170,58,13,12,1,"..."
+1,39,76,50,14,1,"OK"
+2,102,76,50,14,1,"Cancel"
+
+[DIALOG 103]
+352,85,1,"Error"
+300,6,10,26,8,1,"Nom:"
+104,36,10,309,8,1,""
+301,6,23,26,8,1,"Error:"
+302,36,23,309,16,1,"No es pot extreure el fitxer perquè continua d'un volum anterior. Per extreure'l, has de començar pel volum on comença el fitxer."
+105,36,44,183,12,1,"&No mostris aquest missatge en el futur."
+1,121,63,50,14,1,"OK"
+2,181,63,50,14,1,"Cancel"
+
+[DIALOG 106]
+220,115,1,"Configuració UnRAR"
+107,12,10,200,12,1,"&Omet automàticament els fitxers continuats anteriors"
+116,12,32,197,12,1,"&No mostris l'atenció quan tot el contingut de l'arxiu"
+300,23,22,154,8,1,"en extreure."
+301,23,44,111,8,1,"no es llista."
+302,6,60,208,1,1,""
+117,12,70,200,12,1,"Mostra "&Empaquetat" en llistar l'arxiu"
+303,6,90,208,1,1,""
+1,57,96,50,14,1,"OK"
+2,112,96,50,14,1,"Cancel"
+
+[DIALOG 108]
+350,80,1,"Contrasenya"
+113,18,18,18,20,1,""
+300,57,10,202,8,1,"Aquest fitxer està xifrat. Introdueix la contrasenya."
+301,57,25,17,8,1,"Fitx:"
+104,97,25,240,8,1,""
+302,57,38,37,8,1,"&Contras.:"
+110,97,36,157,12,1,""
+1,30,58,50,14,1,"&OK"
+112,90,58,50,14,1,"&Tot"
+109,150,58,50,14,1,"&Omet"
+111,210,58,50,14,1,"Omet &Tot"
+2,270,58,50,14,1,"Cancel"
+
+[DIALOG 115]
+213,105,1,"UnRAR - Atenció"
+300,11,8,194,24,1,"No es poden llistar tots els fitxers de l'arxiu multivolum (ni mostrar-los al panell), perquè no es troben alguns volums."
+301,11,39,194,16,1,"Per llistar tot l'arxiu, copia tots els volums al mateix directori."
+105,11,64,157,12,1,"&No mostris aquest missatge en el futur"
+302,5,81,202,1,1,""
+1,155,87,50,14,1,"OK"
+
+[STRINGTABLE 0]
+1000,1,"UnRAR"
+1001,1,"Memòria insuficient."
+1002,1,"Nom de mòdul no disponible."
+1003,1,"No es pot carregar '%s'."
+1004,1,"No es pot obtenir l'adreça."
+1005,1,"Arxiu malmès. (Contrasenya incorrecta?)"
+1006,1,"Format desconegut o arxiu RAR no vàlid. (Contrasenya incorrecta?)"
+1007,1,"No es pot obrir l'arxiu."
+
+[STRINGTABLE 1]
+1008,1,"Error desconegut."
+1009,1,"No es pot obrir el volum."
+1010,1,"No es pot llegir l'arxiu."
+1011,1,"Fitxers RAR (*.R*)"
+1012,1,"Selecciona un arxiu"
+1013,1,"Error en dades comprimides. CRC erroni. (Contrasenya errònia?)"
+1014,1,"No es pot afegir l'entrada a la llista."
+1015,1,"Desempaquetant RAR - %s"
+1016,1,"preparant les dades i creant directoris..."
+1017,1,"extraient..."
+1018,1,"extraient: "
+1019,1,"Error en obtenir el punter: "
+1020,1,"No es pot escriure:"
+1021,1,"Error en fixar el punter: "
+1022,1,"No es pot acabar l'operació: nom de ruta massa llarg."
+1023,1,"No es pot acabar: màscara massa llarga."
+
+[STRINGTABLE 2]
+1024,1,"Introduïu almenys un caràcter."
+1027,1,"Fitxers (*.*)"
+1028,1,"Error"
+1029,1,"No s'ha trobat"
+1030,1,"Versió incorrecta d'unrar.dll. Reinstal·leu el connector UnRAR."
+1031,1,"Sembla un arxiu multivolumè. Si és així, seleccioneu el primer volum de l'arxiu i premeu D'acord.\n\nSi no ho és, premeu Cancel·la."
+1032,1,"Selecciona un volum"
+1033,1,"Explora i extreu arxius RAR."
+1034,1,"Sobre plugin"
+1035,1,"Fitxer no trobat a l'arxiu."
+1036,1,"La contrasenya és incorrecta. Cal escriure les lletres amb la caixa correcta. Comproveu que CapsLock no estigui activat."
+
+[STRINGTABLE 3]
+1040,1,"Comprimit"
+1041,1,"Mida comprimida"
+
