@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-16 | Release the expanded extension-manifest locale limit as version 0.7.15. | Ensure clients update from framework builds that reject manifests declaring more than 32 locales. | | openai/gpt-6-luna-pro |
 
 // WARNING: cannot be replaced by "#pragma once" because it is included from .rc file and it seems resource compiler does not support "#pragma once"
 #ifndef __SALAMATRIX_VERSINFO_RH2
@@ -14,7 +17,7 @@
 
 #define VERSINFO_MAJOR       0
 #define VERSINFO_MINORA      7
-#define VERSINFO_MINORB      14
+#define VERSINFO_MINORB      15
 
 #include "spl_vers.h" // retrieve version and build numbers
 

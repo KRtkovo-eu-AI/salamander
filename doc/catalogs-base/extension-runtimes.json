@@ -41,10 +41,10 @@
         "romanian": "Salamatrix este un furnizor de framework de automatizare pentru pluginuri native și extensii de script.",
         "spanish": "Salamatrix es un proveedor de framework de automatización para plugins nativos y extensiones de script."
       },
-      "latestVersion": "0.7.14 (x64)",
+      "latestVersion": "0.7.15 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://salamatrix.samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrix_0.7.14_x64/plugin_5.0_salamatrix_0.7.14_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrix_0.7.15_x64_reupload/plugin_5.0_salamatrix_0.7.15_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/salamatrix.png",
       "packageType": "plugin",
       "security": {
@@ -54,7 +54,7 @@
         "activeWebContent": "no",
         "elevation": "never"
       },
-      "packageSha256": "808b2e238f35ed38dcfb232748c63bd70e36c318119d7ee19da69bb381c7188e"
+      "packageSha256": "3FB9C6A237ECB59E7737F7DFE66F56F7A567DD9E7734CAE6AFC604FA380A762B"
     },
     {
       "id": "salamatrixai",
@@ -108,7 +108,7 @@
         "activeWebContent": "no",
         "elevation": "never"
       },
-      "packageSha256": "38090b1f6c974d8c94e8a3a7fccfcb1c99a67feed39c839ae85d93df2b9414c7"
+      "packageSha256": "f74879e6bb422787d040b309204541914afe1ba741b92443cdc63b8dd87f03fc"
     },
     {
       "id": "pythonruntime",
