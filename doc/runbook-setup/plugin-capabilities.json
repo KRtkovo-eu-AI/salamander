@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-14T00:00:00Z",
+  "generatedAt": "2026-11-16T03:56:36Z",
   "changelog": [
     {
-      "date": "2026-11-14",
+      "date": "2026-11-16",
       "summary": "Refresh the shipped package security capability inventory.",
       "reason": "Keep the bundled trust metadata synchronized with installer packages.",
       "ticket": "",

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 6,
   "catalogName": "Extensions Stable",
-  "generatedAt": "2026-08-31T02:56:50Z",
+  "generatedAt": "2026-11-16T03:56:36Z",
   "plugins": [
     {
       "id": "file-lock-inspector",
@@ -12,7 +12,7 @@
       "description": {
         "english": "Find processes that prevent selected files from being changed, moved, or deleted."
       },
-      "latestVersion": "1.0.2 (x64)",
+      "latestVersion": "1.0.3 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_file-lock-inspector_1.0.2_x64/plugin_5.0_file-lock-inspector_1.0.2_x64.7z",
@@ -28,7 +28,7 @@
         "activeWebContent": "no",
         "elevation": "never"
       },
-      "packageSha256": "1e4da3ad060ebc275755a4ee61de43ddbba13b21d8bcbf2ceb4726dfe4768c87"
+      "packageSha256": "c7837e92b5eb3ea25b258a3cd25b9421e032f3b55c69c25cc87bd29d64ef0e2d"
     },
     {
       "id": "git-worktree-navigator",
@@ -217,7 +217,7 @@
         "activeWebContent": "yes",
         "elevation": "never"
       },
-      "packageSha256": ""
+      "packageSha256": "8288d72d945d6a653311dff4a46cf39dcb7302289aecbfe1cf6db73c7dc8398c"
     },
     {
       "id": "TabuleSprZel",
