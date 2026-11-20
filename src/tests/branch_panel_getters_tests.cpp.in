@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-20 | Cover IEViewer and UnISO admission. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
+// | 2026-11-20 | Exercise MMViewer admission through both dispatch routes. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
+// | 2026-11-20 | Cover additional bundled viewer registrations. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
 // | 2026-11-20 | Admit bundled PictView in Branch View. | Preserve panel image identity and existing viewer restrictions. |  | gpt-6.2-sol |
 // | 2026-11-10 | Model the clipboard lease in the Shell data fixture. | Compile the extracted delayed copy handoff against CCopyMoveData's current contract. | https://github.com/KRtkovo-eu-AI/salamander/pull/844 | GPT-6 |
 // | 2026-11-10 | Remove unused shell fallback mocks from the clipboard fixture. | Its source extractor includes only the disk clipboard branch. | https://github.com/KRtkovo-eu-AI/salamander/pull/844 | GPT-6 |
@@ -988,12 +991,22 @@ static void NavigationTests()
 static void ViewerPolicyTests()
 {
     const CPluginData pictView = {TRUE, "pictview\\pictview.spl"};
+    const CPluginData media = {TRUE, "mmviewer\\mmviewer.spl"};
+    const CPluginData json = {TRUE, "jsonviewer\\jsonviewer.spl"};
+    const CPluginData web = {TRUE, "webview2renderviewer\\webview2renderviewer.spl"};
+    const CPluginData ie = {TRUE, "ieviewer\\ieviewer.spl"};
+    const CPluginData iso = {TRUE, "uniso\\uniso.spl"};
     const CPluginData renamed = {TRUE, "custom\\pictview.spl"};
     const CPluginData noViewer = {FALSE, "pictview\\pictview.spl"};
     const CPluginData missingName = {TRUE, NULL};
     for (const bool explicitHandler : {false, true})
     {
         Check(BranchViewerAllowed(-1, explicitHandler, &pictView), "bundled PictView admitted by either entry point");
+        Check(BranchViewerAllowed(-1, explicitHandler, &media), "bundled MMViewer admitted");
+        Check(BranchViewerAllowed(-1, explicitHandler, &json), "bundled JSON Viewer admitted");
+        Check(BranchViewerAllowed(-1, explicitHandler, &web), "bundled WebView2 viewer admitted");
+        Check(BranchViewerAllowed(-1, explicitHandler, &ie), "bundled IEViewer admitted");
+        Check(BranchViewerAllowed(-1, explicitHandler, &iso), "bundled UnISO admitted");
         for (const CPluginData* other : {&renamed, &noViewer, &missingName, static_cast<const CPluginData*>(NULL)})
             Check(!BranchViewerAllowed(-1, explicitHandler, other), "unqualified plug-in rejected before callbacks");
         Check(BranchViewerAllowed(VIEWER_INTERNAL, explicitHandler, NULL) == !explicitHandler, "Internal Viewer boundary unchanged");

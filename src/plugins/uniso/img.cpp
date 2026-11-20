@@ -1,7 +1,10 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-20 | Open the matching CCD sidecar by its complete path. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+#include "../shared/spl_diskselection.h"
 #include "dbg.h"
 
 #include "isoimage.h"
@@ -313,7 +316,8 @@ processCCDFile(CISOImage* pISOImage, CFile& File, const char* fileName, CCD* ccd
     TIndirectArray<TextSection> sections(100, 50, dtDelete);
 
     BOOL ret = TRUE;
-    if ((f = fopen(fileName, "r")) == NULL)
+    const std::wstring path = SalamanderDiskSelection::WideFileIoPath(fileName);
+    if ((f = _wfopen(path.c_str(), L"r")) == NULL)
     {
         if (ccd->DisplayMissingCCDWarning)
         {

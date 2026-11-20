@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-20 | Allow bundled IEViewer and UnISO viewers in Branch View. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
+// | 2026-11-20 | Allow multimedia metadata viewing in Branch View. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
+// | 2026-11-20 | Allow bundled JSON and WebView2 viewers in Branch View. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
 // | 2026-11-20 | Admit bundled PictView in Branch View. | Preserve panel image identity and existing viewer restrictions. |  | gpt-6.2-sol |
 // | 2026-11-14 | Select matching user association targets explicitly. | Do not let runtime mask order or a rejected fallback handler override the Viewer, Alternate View, or Editor target shown in the matrix. |  | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-06 | Keep archive metadata cache invalidation with strict path decoding. | Preserve upstream fixes and Branch View path and lifetime contracts. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
@@ -2081,8 +2084,21 @@ static bool BranchViewerAllowed(int viewerType, bool explicitHandler, const CPlu
 {
     if (viewerType == VIEWER_INTERNAL || viewerType == VIEWER_EXTERNAL)
         return !explicitHandler;
-    return plugin != NULL && plugin->SupportViewer && plugin->DLLName != NULL &&
-           _stricmp(plugin->DLLName, "pictview\\pictview.spl") == 0;
+    if (plugin == NULL || !plugin->SupportViewer || plugin->DLLName == NULL)
+        return false;
+
+    const char* const viewers[] = {
+        "pictview\\pictview.spl",
+        "mmviewer\\mmviewer.spl",
+        "ieviewer\\ieviewer.spl",
+        "jsonviewer\\jsonviewer.spl",
+        "uniso\\uniso.spl",
+        "webview2renderviewer\\webview2renderviewer.spl",
+    };
+    for (const char* viewer : viewers)
+        if (_stricmp(plugin->DLLName, viewer) == 0)
+            return true;
+    return false;
 }
 
 BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, BOOL returnLock,
