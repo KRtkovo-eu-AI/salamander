@@ -1,6 +1,8 @@
 ﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-20 | Attach the source image and report whether viewer launch succeeded. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
 // | 2026-11-20 | Keep full disc-image captions and handle temporary report failures. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -830,6 +832,7 @@ BOOL CPluginInterfaceForViewer::ViewFile(const char* name, int left, int top, in
   }
 */
 
+    BOOL opened = FALSE;
     char tempFileName[MAX_PATH];
     if (SalamanderGeneral->SalGetTempFileName(NULL, "ISO", tempFileName, TRUE, NULL))
     {
@@ -837,7 +840,7 @@ BOOL CPluginInterfaceForViewer::ViewFile(const char* name, int left, int top, in
         caption += " - ";
         caption += LoadStr(IDS_PLUGINNAME);
         int err;
-        CSalamanderPluginInternalViewerData vData;
+        CSalamanderPluginInternalViewerReportData vData = {};
 
         // create a temporary file and pour the module dump into it
         FILE* outStream = fopen(tempFileName, "w");
@@ -861,10 +864,13 @@ BOOL CPluginInterfaceForViewer::ViewFile(const char* name, int left, int top, in
         vData.Mode = 0; // text mode
         vData.Caption = caption.c_str();
         vData.WholeCaption = TRUE;
-        if (!SalamanderGeneral->ViewFileInPluginViewer(NULL, &vData, TRUE, NULL, "iso_dump.txt", err))
-        {
-            // the file is deleted even in case of failure
-        }
+        vData.ReportMagic = SALAMANDER_INTERNAL_VIEWER_REPORT_MAGIC;
+        vData.SourceFileName = name;
+        vData.SourceUID = enumFilesSourceUID;
+        vData.SourceIndex = enumFilesCurrentIndex;
+        if (enumFilesSourceUID == -1)
+            vData.Size = sizeof(CSalamanderPluginInternalViewerData);
+        opened = SalamanderGeneral->ViewFileInPluginViewer(NULL, &vData, TRUE, NULL, "iso_dump.txt", err);
     }
     else
     {
@@ -875,7 +881,7 @@ BOOL CPluginInterfaceForViewer::ViewFile(const char* name, int left, int top, in
     }
 
     SetCursor(hOldCur);
-    return TRUE;
+    return opened;
 }
 
 BOOL CPluginInterfaceForViewer::CanViewFile(const char* name)

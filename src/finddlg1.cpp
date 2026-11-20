@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-20 | Filter generated-report candidates using the originating plug-in associations. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
 // | 2026-11-12 | Read and paint Find headers as Unicode. | Avoid ANSI common-control conversions corrupting localized UTF-8 column names. | | openai/gpt-6-luna-pro |
 // | 2026-11-07 | Indicate background Find work with the system app-starting cursor. | Show active searches and sorts while retaining native interaction cursors. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Publish only the visible Find viewport to UI Automation. | Preserve native rendering, keyboard interaction, and legacy accessibility. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
@@ -1535,11 +1536,27 @@ CFoundFilesListView::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     index = 0;
             }
 
+            // Report navigation requires the current full path to still be present.
+            if (!FileNamesEnumData.ReportPluginID.empty() && FileNamesEnumData.LastFileIndex != -1 && indexNotFound)
+            {
+                HANDLES(LeaveCriticalSection(&DataCriticalSection));
+                SetEvent(FileNamesEnumDone);
+                HANDLES(LeaveCriticalSection(&FileNamesEnumDataSect));
+                return 0;
+            }
+
             int wantedViewerType = 0;
             BOOL onlyAssociatedExtensions = FALSE;
             if (FileNamesEnumData.OnlyAssociatedExtensions) // does the viewer request filtering by associated extensions?
             {
-                if (FileNamesEnumData.Plugin != NULL) // viewer from a plugin
+                if (!FileNamesEnumData.ReportPluginID.empty())
+                {
+                    int pluginIndex = Plugins.FindByStableId(FileNamesEnumData.ReportPluginID.c_str());
+                    // An unavailable provider cannot match any file.
+                    wantedViewerType = pluginIndex != -1 ? -1 - pluginIndex : INT_MIN;
+                    onlyAssociatedExtensions = TRUE;
+                }
+                else if (FileNamesEnumData.Plugin != NULL) // viewer from a plugin
                 {
                     int pluginIndex = Plugins.GetIndex(FileNamesEnumData.Plugin);
                     if (pluginIndex != -1) // "always true"

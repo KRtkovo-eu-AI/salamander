@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-20 | Reopen the exact enumerated source image on the plug-in UI thread. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
 // | 2026-11-20 | Admit bundled PictView in Branch View. | Preserve panel image identity and existing viewer restrictions. |  | gpt-6.2-sol |
 // | 2026-11-14 | Show a flag on the primary panel tab. | Distinguish the primary tab from tabs locked by the user. | | openai/gpt-6-luna-pro |
 // | 2026-11-10 | Enable clipboard copy from plugin file systems. | The staged-file clipboard path supports plugin FS sources with copy-from-FS service. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
@@ -22,6 +23,7 @@ void ReleaseDPIAwareWindowIcons(HWND hWindow);
 
 void ReleaseDPIAwareWindowIcons(HWND hWindow);
 
+#include <memory>
 #include <algorithm>
 #include <new>
 #include <string>
@@ -4690,6 +4692,44 @@ CMainWindow::WindowProcImpl(UINT uMsg, WPARAM wParam, LPARAM lParam)
     SLOW_CALL_STACK_MESSAGE4("CMainWindow::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_USER_OPEN_VIEWER_REPORT:
+    {
+        std::unique_ptr<CViewerReportRequest> request(reinterpret_cast<CViewerReportRequest*>(lParam));
+        if (request == NULL)
+            return 0;
+        HWND viewer = request->ViewerWindow;
+        if (GetPropW(viewer, ViewerReportRequestProperty) != request->Ticket)
+            return 0;
+
+        BOOL opened = FALSE;
+        if (CanClose && !HasLockedUI() && IsWindowEnabled(HWindow) && IsViewerFileSourceAvailable(request->SourceUID))
+        {
+            const int pluginIndex = Plugins.FindByStableId(request->PluginID.c_str());
+            CPluginData* plugin = pluginIndex >= 0 ? Plugins.Get(pluginIndex) : NULL;
+            if (plugin != NULL && plugin->SupportViewer)
+            {
+                WINDOWPLACEMENT placement = {sizeof(WINDOWPLACEMENT)};
+                if (GetWindowPlacement(viewer, &placement))
+                {
+                    RECT bounds = placement.rcNormalPosition;
+                    RECT monitor, work;
+                    MultiMonGetClipRectByRect(&bounds, &work, &monitor);
+                    OffsetRect(&bounds, work.left - monitor.left, work.top - monitor.top);
+                    const std::string path = SalWideToMultiBytePath(request->SourcePath.c_str(), CP_UTF8);
+                    HANDLE lock = NULL;
+                    BOOL lockOwner = FALSE;
+                    if (!path.empty())
+                        opened = plugin->ViewFile(path.c_str(), bounds.left, bounds.top,
+                                                  bounds.right - bounds.left, bounds.bottom - bounds.top,
+                                                  placement.showCmd, Configuration.AlwaysOnTop,
+                                                  FALSE, &lock, &lockOwner, request->SourceUID, request->SourceIndex);
+                }
+            }
+        }
+        PostMessage(viewer, WM_USER_OPEN_VIEWER_REPORT, opened, reinterpret_cast<LPARAM>(request->Ticket));
+        return 0;
+    }
+
     case WM_USER_SALAMANDER_MAIN_THREAD:
     {
         CSalamanderMainThreadCall* call =
