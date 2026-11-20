@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-20 | Admit bundled PictView in Branch View. | Preserve panel image identity and existing viewer restrictions. |  | gpt-6.2-sol |
 // | 2026-11-14 | Select matching user association targets explicitly. | Do not let runtime mask order or a rejected fallback handler override the Viewer, Alternate View, or Editor target shown in the matrix. |  | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-06 | Keep archive metadata cache invalidation with strict path decoding. | Preserve upstream fixes and Branch View path and lifetime contracts. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // CommentsTranslationProject: TRANSLATED
@@ -1989,35 +1990,10 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
         }
     }
 
-    // S27a transition: plugin viewers require their own panel-to-result acceptance.
-    // Resolve the first configured mask without invoking any plugin callback.
-    if (IsBranchView())
-    {
-        if (handlerID != 0xFFFFFFFF) return;
-        const char* base = strrchr(name, '\\');
-        if (base == NULL) return;
-        ++base;
-        const char* extension = strrchr(base, '.');
-        extension = extension != NULL ? extension + 1 : base + strlen(base);
-        CViewerMasks* masks = altView ? MainWindow->AltViewerMasks : MainWindow->ViewerMasks;
-        BOOL allowed = FALSE;
-        for (int i = 0; i < masks->Count; ++i)
-        {
-            int error;
-            CViewerMasksItem* viewer = masks->At(i);
-            if (viewer->Masks->PrepareMasks(error) && viewer->Masks->AgreeMasks(base, extension))
-            {
-                allowed = viewer->ViewerType == VIEWER_INTERNAL || viewer->ViewerType == VIEWER_EXTERNAL;
-                break;
-            }
-        }
-        if (!allowed) return;
-    }
-
     HANDLE lock = NULL;
     BOOL lockOwner = FALSE;
     ViewFileInt(HWindow, name, altView, handlerID, useDiskCache, lock, lockOwner, addToHistory,
-                enumFileNamesSourceUID, enumFileNamesLastFileIndex);
+                enumFileNamesSourceUID, enumFileNamesLastFileIndex, IsBranchView());
 
     if (useDiskCache)
     {
@@ -2100,9 +2076,18 @@ static CEditorMasksItem* FindUserEditorAssociation(CEditorMasks* masks,
     return best;
 }
 
+// Inspect registration metadata only, before loading a plug-in or calling it.
+static bool BranchViewerAllowed(int viewerType, bool explicitHandler, const CPluginData* plugin)
+{
+    if (viewerType == VIEWER_INTERNAL || viewerType == VIEWER_EXTERNAL)
+        return !explicitHandler;
+    return plugin != NULL && plugin->SupportViewer && plugin->DLLName != NULL &&
+           _stricmp(plugin->DLLName, "pictview\\pictview.spl") == 0;
+}
+
 BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, BOOL returnLock,
                  HANDLE& lock, BOOL& lockOwner, BOOL addToHistory, int enumFileNamesSourceUID,
-                 int enumFileNamesLastFileIndex)
+                 int enumFileNamesLastFileIndex, BOOL fromBranchView)
 {
     BOOL success = FALSE;
     lock = NULL;
@@ -2167,6 +2152,10 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
         }
     }
 
+    // An explicit Branch handler must still exist after the menu closes.
+    if (fromBranchView && handlerID != 0xFFFFFFFF && viewer == NULL)
+        return FALSE;
+
     // User rows are selected from the active association table, independently
     // of the legacy runtime row order. Among overlapping user patterns, the
     // most specific matching pattern wins.
@@ -2189,6 +2178,8 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
                         viewer->ViewerType != VIEWER_INTERNAL)
                     { // plug-in viewers only
                         CPluginData* plugin = Plugins.Get(-viewer->ViewerType - 1);
+                        if (fromBranchView && !BranchViewerAllowed(viewer->ViewerType, false, plugin))
+                            return FALSE;
                         if (plugin != NULL && plugin->SupportViewer)
                         {
                             if (!plugin->CanViewFile(name))
@@ -2206,6 +2197,13 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
             else
                 TRACE_E("Unexpected error in group mask.");
         }
+    }
+
+    if (fromBranchView && viewer != NULL)
+    {
+        CPluginData* plugin = viewer->ViewerType < 0 ? Plugins.Get(-viewer->ViewerType - 1) : NULL;
+        if (!BranchViewerAllowed(viewer->ViewerType, handlerID != 0xFFFFFFFF, plugin))
+            return FALSE;
     }
 
     if (viewer != NULL)
