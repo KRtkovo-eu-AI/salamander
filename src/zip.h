@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-20 | Declare optional internal report metadata. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
 // | 2026-11-04 | Create panel operations objects for plug-ins. | Portable Devices opens the standard progress dialog through the same object archivers use. | | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
@@ -624,4 +625,4 @@ int DialogQuestion(HWND parent, DWORD flags, const char* fileName,
 BOOL ViewFileInPluginViewer(const char* pluginSPL,
                             CSalamanderPluginViewerData* pluginData,
                             BOOL useCache, const char* rootTmpPath,
-                            const char* fileNameInCache, int& error);
+                            const char* fileNameInCache, int& error, const char* reportPluginID = NULL);

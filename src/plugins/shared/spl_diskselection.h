@@ -1,3 +1,5 @@
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-20 | Provide wide file I/O paths for plugin disk inputs. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
 // SPDX-FileCopyrightText: 2026 Samandarin Contributors
 // SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
@@ -38,6 +40,19 @@ inline std::wstring WideFromPath(const char* text)
     result.resize(length - 1);
     return result;
 }
+inline std::wstring WideFileIoPath(const char* text)
+{
+    std::wstring path = WideFromPath(text);
+    if (path.size() < MAX_PATH || path.compare(0, 4, L"\\\\?\\") == 0 ||
+        path.compare(0, 4, L"\\\\.\\") == 0)
+        return path;
+    if (path.compare(0, 2, L"\\\\") == 0)
+        return L"\\\\?\\UNC\\" + path.substr(2);
+    if (path.size() >= 3 && path[1] == L':' && path[2] == L'\\')
+        return L"\\\\?\\" + path;
+    return path;
+}
+
 inline std::string Utf8FromWide(const wchar_t* text)
 {
     if (text == NULL || *text == 0) return std::string();

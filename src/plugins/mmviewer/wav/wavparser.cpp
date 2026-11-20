@@ -1,7 +1,11 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-20 | Feed the RIFF parser a wide-opened file handle. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
+// | 2026-11-20 | Open WAV sources through the wide multimedia API. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+#include "../mfinfo.h"
 
 #ifdef _WAV_SUPPORT_
 
@@ -59,7 +63,10 @@ typedef struct
 void CMMIO::Close(void)
 {
     if (m_hmmio)
+    {
         mmioClose(m_hmmio, 0);
+        m_hmmio = NULL;
+    }
 
     if (m_pwfx)
     {
@@ -68,11 +75,23 @@ void CMMIO::Close(void)
     }
 }
 
-BOOL CMMIO::Open(char* fname)
+BOOL CMMIO::Open(const wchar_t* fname)
 {
     Close();
 
-    m_hmmio = mmioOpen(fname, NULL, MMIO_ALLOCBUF | MMIO_READ);
+    HANDLE file = CreateFileW(fname, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
+                              FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file == INVALID_HANDLE_VALUE)
+        return FALSE;
+
+    // MMIO accepts a previously opened standard file handle in the DOS
+    // backend. This keeps its RIFF parser without its filename-length limit.
+    MMIOINFO info = {};
+    info.fccIOProc = FOURCC_DOS;
+    info.adwInfo[0] = static_cast<DWORD>(reinterpret_cast<ULONG_PTR>(file));
+    m_hmmio = mmioOpenW(NULL, &info, MMIO_ALLOCBUF | MMIO_READ);
+    if (m_hmmio == NULL)
+        CloseHandle(file);
 
     return IsOpened();
 }
@@ -221,11 +240,8 @@ HRESULT CMMIO::ResetFile()
 CParserResultEnum
 CParserWAV::OpenFile(const char* fileName)
 {
-    // mmioOpen wants a non-const char ;-0
-    char fnamecpy[MAX_PATH];
-    strcpy(fnamecpy, fileName);
-
-    if (!mmio.Open(fnamecpy))
+    const std::wstring path = MmViewerMakeExtendedPath(MmViewerPathToWide(fileName).c_str());
+    if (path.empty() || !mmio.Open(path.c_str()))
         return preOpenError;
 
     return preOK;

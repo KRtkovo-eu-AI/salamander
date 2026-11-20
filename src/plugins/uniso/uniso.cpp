@@ -1,7 +1,12 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-20 | Attach the source image and report whether viewer launch succeeded. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
+// | 2026-11-20 | Keep full disc-image captions and handle temporary report failures. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+#include "../shared/spl_diskselection.h"
 #include "dbg.h"
 
 #include "uniso.h"
@@ -197,9 +202,10 @@ BOOL Error(char* msg, DWORD err, BOOL quiet)
     if (!quiet)
         if (err != ERROR_FILE_NOT_FOUND && err != ERROR_NO_MORE_FILES) // it is an error
         {
-            char buf[1024];
-            sprintf(buf, "%s\n\n%s", msg, SalamanderGeneral->GetErrorText(err));
-            SalamanderGeneral->ShowMessageBox(buf, LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
+            std::string message(msg);
+            message += "\n\n";
+            message += SalamanderGeneral->GetErrorText(err);
+            SalamanderGeneral->ShowMessageBox(message.c_str(), LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
         }
 
     return FALSE;
@@ -826,19 +832,28 @@ BOOL CPluginInterfaceForViewer::ViewFile(const char* name, int left, int top, in
   }
 */
 
+    BOOL opened = FALSE;
     char tempFileName[MAX_PATH];
     if (SalamanderGeneral->SalGetTempFileName(NULL, "ISO", tempFileName, TRUE, NULL))
     {
-        char caption[2000];
+        std::string caption(name);
+        caption += " - ";
+        caption += LoadStr(IDS_PLUGINNAME);
         int err;
-        CSalamanderPluginInternalViewerData vData;
+        CSalamanderPluginInternalViewerReportData vData = {};
 
         // create a temporary file and pour the module dump into it
         FILE* outStream = fopen(tempFileName, "w");
-        if (!image->DumpInfo(outStream))
+        if (outStream == NULL)
         {
-            // can this even happen?
+            DeleteFile(tempFileName);
+            SetCursor(hOldCur);
+            SalamanderGeneral->SalMessageBox(SalamanderGeneral->GetMsgBoxParent(), LoadStr(IDS_ERR_TMP),
+                                             LoadStr(IDS_PLUGINNAME), MB_OK | MB_ICONEXCLAMATION);
+            delete image;
+            return FALSE;
         }
+        image->DumpInfo(outStream);
         fclose(outStream);
         delete image;
 
@@ -847,13 +862,15 @@ BOOL CPluginInterfaceForViewer::ViewFile(const char* name, int left, int top, in
         vData.Size = sizeof(vData);
         vData.FileName = tempFileName;
         vData.Mode = 0; // text mode
-        sprintf(caption, "%s - %s", name, LoadStr(IDS_PLUGINNAME));
-        vData.Caption = caption;
+        vData.Caption = caption.c_str();
         vData.WholeCaption = TRUE;
-        if (!SalamanderGeneral->ViewFileInPluginViewer(NULL, &vData, TRUE, NULL, "iso_dump.txt", err))
-        {
-            // the file is deleted even in case of failure
-        }
+        vData.ReportMagic = SALAMANDER_INTERNAL_VIEWER_REPORT_MAGIC;
+        vData.SourceFileName = name;
+        vData.SourceUID = enumFilesSourceUID;
+        vData.SourceIndex = enumFilesCurrentIndex;
+        if (enumFilesSourceUID == -1)
+            vData.Size = sizeof(CSalamanderPluginInternalViewerData);
+        opened = SalamanderGeneral->ViewFileInPluginViewer(NULL, &vData, TRUE, NULL, "iso_dump.txt", err);
     }
     else
     {
@@ -864,7 +881,7 @@ BOOL CPluginInterfaceForViewer::ViewFile(const char* name, int left, int top, in
     }
 
     SetCursor(hOldCur);
-    return TRUE;
+    return opened;
 }
 
 BOOL CPluginInterfaceForViewer::CanViewFile(const char* name)

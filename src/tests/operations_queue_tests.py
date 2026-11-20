@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Salamander Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-20 | Prefer the active MSVC compiler for native tests. | Use the compiler that matches the Windows developer prompt headers. |  | gpt-6.2-sol |
 
 """Compile the actual operation queue and scheduler with fake window messages.
 
@@ -31,7 +33,7 @@ def main() -> int:
     parser.add_argument("--compiler")
     args = parser.parse_args()
     compiler = args.compiler or next(
-        (found for name in ("clang++", "g++", "cl") if (found := shutil.which(name))),
+        (found for name in ("cl", "clang++", "g++") if (found := shutil.which(name))),
         None,
     )
     if compiler is None:

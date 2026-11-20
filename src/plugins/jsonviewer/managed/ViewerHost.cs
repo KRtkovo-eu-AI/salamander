@@ -1,5 +1,7 @@
 // SPDX-FileCopyrightText: 2024 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-20 | Read JSON through a wide Windows file handle. | Preserve long Branch View paths under the native CLR host. |  | gpt-6.2-sol |
 
 #nullable enable
 
@@ -9,6 +11,7 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
@@ -672,7 +675,7 @@ internal static class ViewerHost
 
             try
             {
-                string json = File.ReadAllText(LongPathHelper.ToLongPath(LongPathHelper.ToDisplayPath(session.Payload.FilePath)));
+                string json = LongPathHelper.ReadAllText(session.Payload.FilePath);
                 _viewer.ShowTab(ViewerTabs.Viewer);
                 _viewer.refreshFromString(json);
                 _viewer.ApplyCurrentTheme();
@@ -881,6 +884,30 @@ internal static class ViewerHost
 
     internal static class LongPathHelper
     {
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
+        private static extern SafeFileHandle CreateFileW(string fileName, uint desiredAccess, uint shareMode,
+            IntPtr securityAttributes, uint creationDisposition, uint flagsAndAttributes, IntPtr templateFile);
+
+        public static string ReadAllText(string path)
+        {
+            const uint genericRead = 0x80000000;
+            const uint shareRead = 1;
+            const uint openExisting = 3;
+            const uint normalAttributes = 0x80;
+
+            // The host loads .NET Framework with legacy path handling. Open the
+            // exact path in Win32 and let StreamReader detect the text encoding.
+            using (SafeFileHandle handle = CreateFileW(ToLongPath(path), genericRead, shareRead,
+                IntPtr.Zero, openExisting, normalAttributes, IntPtr.Zero))
+            {
+                if (handle.IsInvalid)
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
+                using (var stream = new FileStream(handle, FileAccess.Read))
+                using (var reader = new StreamReader(stream, Encoding.UTF8, true))
+                    return reader.ReadToEnd();
+            }
+        }
+
         public static string ToLongPath(string path)
         {
             if (string.IsNullOrEmpty(path) || path.StartsWith(@"\\?\", StringComparison.Ordinal))
