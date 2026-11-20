@@ -73,7 +73,7 @@
 #endif
 
 ; Build the ownership inventory from the finished payload for both installer modes.
-#define StagePayloadCommand "-NoProfile -ExecutionPolicy Bypass -File " + Chr(34) + AddBackslash(SourcePath) + "..\..\tools\stage_inno_payload.ps1" + Chr(34) + " -RepositoryRoot " + Chr(34) + AddBackslash(SourcePath) + "..\.." + Chr(34) + " -DestinationRoot " + Chr(34) + AddBackslash(PayloadDir) + "." + Chr(34)
+#define StagePayloadCommand "-NoProfile -ExecutionPolicy Bypass -File " + '"' + AddBackslash(SourcePath) + "..\..\tools\stage_inno_payload.ps1" + '"' + " -RepositoryRoot " + '"' + AddBackslash(SourcePath) + "..\.." + '"' + " -DestinationRoot " + '"' + AddBackslash(PayloadDir) + "." + '"'
 #if Exec(GetEnv("SystemRoot") + "\System32\WindowsPowerShell\v1.0\powershell.exe", StagePayloadCommand, SourcePath) != 0
   #error Installer payload staging failed. Build the complete x64 payload before compiling Setup.
 #endif
