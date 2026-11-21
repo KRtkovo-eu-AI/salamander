@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Share the selected prefetch budget. | Synchronize the Performance page with viewer threads. | | gpt-6.2-sol |
 // | 2026-11-21 | Add the viewer prefetch option and timer. | Schedule image preparation after foreground painting. | | gpt-6.2-sol |
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-09 | Separate mouse wheel behavior from Page Up/Down and add navigation buttons. | Implement configurable wheel actions and previous/next mouse buttons. | https://github.com/KRtkovo-eu-AI/salamander/issues/747 | GPT-6 (Codex) |
@@ -574,6 +575,7 @@ void TrailZeros(LPTSTR buff);
 extern SGlobals G;
 extern CThreadQueue ThreadQueue;
 extern std::atomic_bool PictViewPrefetchEnabled;
+extern std::atomic_uint PictViewPrefetchLevel;
 
 extern MENU_TEMPLATE_ITEM PopupMenuTemplate[];
 

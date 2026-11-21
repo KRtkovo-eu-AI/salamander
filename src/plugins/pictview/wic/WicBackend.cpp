@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Admit speculative decode by dimensions and account for completed images. | Bound memory and permit larger images at higher levels. | | gpt-6.2-sol |
 // | 2026-11-21 | Prepare bounded WIC still images on a separate COM apartment. | Transfer only decoded pixels and bitmaps to the viewer. | | gpt-6.2-sol |
 // | 2026-11-21 | Measure viewer decode, transform, scale, and paint phases. | Attribute navigation latency without changing image processing. | | GPT-6 (Codex) |
 // | 2026-11-05 | Survive faulty shell thumbnail provider SEH. | IThumbnailProvider / IShellItemImageFactory must not terminate Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
@@ -36,6 +37,7 @@
 #include "../Thumbnailer.h"
 #include "../native/NativeDecoder.h"
 #include "../performance.h"
+#include "../prefetchbudget.h"
 #include "ShellPreviewHost.h"
 
 #pragma comment(lib, "windowscodecs.lib")
@@ -6807,7 +6809,8 @@ PVCODE WINAPI Backend::sPVOpenImageEx(LPPVHandle* Img, LPPVOpenImageExInfo pOpen
     return PVC_OK;
 }
 
-Backend::PreparedImage Backend::DecodeForPrefetch(const std::wstring& path, PVImageInfo& info)
+Backend::PreparedImage Backend::DecodeForPrefetch(const std::wstring& path, PVImageInfo& info,
+                                                  ULONGLONG availableBytes, UINT viewportWidth, UINT viewportHeight, DWORD fileBytes)
 {
     PreparedImage image(nullptr, [](void* handle) { sPVCloseImage(handle); });
     if (!Factory())
@@ -6830,8 +6833,20 @@ Backend::PreparedImage Backend::DecodeForPrefetch(const std::wstring& path, PVIm
         (container != GUID_ContainerFormatJpeg && container != GUID_ContainerFormatPng &&
          container != GUID_ContainerFormatTiff) ||
         FAILED(decoder->GetFrameCount(&count)) || count != 1 ||
-        FAILED(decoder->GetFrame(0, &first)) || FAILED(first->GetSize(&width, &height)) ||
-        !width || !height || static_cast<ULONGLONG>(width) * height > 32000000)
+        FAILED(decoder->GetFrame(0, &first)) || !first || FAILED(first->GetSize(&width, &height)) ||
+        !width || !height)
+        return image;
+
+    // Check both possible display shapes before reading the raster.
+    const auto pixels = static_cast<ULONGLONG>(width) * height;
+    if (pixels > availableBytes / 20)
+        return image;
+    UINT normalWidth, normalHeight, rotatedWidth, rotatedHeight;
+    FitToViewport(width, height, viewportWidth, viewportHeight, normalWidth, normalHeight);
+    FitToViewport(height, width, viewportWidth, viewportHeight, rotatedWidth, rotatedHeight);
+    const auto displayPixels = std::max(static_cast<ULONGLONG>(normalWidth) * normalHeight,
+                                        static_cast<ULONGLONG>(rotatedWidth) * rotatedHeight);
+    if (PictView::PrefetchBudget::WorkingBytes(pixels, displayPixels, fileBytes) > availableBytes)
         return image;
 
     auto owned = std::make_unique<ImageHandle>();
@@ -6870,6 +6885,24 @@ bool Backend::PrepareForTransfer(void* image, DWORD rotate, UINT viewportWidth, 
     frame.frame.Reset();
     handle.backend = nullptr;
     return true;
+}
+
+ULONGLONG Backend::PreparedBytes(void* image)
+{
+    const auto& handle = *FromHandle(image);
+    const auto& frame = handle.frames[0];
+    ULONGLONG bytes = sizeof(handle) + handle.frames.capacity() * sizeof(FrameData) +
+                     handle.fileName.capacity() * sizeof(wchar_t) +
+                     static_cast<ULONGLONG>(frame.pixels.capacity()) + frame.compositedPixels.capacity() +
+                     frame.indexedPixels.capacity() + frame.disposalBuffer.capacity() + frame.scaledPixels.capacity() +
+                     frame.linePointers.capacity() * sizeof(BYTE*) + frame.palette.capacity() * sizeof(RGBQUAD);
+    for (auto bitmap : {frame.hbitmap, frame.scaledBitmap, frame.transparencyMask})
+    {
+        BITMAP info{};
+        if (bitmap && GetObject(bitmap, sizeof(info), &info) == sizeof(info))
+            bytes += static_cast<ULONGLONG>(info.bmWidthBytes) * info.bmHeight;
+    }
+    return bytes;
 }
 
 LPPVHandle Backend::AdoptPrefetch(PreparedImage& image, PVImageInfo& info)

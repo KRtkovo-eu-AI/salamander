@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Prepare nearby images on both sides within a shared budget. | Keep useful neighbors ready after changing direction. | | gpt-6.2-sol |
 // | 2026-11-21 | Prepare the next predicted still image in a viewer worker. | Reuse decoded, oriented and scaled pixels during navigation. | | gpt-6.2-sol |
 // | 2026-11-21 | Initialize EXIF before automatic orientation lookup. | Make first-session autorotation independent of the EXIF dialog. | | GPT-6 (Codex) |
 // | 2026-11-21 | Measure navigation through the completed image paint. | Separate decode, EXIF, transform, scaling and drawing costs before prefetch. | | GPT-6 (Codex) |
@@ -32,6 +33,7 @@
 #include "PixelAccess.h"
 #include "performance.h"
 #include "wic/WicBackend.h"
+#include "prefetchbudget.h"
 
 static int GetImageAutoOrientation(LPCTSTR name, const PVImageInfo& image, HMODULE library)
 {
@@ -169,6 +171,14 @@ bool SamePrefetchStamp(const BY_HANDLE_FILE_INFORMATION& a, const BY_HANDLE_FILE
 }
 
 std::atomic_flag PrefetchWorkerBusy = ATOMIC_FLAG_INIT;
+std::atomic<ULONGLONG> PrefetchBytes{0};
+
+ULONGLONG AvailablePrefetchBytes()
+{
+    const auto budget = PictView::PrefetchBudget::At(PictViewPrefetchLevel.load()).Bytes();
+    const auto inUse = PrefetchBytes.load();
+    return inUse < budget ? budget - inUse : 0;
+}
 }
 
 struct PictViewPrefetch
@@ -185,55 +195,82 @@ struct PictViewPrefetch
     BY_HANDLE_FILE_INFORMATION stamp{};
     Backend::PreparedImage image{nullptr, [](void*) {}};
     int orientation = 1;
+    ULONGLONG chargedBytes = 0;
+
+    ~PictViewPrefetch()
+    {
+        ReleaseImage();
+    }
+
+    void ReleaseImage()
+    {
+        image.reset();
+        PrefetchBytes.fetch_sub(chargedBytes);
+        chargedBytes = 0;
+    }
 };
 
 namespace
 {
 class PrefetchThread : public CThread
 {
-    std::shared_ptr<PictViewPrefetch> Job;
+    std::vector<std::shared_ptr<PictViewPrefetch>> Jobs;
 
-    void Prepare()
+    static void Prepare(Backend& backend, PictViewPrefetch& job)
     {
-        if (Job->canceled.load() || !ReadPrefetchStamp(Job->widePath, Job->stamp))
+        if (job.canceled.load() || !ReadPrefetchStamp(job.widePath, job.stamp))
             return;
 
-        Backend backend;
         PVImageInfo info{};
-        auto image = backend.DecodeForPrefetch(Job->widePath, info);
-        if (!image || Job->canceled.load())
+        auto image = backend.DecodeForPrefetch(job.widePath, info, AvailablePrefetchBytes(),
+                                               job.width, job.height, job.stamp.nFileSizeLow);
+        if (!image || job.canceled.load())
             return;
 
-        Job->orientation = GetImageAutoOrientation(Job->name.c_str(), info, Job->exif);
+        job.orientation = GetImageAutoOrientation(job.name.c_str(), info, job.exif);
         DWORD rotation = 0;
-        if (Job->orientation >= 5 && Job->orientation <= 7)
+        if (job.orientation >= 5 && job.orientation <= 7)
             rotation = PVCF_ROTATE90CW;
-        else if (Job->orientation == 8)
+        else if (job.orientation == 8)
             rotation = PVCF_ROTATE90CCW;
 
         BY_HANDLE_FILE_INFORMATION after{};
-        if (!Job->canceled.load() &&
-            Backend::PrepareForTransfer(image.get(), rotation, Job->width, Job->height) &&
-            ReadPrefetchStamp(Job->widePath, after) && SamePrefetchStamp(Job->stamp, after))
-            Job->image = std::move(image);
+        if (job.canceled.load() ||
+            !Backend::PrepareForTransfer(image.get(), rotation, job.width, job.height) ||
+            !ReadPrefetchStamp(job.widePath, after) || !SamePrefetchStamp(job.stamp, after))
+            return;
+
+        const auto bytes = Backend::PreparedBytes(image.get()) + sizeof(job) +
+                           job.name.capacity() * sizeof(TCHAR) + job.widePath.capacity() * sizeof(wchar_t);
+        if (bytes <= AvailablePrefetchBytes() && !job.canceled.load() && PictViewPrefetchEnabled.load())
+        {
+            PrefetchBytes.fetch_add(bytes);
+            job.chargedBytes = bytes;
+            job.image = std::move(image);
+        }
     }
 
 public:
-    explicit PrefetchThread(std::shared_ptr<PictViewPrefetch> job)
-        : CThread("PictView Prefetch"), Job(std::move(job)) {}
+    explicit PrefetchThread(const std::vector<std::shared_ptr<PictViewPrefetch>>& jobs)
+        : CThread("PictView Prefetch"), Jobs(jobs) {}
 
     unsigned Body() override
     {
         SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
-        try
+        Backend backend;
+        for (auto& job : Jobs)
         {
-            Prepare();
+            try
+            {
+                Prepare(backend, *job);
+            }
+            catch (...)
+            {
+                // A speculative open must never interrupt normal navigation.
+            }
+            job->ready.store(true, std::memory_order_release);
+            job.reset();
         }
-        catch (...)
-        {
-            // A speculative open must never interrupt normal navigation.
-        }
-        Job->ready.store(true, std::memory_order_release);
         PrefetchWorkerBusy.clear();
         return 0;
     }
@@ -244,11 +281,9 @@ void CRendererWindow::ResetPrefetch()
 {
     if (HWindow)
         KillTimer(HWindow, PREFETCH_TIMER_ID);
-    if (Prefetch)
-    {
-        Prefetch->canceled.store(true);
-        Prefetch.reset();
-    }
+    for (const auto& job : Prefetch)
+        job->canceled.store(true);
+    Prefetch.clear();
 }
 
 void CRendererWindow::SchedulePrefetch()
@@ -261,82 +296,154 @@ void CRendererWindow::SchedulePrefetch()
 
 void CRendererWindow::StartPrefetch()
 {
-    if (!PictViewPrefetchEnabled.load() || !ImageLoaded || Loading || Prefetch || PVSequence ||
-        !PVHandle || !FileName || *FileName == '<' || HasInteractivePreview() ||
+    if (!PictViewPrefetchEnabled.load() || !ImageLoaded || Loading || PVSequence ||
+        !PVHandle || !FileName || *FileName == '<' || EnumFilesSourceUID < 0 || HasInteractivePreview() ||
         (G.ZoomType != eShrinkToFit && G.ZoomType != eZoomFullScreen) ||
         IsIconic(Viewer->HWindow) || GetCapture())
         return;
 
-    if (PrefetchWorkerBusy.test_and_set())
-    {
-        SchedulePrefetch();
-        return;
-    }
     try
     {
-        auto job = std::make_shared<PictViewPrefetch>();
         RECT viewport{};
         GetClientRect(HWindow, &viewport);
-        int index = EnumFilesCurrentIndex;
-        BOOL exhausted = FALSE, busy = FALSE;
-        auto enumerate = PrefetchPrevious ? PictViewGetPreviousFileName : PictViewGetNextFileName;
-        if (viewport.right > 0 && viewport.bottom > 0 &&
-            enumerate(EnumFilesSourceUID, &index, FileName, TRUE, TRUE, job->name, &exhausted, &busy) &&
-            job->name != FileName)
+        if (viewport.right <= 0 || viewport.bottom <= 0)
+            return;
+
+        using Name = std::basic_string<TCHAR>;
+        struct Cursor
         {
-#ifdef _UNICODE
-            job->widePath = job->name;
-#else
-            job->widePath = PluginMultiByteToWidePath(job->name.c_str(), CP_UTF8);
-#endif
-            const size_t drive = job->widePath.rfind(L"\\\\?\\", 0) == 0 ? 4 : 0;
-            if (job->widePath.size() > drive + 3 && job->widePath[drive + 1] == L':' &&
-                job->widePath[drive + 2] == L'\\' &&
-                GetDriveTypeW(job->widePath.substr(drive, 3).c_str()) == DRIVE_FIXED)
+            int index;
+            Name name;
+            bool more = true;
+        };
+        Cursor cursors[] = {{EnumFilesCurrentIndex, FileName}, {EnumFilesCurrentIndex, FileName}};
+        std::vector<Name> neighbors;
+        const auto limit = PictView::PrefetchBudget::At(PictViewPrefetchLevel.load());
+        for (unsigned distance = 0; distance < limit.PerDirection; ++distance)
+        {
+            for (unsigned side = 0; side < 2; ++side)
             {
-                if (drive == 0 && job->widePath.size() >= MAX_PATH)
-                    job->widePath = PluginPathAddExtendedPrefixW(job->widePath.c_str());
-                job->width = static_cast<UINT>(viewport.right);
-                job->height = static_cast<UINT>(viewport.bottom);
-                job->autoRotate = G.AutoRotate != FALSE;
-                if (job->autoRotate && InitEXIF(HWindow, TRUE))
-                    job->exif = EXIFLibrary;
-                // If EXIF could not load, let foreground opening retry rather
-                // than caching an incorrectly oriented image.
-                if (!job->autoRotate || job->exif)
+                const bool previous = PrefetchPrevious != (side != 0);
+                auto& cursor = cursors[previous];
+                if (!cursor.more)
+                    continue;
+                auto enumerate = previous ? PictViewGetPreviousFileName : PictViewGetNextFileName;
+                BOOL exhausted = FALSE, busy = FALSE;
+                Name target;
+                cursor.more = enumerate(EnumFilesSourceUID, &cursor.index, cursor.name.c_str(), TRUE, TRUE,
+                                        target, &exhausted, &busy) && target != cursor.name && target != FileName;
+                if (busy)
                 {
-                    auto* worker = std::make_unique<PrefetchThread>(job).release();
-                    if (worker->Create(ThreadQueue))
-                    {
-                        Prefetch = std::move(job);
-                        return;
-                    }
-                    delete worker;
+                    SchedulePrefetch();
+                    return;
+                }
+                if (cursor.more)
+                {
+                    cursor.name = target;
+                    if (std::find(neighbors.begin(), neighbors.end(), target) == neighbors.end())
+                        neighbors.push_back(std::move(target));
                 }
             }
+            if (!cursors[0].more && !cursors[1].more)
+                break;
         }
+
+        const bool autoRotate = G.AutoRotate != FALSE;
+        Prefetch.erase(std::remove_if(Prefetch.begin(), Prefetch.end(), [&](const auto& job) {
+            if (job->autoRotate == autoRotate &&
+                std::find(neighbors.begin(), neighbors.end(), job->name) != neighbors.end())
+                return false;
+            job->canceled.store(true);
+            return true;
+        }), Prefetch.end());
+
+        std::vector<std::shared_ptr<PictViewPrefetch>> jobs;
+        for (auto& name : neighbors)
+        {
+            if (std::any_of(Prefetch.begin(), Prefetch.end(), [&](const auto& job) { return job->name == name; }))
+                continue;
+#ifdef _UNICODE
+            std::wstring widePath = name;
+#else
+            std::wstring widePath = PluginMultiByteToWidePath(name.c_str(), CP_UTF8);
+#endif
+            const size_t drive = widePath.rfind(L"\\\\?\\", 0) == 0 ? 4 : 0;
+            if (widePath.size() <= drive + 3 || widePath[drive + 1] != L':' || widePath[drive + 2] != L'\\' ||
+                GetDriveTypeW(widePath.substr(drive, 3).c_str()) != DRIVE_FIXED)
+                continue;
+            auto job = std::make_shared<PictViewPrefetch>();
+            job->name = std::move(name);
+            job->widePath = widePath.size() >= MAX_PATH ? PluginPathAddExtendedPrefixW(widePath.c_str()) : std::move(widePath);
+            job->width = static_cast<UINT>(viewport.right);
+            job->height = static_cast<UINT>(viewport.bottom);
+            job->autoRotate = autoRotate;
+            jobs.push_back(std::move(job));
+        }
+        if (jobs.empty() || !AvailablePrefetchBytes())
+            return;
+        if (autoRotate)
+        {
+            if (!InitEXIF(HWindow, TRUE))
+                return;
+            for (auto& job : jobs)
+                job->exif = EXIFLibrary;
+        }
+
+        Prefetch.reserve(Prefetch.size() + jobs.size());
+        auto worker = std::make_unique<PrefetchThread>(jobs);
+        if (PrefetchWorkerBusy.test_and_set())
+        {
+            SchedulePrefetch();
+            return;
+        }
+        auto* thread = worker.release();
+        bool started;
+        try
+        {
+            started = thread->Create(ThreadQueue) != nullptr;
+        }
+        catch (...)
+        {
+            delete thread;
+            PrefetchWorkerBusy.clear();
+            throw;
+        }
+        if (!started)
+        {
+            delete thread;
+            PrefetchWorkerBusy.clear();
+            return;
+        }
+        Prefetch.insert(Prefetch.end(), jobs.begin(), jobs.end());
     }
     catch (...)
     {
         // Continue to use the ordinary open path after allocation failure.
     }
-    PrefetchWorkerBusy.clear();
 }
 
 LPPVHandle CRendererWindow::TakePrefetch(LPCTSTR name)
 {
-    if (!PictViewPrefetchEnabled.load() || !Prefetch || !Prefetch->ready.load(std::memory_order_acquire) ||
-        !Prefetch->image || Prefetch->name != name || Prefetch->autoRotate != (G.AutoRotate != FALSE))
+    auto entry = std::find_if(Prefetch.begin(), Prefetch.end(), [&](const auto& job) { return job->name == name; });
+    if (entry == Prefetch.end())
+        return nullptr;
+
+    auto job = std::move(*entry);
+    Prefetch.erase(entry);
+    job->canceled.store(true);
+    if (!PictViewPrefetchEnabled.load() || !job->ready.load(std::memory_order_acquire) ||
+        !job->image || job->autoRotate != (G.AutoRotate != FALSE))
         return nullptr;
 
     BY_HANDLE_FILE_INFORMATION current{};
-    if (!ReadPrefetchStamp(Prefetch->widePath, current) || !SamePrefetchStamp(Prefetch->stamp, current))
+    if (!ReadPrefetchStamp(job->widePath, current) || !SamePrefetchStamp(job->stamp, current))
         return nullptr;
 
-    const int orientation = Prefetch->orientation;
-    fMirrorHor = orientation == 2 || orientation == 3 || orientation == 5;
-    fMirrorVert = orientation == 3 || orientation == 4 || orientation == 7;
-    return Backend::AdoptPrefetch(Prefetch->image, pvii);
+    fMirrorHor = job->orientation == 2 || job->orientation == 3 || job->orientation == 5;
+    fMirrorVert = job->orientation == 3 || job->orientation == 4 || job->orientation == 7;
+    auto handle = Backend::AdoptPrefetch(job->image, pvii);
+    job->ReleaseImage();
+    return handle;
 }
 
 inline int sgn(int x)
@@ -626,9 +733,17 @@ BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp, bool nav
     FreeComment();
     PVHandle = navigation && !hBmp ? TakePrefetch(name) : nullptr;
     AutoOrientationPrepared = PVHandle != nullptr;
-    ResetPrefetch();
-    if (!navigation)
+    if (!navigation || !PictViewPrefetchEnabled.load())
+    {
+        ResetPrefetch();
         PrefetchPrevious = false;
+    }
+    else
+    {
+        Prefetch.erase(std::remove_if(Prefetch.begin(), Prefetch.end(), [](const auto& job) {
+            return job->ready.load(std::memory_order_acquire) && !job->image;
+        }), Prefetch.end());
+    }
     code = AutoOrientationPrepared ? PVC_OK : PVW32DLL.PVOpenImageEx(&PVHandle, &oiei, &pvii, sizeof(pvii));
 
     if (code == PVC_OK)

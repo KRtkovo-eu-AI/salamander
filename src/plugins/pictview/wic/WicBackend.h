@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Account for prepared raster memory. | Enforce the configurable prefetch budget. | | gpt-6.2-sol |
 // | 2026-11-21 | Expose bounded still-image preparation and transfer. | Reuse decoded and scaled pixels across viewer threads. | | gpt-6.2-sol |
 
 #pragma once
@@ -169,8 +170,10 @@ public:
     IWICImagingFactory* Factory() const { return m_factory.Get(); }
 
     using PreparedImage = std::unique_ptr<void, void (*)(void*)>;
-    PreparedImage DecodeForPrefetch(const std::wstring& path, PVImageInfo& info);
+    PreparedImage DecodeForPrefetch(const std::wstring& path, PVImageInfo& info,
+                                    ULONGLONG availableBytes, UINT viewportWidth, UINT viewportHeight, DWORD fileBytes);
     static bool PrepareForTransfer(void* image, DWORD rotate, UINT viewportWidth, UINT viewportHeight);
+    static ULONGLONG PreparedBytes(void* image);
     static LPPVHandle AdoptPrefetch(PreparedImage& image, PVImageInfo& info);
 
 private:

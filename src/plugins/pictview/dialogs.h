@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Handle the five-position Performance slider. | Update storage estimates as the user chooses a budget. | | gpt-6.2-sol |
 // | 2026-11-21 | Declare the Performance settings page. | Expose viewer prefetch as an opt-in option. | | gpt-6.2-sol |
 
 #pragma once
@@ -221,6 +222,10 @@ public:
 
 class CConfigPagePerformance : public CCommonPropSheetPage
 {
+    wchar_t BudgetFormat[384]{};
+    void UpdateBudgetText();
+    INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam) override;
+
 public:
     CConfigPagePerformance();
     ~CConfigPagePerformance() override;

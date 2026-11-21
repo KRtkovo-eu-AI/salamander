@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-21 | Document the bidirectional cache and memory levels. | Explain the limits and the capacity estimates. | | gpt-6.2-sol |
 | 2026-11-21 | Document the prefetch option and comparison procedure. | Make the performance change reproducible. | | gpt-6.2-sol |
 | 2026-11-21 | Add anonymous aggregate navigation timings and validation results. | Identify the dominant phases using the initialized viewer. | | GPT-6 (Codex) |
 | 2026-11-21 | Record synthetic baseline and EXIF initialization prerequisite. | Separate decoding, scaling and rotation costs before prefetch work. | | GPT-6 (Codex) |
@@ -14,13 +15,21 @@ same timing diagnostics to compare it with the current viewer.
 ## Enable prefetch
 
 In PictView, open **Tools → Configuration → Performance** and enable
-**Preload the next image in the direction of browsing**. Existing configurations
-start with the option off. The viewer prepares one nearby image for **Fit whole**
-or **Full screen**. It follows the most recent browsing direction and starts
-forward when opening a new viewer.
+**Preload nearby images in both directions**. Existing configurations without
+the prefetch option start with it off. The worker prepares nearby images for
+**Fit whole** or **Full screen**, alternating directions and starting with the
+nearest candidates. The most recent direction wins ties.
+
+The slider sets a shared budget across PictView windows. The 64-bit levels are
+256, 512, 1024, 1536 and 2048 MiB. The 32-bit levels use 128, 256, 384, 512 and
+768 MiB. Level 2 is the default. The dialog shows the limit per direction and
+example capacities for 12, 24 and 48 MP images across both directions.
 
 The worker handles local JPEG, PNG and single-page TIFF images decoded by WIC.
-It is limited to files of up to 128 MiB and rasters of up to 32 megapixels.
+The file size limit is 128 MiB. A candidate's dimensions, display size and
+encoded size determine its estimated working memory before decoding. Retained
+entries are charged for their pixel buffers and bitmaps. Codec-internal
+allocations can vary, and the image currently displayed uses separate memory.
 The viewer can reuse the decoded raster, EXIF transform and display bitmap.
 Navigation opens the target as usual if preparation is unavailable, unfinished
 or stale. After a resize, the viewer recomputes the scaled bitmap if needed.
@@ -41,6 +50,12 @@ verified prepared single-page TIFF and PNG images with Unicode names under a
 320-character directory, ordinary opening of a multipage TIFF and reload from
 disk. The test also confirmed autorotation on the first open in a fresh process
 and persistence of the Performance option across a restart.
+
+With the bidirectional cache at level 5, a 48 MP synthetic image three positions
+ahead was displayed in 14.8 ms and a jump six positions back took 32.7 ms. Both
+transitions used completed entries. After lowering the slider to level 1, the
+same 48 MP image took 1350.9 ms through ordinary loading. A smaller prepared
+neighbor still hit the cache at that level.
 
 ## Measurement environment
 

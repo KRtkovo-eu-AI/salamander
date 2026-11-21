@@ -2,6 +2,7 @@
 // Microsoft Visual C++ generated include file.
 // Used by lang.rc
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Define identifiers for the prefetch budget controls. | Support translated level descriptions. | | gpt-6.2-sol |
 // | 2026-11-21 | Define Performance settings resources. | Add a localizable prefetch option. | | gpt-6.2-sol |
 // | 2026-11-09 | Add controls for mouse wheel behavior. | Support independent wheel action options in the configuration dialog. | https://github.com/KRtkovo-eu-AI/salamander/issues/747 | GPT-6 (Codex) |
 //
@@ -23,9 +24,13 @@
 #define IDC_CFGAPP_ZOOM_FSCREEN         2027
 #define IDC_CFGAPP_PATH                 2030
 #define DLG_CFGPAGE_ADVANCED            2040
-#define DLG_CFGPAGE_PERFORMANCE         2041
+#define DLG_CFGPAGE_PERFORMANCE         2044
 #define IDC_CFGPERF_PREFETCH            2042
 #define IDC_CFGPERF_SCOPE               2043
+#define IDC_CFGPERF_MEMORY_LABEL        2045
+#define IDC_CFGPERF_MEMORY              2046
+#define IDC_CFGPERF_ESTIMATE            2047
+#define IDC_CFGPERF_ESTIMATE_NOTE       2048
 #define IDC_CFGADV_CREATE_THUMBNAILS    2050
 #define IDC_CFGADV_THUMB_MP             2051
 #define IDC_CFGADV_AUTOROTATE           2052

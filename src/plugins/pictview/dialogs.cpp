@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Show five prefetch memory levels with image estimates. | Make the cost and reach of each level visible. | | gpt-6.2-sol |
 // | 2026-11-21 | Bind the Performance page to the prefetch option. | Enable the feature from the existing configuration dialog. | | gpt-6.2-sol |
 // | 2026-11-09 | Expose independent Page Up/Down and mouse wheel settings. | Let users choose scrolling, zooming, or image navigation for the wheel. | https://github.com/KRtkovo-eu-AI/salamander/issues/747 | GPT-6 (Codex) |
 
@@ -13,6 +14,7 @@
 #include "renderer.h"
 #include "pictview.h"
 #include "dialogs.h"
+#include "prefetchbudget.h"
 #include "pictview.rh"
 #include "pictview.rh2"
 #include "lang\lang.rh"
@@ -1016,10 +1018,46 @@ CConfigPagePerformance::~CConfigPagePerformance()
 
 void CConfigPagePerformance::Transfer(CTransferInfo& ti)
 {
+    using namespace PictView::PrefetchBudget;
     BOOL enabled = PictViewPrefetchEnabled.load();
     ti.CheckBox(IDC_CFGPERF_PREFETCH, enabled);
+    HWND slider = GetDlgItem(HWindow, IDC_CFGPERF_MEMORY);
     if (ti.Type == ttDataFromWindow)
+    {
+        const auto level = static_cast<unsigned>(SendMessage(slider, TBM_GETPOS, 0, 0));
+        PictViewPrefetchLevel.store(level < Levels ? level : DefaultLevel);
         PictViewPrefetchEnabled.store(enabled != FALSE);
+    }
+    else
+    {
+        SendMessage(slider, TBM_SETRANGE, TRUE, MAKELPARAM(0, Levels - 1));
+        SendMessage(slider, TBM_SETPAGESIZE, 0, 1);
+        SendMessage(slider, TBM_SETPOS, TRUE, PictViewPrefetchLevel.load());
+        UpdateBudgetText();
+    }
+}
+
+void CConfigPagePerformance::UpdateBudgetText()
+{
+    using namespace PictView::PrefetchBudget;
+    const HWND slider = GetDlgItem(HWindow, IDC_CFGPERF_MEMORY);
+    const auto level = static_cast<unsigned>(SendMessage(slider, TBM_GETPOS, 0, 0));
+    const auto limit = At(level);
+    wchar_t text[384];
+    _snwprintf_s(text, _TRUNCATE, BudgetFormat, level + 1, limit.MemoryMiB, limit.PerDirection,
+                 Estimate(limit, 12), Estimate(limit, 24), Estimate(limit, 48));
+    SetDlgItemTextW(HWindow, IDC_CFGPERF_ESTIMATE, text);
+    EnableWindow(slider, IsDlgButtonChecked(HWindow, IDC_CFGPERF_PREFETCH) == BST_CHECKED);
+}
+
+INT_PTR CConfigPagePerformance::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    if (uMsg == WM_INITDIALOG)
+        GetDlgItemTextW(HWindow, IDC_CFGPERF_ESTIMATE, BudgetFormat, SizeOf(BudgetFormat));
+    if ((uMsg == WM_COMMAND && LOWORD(wParam) == IDC_CFGPERF_PREFETCH && HIWORD(wParam) == BN_CLICKED) ||
+        (uMsg == WM_HSCROLL && reinterpret_cast<HWND>(lParam) == GetDlgItem(HWindow, IDC_CFGPERF_MEMORY)))
+        UpdateBudgetText();
+    return CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
 }
 
 CConfigDialog::CConfigDialog(HWND parent)

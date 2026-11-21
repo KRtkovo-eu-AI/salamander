@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Keep prepared neighbors in both navigation directions. | Reuse entries as the viewer moves through the list. | | gpt-6.2-sol |
 // | 2026-11-21 | Store one speculative navigation result per viewer. | Adopt prepared pixels without blocking on the worker. | | gpt-6.2-sol |
 
 #pragma once
@@ -83,6 +84,7 @@ void InvalidateCage(RECT* r);    // sets r->left = 0x80000000 (the cage is inval
 //
 
 #include <memory>
+#include <vector>
 
 struct PictViewPrefetch;
 class CViewerWindow;
@@ -139,7 +141,7 @@ protected:
 
     int EnumFilesSourceUID;    // source UID for enumerating files in the viewer
     int EnumFilesCurrentIndex; // index of the current file in the viewer within the source
-    std::shared_ptr<PictViewPrefetch> Prefetch;
+    std::vector<std::shared_ptr<PictViewPrefetch>> Prefetch;
     bool PrefetchPrevious = false;
     bool AutoOrientationPrepared = false;
     void ResetPrefetch();

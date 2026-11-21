@@ -1,4 +1,5 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Add the prefetch memory slider and per-level estimates. | Explain the tradeoff between memory and nearby images. | | gpt-6.2-sol |
 // | 2026-11-21 | Add a Performance tab for image prefetch. | Let users opt in to background image preparation. | | gpt-6.2-sol |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // | 2026-11-09 | Add separate mouse wheel behavior options. | Let users configure scrolling, zooming, and image navigation independently. | https://github.com/KRtkovo-eu-AI/salamander/issues/747 | GPT-6 (Codex) |
@@ -190,9 +191,13 @@ STYLE DS_SETFONT | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | WS_CAPTION
 CAPTION "Performance"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    CONTROL         "&Preload the next image in the direction of browsing",IDC_CFGPERF_PREFETCH,
+    CONTROL         "&Preload nearby images in both directions",IDC_CFGPERF_PREFETCH,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,7,251,12
     LTEXT           "For local JPEG, PNG and single-page TIFF images in Fit whole or Full screen mode.",IDC_CFGPERF_SCOPE,7,25,251,22
+    LTEXT           "&Memory budget",IDC_CFGPERF_MEMORY_LABEL,7,51,251,9
+    CONTROL         "",IDC_CFGPERF_MEMORY,"msctls_trackbar32",TBS_AUTOTICKS | WS_TABSTOP,7,63,251,18
+    LTEXT           "Level %u of 5: %u MiB. Max. per direction: %u.\r\nApprox. total: %u at 12 MP, %u at 24 MP, or %u at 48 MP.",IDC_CFGPERF_ESTIMATE,7,86,251,29
+    LTEXT           "Estimates assume opaque images. The displayed image is separate from this budget.",IDC_CFGPERF_ESTIMATE_NOTE,7,121,251,22
 END
 
 DLG_IMGPROP DIALOGEX 106, 34, 173, 200
