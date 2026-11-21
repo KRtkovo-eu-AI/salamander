@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Measure navigation through the completed image paint. | Separate decode, EXIF, transform, scaling and drawing costs before prefetch. | | GPT-6 (Codex) |
 // | 2026-11-09 | Prevent duplicate navigation from X buttons and browser keys. | Windows reports these inputs through WM_APPCOMMAND after their native input messages. | https://github.com/KRtkovo-eu-AI/salamander/issues/747 | GPT-6 (Codex) |
 // | 2026-11-09 | Apply the independent wheel setting and handle browser navigation buttons. | Support configurable wheel actions and mouse back/forward controls in PictView. | https://github.com/KRtkovo-eu-AI/salamander/issues/747 | GPT-6 (Codex) |
 
@@ -27,6 +28,7 @@
 #endif // ENABLE_TWAIN32
 #include "exif/exif.h"
 #include "PixelAccess.h"
+#include "performance.h"
 
 inline int sgn(int x)
 {
@@ -111,6 +113,7 @@ CRendererWindow::CRendererWindow(int enumFilesSourceUID, int enumFilesCurrentInd
 
 CRendererWindow::~CRendererWindow()
 {
+    PictView::Perf::Finish(this, "closed");
     if (pPrintDlg != NULL)
         delete pPrintDlg;
     if (FileName != NULL)
@@ -269,6 +272,8 @@ BOOL CRendererWindow::OnFileOpen(LPCTSTR defaultDirectory)
 BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp)
 {
     CALL_STACK_MESSAGE2(_T("CViewerWindow::OpenFile(%s)"), name);
+    PictView::Perf::BeginOpen(this);
+    PictView::Perf::Scope performanceOpen(PictView::Perf::Phase::Open);
 
     PVCODE code;
     LPPVHandle OldPVHandle = PVHandle;
@@ -313,6 +318,10 @@ BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp)
 
     if (code == PVC_OK)
     {
+        PictView::Perf::SetImageSize(pvii.Width, pvii.Height);
+        PictView::Perf::SetFileBytes(pvii.FileSize);
+        if (hBmp || (pvii.Flags & PVFF_IMAGESEQUENCE) || pvii.NumOfImages != 1 || HasInteractivePreview())
+            PictView::Perf::Finish(this, "unsupported_kind");
         DuplicateComment();
         if (hBmp)
         {
@@ -397,6 +406,7 @@ BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp)
 
     if (code != PVC_OK)
     {
+        PictView::Perf::Finish(this, "open_failed");
         TCHAR errText[SAL_MAX_PATH + 100];
         _sntprintf_s(errText, SizeOf(errText), _TRUNCATE, LoadStr(IDS_ERROR_OPENING), name, PVW32DLL.PVGetErrorText(code));
         SalamanderGeneral->SalMessageBox(HWindow, errText, LoadStr(IDS_ERRORTITLE), MB_ICONEXCLAMATION);
@@ -505,6 +515,7 @@ BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp)
         }
     }
     UpdateInfos();
+    if (code == PVC_OK) PictView::Perf::ArmPaint(this, PVHandle);
     InvalidateRect(HWindow, NULL, FALSE);
 
     return (code == PVC_OK);
@@ -1532,6 +1543,13 @@ void ClipRect(RECT* r, int left, int top, int right, int bottom)
 
 LRESULT CRendererWindow::OnPaint()
 {
+    const ULONG_PTR performanceSerial = PictView::Perf::Serial(this);
+    const LPPVHandle performanceHandle = PVHandle;
+    const unsigned performanceDraws = PictView::Perf::Current().attempts[static_cast<int>(PictView::Perf::Counter::Draw)];
+    PictView::Perf::Scope performancePaint(PictView::Perf::Phase::Paint);
+    bool performanceDrew = false;
+    bool performanceDrawFailed = false;
+    if (performanceSerial) ++PictView::Perf::Current().paintCalls;
     PAINTSTRUCT ps;
     HDC dc;
     HRGN hRgn = NULL;
@@ -1657,7 +1675,12 @@ LRESULT CRendererWindow::OnPaint()
                 {
                     rgnData.rects[i].top = Y;
                 }
-                PVW32DLL.PVDrawImage(PVHandle, dc, X, Y, &rgnData.rects[i]);
+                const PVCODE drawCode = PVW32DLL.PVDrawImage(PVHandle, dc, X, Y, &rgnData.rects[i]);
+                if (!IsRectEmpty(&rgnData.rects[i]))
+                {
+                    performanceDrew = performanceDrew || drawCode == PVC_OK;
+                    performanceDrawFailed = performanceDrawFailed || drawCode != PVC_OK;
+                }
             }
         }
         if (bDrawCageRect)
@@ -1713,6 +1736,7 @@ LRESULT CRendererWindow::OnPaint()
                 if (FileName != NULL && ((pvii.Format == PVF_JPG) || (pvii.Format == PVF_TIFF)) &&
                     (pvii.Flags & PVFF_EXIF) && G.AutoRotate)
                 {
+                    PictView::Perf::Scope performanceExif(PictView::Perf::Phase::Exif);
                     EXIFGETORIENTATIONINFO getInfo = (EXIFGETORIENTATIONINFO)GetProcAddress(EXIFLibrary, "EXIFGetOrientationInfo");
 #ifdef _UNICODE
                     EXIFGETORIENTATIONINFOW getInfoW = (EXIFGETORIENTATIONINFOW)GetProcAddress(EXIFLibrary, "EXIFGetOrientationInfoW");
@@ -1857,9 +1881,12 @@ LRESULT CRendererWindow::OnPaint()
                             bAlreadyLoaded = TRUE;
                             if (PVC_OK == code)
                             {
-                                PostMessage(HWindow, WM_COMMAND, cmd, 0);
+                                const LPARAM performanceCookie = PictView::Perf::PendingTransforms(this, cmd2 ? 2u : 1u);
+                                if (!PostMessage(HWindow, WM_COMMAND, cmd, performanceCookie))
+                                    PictView::Perf::Finish(this, "post_failed");
                                 if (cmd2)
-                                    PostMessage(HWindow, WM_COMMAND, cmd2, 0);
+                                    if (!PostMessage(HWindow, WM_COMMAND, cmd2, performanceCookie))
+                                        PictView::Perf::Finish(this, "post_failed");
                             }
                         }
                     }
@@ -1867,6 +1894,8 @@ LRESULT CRendererWindow::OnPaint()
                 if (!bAlreadyLoaded)
                 {
                     code = PVW32DLL.PVReadImage2(PVHandle, dc, &drect, ProgressProcedure /*NULL*/, this, pvii.CurrentImage);
+                    performanceDrew = code == PVC_OK && !IsRectEmpty(&drect);
+                    performanceDrawFailed = code != PVC_OK;
                 }
             }
 
@@ -1881,6 +1910,8 @@ LRESULT CRendererWindow::OnPaint()
             // PostMessage(HWindow, WM_COMMAND, CMD_FILE_NEXT, 0);
 
             Loading = FALSE; // signal that loading finished so Esc will close the window
+            if (code != PVC_OK && PictView::Perf::Serial(this) == performanceSerial)
+                PictView::Perf::Finish(this, code == PVC_CANCELED ? "canceled" : "read_failed");
             if ((code != PVC_OK) && (code != PVC_CANCELED))
             {
                 SalamanderGeneral->SalMessageBox(HWindow, PVW32DLL.PVGetErrorText(code),
@@ -1916,6 +1947,11 @@ LRESULT CRendererWindow::OnPaint()
     {
         DeleteObject(hRgn);
     }
+    if (performanceDrawFailed && PictView::Perf::Serial(this) == performanceSerial)
+        PictView::Perf::Finish(this, "paint_failed");
+    else if (PVHandle == performanceHandle && !Loading)
+        PictView::Perf::Painted(this, performanceSerial, PVHandle, performanceDrew &&
+            PictView::Perf::Current().attempts[static_cast<int>(PictView::Perf::Counter::Draw)] > performanceDraws);
     return 0;
 } /* CRendererWindow::OnPaint */
 
@@ -2305,7 +2341,11 @@ LRESULT CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_COMMAND:
     {
         if (GetCapture() != NULL) // if a drag operation is in progress, do not run commands
+        {
+            if (lParam != 0 && static_cast<ULONG_PTR>(lParam) == PictView::Perf::Serial(this))
+                PictView::Perf::Finish(this, "command_skipped");
             return 0;
+        }
         BOOL closingViewer = FALSE;
         LRESULT res = OnCommand(wParam, lParam, &closingViewer);
         if (!closingViewer && // if we are about to close the window (WM_CLOSE already posted), skip enabling
@@ -3353,6 +3393,9 @@ LRESULT CRendererWindow::OnCommand(WPARAM wParam, LPARAM lParam, BOOL* closingVi
     {
         if (FileName == NULL || *FileName != '<' || _tcscmp(FileName, LoadStr(IDS_DELETED_TITLE)) == 0)
         {
+            if (!Loading)
+                PictView::Perf::Begin(this, "navigation");
+            PictView::Perf::Scope performanceNavigation(PictView::Perf::Phase::Navigation);
             BOOL ok = FALSE;
             BOOL srcBusy = FALSE;
             BOOL noMoreFiles = FALSE;
@@ -3462,9 +3505,12 @@ LRESULT CRendererWindow::OnCommand(WPARAM wParam, LPARAM lParam, BOOL* closingVi
                     // set the index even if we fail so the user can move to the next/previous image
                     EnumFilesCurrentIndex = enumFilesCurrentIndex;
                 }
+                else
+                    PictView::Perf::Finish(this, "same_target");
             }
             else
             {
+                PictView::Perf::Finish(this, srcBusy ? "source_busy" : "no_target");
                 Viewer->SetStatusBarTexts(IDS_NO_MORE_IMAGES);
                 bEatSBTextOnce = TRUE;
             }
@@ -4593,6 +4639,8 @@ LRESULT CRendererWindow::OnCommand(WPARAM wParam, LPARAM lParam, BOOL* closingVi
     case CMD_MIRROR_VERT:
     case CMD_ROTATE180:
     {
+        PictView::Perf::AutoTransform performanceAutoTransform(this, lParam);
+        PictView::Perf::Scope performanceTransform(PictView::Perf::Phase::Transform);
         if (ImageLoaded)
         {
             HCURSOR hOldCursor;
@@ -4689,6 +4737,8 @@ LRESULT CRendererWindow::OnCommand(WPARAM wParam, LPARAM lParam, BOOL* closingVi
     case CMD_ROTATE_LEFT:
     case CMD_ROTATE_RIGHT:
     {
+        PictView::Perf::AutoTransform performanceAutoTransform(this, lParam);
+        PictView::Perf::Scope performanceTransform(PictView::Perf::Phase::Transform);
         if (ImageLoaded && !PVSequence)
         {
             HCURSOR hOldCursor;
@@ -4738,6 +4788,8 @@ LRESULT CRendererWindow::OnCommand(WPARAM wParam, LPARAM lParam, BOOL* closingVi
                 InvalidateRect(HWindow, NULL, FALSE);
                 PostMessage(HWindow, WM_MOUSEMOVE, 0, 0); // update SB
             }
+            else
+                PictView::Perf::Finish(this, "transform_failed");
             if (!HiddenCursor)
                 SetCursor(hOldCursor);
         }

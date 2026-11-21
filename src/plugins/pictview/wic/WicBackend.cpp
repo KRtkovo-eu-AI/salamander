@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Measure viewer decode, transform, scale, and paint phases. | Attribute navigation latency without changing image processing. | | GPT-6 (Codex) |
 // | 2026-11-05 | Survive faulty shell thumbnail provider SEH. | IThumbnailProvider / IShellItemImageFactory must not terminate Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 
 #include "precomp.h"
@@ -33,6 +34,7 @@
 
 #include "../Thumbnailer.h"
 #include "../native/NativeDecoder.h"
+#include "../performance.h"
 #include "ShellPreviewHost.h"
 
 #pragma comment(lib, "windowscodecs.lib")
@@ -3007,6 +3009,9 @@ HRESULT EnsureScaledBitmap(ImageHandle& handle, FrameData& frame, UINT width, UI
         return S_OK;
     }
 
+    PictView::Perf::Scope performanceScope(PictView::Perf::Phase::Scale);
+    PictView::Perf::Count(PictView::Perf::Counter::Scale);
+
     if (frame.scaledBitmap)
     {
         DeleteObject(frame.scaledBitmap);
@@ -4310,6 +4315,9 @@ HRESULT DecodeFrame(ImageHandle& handle, size_t index)
         return S_OK;
     }
 
+    PictView::Perf::Scope performanceScope(PictView::Perf::Phase::Decode);
+    PictView::Perf::Count(PictView::Perf::Counter::Decode);
+
     if (handle.baseInfo.Format == PVF_GIF && index > 0)
     {
         HRESULT previousHr = DecodeFrame(handle, index - 1);
@@ -5090,6 +5098,8 @@ PVCODE DrawFrame(ImageHandle& handle, FrameData& frame, HDC dc, int x, int y, LP
         return PVC_OK;
     }
 
+    PictView::Perf::Scope performanceScope(PictView::Perf::Phase::Paint);
+
     const LONGLONG stretchWidthSigned = handle.stretchWidth ? static_cast<LONGLONG>(handle.stretchWidth)
                                                             : static_cast<LONGLONG>(frame.width);
     const LONGLONG stretchHeightSigned = handle.stretchHeight ? static_cast<LONGLONG>(handle.stretchHeight)
@@ -5169,6 +5179,10 @@ PVCODE DrawFrame(ImageHandle& handle, FrameData& frame, HDC dc, int x, int y, LP
             return PVC_OK;
         }
     }
+
+    PictView::Perf::Count(PictView::Perf::Counter::Draw);
+    PictView::Perf::SetImageSize(frame.width, frame.height);
+    PictView::Perf::SetDisplaySize(static_cast<UINT>(stretchWidthAbs), static_cast<UINT>(stretchHeightAbs));
 
     if (frame.hasTransparency)
     {
@@ -7113,6 +7127,9 @@ PVCODE WINAPI Backend::sPVChangeImage(LPPVHandle Img, DWORD flags)
     {
         return PVC_OK;
     }
+
+    PictView::Perf::Scope performanceScope(PictView::Perf::Phase::Transform);
+    PictView::Perf::Count(PictView::Perf::Counter::Transform);
 
     const UINT newWidth = frame.height;
     const UINT newHeight = frame.width;
