@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-21 | Measure rapid reversals after retaining the displayed image. | Quantify the latency improvement and budget tradeoff. | | gpt-6.2-sol |
 | 2026-11-21 | Compare all six prefetch settings in both directions. | Record anonymous navigation latency and cache reuse. | | gpt-6.2-sol |
 | 2026-11-21 | Document the bidirectional cache and memory levels. | Explain the limits and the capacity estimates. | | gpt-6.2-sol |
 | 2026-11-21 | Document the prefetch option and comparison procedure. | Make the performance change reproducible. | | gpt-6.2-sol |
@@ -32,6 +33,11 @@ encoded size determine its estimated working memory before decoding. Retained
 entries are charged for their pixel buffers and bitmaps. Codec-internal
 allocations can vary, and the image currently displayed uses separate memory.
 The viewer can reuse the decoded raster, EXIF transform and display bitmap.
+On navigation, the image just displayed gets priority in the same cache.
+Already decoded images may fit in budgets that cannot prepare them from disk.
+Manual transformations and changed files are reopened from their source on
+return. Available budget is shared between retained bitmaps and the estimated
+working memory reserved for a background decode.
 Navigation opens the target as usual if preparation is unavailable, unfinished
 or stale. After a resize, the viewer recomputes the scaled bitmap if needed.
 
@@ -109,7 +115,8 @@ Its single backward miss raised the nearest-rank p90 for that group to
 423.8 ms. Levels 3–5 served all 15 paced transitions to the larger group,
 with no consistent latency improvement above level 3 in this sequence.
 
-Continuous rapid reversal produced zero hits at every level. The cache transfers
+In the build measured above, continuous rapid reversal produced zero hits at
+every level. That cache transferred
 a prepared image into the viewer when used. The previously displayed image
 then needs preparation again before an immediate return can hit. The current
 120 ms scheduling delay also limits how quickly this can happen. The result
@@ -117,6 +124,33 @@ isolates short turns between already visited images, while the paced runs show
 what the existing cache can do when it has preparation time.
 
 Only aggregate timings, hit counts and raster dimensions are published here.
+
+## Rapid reversals with the last displayed image retained
+
+The updated Release x64 plugin was measured using the same isolated host,
+viewport, anonymous sequence and rapid alternation. Each mode made a paced
+forward pass before the burst. The first transition of the burst is excluded
+from the table. The remaining 11 per mode alternated between two already
+visited images in the 3648 × 5472 group, with no inserted pause. Commands
+followed observation of the preceding completion by 0–5 ms.
+
+| Setting | Previous median | Updated median | Updated p90 | Updated hits |
+| --- | ---: | ---: | ---: | ---: |
+| Off | 287.3 ms | 289.2 ms | 416.3 ms | 0/11 |
+| 1 · 256 MiB | 326.4 ms | 6.7 ms | 9.4 ms | 11/11 |
+| 2 · 512 MiB | 299.7 ms | 5.3 ms | 9.9 ms | 11/11 |
+| 3 · 1,024 MiB | 343.6 ms | 5.9 ms | 9.3 ms | 11/11 |
+| 4 · 1,536 MiB | 322.1 ms | 7.3 ms | 10.3 ms | 11/11 |
+| 5 · 2,048 MiB | 337.0 ms | 6.0 ms | 9.3 ms | 11/11 |
+
+A hit reused the displayed raster with zero decode, transform or scale attempts.
+Retaining the last image uses part of the same budget as forward preparation.
+At level 2 the accompanying paced pass hit on 2 of 8 transitions to the larger
+group, compared with 8 of 8 before. Levels 3–5 still hit on all eight. The
+updated behavior prioritizes immediate return when both operations cannot fit.
+Separate synthetic checks confirmed that returning after a manual rotation
+restores the source orientation and that a file timestamp change invalidates a
+retained raster.
 
 ## Measurement environment
 

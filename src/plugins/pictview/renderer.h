@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Track the displayed image for immediate return. | Keep file identity and orientation with reused raster data. | | gpt-6.2-sol |
 // | 2026-11-21 | Keep prepared neighbors in both navigation directions. | Reuse entries as the viewer moves through the list. | | gpt-6.2-sol |
 // | 2026-11-21 | Store one speculative navigation result per viewer. | Adopt prepared pixels without blocking on the worker. | | gpt-6.2-sol |
 
@@ -142,12 +143,18 @@ protected:
     int EnumFilesSourceUID;    // source UID for enumerating files in the viewer
     int EnumFilesCurrentIndex; // index of the current file in the viewer within the source
     std::vector<std::shared_ptr<PictViewPrefetch>> Prefetch;
+    std::shared_ptr<PictViewPrefetch> DisplayedPrefetch;
     bool PrefetchPrevious = false;
     bool AutoOrientationPrepared = false;
+    ULONG_PTR ImageGeneration = 0;
+    unsigned PendingAutoCommands = 0;
+    LPARAM AutoTimingCookie = 0;
     void ResetPrefetch();
     void SchedulePrefetch();
     void StartPrefetch();
     LPPVHandle TakePrefetch(LPCTSTR name);
+    bool ParkDisplayedImage(const std::shared_ptr<PictViewPrefetch>& job, LPPVHandle image,
+                            BOOL mirrorHor, BOOL mirrorVert);
 
     BOOL SavedZoomParams;
     eZoomType SavedZoomType;

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Detach displayed still images without copying their pixels. | Make immediate return reuse the existing bitmap. | | gpt-6.2-sol |
 // | 2026-11-21 | Admit speculative decode by dimensions and account for completed images. | Bound memory and permit larger images at higher levels. | | gpt-6.2-sol |
 // | 2026-11-21 | Prepare bounded WIC still images on a separate COM apartment. | Transfer only decoded pixels and bitmaps to the viewer. | | gpt-6.2-sol |
 // | 2026-11-21 | Measure viewer decode, transform, scale, and paint phases. | Attribute navigation latency without changing image processing. | | GPT-6 (Codex) |
@@ -6810,7 +6811,8 @@ PVCODE WINAPI Backend::sPVOpenImageEx(LPPVHandle* Img, LPPVOpenImageExInfo pOpen
 }
 
 Backend::PreparedImage Backend::DecodeForPrefetch(const std::wstring& path, PVImageInfo& info,
-                                                  ULONGLONG availableBytes, UINT viewportWidth, UINT viewportHeight, DWORD fileBytes)
+                                                  ULONGLONG availableBytes, UINT viewportWidth, UINT viewportHeight,
+                                                  DWORD fileBytes, PrefetchReservation reserve, void* reservation)
 {
     PreparedImage image(nullptr, [](void* handle) { sPVCloseImage(handle); });
     if (!Factory())
@@ -6846,7 +6848,7 @@ Backend::PreparedImage Backend::DecodeForPrefetch(const std::wstring& path, PVIm
     FitToViewport(height, width, viewportWidth, viewportHeight, rotatedWidth, rotatedHeight);
     const auto displayPixels = std::max(static_cast<ULONGLONG>(normalWidth) * normalHeight,
                                         static_cast<ULONGLONG>(rotatedWidth) * rotatedHeight);
-    if (PictView::PrefetchBudget::WorkingBytes(pixels, displayPixels, fileBytes) > availableBytes)
+    if (!reserve(reservation, PictView::PrefetchBudget::WorkingBytes(pixels, displayPixels, fileBytes)))
         return image;
 
     auto owned = std::make_unique<ImageHandle>();
@@ -6863,6 +6865,19 @@ Backend::PreparedImage Backend::DecodeForPrefetch(const std::wstring& path, PVIm
     return image;
 }
 
+static void DetachPreparedImage(ImageHandle& handle)
+{
+    // Retain the DPI needed for info and save operations. Release decoder
+    // interfaces and their file streams on the thread that used them.
+    auto& frame = handle.frames[0];
+    if (frame.frame)
+        frame.frame->GetResolution(&frame.detachedDpiX, &frame.detachedDpiY);
+    frame.converter.Reset();
+    frame.colorConvertedSource.Reset();
+    frame.frame.Reset();
+    handle.backend = nullptr;
+}
+
 bool Backend::PrepareForTransfer(void* image, DWORD rotate, UINT viewportWidth, UINT viewportHeight)
 {
     auto& handle = *FromHandle(image);
@@ -6877,14 +6892,24 @@ bool Backend::PrepareForTransfer(void* image, DWORD rotate, UINT viewportWidth, 
         FAILED(EnsureScaledBitmap(handle, frame, width, height)))
         return false;
 
-    // Keep the metadata needed for subsequent info and save operations. WIC
-    // interfaces and their file streams must be released in this apartment.
-    frame.frame->GetResolution(&frame.detachedDpiX, &frame.detachedDpiY);
-    frame.converter.Reset();
-    frame.colorConvertedSource.Reset();
-    frame.frame.Reset();
-    handle.backend = nullptr;
+    DetachPreparedImage(handle);
     return true;
+}
+
+bool Backend::CanParkPrefetch(LPPVHandle image)
+{
+    const auto* handle = FromHandle(image);
+    return handle && !handle->fileName.empty() && !HandleHasInteractivePreview(*handle) &&
+           handle->frames.size() == 1 && handle->frames[0].decoded &&
+           !(handle->baseInfo.Flags & PVFF_IMAGESEQUENCE) &&
+           (handle->baseInfo.Format == PVF_JPG || handle->baseInfo.Format == PVF_PNG ||
+            handle->baseInfo.Format == PVF_TIFF);
+}
+
+Backend::PreparedImage Backend::ParkPrefetch(LPPVHandle image)
+{
+    DetachPreparedImage(*FromHandle(image));
+    return PreparedImage(image, [](void* handle) { sPVCloseImage(handle); });
 }
 
 ULONGLONG Backend::PreparedBytes(void* image)

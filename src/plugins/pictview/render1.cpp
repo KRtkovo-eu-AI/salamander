@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Retain the just-viewed image for immediate reversal. | Reuse its finished raster within the shared memory limit. | | gpt-6.2-sol |
 // | 2026-11-21 | Prepare nearby images on both sides within a shared budget. | Keep useful neighbors ready after changing direction. | | gpt-6.2-sol |
 // | 2026-11-21 | Prepare the next predicted still image in a viewer worker. | Reuse decoded, oriented and scaled pixels during navigation. | | gpt-6.2-sol |
 // | 2026-11-21 | Initialize EXIF before automatic orientation lookup. | Make first-session autorotation independent of the EXIF dialog. | | GPT-6 (Codex) |
@@ -172,12 +173,32 @@ bool SamePrefetchStamp(const BY_HANDLE_FILE_INFORMATION& a, const BY_HANDLE_FILE
 
 std::atomic_flag PrefetchWorkerBusy = ATOMIC_FLAG_INIT;
 std::atomic<ULONGLONG> PrefetchBytes{0};
+constexpr WORD AutoOrientationCommand = 0x5056;
+
+ULONGLONG PrefetchBudgetBytes()
+{
+    return PictView::PrefetchBudget::At(PictViewPrefetchLevel.load()).Bytes();
+}
 
 ULONGLONG AvailablePrefetchBytes()
 {
-    const auto budget = PictView::PrefetchBudget::At(PictViewPrefetchLevel.load()).Bytes();
+    const auto budget = PrefetchBudgetBytes();
     const auto inUse = PrefetchBytes.load();
     return inUse < budget ? budget - inUse : 0;
+}
+
+bool TryChargePrefetchBytes(ULONGLONG bytes)
+{
+    auto inUse = PrefetchBytes.load();
+    while (PictViewPrefetchEnabled.load())
+    {
+        const auto budget = PrefetchBudgetBytes();
+        if (inUse > budget || bytes > budget - inUse)
+            return false;
+        if (PrefetchBytes.compare_exchange_weak(inUse, inUse + bytes))
+            return true;
+    }
+    return false;
 }
 }
 
@@ -194,8 +215,18 @@ struct PictViewPrefetch
     // Owned by the worker until ready is published. No pointer to a window.
     BY_HANDLE_FILE_INFORMATION stamp{};
     Backend::PreparedImage image{nullptr, [](void*) {}};
-    int orientation = 1;
+    BOOL mirrorHor = FALSE, mirrorVert = FALSE;
     ULONGLONG chargedBytes = 0;
+    // Written only by the viewer. The worker never reads these fields.
+    LPPVHandle displayedHandle = nullptr;
+    bool presented = false;
+    bool recentlyDisplayed = false;
+
+    ULONGLONG Bytes(void* prepared) const
+    {
+        return Backend::PreparedBytes(prepared) + sizeof(*this) +
+               name.capacity() * sizeof(TCHAR) + widePath.capacity() * sizeof(wchar_t);
+    }
 
     ~PictViewPrefetch()
     {
@@ -212,6 +243,52 @@ struct PictViewPrefetch
 
 namespace
 {
+std::shared_ptr<PictViewPrefetch> MakePrefetchJob(LPCTSTR name)
+{
+#ifdef _UNICODE
+    std::wstring path = name;
+#else
+    std::wstring path = PluginMultiByteToWidePath(name, CP_UTF8);
+#endif
+    const size_t drive = path.rfind(L"\\\\?\\", 0) == 0 ? 4 : 0;
+    if (path.size() <= drive + 3 || path[drive + 1] != L':' || path[drive + 2] != L'\\' ||
+        GetDriveTypeW(path.substr(drive, 3).c_str()) != DRIVE_FIXED)
+        return {};
+
+    auto job = std::make_shared<PictViewPrefetch>();
+    job->name = name;
+    job->widePath = path.size() >= MAX_PATH ? PluginPathAddExtendedPrefixW(path.c_str()) : std::move(path);
+    job->autoRotate = G.AutoRotate != FALSE;
+    return job;
+}
+
+struct PrefetchWorkReservation
+{
+    ULONGLONG bytes = 0;
+
+    ~PrefetchWorkReservation() { PrefetchBytes.fetch_sub(bytes); }
+
+    static bool Reserve(void* context, ULONGLONG bytes)
+    {
+        if (!TryChargePrefetchBytes(bytes))
+            return false;
+        static_cast<PrefetchWorkReservation*>(context)->bytes = bytes;
+        return true;
+    }
+
+    // Convert the worker's reservation to the size measured on completion.
+    bool TransferTo(PictViewPrefetch& job, ULONGLONG actual)
+    {
+        if (actual > bytes && !TryChargePrefetchBytes(actual - bytes))
+            return false;
+        if (actual < bytes)
+            PrefetchBytes.fetch_sub(bytes - actual);
+        job.chargedBytes = actual;
+        bytes = 0;
+        return true;
+    }
+};
+
 class PrefetchThread : public CThread
 {
     std::vector<std::shared_ptr<PictViewPrefetch>> Jobs;
@@ -222,17 +299,21 @@ class PrefetchThread : public CThread
             return;
 
         PVImageInfo info{};
+        PrefetchWorkReservation reservation;
         auto image = backend.DecodeForPrefetch(job.widePath, info, AvailablePrefetchBytes(),
-                                               job.width, job.height, job.stamp.nFileSizeLow);
+                                               job.width, job.height, job.stamp.nFileSizeLow,
+                                               PrefetchWorkReservation::Reserve, &reservation);
         if (!image || job.canceled.load())
             return;
 
-        job.orientation = GetImageAutoOrientation(job.name.c_str(), info, job.exif);
+        const int orientation = GetImageAutoOrientation(job.name.c_str(), info, job.exif);
         DWORD rotation = 0;
-        if (job.orientation >= 5 && job.orientation <= 7)
+        if (orientation >= 5 && orientation <= 7)
             rotation = PVCF_ROTATE90CW;
-        else if (job.orientation == 8)
+        else if (orientation == 8)
             rotation = PVCF_ROTATE90CCW;
+        job.mirrorHor = orientation == 2 || orientation == 3 || orientation == 5;
+        job.mirrorVert = orientation == 3 || orientation == 4 || orientation == 7;
 
         BY_HANDLE_FILE_INFORMATION after{};
         if (job.canceled.load() ||
@@ -240,14 +321,9 @@ class PrefetchThread : public CThread
             !ReadPrefetchStamp(job.widePath, after) || !SamePrefetchStamp(job.stamp, after))
             return;
 
-        const auto bytes = Backend::PreparedBytes(image.get()) + sizeof(job) +
-                           job.name.capacity() * sizeof(TCHAR) + job.widePath.capacity() * sizeof(wchar_t);
-        if (bytes <= AvailablePrefetchBytes() && !job.canceled.load() && PictViewPrefetchEnabled.load())
-        {
-            PrefetchBytes.fetch_add(bytes);
-            job.chargedBytes = bytes;
+        if (!job.canceled.load() && PictViewPrefetchEnabled.load() &&
+            reservation.TransferTo(job, job.Bytes(image.get())))
             job.image = std::move(image);
-        }
     }
 
 public:
@@ -350,8 +426,8 @@ void CRendererWindow::StartPrefetch()
 
         const bool autoRotate = G.AutoRotate != FALSE;
         Prefetch.erase(std::remove_if(Prefetch.begin(), Prefetch.end(), [&](const auto& job) {
-            if (job->autoRotate == autoRotate &&
-                std::find(neighbors.begin(), neighbors.end(), job->name) != neighbors.end())
+            if (job->autoRotate == autoRotate && (job->recentlyDisplayed ||
+                std::find(neighbors.begin(), neighbors.end(), job->name) != neighbors.end()))
                 return false;
             job->canceled.store(true);
             return true;
@@ -362,18 +438,9 @@ void CRendererWindow::StartPrefetch()
         {
             if (std::any_of(Prefetch.begin(), Prefetch.end(), [&](const auto& job) { return job->name == name; }))
                 continue;
-#ifdef _UNICODE
-            std::wstring widePath = name;
-#else
-            std::wstring widePath = PluginMultiByteToWidePath(name.c_str(), CP_UTF8);
-#endif
-            const size_t drive = widePath.rfind(L"\\\\?\\", 0) == 0 ? 4 : 0;
-            if (widePath.size() <= drive + 3 || widePath[drive + 1] != L':' || widePath[drive + 2] != L'\\' ||
-                GetDriveTypeW(widePath.substr(drive, 3).c_str()) != DRIVE_FIXED)
+            auto job = MakePrefetchJob(name.c_str());
+            if (!job)
                 continue;
-            auto job = std::make_shared<PictViewPrefetch>();
-            job->name = std::move(name);
-            job->widePath = widePath.size() >= MAX_PATH ? PluginPathAddExtendedPrefixW(widePath.c_str()) : std::move(widePath);
             job->width = static_cast<UINT>(viewport.right);
             job->height = static_cast<UINT>(viewport.bottom);
             job->autoRotate = autoRotate;
@@ -439,11 +506,60 @@ LPPVHandle CRendererWindow::TakePrefetch(LPCTSTR name)
     if (!ReadPrefetchStamp(job->widePath, current) || !SamePrefetchStamp(job->stamp, current))
         return nullptr;
 
-    fMirrorHor = job->orientation == 2 || job->orientation == 3 || job->orientation == 5;
-    fMirrorVert = job->orientation == 3 || job->orientation == 4 || job->orientation == 7;
+    fMirrorHor = job->mirrorHor;
+    fMirrorVert = job->mirrorVert;
     auto handle = Backend::AdoptPrefetch(job->image, pvii);
     job->ReleaseImage();
+    job->displayedHandle = handle;
+    job->presented = false;
+    DisplayedPrefetch = std::move(job);
     return handle;
+}
+
+bool CRendererWindow::ParkDisplayedImage(const std::shared_ptr<PictViewPrefetch>& job, LPPVHandle image,
+                                         BOOL mirrorHor, BOOL mirrorVert)
+{
+    if (!job || !job->presented || job->displayedHandle != image || !FileName || job->name != FileName ||
+        !PictViewPrefetchEnabled.load() || job->autoRotate != (G.AutoRotate != FALSE) ||
+        (G.ZoomType != eShrinkToFit && G.ZoomType != eZoomFullScreen) || !Backend::CanParkPrefetch(image))
+        return false;
+
+    const auto bytes = job->Bytes(image);
+    if (bytes > PrefetchBudgetBytes())
+        return false;
+
+    try
+    {
+        Prefetch.reserve(Prefetch.size() + 1);
+    }
+    catch (...)
+    {
+        return false;
+    }
+
+    // The image we just left is more useful than a speculative neighbor.
+    // Ready entries can release their bytes immediately after publication.
+    while (!TryChargePrefetchBytes(bytes))
+    {
+        const auto victim = std::find_if(Prefetch.rbegin(), Prefetch.rend(), [](const auto& entry) {
+            return entry->ready.load(std::memory_order_acquire) && entry->image;
+        });
+        if (victim == Prefetch.rend() || !PictViewPrefetchEnabled.load())
+            return false;
+        (*victim)->ReleaseImage();
+        Prefetch.erase(std::prev(victim.base()));
+    }
+
+    for (auto& entry : Prefetch)
+        entry->recentlyDisplayed = false;
+    job->chargedBytes = bytes;
+    job->mirrorHor = mirrorHor;
+    job->mirrorVert = mirrorVert;
+    job->image = Backend::ParkPrefetch(image);
+    job->recentlyDisplayed = true;
+    job->ready.store(true, std::memory_order_release);
+    Prefetch.insert(Prefetch.begin(), job);
+    return true;
 }
 
 inline int sgn(int x)
@@ -694,6 +810,11 @@ BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp, bool nav
 
     PVCODE code;
     LPPVHandle OldPVHandle = PVHandle;
+    const auto oldDisplayedPrefetch = std::move(DisplayedPrefetch);
+    const BOOL oldMirrorHor = fMirrorHor, oldMirrorVert = fMirrorVert;
+    ++ImageGeneration;
+    PendingAutoCommands = 0;
+    AutoTimingCookie = 0;
     PVOpenImageExInfo oiei;
 #ifdef _UNICODE
     std::string nameA;
@@ -744,10 +865,31 @@ BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp, bool nav
             return job->ready.load(std::memory_order_acquire) && !job->image;
         }), Prefetch.end());
     }
+    if (!AutoOrientationPrepared && !hBmp && EnumFilesSourceUID >= 0 && PictViewPrefetchEnabled.load() &&
+        (G.ZoomType == eShrinkToFit || G.ZoomType == eZoomFullScreen))
+    {
+        try
+        {
+            auto proposed = MakePrefetchJob(name);
+            if (proposed && ReadPrefetchStamp(proposed->widePath, proposed->stamp))
+                DisplayedPrefetch = std::move(proposed);
+        }
+        catch (...)
+        {
+            // Ordinary opening still works if cache bookkeeping fails.
+        }
+    }
     code = AutoOrientationPrepared ? PVC_OK : PVW32DLL.PVOpenImageEx(&PVHandle, &oiei, &pvii, sizeof(pvii));
 
     if (code == PVC_OK)
     {
+        if (DisplayedPrefetch)
+        {
+            if (pvii.HorDPI && pvii.VerDPI && pvii.HorDPI != pvii.VerDPI)
+                DisplayedPrefetch.reset();
+            else
+                DisplayedPrefetch->displayedHandle = PVHandle;
+        }
         PictView::Perf::SetImageSize(pvii.Width, pvii.Height);
         PictView::Perf::SetFileBytes(pvii.FileSize);
         if (hBmp || (pvii.Flags & PVFF_IMAGESEQUENCE) || pvii.NumOfImages != 1 || HasInteractivePreview())
@@ -836,6 +978,7 @@ BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp, bool nav
 
     if (code != PVC_OK)
     {
+        DisplayedPrefetch.reset();
         PictView::Perf::Finish(this, "open_failed");
         TCHAR errText[SAL_MAX_PATH + 100];
         _sntprintf_s(errText, SizeOf(errText), _TRUNCATE, LoadStr(IDS_ERROR_OPENING), name, PVW32DLL.PVGetErrorText(code));
@@ -848,6 +991,8 @@ BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp, bool nav
     }
     else
     {
+        if (navigation && ParkDisplayedImage(oldDisplayedPrefetch, OldPVHandle, oldMirrorHor, oldMirrorVert))
+            OldPVHandle = nullptr;
         if (name != FileName)
         {
             if (FileName != NULL)
@@ -2210,12 +2355,20 @@ LRESULT CRendererWindow::OnPaint()
                             bAlreadyLoaded = TRUE;
                             if (PVC_OK == code)
                             {
-                                const LPARAM performanceCookie = PictView::Perf::PendingTransforms(this, cmd2 ? 2u : 1u);
-                                if (!PostMessage(HWindow, WM_COMMAND, cmd, performanceCookie))
-                                    PictView::Perf::Finish(this, "post_failed");
-                                if (cmd2)
-                                    if (!PostMessage(HWindow, WM_COMMAND, cmd2, performanceCookie))
+                                AutoTimingCookie = PictView::Perf::PendingTransforms(this, cmd2 ? 2u : 1u);
+                                for (const int command : {cmd, cmd2})
+                                {
+                                    if (!command)
+                                        continue;
+                                    if (PostMessage(HWindow, WM_COMMAND, MAKEWPARAM(command, AutoOrientationCommand),
+                                                    static_cast<LPARAM>(ImageGeneration)))
+                                        ++PendingAutoCommands;
+                                    else
+                                    {
+                                        DisplayedPrefetch.reset();
                                         PictView::Perf::Finish(this, "post_failed");
+                                    }
+                                }
                             }
                         }
                     }
@@ -2276,6 +2429,9 @@ LRESULT CRendererWindow::OnPaint()
     {
         DeleteObject(hRgn);
     }
+    if (DisplayedPrefetch && PVHandle == performanceHandle && DisplayedPrefetch->displayedHandle == PVHandle &&
+        !Loading && !PendingAutoCommands && performanceDrew && !performanceDrawFailed)
+        DisplayedPrefetch->presented = true;
     if (performanceDrawFailed && PictView::Perf::Serial(this) == performanceSerial)
         PictView::Perf::Finish(this, "paint_failed");
     else if (PVHandle == performanceHandle && !Loading)
@@ -2672,14 +2828,23 @@ LRESULT CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_COMMAND:
     {
+        const bool autoOrientation = HIWORD(wParam) == AutoOrientationCommand;
+        if (autoOrientation && (static_cast<ULONG_PTR>(lParam) != ImageGeneration || !PendingAutoCommands))
+            return 0;
         if (GetCapture() != NULL) // if a drag operation is in progress, do not run commands
         {
-            if (lParam != 0 && static_cast<ULONG_PTR>(lParam) == PictView::Perf::Serial(this))
+            if (autoOrientation)
+            {
+                --PendingAutoCommands;
+                DisplayedPrefetch.reset();
                 PictView::Perf::Finish(this, "command_skipped");
+            }
             return 0;
         }
         BOOL closingViewer = FALSE;
         LRESULT res = OnCommand(wParam, lParam, &closingViewer);
+        if (autoOrientation && static_cast<ULONG_PTR>(lParam) == ImageGeneration && PendingAutoCommands)
+            --PendingAutoCommands;
         if (!closingViewer && // if we are about to close the window (WM_CLOSE already posted), skip enabling
             HWindow != NULL)  // when closing from another thread (shutdown / Salamander main window) the window may no longer exist
         {
@@ -4976,10 +5141,13 @@ LRESULT CRendererWindow::OnCommand(WPARAM wParam, LPARAM lParam, BOOL* closingVi
     case CMD_MIRROR_VERT:
     case CMD_ROTATE180:
     {
-        PictView::Perf::AutoTransform performanceAutoTransform(this, lParam);
+        const bool autoOrientation = HIWORD(wParam) == AutoOrientationCommand;
+        PictView::Perf::AutoTransform performanceAutoTransform(this, autoOrientation ? AutoTimingCookie : 0);
         PictView::Perf::Scope performanceTransform(PictView::Perf::Phase::Transform);
         if (ImageLoaded)
         {
+            if (!autoOrientation)
+                DisplayedPrefetch.reset();
             HCURSOR hOldCursor;
             if (!HiddenCursor)
                 hOldCursor = SetCursor(LoadCursor(NULL, IDC_WAIT));
@@ -5040,6 +5208,7 @@ LRESULT CRendererWindow::OnCommand(WPARAM wParam, LPARAM lParam, BOOL* closingVi
         {
             if (IsCageValid(&SelectRect))
             {
+                DisplayedPrefetch.reset();
                 RECT r = SelectRect;
                 NormalizeRect(&r);
                 int width = r.right - r.left + 1;
@@ -5074,10 +5243,13 @@ LRESULT CRendererWindow::OnCommand(WPARAM wParam, LPARAM lParam, BOOL* closingVi
     case CMD_ROTATE_LEFT:
     case CMD_ROTATE_RIGHT:
     {
-        PictView::Perf::AutoTransform performanceAutoTransform(this, lParam);
+        const bool autoOrientation = HIWORD(wParam) == AutoOrientationCommand;
+        PictView::Perf::AutoTransform performanceAutoTransform(this, autoOrientation ? AutoTimingCookie : 0);
         PictView::Perf::Scope performanceTransform(PictView::Perf::Phase::Transform);
         if (ImageLoaded && !PVSequence)
         {
+            if (!autoOrientation)
+                DisplayedPrefetch.reset();
             HCURSOR hOldCursor;
             if (!HiddenCursor)
                 hOldCursor = SetCursor(LoadCursor(NULL, IDC_WAIT));
@@ -5126,7 +5298,10 @@ LRESULT CRendererWindow::OnCommand(WPARAM wParam, LPARAM lParam, BOOL* closingVi
                 PostMessage(HWindow, WM_MOUSEMOVE, 0, 0); // update SB
             }
             else
+            {
+                DisplayedPrefetch.reset();
                 PictView::Perf::Finish(this, "transform_failed");
+            }
             if (!HiddenCursor)
                 SetCursor(hOldCursor);
         }
