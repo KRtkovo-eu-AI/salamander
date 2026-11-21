@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Drop the duplicate opaque bitmap when caching. | Leave more space for preparing the next image. | | gpt-6.2-sol |
 // | 2026-11-21 | Detach displayed still images without copying their pixels. | Make immediate return reuse the existing bitmap. | | gpt-6.2-sol |
 // | 2026-11-21 | Admit speculative decode by dimensions and account for completed images. | Bound memory and permit larger images at higher levels. | | gpt-6.2-sol |
 // | 2026-11-21 | Prepare bounded WIC still images on a separate COM apartment. | Transfer only decoded pixels and bitmaps to the viewer. | | gpt-6.2-sol |
@@ -3417,6 +3418,51 @@ HRESULT ConvertBgraSourceToCmyk(IWICImagingFactory* factory, IWICBitmapSource* s
     return bitmap.CopyTo(convertedSource);
 }
 
+HRESULT EnsureFullSizeBitmap(FrameData& frame)
+{
+    if (frame.hbitmap)
+        return S_OK;
+    void* bits = nullptr;
+    BITMAPINFO bmi{};
+    bmi.bmiHeader = frame.bmi;
+    frame.hbitmap = CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
+    if (!frame.hbitmap)
+    {
+        return E_OUTOFMEMORY;
+    }
+    if (bits && !frame.pixels.empty())
+    {
+        memcpy(bits, frame.pixels.data(), frame.pixels.size());
+        if (frame.hasTransparency)
+        {
+            BYTE* target = static_cast<BYTE*>(bits);
+            const size_t pixelCount = frame.pixels.size() / kBytesPerPixel;
+            for (size_t i = 0; i < pixelCount; ++i)
+            {
+                BYTE* pixel = target + i * kBytesPerPixel;
+                const BYTE alpha = pixel[3];
+                if (alpha == 0)
+                {
+                    pixel[0] = 0;
+                    pixel[1] = 0;
+                    pixel[2] = 0;
+                    continue;
+                }
+                if (alpha == 255)
+                {
+                    continue;
+                }
+                const unsigned int a = alpha;
+                pixel[0] = static_cast<BYTE>((static_cast<unsigned int>(pixel[0]) * a + 127u) / 255u);
+                pixel[1] = static_cast<BYTE>((static_cast<unsigned int>(pixel[1]) * a + 127u) / 255u);
+                pixel[2] = static_cast<BYTE>((static_cast<unsigned int>(pixel[2]) * a + 127u) / 255u);
+            }
+        }
+    }
+
+    return S_OK;
+}
+
 HRESULT FinalizeDecodedFrame(Backend* backend, FrameData& frame)
 {
     const size_t lineCount = static_cast<size_t>(frame.height);
@@ -3495,44 +3541,9 @@ HRESULT FinalizeDecodedFrame(Backend* backend, FrameData& frame)
     frame.scaledWidth = 0;
     frame.scaledHeight = 0;
 
-    void* bits = nullptr;
-    BITMAPINFO bmi{};
-    bmi.bmiHeader = frame.bmi;
-    frame.hbitmap = CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
-    if (!frame.hbitmap)
-    {
-        return E_OUTOFMEMORY;
-    }
-    if (bits && !frame.pixels.empty())
-    {
-        memcpy(bits, frame.pixels.data(), frame.pixels.size());
-        if (frame.hasTransparency)
-        {
-            BYTE* target = static_cast<BYTE*>(bits);
-            const size_t pixelCount = frame.pixels.size() / kBytesPerPixel;
-            for (size_t i = 0; i < pixelCount; ++i)
-            {
-                BYTE* pixel = target + i * kBytesPerPixel;
-                const BYTE alpha = pixel[3];
-                if (alpha == 0)
-                {
-                    pixel[0] = 0;
-                    pixel[1] = 0;
-                    pixel[2] = 0;
-                    continue;
-                }
-                if (alpha == 255)
-                {
-                    continue;
-                }
-                const unsigned int a = alpha;
-                pixel[0] = static_cast<BYTE>((static_cast<unsigned int>(pixel[0]) * a + 127u) / 255u);
-                pixel[1] = static_cast<BYTE>((static_cast<unsigned int>(pixel[1]) * a + 127u) / 255u);
-                pixel[2] = static_cast<BYTE>((static_cast<unsigned int>(pixel[2]) * a + 127u) / 255u);
-            }
-        }
-    }
-
+    const HRESULT bitmapHr = EnsureFullSizeBitmap(frame);
+    if (FAILED(bitmapHr))
+        return bitmapHr;
     frame.decoded = true;
     return S_OK;
 }
@@ -6811,7 +6822,7 @@ PVCODE WINAPI Backend::sPVOpenImageEx(LPPVHandle* Img, LPPVOpenImageExInfo pOpen
 }
 
 Backend::PreparedImage Backend::DecodeForPrefetch(const std::wstring& path, PVImageInfo& info,
-                                                  ULONGLONG availableBytes, UINT viewportWidth, UINT viewportHeight,
+                                                  ULONGLONG budgetBytes, UINT viewportWidth, UINT viewportHeight,
                                                   DWORD fileBytes, PrefetchReservation reserve, void* reservation)
 {
     PreparedImage image(nullptr, [](void* handle) { sPVCloseImage(handle); });
@@ -6841,7 +6852,7 @@ Backend::PreparedImage Backend::DecodeForPrefetch(const std::wstring& path, PVIm
 
     // Check both possible display shapes before reading the raster.
     const auto pixels = static_cast<ULONGLONG>(width) * height;
-    if (pixels > availableBytes / 20)
+    if (pixels > budgetBytes / 20)
         return image;
     UINT normalWidth, normalHeight, rotatedWidth, rotatedHeight;
     FitToViewport(width, height, viewportWidth, viewportHeight, normalWidth, normalHeight);
@@ -6876,6 +6887,13 @@ static void DetachPreparedImage(ImageHandle& handle)
     frame.colorConvertedSource.Reset();
     frame.frame.Reset();
     handle.backend = nullptr;
+    // Opaque frames draw from the pixel buffer, never from this full-size
+    // duplicate. Legacy handle consumers can recreate it on demand.
+    if (!frame.hasTransparency && frame.hbitmap && DeleteObject(frame.hbitmap))
+    {
+        frame.hbitmap = nullptr;
+        handle.handles = {};
+    }
 }
 
 bool Backend::PrepareForTransfer(void* image, DWORD rotate, UINT viewportWidth, UINT viewportHeight)
@@ -7177,6 +7195,9 @@ PVCODE WINAPI Backend::sPVGetHandles2(LPPVHandle Img, LPPVImageHandles* pHandles
     }
     auto& frame = handle->frames[0];
     PVImageHandles& handles = handle->handles;
+    hr = EnsureFullSizeBitmap(frame);
+    if (FAILED(hr))
+        return HResultToPvCode(hr);
     ZeroMemory(&handles, sizeof(PVImageHandles));
     const bool hasIndexedPixels = frame.useIndexedPixels && !frame.indexedPixels.empty();
     const bool providePaletteHandle = hasIndexedPixels || (frame.realizePalette && frame.paletteHandle);

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Charge parked images after dropping redundant bitmaps. | Fit more background preparation beside the last displayed frame. | | gpt-6.2-sol |
 // | 2026-11-21 | Retain the just-viewed image for immediate reversal. | Reuse its finished raster within the shared memory limit. | | gpt-6.2-sol |
 // | 2026-11-21 | Prepare nearby images on both sides within a shared budget. | Keep useful neighbors ready after changing direction. | | gpt-6.2-sol |
 // | 2026-11-21 | Prepare the next predicted still image in a viewer worker. | Reuse decoded, oriented and scaled pixels during navigation. | | gpt-6.2-sol |
@@ -217,6 +218,7 @@ struct PictViewPrefetch
     Backend::PreparedImage image{nullptr, [](void*) {}};
     BOOL mirrorHor = FALSE, mirrorVert = FALSE;
     ULONGLONG chargedBytes = 0;
+    ULONGLONG requiredBytes = 0; // reservation that did not fit, published with ready
     // Written only by the viewer. The worker never reads these fields.
     LPPVHandle displayedHandle = nullptr;
     bool presented = false;
@@ -265,14 +267,19 @@ std::shared_ptr<PictViewPrefetch> MakePrefetchJob(LPCTSTR name)
 struct PrefetchWorkReservation
 {
     ULONGLONG bytes = 0;
+    ULONGLONG deniedBytes = 0;
 
     ~PrefetchWorkReservation() { PrefetchBytes.fetch_sub(bytes); }
 
     static bool Reserve(void* context, ULONGLONG bytes)
     {
+        auto& reservation = *static_cast<PrefetchWorkReservation*>(context);
         if (!TryChargePrefetchBytes(bytes))
+        {
+            reservation.deniedBytes = bytes;
             return false;
-        static_cast<PrefetchWorkReservation*>(context)->bytes = bytes;
+        }
+        reservation.bytes = bytes;
         return true;
     }
 
@@ -300,10 +307,15 @@ class PrefetchThread : public CThread
 
         PVImageInfo info{};
         PrefetchWorkReservation reservation;
-        auto image = backend.DecodeForPrefetch(job.widePath, info, AvailablePrefetchBytes(),
+        auto image = backend.DecodeForPrefetch(job.widePath, info, PrefetchBudgetBytes(),
                                                job.width, job.height, job.stamp.nFileSizeLow,
                                                PrefetchWorkReservation::Reserve, &reservation);
-        if (!image || job.canceled.load())
+        if (!image)
+        {
+            job.requiredBytes = reservation.deniedBytes;
+            return;
+        }
+        if (job.canceled.load())
             return;
 
         const int orientation = GetImageAutoOrientation(job.name.c_str(), info, job.exif);
@@ -351,6 +363,25 @@ public:
         return 0;
     }
 };
+
+// The caller holds the worker slot. Ownership of that slot passes to Body
+// on success and is returned here on failure.
+bool LaunchPrefetchWorker(const std::vector<std::shared_ptr<PictViewPrefetch>>& jobs)
+{
+    PrefetchThread* thread = nullptr;
+    try
+    {
+        thread = std::make_unique<PrefetchThread>(jobs).release();
+        if (thread->Create(ThreadQueue))
+            return true;
+    }
+    catch (...)
+    {
+    }
+    delete thread;
+    PrefetchWorkerBusy.clear();
+    return false;
+}
 }
 
 void CRendererWindow::ResetPrefetch()
@@ -359,6 +390,7 @@ void CRendererWindow::ResetPrefetch()
         KillTimer(HWindow, PREFETCH_TIMER_ID);
     for (const auto& job : Prefetch)
         job->canceled.store(true);
+    PriorityPrefetch.reset();
     Prefetch.clear();
 }
 
@@ -377,6 +409,12 @@ void CRendererWindow::StartPrefetch()
         (G.ZoomType != eShrinkToFit && G.ZoomType != eZoomFullScreen) ||
         IsIconic(Viewer->HWindow) || GetCapture())
         return;
+
+    if (PriorityPrefetch)
+    {
+        RetryPriorityPrefetch();
+        return;
+    }
 
     try
     {
@@ -457,36 +495,88 @@ void CRendererWindow::StartPrefetch()
         }
 
         Prefetch.reserve(Prefetch.size() + jobs.size());
-        auto worker = std::make_unique<PrefetchThread>(jobs);
+        const auto priority = jobs.front()->name == neighbors.front()
+            ? jobs.front() : std::shared_ptr<PictViewPrefetch>{};
         if (PrefetchWorkerBusy.test_and_set())
         {
             SchedulePrefetch();
             return;
         }
-        auto* thread = worker.release();
-        bool started;
-        try
-        {
-            started = thread->Create(ThreadQueue) != nullptr;
-        }
-        catch (...)
-        {
-            delete thread;
-            PrefetchWorkerBusy.clear();
-            throw;
-        }
-        if (!started)
-        {
-            delete thread;
-            PrefetchWorkerBusy.clear();
+        if (!LaunchPrefetchWorker(jobs))
             return;
-        }
         Prefetch.insert(Prefetch.end(), jobs.begin(), jobs.end());
+        if (priority)
+        {
+            PriorityPrefetch = priority;
+            SchedulePrefetch();
+        }
     }
     catch (...)
     {
         // Continue to use the ordinary open path after allocation failure.
     }
+}
+
+void CRendererWindow::RetryPriorityPrefetch()
+{
+    auto& priority = PriorityPrefetch;
+    if (!priority->ready.load(std::memory_order_acquire))
+    {
+        SchedulePrefetch();
+        return;
+    }
+    if (priority->canceled.load() || !priority->requiredBytes)
+    {
+        priority.reset();
+        return;
+    }
+
+    // Wait for the first pass to release its work reservation. The closest
+    // candidate gets one retry when a ready, less useful entry can fund it.
+    if (PrefetchWorkerBusy.test_and_set())
+    {
+        SchedulePrefetch();
+        return;
+    }
+    const auto canEvict = [](const auto& entry) {
+        return !entry->recentlyDisplayed && entry->ready.load(std::memory_order_acquire) && entry->image;
+    };
+    const auto required = priority->requiredBytes;
+    auto recoverable = AvailablePrefetchBytes();
+    for (const auto& entry : Prefetch)
+        if (canEvict(entry))
+            recoverable += entry->chargedBytes;
+    if (recoverable < required)
+    {
+        priority.reset();
+        PrefetchWorkerBusy.clear();
+        return;
+    }
+
+    while (AvailablePrefetchBytes() < required)
+    {
+        const auto victim = std::find_if(Prefetch.rbegin(), Prefetch.rend(), canEvict);
+        if (victim == Prefetch.rend())
+            break;
+        (*victim)->ReleaseImage();
+        Prefetch.erase(std::prev(victim.base()));
+    }
+    std::vector<std::shared_ptr<PictViewPrefetch>> jobs;
+    try
+    {
+        jobs.push_back(priority);
+    }
+    catch (...)
+    {
+        priority.reset();
+        PrefetchWorkerBusy.clear();
+        return;
+    }
+    priority->requiredBytes = 0;
+    priority->ready.store(false, std::memory_order_relaxed);
+    if (!LaunchPrefetchWorker(jobs))
+        priority->ready.store(true, std::memory_order_release);
+    priority.reset();
 }
 
 LPPVHandle CRendererWindow::TakePrefetch(LPCTSTR name)
@@ -516,17 +606,19 @@ LPPVHandle CRendererWindow::TakePrefetch(LPCTSTR name)
     return handle;
 }
 
-bool CRendererWindow::ParkDisplayedImage(const std::shared_ptr<PictViewPrefetch>& job, LPPVHandle image,
+void CRendererWindow::ParkDisplayedImage(const std::shared_ptr<PictViewPrefetch>& job, LPPVHandle& image,
                                          BOOL mirrorHor, BOOL mirrorVert)
 {
     if (!job || !job->presented || job->displayedHandle != image || !FileName || job->name != FileName ||
         !PictViewPrefetchEnabled.load() || job->autoRotate != (G.AutoRotate != FALSE) ||
         (G.ZoomType != eShrinkToFit && G.ZoomType != eZoomFullScreen) || !Backend::CanParkPrefetch(image))
-        return false;
+        return;
 
-    const auto bytes = job->Bytes(image);
+    auto prepared = Backend::ParkPrefetch(image);
+    image = nullptr;
+    const auto bytes = job->Bytes(prepared.get());
     if (bytes > PrefetchBudgetBytes())
-        return false;
+        return;
 
     try
     {
@@ -534,7 +626,7 @@ bool CRendererWindow::ParkDisplayedImage(const std::shared_ptr<PictViewPrefetch>
     }
     catch (...)
     {
-        return false;
+        return;
     }
 
     // The image we just left is more useful than a speculative neighbor.
@@ -545,7 +637,7 @@ bool CRendererWindow::ParkDisplayedImage(const std::shared_ptr<PictViewPrefetch>
             return entry->ready.load(std::memory_order_acquire) && entry->image;
         });
         if (victim == Prefetch.rend() || !PictViewPrefetchEnabled.load())
-            return false;
+            return;
         (*victim)->ReleaseImage();
         Prefetch.erase(std::prev(victim.base()));
     }
@@ -555,11 +647,10 @@ bool CRendererWindow::ParkDisplayedImage(const std::shared_ptr<PictViewPrefetch>
     job->chargedBytes = bytes;
     job->mirrorHor = mirrorHor;
     job->mirrorVert = mirrorVert;
-    job->image = Backend::ParkPrefetch(image);
+    job->image = std::move(prepared);
     job->recentlyDisplayed = true;
     job->ready.store(true, std::memory_order_release);
     Prefetch.insert(Prefetch.begin(), job);
-    return true;
 }
 
 inline int sgn(int x)
@@ -811,6 +902,7 @@ BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp, bool nav
     PVCODE code;
     LPPVHandle OldPVHandle = PVHandle;
     const auto oldDisplayedPrefetch = std::move(DisplayedPrefetch);
+    PriorityPrefetch.reset();
     const BOOL oldMirrorHor = fMirrorHor, oldMirrorVert = fMirrorVert;
     ++ImageGeneration;
     PendingAutoCommands = 0;
@@ -991,8 +1083,8 @@ BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp, bool nav
     }
     else
     {
-        if (navigation && ParkDisplayedImage(oldDisplayedPrefetch, OldPVHandle, oldMirrorHor, oldMirrorVert))
-            OldPVHandle = nullptr;
+        if (navigation)
+            ParkDisplayedImage(oldDisplayedPrefetch, OldPVHandle, oldMirrorHor, oldMirrorVert);
         if (name != FileName)
         {
             if (FileName != NULL)

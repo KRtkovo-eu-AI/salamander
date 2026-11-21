@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Estimate compact opaque cache entries. | Match the raster retained after dropping the duplicate GDI bitmap. | | gpt-6.2-sol |
 // | 2026-11-21 | Define five prefetch budgets and matching estimates. | Keep the Performance page and worker limits in agreement. | | gpt-6.2-sol |
 
 #pragma once
@@ -45,7 +46,7 @@ inline unsigned Estimate(Limit limit, unsigned megapixels)
     // Typical opaque raster with a 1 MP display bitmap and encoded bytes
     // around 1/4 byte per source pixel (for example ~6 MB at 24 MP).
     const auto working = WorkingBytes(pixels, 1000000, pixels / 4);
-    const auto retained = 8 * pixels + 8 * UINT64_C(1000000) + MiB;
+    const auto retained = 4 * pixels + 8 * UINT64_C(1000000) + MiB;
     if (working > limit.Bytes())
         return 0;
     const auto count = 1 + (limit.Bytes() - working) / retained;

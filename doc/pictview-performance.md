@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-21 | Retest read-ahead and immediate reversal at 512 MiB. | Verify that both fit after compacting the cache. | | gpt-6.2-sol |
 | 2026-11-21 | Measure rapid reversals after retaining the displayed image. | Quantify the latency improvement and budget tradeoff. | | gpt-6.2-sol |
 | 2026-11-21 | Compare all six prefetch settings in both directions. | Record anonymous navigation latency and cache reuse. | | gpt-6.2-sol |
 | 2026-11-21 | Document the bidirectional cache and memory levels. | Explain the limits and the capacity estimates. | | gpt-6.2-sol |
@@ -151,6 +152,31 @@ updated behavior prioritizes immediate return when both operations cannot fit.
 Separate synthetic checks confirmed that returning after a manual rotation
 restores the source orientation and that a file timestamp change invalidates a
 retained raster.
+
+## Forward preparation and rapid return at 512 MiB
+
+Opaque cache entries retain the decoded pixel buffer and display-sized bitmap.
+Their redundant full-size GDI bitmap is released and recreated if a legacy
+handle consumer requests it. When the next image in the browsing direction
+cannot reserve enough working memory, PictView can retry once after releasing
+less useful ready entries. The most recently displayed image stays eligible
+for return. The memory reservations still use the same 512 MiB budget.
+
+The two updated runs used the same anonymous sequence, isolation, display
+dimensions and pacing as the preceding runs. This comparison uses the
+3648 × 5472 group. Rapid medians exclude the first transition of each burst.
+
+| Build at 512 MiB | Forward median and hits | Rapid reversal median and hits |
+| --- | ---: | ---: |
+| Last displayed image retained (`d8ae5a509`) | 379.8 ms (2/8) | 5.3 ms (11/11) |
+| Compact entries and priority retry, first run | 5.0 ms (8/8) | 6.7 ms (11/11) |
+| Compact entries and priority retry, repeat | 5.6 ms (8/8) | 6.0 ms (11/11) |
+
+The repeat also reused prepared images on all 7 backward transitions in the
+larger group, with a 6.3 ms median. Across both dimension groups, that run
+recorded 15/15 forward hits and 15/15 backward hits. The gain is workload
+dependent. When the next image and the immediate return entry cannot both fit,
+the viewer keeps the return entry and can still open the next image normally.
 
 ## Measurement environment
 

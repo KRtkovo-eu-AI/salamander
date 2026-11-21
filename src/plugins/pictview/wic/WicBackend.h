@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Distinguish the total decode budget from current free space. | Let the reservation report a shortage that the viewer can resolve. | | gpt-6.2-sol |
 // | 2026-11-21 | Reuse displayed still-image handles in the navigation cache. | Preserve decoded pixels and the prepared display bitmap. | | gpt-6.2-sol |
 // | 2026-11-21 | Account for prepared raster memory. | Enforce the configurable prefetch budget. | | gpt-6.2-sol |
 // | 2026-11-21 | Expose bounded still-image preparation and transfer. | Reuse decoded and scaled pixels across viewer threads. | | gpt-6.2-sol |
@@ -173,7 +174,7 @@ public:
     using PreparedImage = std::unique_ptr<void, void (*)(void*)>;
     using PrefetchReservation = bool (*)(void*, ULONGLONG);
     PreparedImage DecodeForPrefetch(const std::wstring& path, PVImageInfo& info,
-                                    ULONGLONG availableBytes, UINT viewportWidth, UINT viewportHeight,
+                                    ULONGLONG budgetBytes, UINT viewportWidth, UINT viewportHeight,
                                     DWORD fileBytes, PrefetchReservation reserve, void* reservation);
     static bool PrepareForTransfer(void* image, DWORD rotate, UINT viewportWidth, UINT viewportHeight);
     static bool CanParkPrefetch(LPPVHandle image);
