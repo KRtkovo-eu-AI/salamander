@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Persist prefetch and serialize EXIF library initialization. | Make the Performance option and first-image autorotation reliable. | | gpt-6.2-sol |
 // | 2026-11-09 | Add an independent mouse wheel action setting. | Persist the new PictView wheel behavior and migrate existing configuration. | https://github.com/KRtkovo-eu-AI/salamander/issues/747 | GPT-6 (Codex) |
 // | 2026-11-09 | Register detected PictView formats on install and migrate older configurations. | AddViewer force mode updates registrations but does not create defaults during installation, leaving image formats to other viewers. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 
@@ -96,6 +97,7 @@ int ConfigVersion = 0;
 std::string WicDecoderMasks;
 
 SGlobals G; // initialized in InitViewer
+std::atomic_bool PictViewPrefetchEnabled{false};
 TDirectArray<DWORD> ExifHighlights(20, 10);
 BOOL ExifGroupHighlights = FALSE;
 
@@ -106,6 +108,7 @@ LPCTSTR CONFIG_MOUSEWHEEL = _T("MouseWheelAction");
 LPCTSTR CONFIG_THUMBNAILS = _T("IgnoreThumbnails");
 LPCTSTR CONFIG_THUMB_MAX_IMG_SIZE = _T("MaxThumbImgSize");
 LPCTSTR CONFIG_AUTOROTATE = _T("AutoRotate");
+LPCTSTR CONFIG_PREFETCH = _T("PrefetchImages");
 LPCTSTR CONFIG_PIPETTE = _T("PipetteInHex");
 LPCTSTR CONFIG_WINPOS = _T("WinPos");
 LPCTSTR CONFIG_FILESHISTORY = _T("FilesHistory");
@@ -975,6 +978,9 @@ void CPluginInterface::LoadConfiguration(HWND parent, HKEY regKey, CSalamanderRe
         {
             G.AutoRotate = TRUE;
         }
+        DWORD prefetch = 0;
+        if (registry->GetValue(regKey, CONFIG_PREFETCH, REG_DWORD, &prefetch, sizeof(prefetch)))
+            PictViewPrefetchEnabled.store(prefetch != 0);
         if (!registry->GetValue(regKey, CONFIG_PIPETTE, REG_DWORD, &G.PipetteInHex, sizeof(DWORD)))
         {
             G.PipetteInHex = FALSE;
@@ -1142,6 +1148,8 @@ void CPluginInterface::SaveConfiguration(HWND parent, HKEY regKey, CSalamanderRe
     registry->SetValue(regKey, CONFIG_MOUSEWHEEL, REG_DWORD, &v, sizeof(DWORD));
     v = G.AutoRotate;
     registry->SetValue(regKey, CONFIG_AUTOROTATE, REG_DWORD, &v, sizeof(DWORD));
+    v = PictViewPrefetchEnabled.load() ? 1 : 0;
+    registry->SetValue(regKey, CONFIG_PREFETCH, REG_DWORD, &v, sizeof(DWORD));
     v = G.PipetteInHex;
     registry->SetValue(regKey, CONFIG_PIPETTE, REG_DWORD, &v, sizeof(DWORD));
     v = G.WindowPos;
@@ -1780,6 +1788,7 @@ BOOL InitViewer(HWND hParentWnd)
     G.MouseWheelAction = PV_MOUSEWHEEL_SCROLL;
     //  G.IgnoreThumbnails = FALSE;
     G.AutoRotate = TRUE;
+    PictViewPrefetchEnabled.store(false);
     //G.PipetteInHex = FALSE;
     G.MaxThumbImgSize = PV_MAX_IMG_SIZE_TO_THUMBNAIL;
     G.WindowPos = WINDOW_POS_SAME;
@@ -1861,8 +1870,13 @@ BOOL InitViewer(HWND hParentWnd)
 
 BOOL InitEXIF(HWND hParent, BOOL bSilent)
 {
+    static SRWLOCK exifInitLock = SRWLOCK_INIT;
+    AcquireSRWLockExclusive(&exifInitLock);
     if (EXIFLibrary != NULL)
+    {
+        ReleaseSRWLockExclusive(&exifInitLock);
         return TRUE;
+    }
 
     TCHAR path[MAX_PATH];
     EXIFINITTRANSLATIONS initTransl;
@@ -1872,6 +1886,7 @@ BOOL InitEXIF(HWND hParent, BOOL bSilent)
     EXIFLibrary = LoadLibrary(path); // load EXIF.DLL
     if (EXIFLibrary == NULL)
     {
+        ReleaseSRWLockExclusive(&exifInitLock);
         if (!bSilent)
         {
             TCHAR errText[2 * MAX_PATH];
@@ -1895,6 +1910,7 @@ BOOL InitEXIF(HWND hParent, BOOL bSilent)
         }
     }
 
+    ReleaseSRWLockExclusive(&exifInitLock);
     return TRUE;
 }
 

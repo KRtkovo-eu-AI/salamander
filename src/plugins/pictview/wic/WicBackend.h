@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Expose bounded still-image preparation and transfer. | Reuse decoded and scaled pixels across viewer threads. | | gpt-6.2-sol |
 
 #pragma once
 
@@ -18,6 +21,22 @@
 
 namespace PictView::Wic
 {
+inline void FitToViewport(UINT width, UINT height, UINT viewportWidth, UINT viewportHeight,
+                          UINT& fittedWidth, UINT& fittedHeight)
+{
+    fittedWidth = width < viewportWidth ? width : viewportWidth;
+    fittedHeight = static_cast<UINT>(static_cast<ULONGLONG>(height) * fittedWidth / width);
+    if (fittedHeight > viewportHeight)
+    {
+        fittedHeight = viewportHeight;
+        fittedWidth = static_cast<UINT>(static_cast<ULONGLONG>(width) * fittedHeight / height);
+    }
+    if (!fittedWidth)
+        fittedWidth = 1;
+    if (!fittedHeight)
+        fittedHeight = 1;
+}
+
 class Backend;
 
 struct ImageHandle;
@@ -64,6 +83,8 @@ struct FrameData
     UINT scaledStride = 0;
     UINT scaledWidth = 0;
     UINT scaledHeight = 0;
+    double detachedDpiX = 0;
+    double detachedDpiY = 0;
     bool hasGifFrameRect = false;
     bool decoded = false;
     bool hasTransparency = false;
@@ -146,6 +167,11 @@ public:
     bool GetWicDecoderMasks(std::vector<std::string>& masks) const;
 
     IWICImagingFactory* Factory() const { return m_factory.Get(); }
+
+    using PreparedImage = std::unique_ptr<void, void (*)(void*)>;
+    PreparedImage DecodeForPrefetch(const std::wstring& path, PVImageInfo& info);
+    static bool PrepareForTransfer(void* image, DWORD rotate, UINT viewportWidth, UINT viewportHeight);
+    static LPPVHandle AdoptPrefetch(PreparedImage& image, PVImageInfo& info);
 
 private:
     static PVCODE WINAPI sPVOpenImageEx(LPPVHandle* Img, LPPVOpenImageExInfo pOpenExInfo, LPPVImageInfo pImgInfo, int size);

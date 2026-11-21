@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Prepare bounded WIC still images on a separate COM apartment. | Transfer only decoded pixels and bitmaps to the viewer. | | gpt-6.2-sol |
 // | 2026-11-21 | Measure viewer decode, transform, scale, and paint phases. | Attribute navigation latency without changing image processing. | | GPT-6 (Codex) |
 // | 2026-11-05 | Survive faulty shell thumbnail provider SEH. | IThumbnailProvider / IShellItemImageFactory must not terminate Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 
@@ -4633,32 +4634,29 @@ PVCODE PopulateImageInfo(ImageHandle& handle, LPPVImageInfo info, DWORD bufferSi
     }
     info->BytesPerLine = frame.displayStride != 0 ? frame.displayStride : frame.stride;
 
-    double dpiX = 0.0;
-    double dpiY = 0.0;
-    if (frame.frame)
+    double dpiX = frame.detachedDpiX;
+    double dpiY = frame.detachedDpiY;
+    if (!frame.frame || SUCCEEDED(frame.frame->GetResolution(&dpiX, &dpiY)))
     {
-        if (SUCCEEDED(frame.frame->GetResolution(&dpiX, &dpiY)))
-        {
-            auto clampDpi = [](double value) -> DWORD {
-                if (!std::isfinite(value) || value <= 0.0)
-                {
-                    return 0;
-                }
-                const double rounded = std::floor(value + 0.5);
-                if (rounded <= 0.0)
-                {
-                    return 0;
-                }
-                if (rounded > static_cast<double>(std::numeric_limits<DWORD>::max()))
-                {
-                    return std::numeric_limits<DWORD>::max();
-                }
-                return static_cast<DWORD>(rounded);
-            };
+        auto clampDpi = [](double value) -> DWORD {
+            if (!std::isfinite(value) || value <= 0.0)
+            {
+                return 0;
+            }
+            const double rounded = std::floor(value + 0.5);
+            if (rounded <= 0.0)
+            {
+                return 0;
+            }
+            if (rounded > static_cast<double>(std::numeric_limits<DWORD>::max()))
+            {
+                return std::numeric_limits<DWORD>::max();
+            }
+            return static_cast<DWORD>(rounded);
+        };
 
-            info->HorDPI = clampDpi(dpiX);
-            info->VerDPI = clampDpi(dpiY);
-        }
+        info->HorDPI = clampDpi(dpiX);
+        info->VerDPI = clampDpi(dpiY);
     }
 
     const LONGLONG stretchWidthSigned = handle.stretchWidth ? static_cast<LONGLONG>(handle.stretchWidth)
@@ -6108,8 +6106,8 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         }
     }
 
-    double sourceDpiX = 0.0;
-    double sourceDpiY = 0.0;
+    double sourceDpiX = frame.detachedDpiX;
+    double sourceDpiY = frame.detachedDpiY;
     if (frame.frame)
     {
         frame.frame->GetResolution(&sourceDpiX, &sourceDpiY);
@@ -6807,6 +6805,79 @@ PVCODE WINAPI Backend::sPVOpenImageEx(LPPVHandle* Img, LPPVOpenImageExInfo pOpen
 
     *Img = reinterpret_cast<LPPVHandle>(image.release());
     return PVC_OK;
+}
+
+Backend::PreparedImage Backend::DecodeForPrefetch(const std::wstring& path, PVImageInfo& info)
+{
+    PreparedImage image(nullptr, [](void* handle) { sPVCloseImage(handle); });
+    if (!Factory())
+        return image;
+
+    std::vector<std::string> masks;
+    PictView::Native::GetDecoderMasks(masks);
+    if (HasExtensionMask(path, masks) || !GetWicDecoderMasks(masks) || !HasExtensionMask(path, masks))
+        return image;
+
+    auto widePath = AddExtendedPrefixIfNeeded(path);
+    ComPtr<IWICBitmapDecoder> decoder;
+    if (FAILED(CreateDecoder(*this, widePath, &decoder)) || !decoder)
+        return image;
+
+    GUID container{};
+    UINT count = 0, width = 0, height = 0;
+    ComPtr<IWICBitmapFrameDecode> first;
+    if (FAILED(decoder->GetContainerFormat(&container)) ||
+        (container != GUID_ContainerFormatJpeg && container != GUID_ContainerFormatPng &&
+         container != GUID_ContainerFormatTiff) ||
+        FAILED(decoder->GetFrameCount(&count)) || count != 1 ||
+        FAILED(decoder->GetFrame(0, &first)) || FAILED(first->GetSize(&width, &height)) ||
+        !width || !height || static_cast<ULONGLONG>(width) * height > 32000000)
+        return image;
+
+    auto owned = std::make_unique<ImageHandle>();
+    auto& handle = *owned;
+    image.reset(owned.release());
+    handle.backend = this;
+    handle.fileName = std::move(widePath);
+    if (FAILED(CollectFrames(*this, decoder.Get(), handle)) ||
+        (handle.baseInfo.Flags & PVFF_IMAGESEQUENCE) ||
+        FAILED(DecodeFrame(handle, 0)) ||
+        PopulateImageInfo(handle, &info, sizeof(info), false, 0, 0) != PVC_OK ||
+        (info.HorDPI && info.VerDPI && info.HorDPI != info.VerDPI))
+        image.reset();
+    return image;
+}
+
+bool Backend::PrepareForTransfer(void* image, DWORD rotate, UINT viewportWidth, UINT viewportHeight)
+{
+    auto& handle = *FromHandle(image);
+    if (rotate && sPVChangeImage(image, rotate) != PVC_OK)
+        return false;
+
+    auto& frame = handle.frames[0];
+    UINT width, height;
+    FitToViewport(frame.width, frame.height, viewportWidth, viewportHeight, width, height);
+    const bool useIndexed = frame.useIndexedPixels && !frame.indexedPixels.empty();
+    if (!useIndexed && (width != frame.width || height != frame.height) &&
+        FAILED(EnsureScaledBitmap(handle, frame, width, height)))
+        return false;
+
+    // Keep the metadata needed for subsequent info and save operations. WIC
+    // interfaces and their file streams must be released in this apartment.
+    frame.frame->GetResolution(&frame.detachedDpiX, &frame.detachedDpiY);
+    frame.converter.Reset();
+    frame.colorConvertedSource.Reset();
+    frame.frame.Reset();
+    handle.backend = nullptr;
+    return true;
+}
+
+LPPVHandle Backend::AdoptPrefetch(PreparedImage& image, PVImageInfo& info)
+{
+    auto& handle = *FromHandle(image.get());
+    handle.backend = &Instance();
+    PopulateImageInfo(handle, &info, sizeof(info), false, 0, 0);
+    return image.release();
 }
 
 PVCODE WINAPI Backend::sPVCloseImage(LPPVHandle Img)

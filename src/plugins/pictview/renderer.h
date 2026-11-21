@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Store one speculative navigation result per viewer. | Adopt prepared pixels without blocking on the worker. | | gpt-6.2-sol |
 
 #pragma once
 
@@ -79,6 +82,9 @@ void InvalidateCage(RECT* r);    // sets r->left = 0x80000000 (the cage is inval
 // CRendererWindow
 //
 
+#include <memory>
+
+struct PictViewPrefetch;
 class CViewerWindow;
 class CPrintDlg;
 
@@ -133,6 +139,13 @@ protected:
 
     int EnumFilesSourceUID;    // source UID for enumerating files in the viewer
     int EnumFilesCurrentIndex; // index of the current file in the viewer within the source
+    std::shared_ptr<PictViewPrefetch> Prefetch;
+    bool PrefetchPrevious = false;
+    bool AutoOrientationPrepared = false;
+    void ResetPrefetch();
+    void SchedulePrefetch();
+    void StartPrefetch();
+    LPPVHandle TakePrefetch(LPCTSTR name);
 
     BOOL SavedZoomParams;
     eZoomType SavedZoomType;
@@ -155,7 +168,7 @@ public:
     BOOL OnFileOpen(LPCTSTR defaultDirectory); // set 'defaultDirectory' to NULL for current dir
     BOOL OnFileSaveAs(LPCTSTR pInitDir);
     BOOL SaveImage(LPCTSTR name, DWORD format, SAVEAS_INFO_PTR psai);
-    int OpenFile(LPCTSTR name, int ShowCmd, HBITMAP hBmp);
+    int OpenFile(LPCTSTR name, int ShowCmd, HBITMAP hBmp, bool navigation = false);
     int HScroll(int ScrollRequest, int ThumbPos);
     int VScroll(int ScrollRequest, int ThumbPos);
     void WMSize(void);

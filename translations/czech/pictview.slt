@@ -50,6 +50,11 @@ COMMENT,"Česká verze"
 2053,7,89,172,12,1,"In&formovat oknem o úspěšném uložení souboru"
 2054,7,101,261,12,1,"&Pamatovat si cestu pro ukládání fotek obrazovky, skenů, obrázků ze schránky"
 
+[DIALOG 2041]
+268,150,1,"Výkon"
+2042,7,7,251,12,1,"Před&načítat další obrázek ve směru procházení"
+2043,7,25,251,22,1,"Pro místní obrázky JPEG, PNG a jednostránkové TIFF v režimu Umístit do okna nebo Celá obrazovka."
+
 [DIALOG 2060]
 268,150,1,"Klávesnice a myš"
 3000,6,5,256,43,1,"Klávesy PageUp a PageDown, kolečko myši"

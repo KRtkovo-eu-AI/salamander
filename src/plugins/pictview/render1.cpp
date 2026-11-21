@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Prepare the next predicted still image in a viewer worker. | Reuse decoded, oriented and scaled pixels during navigation. | | gpt-6.2-sol |
+// | 2026-11-21 | Initialize EXIF before automatic orientation lookup. | Make first-session autorotation independent of the EXIF dialog. | | GPT-6 (Codex) |
 // | 2026-11-21 | Measure navigation through the completed image paint. | Separate decode, EXIF, transform, scaling and drawing costs before prefetch. | | GPT-6 (Codex) |
 // | 2026-11-09 | Prevent duplicate navigation from X buttons and browser keys. | Windows reports these inputs through WM_APPCOMMAND after their native input messages. | https://github.com/KRtkovo-eu-AI/salamander/issues/747 | GPT-6 (Codex) |
 // | 2026-11-09 | Apply the independent wheel setting and handle browser navigation buttons. | Support configurable wheel actions and mouse back/forward controls in PictView. | https://github.com/KRtkovo-eu-AI/salamander/issues/747 | GPT-6 (Codex) |
@@ -29,6 +31,313 @@
 #include "exif/exif.h"
 #include "PixelAccess.h"
 #include "performance.h"
+#include "wic/WicBackend.h"
+
+static int GetImageAutoOrientation(LPCTSTR name, const PVImageInfo& image, HMODULE library)
+{
+    if (!library || !name || !(image.Flags & PVFF_EXIF) ||
+        (image.Format != PVF_JPG && image.Format != PVF_TIFF))
+        return 1;
+
+    EXIFGETORIENTATIONINFO getInfo = (EXIFGETORIENTATIONINFO)GetProcAddress(library, "EXIFGetOrientationInfo");
+#ifdef _UNICODE
+    EXIFGETORIENTATIONINFOW getInfoW = (EXIFGETORIENTATIONINFOW)GetProcAddress(library, "EXIFGetOrientationInfoW");
+#endif
+    EXIFGETORIENTATIONINFOFROMDATA getInfoFromData =
+        (EXIFGETORIENTATIONINFOFROMDATA)GetProcAddress(library, "EXIFGetOrientationInfoFromData");
+
+    CExifFileBuffer exifBuffer;
+    bool bufferLoaded = false;
+
+    SThumbExifInfo info;
+    ZeroMemory(&info, sizeof(info));
+    BOOL gotInfo = FALSE;
+
+    if (getInfoFromData)
+    {
+        bufferLoaded = exifBuffer.LoadFromFile(name);
+        if (bufferLoaded)
+        {
+            gotInfo = getInfoFromData(exifBuffer.GetExifData(), exifBuffer.GetExifSize(), &info);
+            if (!gotInfo || !(info.flags & TEI_ORIENT))
+            {
+                gotInfo = FALSE;
+                ZeroMemory(&info, sizeof(info));
+            }
+        }
+    }
+
+#ifdef _UNICODE
+    if (!gotInfo && getInfoW)
+    {
+        gotInfo = getInfoW(name, &info);
+        if (gotInfo && !(info.flags & TEI_ORIENT))
+        {
+            gotInfo = FALSE;
+            ZeroMemory(&info, sizeof(info));
+        }
+    }
+#endif
+    if (!gotInfo && getInfo)
+    {
+#ifdef _UNICODE
+        CExifAnsiPath ansiPath;
+        if (ansiPath.PrepareFromFile(name))
+        {
+            gotInfo = getInfo(ansiPath.GetPath(), &info);
+        }
+#else
+        gotInfo = getInfo(name, &info);
+#endif
+        if (gotInfo && !(info.flags & TEI_ORIENT))
+        {
+            gotInfo = FALSE;
+            ZeroMemory(&info, sizeof(info));
+        }
+    }
+
+    if (!gotInfo && getInfoFromData && !bufferLoaded)
+    {
+        bufferLoaded = exifBuffer.LoadFromFile(name);
+        if (bufferLoaded)
+        {
+            gotInfo = getInfoFromData(exifBuffer.GetExifData(), exifBuffer.GetExifSize(), &info);
+            if (!gotInfo || !(info.flags & TEI_ORIENT))
+            {
+                gotInfo = FALSE;
+                ZeroMemory(&info, sizeof(info));
+            }
+        }
+    }
+
+    if (!gotInfo)
+        return 1;
+    if ((info.flags & (TEI_WIDTH | TEI_HEIGHT)) == (TEI_WIDTH | TEI_HEIGHT))
+    {
+        if (((DWORD)info.Width != image.Width) || ((DWORD)info.Height != image.Height) || (info.Width < info.Height))
+        {
+            // the file has been modified (most likely rotated in something buggy
+            // like UfonView or cropped)
+            // Normal situation is info.Width > info.Height. Some cameras (namely Konica Minolta DiMAGE Z3
+            // seem to store image data with normal orientatation but (Orient != 1) && (info.Width < info.Height)
+            info.Orient = 1;
+        }
+    }
+    else if ((image.Format == PVF_TIFF) || !strcmp(image.Info1, "TIFF"))
+    {
+        switch (image.Flags & (PVFF_BOTTOMTOTOP | PVFF_FLIP_HOR | PVFF_ROTATE90))
+        {
+        case PVFF_BOTTOMTOTOP | PVFF_FLIP_HOR | PVFF_ROTATE90:
+            info.Orient = 8;
+            break; // CMD_ROTATE_LEFT
+        case PVFF_BOTTOMTOTOP | PVFF_FLIP_HOR:
+            info.Orient = 3;
+            break; // CMD_ROTATE180
+        case PVFF_ROTATE90:
+            info.Orient = 6;
+            break; // CMD_ROTATE_RIGHT
+        }
+    }
+    return info.Orient;
+}
+
+
+namespace
+{
+using PictView::Wic::Backend;
+
+bool ReadPrefetchStamp(const std::wstring& path, BY_HANDLE_FILE_INFORMATION& stamp)
+{
+    HANDLE file = CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
+                              FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                              OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+    if (file == INVALID_HANDLE_VALUE)
+        return false;
+    const bool ok = GetFileInformationByHandle(file, &stamp) != FALSE;
+    CloseHandle(file);
+    return ok && !(stamp.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT |
+                                             FILE_ATTRIBUTE_OFFLINE)) &&
+           stamp.nFileSizeHigh == 0 && stamp.nFileSizeLow <= 128u * 1024 * 1024;
+}
+
+bool SamePrefetchStamp(const BY_HANDLE_FILE_INFORMATION& a, const BY_HANDLE_FILE_INFORMATION& b)
+{
+    return a.dwVolumeSerialNumber == b.dwVolumeSerialNumber &&
+           a.nFileIndexHigh == b.nFileIndexHigh && a.nFileIndexLow == b.nFileIndexLow &&
+           a.nFileSizeHigh == b.nFileSizeHigh && a.nFileSizeLow == b.nFileSizeLow &&
+           CompareFileTime(&a.ftLastWriteTime, &b.ftLastWriteTime) == 0;
+}
+
+std::atomic_flag PrefetchWorkerBusy = ATOMIC_FLAG_INIT;
+}
+
+struct PictViewPrefetch
+{
+    std::basic_string<TCHAR> name;
+    std::wstring widePath;
+    UINT width = 0, height = 0;
+    bool autoRotate = false;
+    HMODULE exif = nullptr;
+    std::atomic<bool> canceled{false};
+    std::atomic<bool> ready{false};
+
+    // Owned by the worker until ready is published. No pointer to a window.
+    BY_HANDLE_FILE_INFORMATION stamp{};
+    Backend::PreparedImage image{nullptr, [](void*) {}};
+    int orientation = 1;
+};
+
+namespace
+{
+class PrefetchThread : public CThread
+{
+    std::shared_ptr<PictViewPrefetch> Job;
+
+    void Prepare()
+    {
+        if (Job->canceled.load() || !ReadPrefetchStamp(Job->widePath, Job->stamp))
+            return;
+
+        Backend backend;
+        PVImageInfo info{};
+        auto image = backend.DecodeForPrefetch(Job->widePath, info);
+        if (!image || Job->canceled.load())
+            return;
+
+        Job->orientation = GetImageAutoOrientation(Job->name.c_str(), info, Job->exif);
+        DWORD rotation = 0;
+        if (Job->orientation >= 5 && Job->orientation <= 7)
+            rotation = PVCF_ROTATE90CW;
+        else if (Job->orientation == 8)
+            rotation = PVCF_ROTATE90CCW;
+
+        BY_HANDLE_FILE_INFORMATION after{};
+        if (!Job->canceled.load() &&
+            Backend::PrepareForTransfer(image.get(), rotation, Job->width, Job->height) &&
+            ReadPrefetchStamp(Job->widePath, after) && SamePrefetchStamp(Job->stamp, after))
+            Job->image = std::move(image);
+    }
+
+public:
+    explicit PrefetchThread(std::shared_ptr<PictViewPrefetch> job)
+        : CThread("PictView Prefetch"), Job(std::move(job)) {}
+
+    unsigned Body() override
+    {
+        SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
+        try
+        {
+            Prepare();
+        }
+        catch (...)
+        {
+            // A speculative open must never interrupt normal navigation.
+        }
+        Job->ready.store(true, std::memory_order_release);
+        PrefetchWorkerBusy.clear();
+        return 0;
+    }
+};
+}
+
+void CRendererWindow::ResetPrefetch()
+{
+    if (HWindow)
+        KillTimer(HWindow, PREFETCH_TIMER_ID);
+    if (Prefetch)
+    {
+        Prefetch->canceled.store(true);
+        Prefetch.reset();
+    }
+}
+
+void CRendererWindow::SchedulePrefetch()
+{
+    if (PictViewPrefetchEnabled.load() && PVHandle && FileName && *FileName != '<' &&
+        EnumFilesSourceUID >= 0 && !PVSequence && !HasInteractivePreview() &&
+        (G.ZoomType == eShrinkToFit || G.ZoomType == eZoomFullScreen))
+        SetTimer(HWindow, PREFETCH_TIMER_ID, 120, nullptr);
+}
+
+void CRendererWindow::StartPrefetch()
+{
+    if (!PictViewPrefetchEnabled.load() || !ImageLoaded || Loading || Prefetch || PVSequence ||
+        !PVHandle || !FileName || *FileName == '<' || HasInteractivePreview() ||
+        (G.ZoomType != eShrinkToFit && G.ZoomType != eZoomFullScreen) ||
+        IsIconic(Viewer->HWindow) || GetCapture())
+        return;
+
+    if (PrefetchWorkerBusy.test_and_set())
+    {
+        SchedulePrefetch();
+        return;
+    }
+    try
+    {
+        auto job = std::make_shared<PictViewPrefetch>();
+        RECT viewport{};
+        GetClientRect(HWindow, &viewport);
+        int index = EnumFilesCurrentIndex;
+        BOOL exhausted = FALSE, busy = FALSE;
+        auto enumerate = PrefetchPrevious ? PictViewGetPreviousFileName : PictViewGetNextFileName;
+        if (viewport.right > 0 && viewport.bottom > 0 &&
+            enumerate(EnumFilesSourceUID, &index, FileName, TRUE, TRUE, job->name, &exhausted, &busy) &&
+            job->name != FileName)
+        {
+#ifdef _UNICODE
+            job->widePath = job->name;
+#else
+            job->widePath = PluginMultiByteToWidePath(job->name.c_str(), CP_UTF8);
+#endif
+            const size_t drive = job->widePath.rfind(L"\\\\?\\", 0) == 0 ? 4 : 0;
+            if (job->widePath.size() > drive + 3 && job->widePath[drive + 1] == L':' &&
+                job->widePath[drive + 2] == L'\\' &&
+                GetDriveTypeW(job->widePath.substr(drive, 3).c_str()) == DRIVE_FIXED)
+            {
+                if (drive == 0 && job->widePath.size() >= MAX_PATH)
+                    job->widePath = PluginPathAddExtendedPrefixW(job->widePath.c_str());
+                job->width = static_cast<UINT>(viewport.right);
+                job->height = static_cast<UINT>(viewport.bottom);
+                job->autoRotate = G.AutoRotate != FALSE;
+                if (job->autoRotate && InitEXIF(HWindow, TRUE))
+                    job->exif = EXIFLibrary;
+                // If EXIF could not load, let foreground opening retry rather
+                // than caching an incorrectly oriented image.
+                if (!job->autoRotate || job->exif)
+                {
+                    auto* worker = std::make_unique<PrefetchThread>(job).release();
+                    if (worker->Create(ThreadQueue))
+                    {
+                        Prefetch = std::move(job);
+                        return;
+                    }
+                    delete worker;
+                }
+            }
+        }
+    }
+    catch (...)
+    {
+        // Continue to use the ordinary open path after allocation failure.
+    }
+    PrefetchWorkerBusy.clear();
+}
+
+LPPVHandle CRendererWindow::TakePrefetch(LPCTSTR name)
+{
+    if (!PictViewPrefetchEnabled.load() || !Prefetch || !Prefetch->ready.load(std::memory_order_acquire) ||
+        !Prefetch->image || Prefetch->name != name || Prefetch->autoRotate != (G.AutoRotate != FALSE))
+        return nullptr;
+
+    BY_HANDLE_FILE_INFORMATION current{};
+    if (!ReadPrefetchStamp(Prefetch->widePath, current) || !SamePrefetchStamp(Prefetch->stamp, current))
+        return nullptr;
+
+    const int orientation = Prefetch->orientation;
+    fMirrorHor = orientation == 2 || orientation == 3 || orientation == 5;
+    fMirrorVert = orientation == 3 || orientation == 4 || orientation == 7;
+    return Backend::AdoptPrefetch(Prefetch->image, pvii);
+}
 
 inline int sgn(int x)
 {
@@ -113,6 +422,7 @@ CRendererWindow::CRendererWindow(int enumFilesSourceUID, int enumFilesCurrentInd
 
 CRendererWindow::~CRendererWindow()
 {
+    ResetPrefetch();
     PictView::Perf::Finish(this, "closed");
     if (pPrintDlg != NULL)
         delete pPrintDlg;
@@ -269,7 +579,7 @@ BOOL CRendererWindow::OnFileOpen(LPCTSTR defaultDirectory)
     return TRUE;
 } /* CRendererWindow::OnFileOpen */
 
-BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp)
+BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp, bool navigation)
 {
     CALL_STACK_MESSAGE2(_T("CViewerWindow::OpenFile(%s)"), name);
     PictView::Perf::BeginOpen(this);
@@ -314,7 +624,12 @@ BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp)
 #endif
     }
     FreeComment();
-    code = PVW32DLL.PVOpenImageEx(&PVHandle, &oiei, &pvii, sizeof(pvii));
+    PVHandle = navigation && !hBmp ? TakePrefetch(name) : nullptr;
+    AutoOrientationPrepared = PVHandle != nullptr;
+    ResetPrefetch();
+    if (!navigation)
+        PrefetchPrevious = false;
+    code = AutoOrientationPrepared ? PVC_OK : PVW32DLL.PVOpenImageEx(&PVHandle, &oiei, &pvii, sizeof(pvii));
 
     if (code == PVC_OK)
     {
@@ -515,7 +830,11 @@ BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp)
         }
     }
     UpdateInfos();
-    if (code == PVC_OK) PictView::Perf::ArmPaint(this, PVHandle);
+    if (code == PVC_OK)
+    {
+        PictView::Perf::ArmPaint(this, PVHandle);
+        SchedulePrefetch();
+    }
     InvalidateRect(HWindow, NULL, FALSE);
 
     return (code == PVC_OK);
@@ -711,23 +1030,15 @@ void CRendererWindow::WMSize(void)
         break;
 
     case eShrinkToFit:
-        if (XRange > PageWidth)
-            XStretchedRange = PageWidth;
-        else
-            XStretchedRange = XRange;
-        YStretchedRange = (int)(YRange * XStretchedRange) / XRange;
-        if (YStretchedRange > PageHeight)
-        {
-            YStretchedRange = PageHeight;
-            XStretchedRange = (int)(XRange * YStretchedRange) / YRange;
-        }
-        if (!XStretchedRange)
-            XStretchedRange = 1;
-        if (!YStretchedRange)
-            YStretchedRange = 1;
+    {
+        UINT width, height;
+        PictView::Wic::FitToViewport(XRange, YRange, PageWidth, PageHeight, width, height);
+        XStretchedRange = static_cast<int>(width);
+        YStretchedRange = static_cast<int>(height);
         ZoomFactor = (ZOOM_SCALE_FACTOR * XStretchedRange) / XRange;
         DetermineZoomIndex();
         break;
+    }
 
     case eShrinkToWidth:
         if (!Loading)
@@ -1733,118 +2044,21 @@ LRESULT CRendererWindow::OnPaint()
                 drect.bottom = min(drect.bottom, YStart + YStretchedRange);
 
                 // Note: Some raw formats have PVF_JPG but "TIFF" in Info2, some have PVF_TIFF
-                if (FileName != NULL && ((pvii.Format == PVF_JPG) || (pvii.Format == PVF_TIFF)) &&
+                if (!AutoOrientationPrepared && FileName != NULL && ((pvii.Format == PVF_JPG) || (pvii.Format == PVF_TIFF)) &&
                     (pvii.Flags & PVFF_EXIF) && G.AutoRotate)
                 {
                     PictView::Perf::Scope performanceExif(PictView::Perf::Phase::Exif);
-                    EXIFGETORIENTATIONINFO getInfo = (EXIFGETORIENTATIONINFO)GetProcAddress(EXIFLibrary, "EXIFGetOrientationInfo");
-#ifdef _UNICODE
-                    EXIFGETORIENTATIONINFOW getInfoW = (EXIFGETORIENTATIONINFOW)GetProcAddress(EXIFLibrary, "EXIFGetOrientationInfoW");
-#endif
-                    EXIFGETORIENTATIONINFOFROMDATA getInfoFromData =
-                        (EXIFGETORIENTATIONINFOFROMDATA)GetProcAddress(EXIFLibrary, "EXIFGetOrientationInfoFromData");
-
-                    CExifFileBuffer exifBuffer;
-                    bool bufferLoaded = false;
-
-                    SThumbExifInfo info;
-                    ZeroMemory(&info, sizeof(info));
-                    BOOL gotInfo = FALSE;
-
-                    if (getInfoFromData)
+                    const int orientation = InitEXIF(HWindow, TRUE)
+                        ? GetImageAutoOrientation(FileName, pvii, EXIFLibrary) : 1;
+                    if (orientation != 1)
                     {
-                        bufferLoaded = exifBuffer.LoadFromFile(FileName);
-                        if (bufferLoaded)
-                        {
-                            gotInfo = getInfoFromData(exifBuffer.GetExifData(), exifBuffer.GetExifSize(), &info);
-                            if (!gotInfo || !(info.flags & TEI_ORIENT))
-                            {
-                                gotInfo = FALSE;
-                                ZeroMemory(&info, sizeof(info));
-                            }
-                        }
-                    }
-
-#ifdef _UNICODE
-                    if (!gotInfo && getInfoW)
-                    {
-                        gotInfo = getInfoW(FileName, &info);
-                        if (gotInfo && !(info.flags & TEI_ORIENT))
-                        {
-                            gotInfo = FALSE;
-                            ZeroMemory(&info, sizeof(info));
-                        }
-                    }
-#endif
-                    if (!gotInfo && getInfo)
-                    {
-#ifdef _UNICODE
-                        CExifAnsiPath ansiPath;
-                        if (ansiPath.PrepareFromFile(FileName))
-                        {
-                            gotInfo = getInfo(ansiPath.GetPath(), &info);
-                        }
-#else
-                        gotInfo = getInfo(FileName, &info);
-#endif
-                        if (gotInfo && !(info.flags & TEI_ORIENT))
-                        {
-                            gotInfo = FALSE;
-                            ZeroMemory(&info, sizeof(info));
-                        }
-                    }
-
-                    if (!gotInfo && getInfoFromData && !bufferLoaded)
-                    {
-                        bufferLoaded = exifBuffer.LoadFromFile(FileName);
-                        if (bufferLoaded)
-                        {
-                            gotInfo = getInfoFromData(exifBuffer.GetExifData(), exifBuffer.GetExifSize(), &info);
-                            if (!gotInfo || !(info.flags & TEI_ORIENT))
-                            {
-                                gotInfo = FALSE;
-                                ZeroMemory(&info, sizeof(info));
-                            }
-                        }
-                    }
-
-                    if (gotInfo)
-                    {
-                        int cmd;
-                        int cmd2;
-
-                        if ((info.flags & (TEI_WIDTH | TEI_HEIGHT)) == (TEI_WIDTH | TEI_HEIGHT))
-                        {
-                            if (((DWORD)info.Width != pvii.Width) || ((DWORD)info.Height != pvii.Height) || (info.Width < info.Height))
-                            {
-                                // the file has been modified (most likely rotated in something buggy
-                                // like UfonView or cropped)
-                                // Normal situation is info.Width > info.Height. Some cameras (namely Konica Minolta DiMAGE Z3
-                                // seem to store image data with normal orientatation but (Orient != 1) && (info.Width < info.Height)
-                                info.Orient = 1;
-                            }
-                        }
-                        else if ((pvii.Format == PVF_TIFF) || !strcmp(pvii.Info1, "TIFF"))
-                        {
-                            switch (pvii.Flags & (PVFF_BOTTOMTOTOP | PVFF_FLIP_HOR | PVFF_ROTATE90))
-                            {
-                            case PVFF_BOTTOMTOTOP | PVFF_FLIP_HOR | PVFF_ROTATE90:
-                                info.Orient = 8;
-                                break; // CMD_ROTATE_LEFT
-                            case PVFF_BOTTOMTOTOP | PVFF_FLIP_HOR:
-                                info.Orient = 3;
-                                break; // CMD_ROTATE180
-                            case PVFF_ROTATE90:
-                                info.Orient = 6;
-                                break; // CMD_ROTATE_RIGHT
-                            }
-                        }
+                        int cmd, cmd2;
                         cmd = 0;
                         cmd2 = 0;
-                        // info.Orient is EXIF Orientation 1-8. Orientation 1 is identity.
+                        // EXIF orientation 1 is identity.
                         // Do not use PVFF_* bitflags as case labels: PVFF_BOTTOMTOTOP is 1,
                         // which would treat a normal JPEG as a horizontal flip.
-                        switch (info.Orient)
+                        switch (orientation)
                         {
                         case 2:
                             cmd = CMD_MIRROR_HOR;
@@ -2156,6 +2370,8 @@ LRESULT CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_USER_VIEWERCFGCHNG:
     {
+        ResetPrefetch();
+        SchedulePrefetch();
         // plugin configuration changes should take effect here
         //      TRACE_I("CViewerWindow::WindowProc - config has changed");
         //      SalamanderGeneral->SalMessageBox(HWindow, "Viewer cfg changed","What's going on??",0);
@@ -2213,6 +2429,7 @@ LRESULT CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_DESTROY:
     {
+        ResetPrefetch();
         KillTimer(HWindow, BRUSH_TIMER_ID);
         KillTimer(HWindow, CURSOR_TIMER_ID);
         KillTimer(HWindow, SAVEAS_TIMER_ID);
@@ -2370,6 +2587,10 @@ LRESULT CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         switch (wParam)
         {
+        case PREFETCH_TIMER_ID:
+            KillTimer(HWindow, PREFETCH_TIMER_ID);
+            StartPrefetch();
+            return 0;
         case CURSOR_TIMER_ID:
             if (Viewer->IsFullScreen() && CanHideCursor)
             {
@@ -3479,7 +3700,8 @@ LRESULT CRendererWindow::OnCommand(WPARAM wParam, LPARAM lParam, BOOL* closingVi
                         SetEvent(Viewer->Lock);
                         Viewer->Lock = NULL; // from now on only the disk cache handles it
                     }
-                    if (!OpenFile(fileName.c_str(), -1, NULL))
+                    PrefetchPrevious = what == CMD_FILE_PREV || what == CMD_FILE_PREVSELFILE || what == CMD_FILE_LAST;
+                    if (!OpenFile(fileName.c_str(), -1, NULL, true))
                     {
                         // the image is corrupted, close the current one
                         if (PVHandle != NULL)

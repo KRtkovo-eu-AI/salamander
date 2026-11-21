@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Bind the Performance page to the prefetch option. | Enable the feature from the existing configuration dialog. | | gpt-6.2-sol |
 // | 2026-11-09 | Expose independent Page Up/Down and mouse wheel settings. | Let users choose scrolling, zooming, or image navigation for the wheel. | https://github.com/KRtkovo-eu-AI/salamander/issues/747 | GPT-6 (Codex) |
 
 #include "precomp.h"
@@ -973,6 +974,54 @@ int CALLBACK CenterCallback(HWND HWindow, UINT uMsg, LPARAM lParam)
     return 0;
 }
 
+CConfigPagePerformance::CConfigPagePerformance()
+    : CCommonPropSheetPage(NULL, HLanguage, DLG_CFGPAGE_PERFORMANCE, 0u, 0, NULL)
+{
+    const auto resource = MAKEINTRESOURCEW(DLG_CFGPAGE_PERFORMANCE);
+    if (FindResourceW(Modul, resource, MAKEINTRESOURCEW(5)))
+        return;
+    if (FindResourceW(DLLInstance, resource, MAKEINTRESOURCEW(5)))
+    {
+        Modul = DLLInstance;
+        return;
+    }
+
+    // Older language packs can lack this page. Use the shipped English
+    // template for this page only so the other pages stay localized.
+    Modul = nullptr;
+    std::wstring path(SAL_MAX_PATH, L'\0');
+    const DWORD length = GetModuleFileNameW(DLLInstance, path.data(), static_cast<DWORD>(path.size()));
+    if (!length || length >= path.size())
+        return;
+    path.resize(length);
+    const size_t slash = path.find_last_of(L'\\');
+    if (slash == std::wstring::npos)
+        return;
+    path.replace(slash + 1, std::wstring::npos, L"lang\\english.slg");
+    if (path.size() >= MAX_PATH)
+        path = PluginPathAddExtendedPrefixW(path.c_str());
+    Modul = LoadLibraryExW(path.c_str(), nullptr, LOAD_LIBRARY_AS_DATAFILE | LOAD_LIBRARY_AS_IMAGE_RESOURCE);
+    if (Modul && !FindResourceW(Modul, resource, MAKEINTRESOURCEW(5)))
+    {
+        FreeLibrary(Modul);
+        Modul = nullptr;
+    }
+}
+
+CConfigPagePerformance::~CConfigPagePerformance()
+{
+    if (Modul && Modul != HLanguage && Modul != DLLInstance)
+        FreeLibrary(Modul);
+}
+
+void CConfigPagePerformance::Transfer(CTransferInfo& ti)
+{
+    BOOL enabled = PictViewPrefetchEnabled.load();
+    ti.CheckBox(IDC_CFGPERF_PREFETCH, enabled);
+    if (ti.Type == ttDataFromWindow)
+        PictViewPrefetchEnabled.store(enabled != FALSE);
+}
+
 CConfigDialog::CConfigDialog(HWND parent)
     : CPropertyDialog(parent, HLanguage, LoadStr(IDS_CONFIGURATION_TITLE),
                       G.LastCfgPage, PSH_USECALLBACK | PSH_NOAPPLYNOW | PSH_HASHELP,
@@ -983,6 +1032,8 @@ CConfigDialog::CConfigDialog(HWND parent)
     Add(&PageKeyboard);
     Add(&PageTools);
     Add(&PageAdvanced);
+    if (PagePerformance.IsAvailable())
+        Add(&PagePerformance);
 }
 
 //****************************************************************************

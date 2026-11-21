@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Declare the Performance settings page. | Expose viewer prefetch as an opt-in option. | | gpt-6.2-sol |
 
 #pragma once
 
@@ -216,6 +219,15 @@ public:
 // CConfigDialog
 //
 
+class CConfigPagePerformance : public CCommonPropSheetPage
+{
+public:
+    CConfigPagePerformance();
+    ~CConfigPagePerformance() override;
+    bool IsAvailable() const { return Modul != nullptr; }
+    void Transfer(CTransferInfo& ti) override;
+};
+
 class CConfigDialog : public CPropertyDialog
 {
 protected:
@@ -224,6 +236,7 @@ protected:
     CConfigPageKeyboard PageKeyboard;
     CConfigPageTools PageTools;
     CConfigPageAdvanced PageAdvanced;
+    CConfigPagePerformance PagePerformance;
 
 public:
     CConfigDialog(HWND parent);

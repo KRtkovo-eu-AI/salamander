@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-21 | Document the prefetch option and comparison procedure. | Make the performance change reproducible. | | gpt-6.2-sol |
 | 2026-11-21 | Add anonymous aggregate navigation timings and validation results. | Identify the dominant phases using the initialized viewer. | | GPT-6 (Codex) |
 | 2026-11-21 | Record synthetic baseline and EXIF initialization prerequisite. | Separate decoding, scaling and rotation costs before prefetch work. | | GPT-6 (Codex) |
 | 2026-11-21 | Document anonymous viewer measurements. | Establish a baseline before prefetch work. | | GPT-6 (Codex) |
@@ -7,8 +8,39 @@
 
 # Measuring PictView navigation
 
-This change adds opt-in measurements only. It does not implement prefetching,
-an image cache, background decoding, or a new presentation buffer.
+The tables below record the baseline before prefetch was implemented. Use the
+same timing diagnostics to compare it with the current viewer.
+
+## Enable prefetch
+
+In PictView, open **Tools → Configuration → Performance** and enable
+**Preload the next image in the direction of browsing**. Existing configurations
+start with the option off. The viewer prepares one nearby image for **Fit whole**
+or **Full screen**. It follows the most recent browsing direction and starts
+forward when opening a new viewer.
+
+The worker handles local JPEG, PNG and single-page TIFF images decoded by WIC.
+It is limited to files of up to 128 MiB and rasters of up to 32 megapixels.
+The viewer can reuse the decoded raster, EXIF transform and display bitmap.
+Navigation opens the target as usual if preparation is unavailable, unfinished
+or stale. After a resize, the viewer recomputes the scaled bitmap if needed.
+
+For a comparison, open a synthetic sequence with the option off, record a few
+transitions, then repeat with it on. Give the worker time to finish before each
+transition and test a rapid transition separately. For a fully prepared image,
+the navigation row has zero decode, transform and scale attempts. The elapsed
+time describes the transition after background preparation, with no claim about
+the total work performed for the image.
+
+In a Release x64 smoke test with fit-to-window, six prepared 24 MP synthetic
+transitions took 6.9–20.6 ms. These included both 90-degree directions and a
+180-degree orientation. All six rows recorded zero decode, transform and scale
+attempts on the viewer thread. A 48 MP image used ordinary loading. Changing a
+prepared file's modification time caused a fresh read. A separate sequence
+verified prepared single-page TIFF and PNG images with Unicode names under a
+320-character directory, ordinary opening of a multipage TIFF and reload from
+disk. The test also confirmed autorotation on the first open in a fresh process
+and persistence of the Performance option across a restart.
 
 ## Measurement environment
 
@@ -76,9 +108,7 @@ costs with the Windows file cache already available.
 
 This supports preparing decoded, transformed and display-sized image data before
 navigation. A presentation buffer alone would address only a small measured
-phase. The measurements do not establish a prefetch speedup or memory budget;
-those require a separate implementation and comparison. No prefetching or new
-settings were added by this change.
+phase. The baseline predates the implementation and its settings.
 
 ## Synthetic baseline
 
@@ -130,21 +160,13 @@ unless the next image's decode, required transforms and scaling were also ready.
 All rows passed validation; the largest difference between the exclusive-phase
 sum and total was 0.001 ms after CSV rounding.
 
-## Existing EXIF initialization prerequisite
+## EXIF initialization in the baseline
 
-The baseline investigation exposed an existing initialization defect, which this
-measurement change does not fix. The autorotation block in `OnPaint` resolves
-EXIF functions using `GetProcAddress(EXIFLibrary, ...)` without first calling
-`InitEXIF`. In a fresh process with a detailed file panel, the EXIF library may
-not yet be loaded and autorotation then does not run. Opening the EXIF dialog
-initializes that library through an existing `InitEXIF` call.
-
-Before collecting an autorotation baseline, open the EXIF dialog on a synthetic
-fixture, close it, then reopen the starting fixture for the measured sequence.
-Confirm the portrait synthetic fixture is actually displayed in portrait
-orientation. Discard any initialization samples. The synthetic results above
-were collected with this prerequisite satisfied. A checkbox being enabled alone
-does not establish that the affected fresh-process path performed autorotation.
+In the baseline build the first autorotation could be skipped because the EXIF
+library had not been loaded. Opening the EXIF dialog on a synthetic fixture
+initialized the library for those runs. The current viewer initializes EXIF
+before the first orientation lookup and shares the orientation rules between
+foreground opening and prefetch.
 
 ## Reproduce a measurement
 
