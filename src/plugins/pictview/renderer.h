@@ -1,9 +1,18 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Track prefetch contention per viewer. | Compare uncached opens before offering to disable prefetch. | | gpt-6.2-sol |
+// | 2026-11-21 | Watch the next usable prefetch candidate. | Preserve priority retry after a damaged file. | | gpt-6.2-sol |
+// | 2026-11-21 | Transfer the departed image to cache ownership before admission. | Measure the compacted handle and free it on a rejected admission. | | gpt-6.2-sol |
+// | 2026-11-21 | Track the displayed image for immediate return. | Keep file identity and orientation with reused raster data. | | gpt-6.2-sol |
+// | 2026-11-21 | Keep prepared neighbors in both navigation directions. | Reuse entries as the viewer moves through the list. | | gpt-6.2-sol |
+// | 2026-11-21 | Store one speculative navigation result per viewer. | Adopt prepared pixels without blocking on the worker. | | gpt-6.2-sol |
 
 #pragma once
 
 #include "lib/pvw32dll.h"
+#include "prefetchhealth.h"
 
 // Path to focus, used by menu File/Focus
 extern TCHAR Focus_Path[MAX_PATH];
@@ -79,6 +88,10 @@ void InvalidateCage(RECT* r);    // sets r->left = 0x80000000 (the cage is inval
 // CRendererWindow
 //
 
+#include <memory>
+#include <vector>
+
+struct PictViewPrefetch;
 class CViewerWindow;
 class CPrintDlg;
 
@@ -133,6 +146,23 @@ protected:
 
     int EnumFilesSourceUID;    // source UID for enumerating files in the viewer
     int EnumFilesCurrentIndex; // index of the current file in the viewer within the source
+    std::vector<std::shared_ptr<PictViewPrefetch>> Prefetch;
+    std::shared_ptr<PictViewPrefetch> DisplayedPrefetch;
+    std::vector<std::shared_ptr<PictViewPrefetch>> PriorityPrefetch;
+    bool PrefetchPrevious = false;
+    bool AutoOrientationPrepared = false;
+    ULONG_PTR ImageGeneration = 0;
+    unsigned PendingAutoCommands = 0;
+    LPARAM AutoTimingCookie = 0;
+    PictView::PrefetchHealth::Monitor PrefetchMonitor;
+    bool SlowPrefetchOfferPending = false;
+    void ResetPrefetch();
+    void SchedulePrefetch();
+    void StartPrefetch();
+    void RetryPriorityPrefetch();
+    LPPVHandle TakePrefetch(LPCTSTR name);
+    void ParkDisplayedImage(const std::shared_ptr<PictViewPrefetch>& job, LPPVHandle& image,
+                            BOOL mirrorHor, BOOL mirrorVert);
 
     BOOL SavedZoomParams;
     eZoomType SavedZoomType;
@@ -155,7 +185,7 @@ public:
     BOOL OnFileOpen(LPCTSTR defaultDirectory); // set 'defaultDirectory' to NULL for current dir
     BOOL OnFileSaveAs(LPCTSTR pInitDir);
     BOOL SaveImage(LPCTSTR name, DWORD format, SAVEAS_INFO_PTR psai);
-    int OpenFile(LPCTSTR name, int ShowCmd, HBITMAP hBmp);
+    int OpenFile(LPCTSTR name, int ShowCmd, HBITMAP hBmp, bool navigation = false);
     int HScroll(int ScrollRequest, int ThumbPos);
     int VScroll(int ScrollRequest, int ThumbPos);
     void WMSize(void);

@@ -2,10 +2,15 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Share the warning preference and renderer message. | Deliver the prefetch prompt after painting. | | gpt-6.2-sol |
+// | 2026-11-21 | Share the selected prefetch budget. | Synchronize the Performance page with viewer threads. | | gpt-6.2-sol |
+// | 2026-11-21 | Add the viewer prefetch option and timer. | Schedule image preparation after foreground painting. | | gpt-6.2-sol |
+// | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-09 | Separate mouse wheel behavior from Page Up/Down and add navigation buttons. | Implement configurable wheel actions and previous/next mouse buttons. | https://github.com/KRtkovo-eu-AI/salamander/issues/747 | GPT-6 (Codex) |
 
 #pragma once
 
+#include <atomic>
 #include "renderer.h"
 
 extern LPCTSTR CAPTURE;
@@ -440,6 +445,7 @@ protected:
 
 // asks user if we should open extra windows for extra images received from scanner
 #define WM_USER_SCAN_EXTRA_IMAGES WM_APP + 3251
+#define WM_USER_PREFETCH_SLOW WM_APP + 3253
 
 // Scroll step sizes for the window
 #define XLine 10
@@ -459,6 +465,7 @@ protected:
 #define ENABLERS_TIMER_ID 116 // id of timer to run enablers
 #define SAVEAS_TIMER_ID 117   // id of timer to wait for path in active panel
 #define CLOSEWND_TIMER_ID 118 // id of timer to close window when pop-up window is closed
+#define PREFETCH_TIMER_ID 119 // start preparing the predicted navigation target
 
 //
 // Functions
@@ -568,6 +575,10 @@ extern int PredefinedZooms[];
 void TrailZeros(LPTSTR buff);
 
 extern SGlobals G;
+extern CThreadQueue ThreadQueue;
+extern std::atomic_bool PictViewPrefetchEnabled;
+extern std::atomic_uint PictViewPrefetchLevel;
+extern std::atomic_bool PictViewPrefetchWarnings;
 
 extern MENU_TEMPLATE_ITEM PopupMenuTemplate[];
 
