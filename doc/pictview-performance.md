@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-21 | Compare all six prefetch settings in both directions. | Record anonymous navigation latency and cache reuse. | | gpt-6.2-sol |
 | 2026-11-21 | Document the bidirectional cache and memory levels. | Explain the limits and the capacity estimates. | | gpt-6.2-sol |
 | 2026-11-21 | Document the prefetch option and comparison procedure. | Make the performance change reproducible. | | gpt-6.2-sol |
 | 2026-11-21 | Add anonymous aggregate navigation timings and validation results. | Identify the dominant phases using the initialized viewer. | | GPT-6 (Codex) |
@@ -56,6 +57,66 @@ ahead was displayed in 14.8 ms and a jump six positions back took 32.7 ms. Both
 transitions used completed entries. After lowering the slider to level 1, the
 same 48 MP image took 1350.9 ms through ordinary loading. A smaller prepared
 neighbor still hit the cache at that level.
+
+## Comparison of all five prefetch levels
+
+On 2026-11-21, the Release x64 plugin from `b17c27028` was tested in the
+same isolated host revision listed below. Each mode started a new process with
+EXIF autorotation enabled and the viewer set to fit the image to the window.
+The fitted image height was 738 pixels in every recorded transition. Windows
+file caches were left in their normal state across the runs.
+
+The sequence contained 16 images from two raster dimension groups:
+1200 × 1800 and 3648 × 5472. Each scenario used the same image order and
+display dimensions across modes. Each run recorded 15 forward and 15 backward transitions with at
+least 1.2 seconds after observing the previous completed draw. The rapid test
+alternated between two images in the larger dimension group. After the first
+transition, each subsequent command was issued without an added pause, within
+0–33 ms of observing completion. The first transition in this burst is reported
+separately because it followed a pause. The rapid sequence for the off setting
+was repeated after the paced runs to remove automation delays from the pilot.
+The initial image open and pilot transitions are excluded. The comparison
+uses 246 transitions, with the first transition of each burst shown separately.
+
+Cells show median time in milliseconds and the number of transitions that
+reused a prepared image. A hit did no decoding, pixel rotation or scaling on
+the viewer thread. Timings end after GDI completes.
+
+| Setting | Forward, all 15 | Backward, all 15 |
+| --- | ---: | ---: |
+| Off | 279.0 ms (0/15) | 56.0 ms (0/15) |
+| 1 · 256 MiB | 313.2 ms (7/15) | 13.9 ms (8/15) |
+| 2 · 512 MiB | 7.8 ms (15/15) | 11.7 ms (14/15) |
+| 3 · 1,024 MiB | 9.1 ms (15/15) | 10.4 ms (15/15) |
+| 4 · 1,536 MiB | 9.9 ms (15/15) | 11.0 ms (15/15) |
+| 5 · 2,048 MiB | 8.1 ms (15/15) | 10.8 ms (15/15) |
+
+The pooled forward and backward medians contain different proportions of large
+images. Compare each direction with its own baseline. The larger dimension
+group shows the effect without mixing the two resolutions:
+
+| Setting | Forward, 8 transitions | Backward, 7 transitions | Rapid reversals, 11 transitions | First transition after the pause |
+| --- | ---: | ---: | ---: | ---: |
+| Off | 425.7 ms (0/8) | 413.0 ms (0/7) | 287.3 ms (0/11) | 430.7 ms (miss) |
+| 1 · 256 MiB | 421.1 ms (0/8) | 398.5 ms (0/7) | 326.4 ms (0/11) | 420.4 ms (miss) |
+| 2 · 512 MiB | 12.8 ms (8/8) | 17.1 ms (6/7) | 299.7 ms (0/11) | 14.6 ms (hit) |
+| 3 · 1,024 MiB | 14.9 ms (8/8) | 13.0 ms (7/7) | 343.6 ms (0/11) | 16.8 ms (hit) |
+| 4 · 1,536 MiB | 12.9 ms (8/8) | 11.8 ms (7/7) | 322.1 ms (0/11) | 12.9 ms (hit) |
+| 5 · 2,048 MiB | 14.0 ms (8/8) | 15.3 ms (7/7) | 337.0 ms (0/11) | 18.4 ms (hit) |
+
+Level 2 served 14 of 15 paced transitions to larger images from the cache.
+Its single backward miss raised the nearest-rank p90 for that group to
+423.8 ms. Levels 3–5 served all 15 paced transitions to the larger group,
+with no consistent latency improvement above level 3 in this sequence.
+
+Continuous rapid reversal produced zero hits at every level. The cache transfers
+a prepared image into the viewer when used. The previously displayed image
+then needs preparation again before an immediate return can hit. The current
+120 ms scheduling delay also limits how quickly this can happen. The result
+isolates short turns between already visited images, while the paced runs show
+what the existing cache can do when it has preparation time.
+
+Only aggregate timings, hit counts and raster dimensions are published here.
 
 ## Measurement environment
 
