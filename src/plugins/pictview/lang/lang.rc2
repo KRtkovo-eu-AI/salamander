@@ -1,4 +1,5 @@
 ﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Add the slow prefetch warning text. | Ask for permission before disabling prefetch. | | gpt-6.2-sol |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 //
 // lang.rc2 - resources Microsoft Visual C++ does not edit directly
@@ -748,4 +749,6 @@ STRINGTABLE
   IDS_WIA_STATUS_TRANSFER_TO_CLIENT, "Transferring data (%d%% complete)"
   
   IDS_SCAN_OPEN_EXTRA_IMGS, "You have received more images from scanner. The first image was opened in this window. Do you want to open other images each in its own window? If not, images will be ignored.\n\nNumber of new windows: %d"
+  IDS_SLOW_PREFETCH, "Preloading may be slowing down image browsing on this drive.\n\nDo you want to turn off preloading?"
+  IDS_DONT_OFFER_PREFETCH, "Don't offer to turn off preloading again"
 }

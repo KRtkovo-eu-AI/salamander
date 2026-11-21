@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-21 | Compile the prefetch contention monitor in the native test. | Validate warning decisions with controlled timings. | | gpt-6.2-sol |
 # | 2026-11-21 | Exercise actual viewer timing API across translation units and threads. | Verify anonymous exclusive timings and sample lifecycle before benchmarking. | | GPT-6 (Codex) |
 """Compile the actual PictView performance header; validate its emitted CSV."""
 
@@ -78,6 +79,7 @@ def main():
     args = parser.parse_args()
     template = (ROOT / "src/tests/pictview_performance_tests.cpp.in").read_text(encoding="utf-8-sig")
     code = template.replace("@@PERFORMANCE_HEADER@@", (ROOT / "src/plugins/pictview/performance.h").as_posix())
+    code = code.replace("@@PREFETCH_HEALTH_HEADER@@", (ROOT / "src/plugins/pictview/prefetchhealth.h").as_posix())
     assert "@@" not in code
     environment = compiler_environment()
     compiler = shutil.which("cl", path=environment.get("PATH"))

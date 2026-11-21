@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Track prefetch contention per viewer. | Compare uncached opens before offering to disable prefetch. | | gpt-6.2-sol |
 // | 2026-11-21 | Watch the next usable prefetch candidate. | Preserve priority retry after a damaged file. | | gpt-6.2-sol |
 // | 2026-11-21 | Transfer the departed image to cache ownership before admission. | Measure the compacted handle and free it on a rejected admission. | | gpt-6.2-sol |
 // | 2026-11-21 | Track the displayed image for immediate return. | Keep file identity and orientation with reused raster data. | | gpt-6.2-sol |
@@ -11,6 +12,7 @@
 #pragma once
 
 #include "lib/pvw32dll.h"
+#include "prefetchhealth.h"
 
 // Path to focus, used by menu File/Focus
 extern TCHAR Focus_Path[MAX_PATH];
@@ -152,6 +154,8 @@ protected:
     ULONG_PTR ImageGeneration = 0;
     unsigned PendingAutoCommands = 0;
     LPARAM AutoTimingCookie = 0;
+    PictView::PrefetchHealth::Monitor PrefetchMonitor;
+    bool SlowPrefetchOfferPending = false;
     void ResetPrefetch();
     void SchedulePrefetch();
     void StartPrefetch();

@@ -1,4 +1,5 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Add the warning preference to Performance. | Let users restore the slow prefetch prompt. | | gpt-6.2-sol |
 // | 2026-11-21 | Add the prefetch memory slider and per-level estimates. | Explain the tradeoff between memory and nearby images. | | gpt-6.2-sol |
 // | 2026-11-21 | Add a Performance tab for image prefetch. | Let users opt in to background image preparation. | | gpt-6.2-sol |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
@@ -197,7 +198,9 @@ BEGIN
     LTEXT           "&Memory budget",IDC_CFGPERF_MEMORY_LABEL,7,51,251,9
     CONTROL         "",IDC_CFGPERF_MEMORY,"msctls_trackbar32",TBS_AUTOTICKS | WS_TABSTOP,7,63,251,18
     LTEXT           "Level %u of 5: %u MiB. Max. per direction: %u.\r\nApprox. total: %u at 12 MP, %u at 24 MP, or %u at 48 MP.",IDC_CFGPERF_ESTIMATE,7,86,251,29
-    LTEXT           "Estimates assume opaque images. The displayed image is separate from this budget.",IDC_CFGPERF_ESTIMATE_NOTE,7,121,251,22
+    LTEXT           "Estimates assume opaque images. The displayed image is separate from this budget.",IDC_CFGPERF_ESTIMATE_NOTE,7,115,251,19
+    CONTROL         "&Offer to turn off preloading if it slows down browsing",IDC_CFGPERF_WARNINGS,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,134,251,12
 END
 
 DLG_IMGPROP DIALOGEX 106, 34, 173, 200

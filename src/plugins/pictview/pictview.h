@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Share the warning preference and renderer message. | Deliver the prefetch prompt after painting. | | gpt-6.2-sol |
 // | 2026-11-21 | Share the selected prefetch budget. | Synchronize the Performance page with viewer threads. | | gpt-6.2-sol |
 // | 2026-11-21 | Add the viewer prefetch option and timer. | Schedule image preparation after foreground painting. | | gpt-6.2-sol |
 // | Date | Summary | Reason | Ticket | Model |
@@ -444,6 +445,7 @@ protected:
 
 // asks user if we should open extra windows for extra images received from scanner
 #define WM_USER_SCAN_EXTRA_IMAGES WM_APP + 3251
+#define WM_USER_PREFETCH_SLOW WM_APP + 3253
 
 // Scroll step sizes for the window
 #define XLine 10
@@ -576,6 +578,7 @@ extern SGlobals G;
 extern CThreadQueue ThreadQueue;
 extern std::atomic_bool PictViewPrefetchEnabled;
 extern std::atomic_uint PictViewPrefetchLevel;
+extern std::atomic_bool PictViewPrefetchWarnings;
 
 extern MENU_TEMPLATE_ITEM PopupMenuTemplate[];
 

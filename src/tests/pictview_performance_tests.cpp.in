@@ -1,10 +1,12 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Exercise contention and quiet probes. | Cover slow media, dissimilar images, and inconclusive measurements. | | gpt-6.2-sol |
 // | 2026-11-21 | Test actual timing API lifecycle and TLS boundaries. | Keep exclusive measurements and anonymous CSV reliable. | | GPT-6 (Codex) |
 
 #define NOMINMAX
 #include "@@PERFORMANCE_HEADER@@"
+#include "@@PREFETCH_HEALTH_HEADER@@"
 #include <atomic>
 #include <cstdio>
 #include <memory>
@@ -46,6 +48,57 @@ static void Check(bool value, const char* description)
 }
 
 static bool Exists(const wchar_t* path) { return GetFileAttributesW(path) != INVALID_FILE_ATTRIBUTES; }
+
+static void CheckPrefetchHealth()
+{
+    using namespace PictView::PrefetchHealth;
+    Monitor monitor;
+    const Observation busy{'C', 1, 24000000, 5000000, 900, Activity::SameDrive};
+    auto quiet = busy;
+    quiet.activity = Activity::Quiet;
+    quiet.milliseconds = 400;
+    for (int i = 0; i < 4; ++i)
+        Check(!monitor.Observe(quiet) && !monitor.NeedsQuietOpen(), "quiet navigation never arms a probe");
+
+    auto startProbe = [&] {
+        for (int i = 0; i < 3; ++i)
+            Check(!monitor.Observe(busy) && monitor.NeedsQuietOpen() == (i == 2),
+                  "three comparable slow misses arm a quiet probe without a warning");
+    };
+    startProbe();
+    Check(monitor.Observe(quiet) && !monitor.NeedsQuietOpen(), "a comparable quiet open confirms contention");
+
+    startProbe();
+    auto stillSlow = quiet;
+    stillSlow.milliseconds = 800;
+    Check(!monitor.Observe(stillSlow) && !monitor.NeedsQuietOpen(), "a slow drive alone does not trigger an offer");
+
+    startProbe();
+    auto smaller = quiet;
+    smaller.pixels /= 2;
+    Check(!monitor.Observe(smaller) && !monitor.NeedsQuietOpen(), "a smaller image is not a valid baseline");
+
+    startProbe();
+    auto smallerFile = quiet;
+    smallerFile.bytes /= 2;
+    Check(!monitor.Observe(smallerFile) && !monitor.NeedsQuietOpen(), "a smaller encoded file is not a valid baseline");
+
+    startProbe();
+    auto otherDrive = quiet;
+    otherDrive.drive = 'D';
+    Check(!monitor.Observe(otherDrive) && !monitor.NeedsQuietOpen(), "a different drive invalidates the comparison");
+
+    startProbe();
+    auto unclear = quiet;
+    unclear.activity = Activity::Unclear;
+    Check(!monitor.Observe(unclear) && monitor.NeedsQuietOpen(), "an overlapping probe has one retry");
+    Check(!monitor.Observe(unclear) && !monitor.NeedsQuietOpen(), "prefetch resumes after inconclusive probes");
+
+    auto fast = busy;
+    fast.milliseconds = 500;
+    for (int i = 0; i < 4; ++i)
+        Check(!monitor.Observe(fast) && !monitor.NeedsQuietOpen(), "fast foreground opens never arm a probe");
+}
 
 static void Disabled(const wchar_t* log)
 {
@@ -170,7 +223,10 @@ int wmain(int argc, wchar_t** argv)
     if (argc != 3)
         return 2;
     if (wcscmp(argv[1], L"enabled") == 0)
+    {
+        CheckPrefetchHealth();
         Enabled(argv[2]);
+    }
     else
         Disabled(argv[2]);
     std::printf("PictView performance API: %d checks, %d failures\n", checks, failures);

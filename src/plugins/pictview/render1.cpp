@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Offer to disable prefetch after a faster quiet open. | Detect contention during navigation on slower local drives. | | gpt-6.2-sol |
 // | 2026-11-21 | Look past unreadable candidates in each prefetch direction. | Keep damaged files from using up the configured lookahead. | | gpt-6.2-sol |
 // | 2026-11-21 | Charge parked images after dropping redundant bitmaps. | Fit more background preparation beside the last displayed frame. | | gpt-6.2-sol |
 // | 2026-11-21 | Retain the just-viewed image for immediate reversal. | Reuse its finished raster within the shared memory limit. | | gpt-6.2-sol |
@@ -175,8 +176,33 @@ bool SamePrefetchStamp(const BY_HANDLE_FILE_INFORMATION& a, const BY_HANDLE_FILE
 
 std::atomic_flag PrefetchWorkerBusy = ATOMIC_FLAG_INIT;
 std::atomic<ULONGLONG> PrefetchBytes{0};
+// The low byte is the drive in use. The upper bits change at every start
+// and finish so a quiet open can rule out work that started and ended during it.
+std::atomic<ULONGLONG> PrefetchActivity{0};
+constexpr ULONGLONG PrefetchDriveMask = 0xff;
+std::atomic<ULONGLONG> NextPrefetchWarning{0};
+constexpr ULONGLONG PrefetchWarningCooldownMs = 10 * 60 * 1000;
 constexpr WORD AutoOrientationCommand = 0x5056;
 constexpr unsigned PrefetchExtraCandidates = 8; // bound speculative enumeration per direction
+
+bool WatchPrefetch()
+{
+    return PictViewPrefetchWarnings.load() && GetTickCount64() >= NextPrefetchWarning.load();
+}
+
+class PrefetchActivityScope
+{
+    ULONGLONG Epoch;
+
+public:
+    explicit PrefetchActivityScope(unsigned drive)
+        : Epoch((PrefetchActivity.load() & ~PrefetchDriveMask) + PrefetchDriveMask + 1)
+    {
+        PrefetchActivity.store(Epoch | drive);
+    }
+
+    ~PrefetchActivityScope() { PrefetchActivity.store(Epoch + PrefetchDriveMask + 1); }
+};
 
 ULONGLONG PrefetchBudgetBytes()
 {
@@ -209,6 +235,7 @@ struct PictViewPrefetch
 {
     std::basic_string<TCHAR> name;
     std::wstring widePath;
+    unsigned drive = 0;
     UINT width = 0, height = 0;
     bool autoRotate = false;
     HMODULE exif = nullptr;
@@ -263,6 +290,7 @@ std::shared_ptr<PictViewPrefetch> MakePrefetchJob(LPCTSTR name)
 
     auto job = std::make_shared<PictViewPrefetch>();
     job->name = name;
+    job->drive = static_cast<unsigned>(towupper(path[drive]));
     job->widePath = path.size() >= MAX_PATH ? PluginPathAddExtendedPrefixW(path.c_str()) : std::move(path);
     job->autoRotate = G.AutoRotate != FALSE;
     return job;
@@ -315,7 +343,10 @@ class PrefetchThread : public CThread
 
     static void Prepare(Backend& backend, PictViewPrefetch& job)
     {
-        if (job.canceled.load() || !ReadPrefetchStamp(job.widePath, job.stamp))
+        if (job.canceled.load())
+            return;
+        const PrefetchActivityScope activity(job.drive);
+        if (!ReadPrefetchStamp(job.widePath, job.stamp))
             return;
 
         PVImageInfo info{};
@@ -433,6 +464,7 @@ void CRendererWindow::ResetPrefetch()
 void CRendererWindow::SchedulePrefetch()
 {
     if (PictViewPrefetchEnabled.load() && PVHandle && FileName && *FileName != '<' &&
+        (!PrefetchMonitor.NeedsQuietOpen() || !WatchPrefetch()) &&
         EnumFilesSourceUID >= 0 && !PVSequence && !HasInteractivePreview() &&
         (G.ZoomType == eShrinkToFit || G.ZoomType == eZoomFullScreen))
         SetTimer(HWindow, PREFETCH_TIMER_ID, 120, nullptr);
@@ -441,6 +473,7 @@ void CRendererWindow::SchedulePrefetch()
 void CRendererWindow::StartPrefetch()
 {
     if (!PictViewPrefetchEnabled.load() || !ImageLoaded || Loading || PVSequence ||
+        (PrefetchMonitor.NeedsQuietOpen() && WatchPrefetch()) ||
         !PVHandle || !FileName || *FileName == '<' || EnumFilesSourceUID < 0 || HasInteractivePreview() ||
         (G.ZoomType != eShrinkToFit && G.ZoomType != eZoomFullScreen) ||
         IsIconic(Viewer->HWindow) || GetCapture())
@@ -980,6 +1013,7 @@ BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp, bool nav
     PriorityPrefetch.clear();
     const BOOL oldMirrorHor = fMirrorHor, oldMirrorVert = fMirrorVert;
     ++ImageGeneration;
+    SlowPrefetchOfferPending = false;
     PendingAutoCommands = 0;
     AutoTimingCookie = 0;
     PVOpenImageExInfo oiei;
@@ -1046,7 +1080,35 @@ BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp, bool nav
             // Ordinary opening still works if cache bookkeeping fails.
         }
     }
+    const bool measurePrefetch = navigation && !AutoOrientationPrepared && DisplayedPrefetch && WatchPrefetch();
+    const ULONGLONG openStart = measurePrefetch ? GetTickCount64() : 0;
+    const ULONGLONG activityAtOpen = measurePrefetch ? PrefetchActivity.load() : 0;
     code = AutoOrientationPrepared ? PVC_OK : PVW32DLL.PVOpenImageEx(&PVHandle, &oiei, &pvii, sizeof(pvii));
+    if (measurePrefetch && code == PVC_OK && pvii.NumOfImages == 1 && !(pvii.Flags & PVFF_IMAGESEQUENCE) &&
+        (pvii.Format == PVF_JPG || pvii.Format == PVF_PNG || pvii.Format == PVF_TIFF))
+    {
+        using namespace PictView::PrefetchHealth;
+        const auto drive = DisplayedPrefetch->drive;
+        const auto activeDrive = activityAtOpen & PrefetchDriveMask;
+        const auto activity = activeDrive == drive ? Activity::SameDrive :
+                              activeDrive == 0 && activityAtOpen == PrefetchActivity.load() ? Activity::Quiet :
+                              Activity::Unclear;
+        const bool wasProbing = PrefetchMonitor.NeedsQuietOpen();
+        SlowPrefetchOfferPending = PrefetchMonitor.Observe({
+            drive, static_cast<unsigned>(pvii.Format), static_cast<ULONGLONG>(pvii.Width) * pvii.Height,
+            pvii.FileSize, GetTickCount64() - openStart, activity});
+        if (PrefetchMonitor.NeedsQuietOpen() && !wasProbing)
+        {
+            // Let the current read finish, then leave the drive quiet for
+            // the next uncached open. Already prepared images stay usable.
+            KillTimer(HWindow, PREFETCH_TIMER_ID);
+            for (const auto& job : Prefetch)
+                if (!job->ready.load(std::memory_order_acquire))
+                    job->canceled.store(true);
+        }
+    }
+    else if (!AutoOrientationPrepared && (!measurePrefetch || code == PVC_OK))
+        PrefetchMonitor = {};
 
     if (code == PVC_OK)
     {
@@ -2604,6 +2666,12 @@ LRESULT CRendererWindow::OnPaint()
     else if (PVHandle == performanceHandle && !Loading)
         PictView::Perf::Painted(this, performanceSerial, PVHandle, performanceDrew &&
             PictView::Perf::Current().attempts[static_cast<int>(PictView::Perf::Counter::Draw)] > performanceDraws);
+    if (SlowPrefetchOfferPending && PVHandle == performanceHandle && !Loading &&
+        !PendingAutoCommands && performanceDrew && !performanceDrawFailed)
+    {
+        SlowPrefetchOfferPending = false;
+        PostMessage(HWindow, WM_USER_PREFETCH_SLOW, ImageGeneration, 0);
+    }
     return 0;
 } /* CRendererWindow::OnPaint */
 
@@ -2808,6 +2876,8 @@ LRESULT CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_USER_VIEWERCFGCHNG:
     {
+        PrefetchMonitor = {};
+        SlowPrefetchOfferPending = false;
         ResetPrefetch();
         SchedulePrefetch();
         // plugin configuration changes should take effect here
@@ -2824,6 +2894,29 @@ LRESULT CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             SetTitle(); // add/remove full path from title
         }
         InvalidateRect(HWindow, NULL, TRUE);
+        return 0;
+    }
+
+    case WM_USER_PREFETCH_SLOW:
+    {
+        if (wParam != ImageGeneration || !PictViewPrefetchEnabled.load() ||
+            !PictViewPrefetchWarnings.load() || GetForegroundWindow() != Viewer->HWindow || GetCapture())
+            return 0;
+
+        const auto now = GetTickCount64();
+        auto next = NextPrefetchWarning.load();
+        if (now < next || !NextPrefetchWarning.compare_exchange_strong(next, now + PrefetchWarningCooldownMs))
+            return 0;
+
+        BOOL dontOfferAgain = FALSE;
+        const int result = ShowSlowPrefetchWarning(Viewer->HWindow, dontOfferAgain);
+        if ((result == DIALOG_YES || result == DIALOG_NO) && dontOfferAgain)
+            PictViewPrefetchWarnings.store(false);
+        if (result == DIALOG_YES)
+        {
+            PictViewPrefetchEnabled.store(false);
+            ViewerWindowQueue.BroadcastMessage(WM_USER_VIEWERCFGCHNG, 0, 0);
+        }
         return 0;
     }
 

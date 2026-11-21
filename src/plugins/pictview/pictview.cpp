@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Persist whether to offer to disable slow prefetch. | Remember the user's preference across sessions. | | gpt-6.2-sol |
 // | 2026-11-21 | Persist the five-level prefetch budget. | Retain user preferences across sessions. | | gpt-6.2-sol |
 // | 2026-11-21 | Persist prefetch and serialize EXIF library initialization. | Make the Performance option and first-image autorotation reliable. | | gpt-6.2-sol |
 // | 2026-11-09 | Add an independent mouse wheel action setting. | Persist the new PictView wheel behavior and migrate existing configuration. | https://github.com/KRtkovo-eu-AI/salamander/issues/747 | GPT-6 (Codex) |
@@ -100,6 +101,7 @@ std::string WicDecoderMasks;
 
 SGlobals G; // initialized in InitViewer
 std::atomic_bool PictViewPrefetchEnabled{false};
+std::atomic_bool PictViewPrefetchWarnings{true};
 std::atomic_uint PictViewPrefetchLevel{PictView::PrefetchBudget::DefaultLevel};
 TDirectArray<DWORD> ExifHighlights(20, 10);
 BOOL ExifGroupHighlights = FALSE;
@@ -113,6 +115,7 @@ LPCTSTR CONFIG_THUMB_MAX_IMG_SIZE = _T("MaxThumbImgSize");
 LPCTSTR CONFIG_AUTOROTATE = _T("AutoRotate");
 LPCTSTR CONFIG_PREFETCH = _T("PrefetchImages");
 LPCTSTR CONFIG_PREFETCH_LEVEL = _T("PrefetchLevel");
+LPCTSTR CONFIG_PREFETCH_WARNINGS = _T("PrefetchWarnings");
 LPCTSTR CONFIG_PIPETTE = _T("PipetteInHex");
 LPCTSTR CONFIG_WINPOS = _T("WinPos");
 LPCTSTR CONFIG_FILESHISTORY = _T("FilesHistory");
@@ -989,6 +992,9 @@ void CPluginInterface::LoadConfiguration(HWND parent, HKEY regKey, CSalamanderRe
         if (registry->GetValue(regKey, CONFIG_PREFETCH_LEVEL, REG_DWORD, &prefetchLevel, sizeof(prefetchLevel)) &&
             prefetchLevel < PictView::PrefetchBudget::Levels)
             PictViewPrefetchLevel.store(prefetchLevel);
+        DWORD prefetchWarnings = 0;
+        if (registry->GetValue(regKey, CONFIG_PREFETCH_WARNINGS, REG_DWORD, &prefetchWarnings, sizeof(prefetchWarnings)))
+            PictViewPrefetchWarnings.store(prefetchWarnings != 0);
         if (!registry->GetValue(regKey, CONFIG_PIPETTE, REG_DWORD, &G.PipetteInHex, sizeof(DWORD)))
         {
             G.PipetteInHex = FALSE;
@@ -1160,6 +1166,8 @@ void CPluginInterface::SaveConfiguration(HWND parent, HKEY regKey, CSalamanderRe
     registry->SetValue(regKey, CONFIG_PREFETCH, REG_DWORD, &v, sizeof(DWORD));
     v = PictViewPrefetchLevel.load();
     registry->SetValue(regKey, CONFIG_PREFETCH_LEVEL, REG_DWORD, &v, sizeof(DWORD));
+    v = PictViewPrefetchWarnings.load() ? 1 : 0;
+    registry->SetValue(regKey, CONFIG_PREFETCH_WARNINGS, REG_DWORD, &v, sizeof(DWORD));
     v = G.PipetteInHex;
     registry->SetValue(regKey, CONFIG_PIPETTE, REG_DWORD, &v, sizeof(DWORD));
     v = G.WindowPos;
@@ -1799,6 +1807,7 @@ BOOL InitViewer(HWND hParentWnd)
     //  G.IgnoreThumbnails = FALSE;
     G.AutoRotate = TRUE;
     PictViewPrefetchEnabled.store(false);
+    PictViewPrefetchWarnings.store(true);
     PictViewPrefetchLevel.store(PictView::PrefetchBudget::DefaultLevel);
     //G.PipetteInHex = FALSE;
     G.MaxThumbImgSize = PV_MAX_IMG_SIZE_TO_THUMBNAIL;
