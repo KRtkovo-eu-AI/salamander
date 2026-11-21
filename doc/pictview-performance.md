@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-21 | Measure lookahead past damaged images at 512 MiB. | Verify that failed preparations leave room for the next usable image. | | gpt-6.2-sol |
 | 2026-11-21 | Retest read-ahead and immediate reversal at 512 MiB. | Verify that both fit after compacting the cache. | | gpt-6.2-sol |
 | 2026-11-21 | Measure rapid reversals after retaining the displayed image. | Quantify the latency improvement and budget tradeoff. | | gpt-6.2-sol |
 | 2026-11-21 | Compare all six prefetch settings in both directions. | Record anonymous navigation latency and cache reuse. | | gpt-6.2-sol |
@@ -22,6 +23,9 @@ In PictView, open **Tools → Configuration → Performance** and enable
 the prefetch option start with it off. The worker prepares nearby images for
 **Fit whole** or **Full screen**, alternating directions and starting with the
 nearest candidates. The most recent direction wins ties.
+Unreadable candidates leave their position available for another image. The
+search allows up to eight additional candidates per direction to bound
+enumeration in folders with many damaged or unsupported inputs.
 
 The slider sets a shared budget across PictView windows. The 64-bit levels are
 256, 512, 1024, 1536 and 2048 MiB. The 32-bit levels use 128, 256, 384, 512 and
@@ -177,6 +181,24 @@ larger group, with a 6.3 ms median. Across both dimension groups, that run
 recorded 15/15 forward hits and 15/15 backward hits. The gain is workload
 dependent. When the next image and the immediate return entry cannot both fit,
 the viewer keeps the return entry and can still open the next image normally.
+
+## Lookahead past damaged files at 512 MiB
+
+The mixed local sequence contained five valid images and three intentionally
+unreadable fixtures, with one single failure and two consecutive failures.
+The same sequence was traversed in both directions before and after the
+change. The Release x64 test allowed 1.4 seconds of preparation after a
+successful display. Background preparation produced no modal dialog. Each
+attempt to navigate onto an unreadable file displayed the ordinary error
+dialog, and browsing continued after dismissal.
+
+| Test at 512 MiB | Previous hits | Updated hits | First valid transition after two failures |
+| --- | ---: | ---: | ---: |
+| Forward | 3/4 | 4/4 | 395.8 ms → 8.9 ms |
+| Backward | 3/4 | 4/4 | 365.8 ms → 8.8 ms |
+
+The unchanged sequence without damaged fixtures still had 15/15 forward hits,
+15/15 backward hits and 11/11 rapid reversal hits at the same memory setting.
 
 ## Measurement environment
 

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Look past unreadable candidates in each prefetch direction. | Keep damaged files from using up the configured lookahead. | | gpt-6.2-sol |
 // | 2026-11-21 | Charge parked images after dropping redundant bitmaps. | Fit more background preparation beside the last displayed frame. | | gpt-6.2-sol |
 // | 2026-11-21 | Retain the just-viewed image for immediate reversal. | Reuse its finished raster within the shared memory limit. | | gpt-6.2-sol |
 // | 2026-11-21 | Prepare nearby images on both sides within a shared budget. | Keep useful neighbors ready after changing direction. | | gpt-6.2-sol |
@@ -175,6 +176,7 @@ bool SamePrefetchStamp(const BY_HANDLE_FILE_INFORMATION& a, const BY_HANDLE_FILE
 std::atomic_flag PrefetchWorkerBusy = ATOMIC_FLAG_INIT;
 std::atomic<ULONGLONG> PrefetchBytes{0};
 constexpr WORD AutoOrientationCommand = 0x5056;
+constexpr unsigned PrefetchExtraCandidates = 8; // bound speculative enumeration per direction
 
 ULONGLONG PrefetchBudgetBytes()
 {
@@ -212,6 +214,7 @@ struct PictViewPrefetch
     HMODULE exif = nullptr;
     std::atomic<bool> canceled{false};
     std::atomic<bool> ready{false};
+    std::atomic<bool> occupiesSlot{false};
 
     // Owned by the worker until ready is published. No pointer to a window.
     BY_HANDLE_FILE_INFORMATION stamp{};
@@ -238,6 +241,7 @@ struct PictViewPrefetch
     void ReleaseImage()
     {
         image.reset();
+        occupiesSlot.store(false);
         PrefetchBytes.fetch_sub(chargedBytes);
         chargedBytes = 0;
     }
@@ -296,9 +300,18 @@ struct PrefetchWorkReservation
     }
 };
 
+struct PrefetchCandidate
+{
+    std::shared_ptr<PictViewPrefetch> job;
+    unsigned side;
+    bool existing;
+    bool keepForReturn;
+};
+
 class PrefetchThread : public CThread
 {
-    std::vector<std::shared_ptr<PictViewPrefetch>> Jobs;
+    std::vector<PrefetchCandidate> Candidates;
+    unsigned PerDirection;
 
     static void Prepare(Backend& backend, PictViewPrefetch& job)
     {
@@ -339,25 +352,48 @@ class PrefetchThread : public CThread
     }
 
 public:
-    explicit PrefetchThread(const std::vector<std::shared_ptr<PictViewPrefetch>>& jobs)
-        : CThread("PictView Prefetch"), Jobs(jobs) {}
+    PrefetchThread(const std::vector<PrefetchCandidate>& candidates, unsigned perDirection)
+        : CThread("PictView Prefetch"), Candidates(candidates), PerDirection(perDirection) {}
 
     unsigned Body() override
     {
         SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
         Backend backend;
-        for (auto& job : Jobs)
+        unsigned remaining[] = {PerDirection, PerDirection};
+        for (auto& candidate : Candidates)
         {
-            try
+            auto job = std::move(candidate.job);
+            auto& slots = remaining[candidate.side];
+            if (candidate.existing)
             {
-                Prepare(backend, *job);
+                if (!job->canceled.load() && job->occupiesSlot.load())
+                {
+                    if (slots)
+                        --slots;
+                    else if (!candidate.keepForReturn)
+                        job->canceled.store(true);
+                }
+                continue;
             }
-            catch (...)
+            if (slots && !job->canceled.load())
             {
-                // A speculative open must never interrupt normal navigation.
+                try
+                {
+                    Prepare(backend, *job);
+                }
+                catch (...)
+                {
+                    // A speculative open must never interrupt normal navigation.
+                }
+                // A recognized candidate that needs a memory retry still
+                // takes a slot. Unreadable or unsupported candidates do not.
+                if (!job->canceled.load() && (job->image || job->requiredBytes))
+                {
+                    job->occupiesSlot.store(true);
+                    --slots;
+                }
             }
             job->ready.store(true, std::memory_order_release);
-            job.reset();
         }
         PrefetchWorkerBusy.clear();
         return 0;
@@ -366,12 +402,12 @@ public:
 
 // The caller holds the worker slot. Ownership of that slot passes to Body
 // on success and is returned here on failure.
-bool LaunchPrefetchWorker(const std::vector<std::shared_ptr<PictViewPrefetch>>& jobs)
+bool LaunchPrefetchWorker(const std::vector<PrefetchCandidate>& candidates, unsigned perDirection)
 {
     PrefetchThread* thread = nullptr;
     try
     {
-        thread = std::make_unique<PrefetchThread>(jobs).release();
+        thread = std::make_unique<PrefetchThread>(candidates, perDirection).release();
         if (thread->Create(ThreadQueue))
             return true;
     }
@@ -390,7 +426,7 @@ void CRendererWindow::ResetPrefetch()
         KillTimer(HWindow, PREFETCH_TIMER_ID);
     for (const auto& job : Prefetch)
         job->canceled.store(true);
-    PriorityPrefetch.reset();
+    PriorityPrefetch.clear();
     Prefetch.clear();
 }
 
@@ -410,7 +446,7 @@ void CRendererWindow::StartPrefetch()
         IsIconic(Viewer->HWindow) || GetCapture())
         return;
 
-    if (PriorityPrefetch)
+    if (!PriorityPrefetch.empty())
     {
         RetryPriorityPrefetch();
         return;
@@ -431,9 +467,14 @@ void CRendererWindow::StartPrefetch()
             bool more = true;
         };
         Cursor cursors[] = {{EnumFilesCurrentIndex, FileName}, {EnumFilesCurrentIndex, FileName}};
-        std::vector<Name> neighbors;
+        struct Neighbor
+        {
+            Name name;
+            unsigned side;
+        };
+        std::vector<Neighbor> neighbors;
         const auto limit = PictView::PrefetchBudget::At(PictViewPrefetchLevel.load());
-        for (unsigned distance = 0; distance < limit.PerDirection; ++distance)
+        for (unsigned distance = 0; distance < limit.PerDirection + PrefetchExtraCandidates; ++distance)
         {
             for (unsigned side = 0; side < 2; ++side)
             {
@@ -454,8 +495,8 @@ void CRendererWindow::StartPrefetch()
                 if (cursor.more)
                 {
                     cursor.name = target;
-                    if (std::find(neighbors.begin(), neighbors.end(), target) == neighbors.end())
-                        neighbors.push_back(std::move(target));
+                    if (std::none_of(neighbors.begin(), neighbors.end(), [&](const auto& entry) { return entry.name == target; }))
+                        neighbors.push_back({std::move(target), side});
                 }
             }
             if (!cursors[0].more && !cursors[1].more)
@@ -464,24 +505,36 @@ void CRendererWindow::StartPrefetch()
 
         const bool autoRotate = G.AutoRotate != FALSE;
         Prefetch.erase(std::remove_if(Prefetch.begin(), Prefetch.end(), [&](const auto& job) {
-            if (job->autoRotate == autoRotate && (job->recentlyDisplayed ||
-                std::find(neighbors.begin(), neighbors.end(), job->name) != neighbors.end()))
+            if (!job->canceled.load() && job->autoRotate == autoRotate && (job->recentlyDisplayed ||
+                std::any_of(neighbors.begin(), neighbors.end(), [&](const auto& entry) { return entry.name == job->name; })))
                 return false;
             job->canceled.store(true);
             return true;
         }), Prefetch.end());
 
         std::vector<std::shared_ptr<PictViewPrefetch>> jobs;
-        for (auto& name : neighbors)
+        std::vector<PrefetchCandidate> candidates;
+        std::vector<std::shared_ptr<PictViewPrefetch>> priority;
+        for (const auto& neighbor : neighbors)
         {
-            if (std::any_of(Prefetch.begin(), Prefetch.end(), [&](const auto& job) { return job->name == name; }))
+            const auto existing = std::find_if(Prefetch.begin(), Prefetch.end(),
+                                               [&](const auto& job) { return job->name == neighbor.name; });
+            if (existing != Prefetch.end())
+            {
+                candidates.push_back({*existing, neighbor.side, true, (*existing)->recentlyDisplayed});
+                if (neighbor.side == neighbors.front().side)
+                    priority.push_back(*existing);
                 continue;
-            auto job = MakePrefetchJob(name.c_str());
+            }
+            auto job = MakePrefetchJob(neighbor.name.c_str());
             if (!job)
                 continue;
             job->width = static_cast<UINT>(viewport.right);
             job->height = static_cast<UINT>(viewport.bottom);
             job->autoRotate = autoRotate;
+            candidates.push_back({job, neighbor.side, false, false});
+            if (neighbor.side == neighbors.front().side)
+                priority.push_back(job);
             jobs.push_back(std::move(job));
         }
         if (jobs.empty() || !AvailablePrefetchBytes())
@@ -495,19 +548,17 @@ void CRendererWindow::StartPrefetch()
         }
 
         Prefetch.reserve(Prefetch.size() + jobs.size());
-        const auto priority = jobs.front()->name == neighbors.front()
-            ? jobs.front() : std::shared_ptr<PictViewPrefetch>{};
         if (PrefetchWorkerBusy.test_and_set())
         {
             SchedulePrefetch();
             return;
         }
-        if (!LaunchPrefetchWorker(jobs))
+        if (!LaunchPrefetchWorker(candidates, limit.PerDirection))
             return;
         Prefetch.insert(Prefetch.end(), jobs.begin(), jobs.end());
-        if (priority)
+        if (!priority.empty())
         {
-            PriorityPrefetch = priority;
+            PriorityPrefetch = std::move(priority);
             SchedulePrefetch();
         }
     }
@@ -519,15 +570,25 @@ void CRendererWindow::StartPrefetch()
 
 void CRendererWindow::RetryPriorityPrefetch()
 {
-    auto& priority = PriorityPrefetch;
-    if (!priority->ready.load(std::memory_order_acquire))
+    std::shared_ptr<PictViewPrefetch> priority;
+    for (const auto& candidate : PriorityPrefetch)
     {
-        SchedulePrefetch();
-        return;
+        if (candidate->canceled.load())
+            continue;
+        if (!candidate->ready.load(std::memory_order_acquire))
+        {
+            SchedulePrefetch();
+            return;
+        }
+        if (candidate->occupiesSlot.load())
+        {
+            priority = candidate;
+            break;
+        }
     }
-    if (priority->canceled.load() || !priority->requiredBytes)
+    if (!priority || !priority->requiredBytes)
     {
-        priority.reset();
+        PriorityPrefetch.clear();
         return;
     }
 
@@ -548,7 +609,7 @@ void CRendererWindow::RetryPriorityPrefetch()
             recoverable += entry->chargedBytes;
     if (recoverable < required)
     {
-        priority.reset();
+        PriorityPrefetch.clear();
         PrefetchWorkerBusy.clear();
         return;
     }
@@ -561,22 +622,23 @@ void CRendererWindow::RetryPriorityPrefetch()
         (*victim)->ReleaseImage();
         Prefetch.erase(std::prev(victim.base()));
     }
-    std::vector<std::shared_ptr<PictViewPrefetch>> jobs;
+    std::vector<PrefetchCandidate> candidates;
     try
     {
-        jobs.push_back(priority);
+        candidates.push_back({priority, 0, false, false});
     }
     catch (...)
     {
-        priority.reset();
+        PriorityPrefetch.clear();
         PrefetchWorkerBusy.clear();
         return;
     }
     priority->requiredBytes = 0;
     priority->ready.store(false, std::memory_order_relaxed);
-    if (!LaunchPrefetchWorker(jobs))
+    priority->occupiesSlot.store(false);
+    if (!LaunchPrefetchWorker(candidates, 1))
         priority->ready.store(true, std::memory_order_release);
-    priority.reset();
+    PriorityPrefetch.clear();
 }
 
 LPPVHandle CRendererWindow::TakePrefetch(LPCTSTR name)
@@ -587,8 +649,7 @@ LPPVHandle CRendererWindow::TakePrefetch(LPCTSTR name)
 
     auto job = std::move(*entry);
     Prefetch.erase(entry);
-    job->canceled.store(true);
-    if (!PictViewPrefetchEnabled.load() || !job->ready.load(std::memory_order_acquire) ||
+    if (job->canceled.exchange(true) || !PictViewPrefetchEnabled.load() || !job->ready.load(std::memory_order_acquire) ||
         !job->image || job->autoRotate != (G.AutoRotate != FALSE))
         return nullptr;
 
@@ -600,9 +661,22 @@ LPPVHandle CRendererWindow::TakePrefetch(LPCTSTR name)
     fMirrorVert = job->mirrorVert;
     auto handle = Backend::AdoptPrefetch(job->image, pvii);
     job->ReleaseImage();
-    job->displayedHandle = handle;
-    job->presented = false;
-    DisplayedPrefetch = std::move(job);
+    // The old entry may still be in a worker's lookahead plan. The active
+    // image needs a fresh entry so that plan cannot cancel it after parking.
+    try
+    {
+        auto displayed = std::make_shared<PictViewPrefetch>();
+        displayed->name = job->name;
+        displayed->widePath = job->widePath;
+        displayed->autoRotate = job->autoRotate;
+        displayed->stamp = job->stamp;
+        displayed->displayedHandle = handle;
+        DisplayedPrefetch = std::move(displayed);
+    }
+    catch (...)
+    {
+        // Displaying the prepared image does not depend on retaining it again.
+    }
     return handle;
 }
 
@@ -649,6 +723,7 @@ void CRendererWindow::ParkDisplayedImage(const std::shared_ptr<PictViewPrefetch>
     job->mirrorVert = mirrorVert;
     job->image = std::move(prepared);
     job->recentlyDisplayed = true;
+    job->occupiesSlot.store(true);
     job->ready.store(true, std::memory_order_release);
     Prefetch.insert(Prefetch.begin(), job);
 }
@@ -902,7 +977,7 @@ BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp, bool nav
     PVCODE code;
     LPPVHandle OldPVHandle = PVHandle;
     const auto oldDisplayedPrefetch = std::move(DisplayedPrefetch);
-    PriorityPrefetch.reset();
+    PriorityPrefetch.clear();
     const BOOL oldMirrorHor = fMirrorHor, oldMirrorVert = fMirrorVert;
     ++ImageGeneration;
     PendingAutoCommands = 0;
