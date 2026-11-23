@@ -1,7 +1,10 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-20 | Pass complete wide browser paths and retain Markdown reload identity. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+#include "../shared/spl_diskselection.h"
 
 #include <comutil.h>
 
@@ -390,8 +393,7 @@ unsigned WINAPI ThreadIEMessageLoop(void* param)
     }
 
     CALL_STACK_MESSAGE1("ThreadIEMessageLoop::SetEvent");
-    char name[MAX_PATH];
-    lstrcpyn(name, data->Name, MAX_PATH);
+    const std::string name(data->Name);
     IStream* contentStream = data->ContentStream;
     BOOL openFile = data->Success;
     SetEvent(data->Continue); // let the main thread continue; data are invalid from this point (=NULL)
@@ -401,10 +403,7 @@ unsigned WINAPI ThreadIEMessageLoop(void* param)
     if (window != NULL && openFile)
     {
         CALL_STACK_MESSAGE1("ThreadIEMessageLoop::Navigate");
-        if (contentStream != NULL)
-            window->m_IEViewer.Navigate(name, contentStream);
-        else
-            window->m_IEViewer.Navigate(name, NULL);
+        window->m_IEViewer.Navigate(name.c_str(), contentStream);
 
         CALL_STACK_MESSAGE1("ThreadIEMessageLoop::message-loop");
         MSG msg;
@@ -1025,12 +1024,12 @@ STDMETHODIMP CImpIOleControlSite::TranslateAccelerator(LPMSG lpMsg,
         lpMsg->wParam == 'R' &&
         (GetKeyState(VK_CONTROL) & 0x8000) != 0)
     {
-        if (m_pSite->MarkdownFilename[0] != 0)
+        if (!m_pSite->MarkdownFilename.empty())
         {
-            IStream* contentStream = ConvertMarkdownToHTML(m_pSite->MarkdownFilename);
+            IStream* contentStream = ConvertMarkdownToHTML(m_pSite->MarkdownFilename.c_str());
             if (contentStream != NULL && m_pSite->m_pIWebBrowser2 != NULL)
             {
-                NavigateAux(m_pSite, m_pSite->MarkdownFilename, contentStream);
+                NavigateAux(m_pSite, m_pSite->MarkdownFilename.c_str(), contentStream);
                 return S_OK;
             }
         }
@@ -1347,18 +1346,22 @@ STDMETHODIMP CImpIDispatch::Invoke(DISPID dispID,
                 BOOL file = CanonizeURL(locationURL);
 
                 char buff[3000];
-                if (m_pSite->MarkdownFilename[0] != 0)
-                    lstrcpy(buff, m_pSite->MarkdownFilename);
+                if (!m_pSite->MarkdownFilename.empty())
+                {
+                    std::wstring caption = SalamanderDiskSelection::WideFromPath(m_pSite->MarkdownFilename.c_str());
+                    caption += L" - ";
+                    caption += SalamanderDiskSelection::WideFromPath(LoadStr(IDS_PLUGINNAME));
+                    SetWindowTextW(m_pSite->m_hParentWnd, caption.c_str());
+                }
                 else
                 {
                     lstrcpy(buff, locationURL);
                     if (!file || lstrcmp(locationURL, title) != 0)
                         sprintf(buff + lstrlen(buff), " (%s)", title);
+                    sprintf(buff + lstrlen(buff), " - %s", LoadStr(IDS_PLUGINNAME));
+                    SetWindowText(m_pSite->m_hParentWnd, buff);
                 }
-
-                sprintf(buff + lstrlen(buff), " - %s", LoadStr(IDS_PLUGINNAME));
-
-                SetWindowText(m_pSite->m_hParentWnd, buff);
+                SysFreeString(pbstrLocationURL);
             }
             m_pSite->DoVerb(OLEIVERB_UIACTIVATE);
         }
@@ -1401,7 +1404,6 @@ CSite::CSite()
     //  m_pImpIAdviseSink = NULL;
     m_pImpIDispatch = NULL;
 
-    MarkdownFilename[0] = 0;
 }
 
 CSite::~CSite()
@@ -1834,6 +1836,7 @@ HRESULT LoadWebBrowserFromStream(IWebBrowser* pWebBrowser, IStream* pStream)
 
 void NavigateAux(CSite* m_pSite, const char* fileName, IStream* contentStream)
 {
+    const std::string source(fileName);
     HRESULT hr = m_pSite->m_pIWebBrowser2->Navigate(_bstr_t("about:blank"), NULL, NULL, NULL, NULL);
     // hack - instead of a more complex solution via the DWebBrowserEvents2::DocumentComplete event
     // see https://msdn.microsoft.com/en-us/library/aa752047%28v=vs.85%29.aspx
@@ -1851,7 +1854,7 @@ void NavigateAux(CSite* m_pSite, const char* fileName, IStream* contentStream)
         }
         m_pSite->m_pIWebBrowser2->get_ReadyState(&rs);
     } while (rs != READYSTATE_COMPLETE);
-    strcpy(m_pSite->MarkdownFilename, fileName);
+    m_pSite->MarkdownFilename = source;
     // Call the helper function to load the browser from the stream.
     LoadWebBrowserFromStream(m_pSite->m_pIWebBrowser, contentStream);
     contentStream->Release();
@@ -1867,13 +1870,10 @@ void CIEWindow::Navigate(LPCTSTR lpszURL, IStream* contentStream)
         return;
     }
 
-    OLECHAR szTemp[MAX_PATH];
-    MultiByteToWideChar(CP_ACP, 0, lpszURL, -1, szTemp, MAX_PATH);
-    szTemp[MAX_PATH - 1] = 0;
-
-    VARIANT vURL;
-    vURL.vt = VT_BSTR;
-    vURL.bstrVal = szTemp;
+    const std::wstring path = SalamanderDiskSelection::WideFromPath(lpszURL);
+    if (path.empty())
+        return;
+    _bstr_t url(path.c_str());
 
     VARIANT vHeaders;
     vHeaders.vt = VT_BSTR;
@@ -1888,15 +1888,15 @@ void CIEWindow::Navigate(LPCTSTR lpszURL, IStream* contentStream)
     vPostData.lVal = 0;
 
     VARIANT vFlags;
-    vTargetFrameName.vt = VT_I4;
-    vTargetFrameName.lVal = navNoHistory;
+    vFlags.vt = VT_I4;
+    vFlags.lVal = navNoHistory;
 
     m_Site.m_fCanClose = TRUE;
     const char* ext = strrchr(lpszURL, '.');
     if (ext != NULL && _stricmp(ext + 1, "xml") == 0)
         m_Site.m_fCanClose = FALSE;
     m_Site.m_fOpening = TRUE;
-    HRESULT hr = m_Site.m_pIWebBrowser->Navigate(vURL.bstrVal, &vFlags, &vTargetFrameName, &vPostData, &vHeaders);
+    HRESULT hr = m_Site.m_pIWebBrowser->Navigate(url, &vFlags, &vTargetFrameName, &vPostData, &vHeaders);
     if (hr == E_INVALIDARG)
         TRACE_E("m_Site.m_pIWebBrowser->Navigate failed: E_INVALIDARG");
     else if (hr == E_OUTOFMEMORY)

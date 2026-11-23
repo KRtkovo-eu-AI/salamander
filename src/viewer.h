@@ -4,6 +4,7 @@
 // CommentsTranslationProject: TRANSLATED
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-20 | Store the original source and provider beside the generated report. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
 | 2026-11-04 | Cache sparse line-number checkpoints for Internal Viewer. | Avoid O(n) full-file rescans on every paint/status update near EOF (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
 | 2026-11-05 | Cache previous visual-row size for line-up scrolling. | Scroll-up still recomputed ZeroLineSize on every step while scroll-down reused FirstLineSize (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
 | 2026-11-05 | Cache decoded wrap-row starts per logical line. | Line-up through wrapped UTF-8 rows re-walked the whole logical line on every step (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
@@ -146,6 +147,8 @@ public:
 
     void OpenFile(const char* file, const char* caption, BOOL wholeCaption); // does not manage Lock
     void OpenFileW(const wchar_t* file, const char* caption, BOOL wholeCaption); // does not manage Lock
+
+    void SetReportSource(const char* pluginID, const char* sourcePath, int sourceUID, int sourceIndex);
 
     virtual BOOL Is(int type) { return type == otViewerWindow || CWindow::Is(type); }
     BOOL IsGood() { return Buffer != NULL && ViewerFont != NULL; }
@@ -541,6 +544,15 @@ protected:
     __int64 LineNumberCacheLineStart; // logical line start for that offset
     BOOL LayoutNeeded; // TRUE = LayoutStatusBar() must run before the next paint
 
+    std::string ReportPluginID;
+    std::wstring ReportSourcePath;
+    const wchar_t* GetEnumerationPath() const
+    {
+        return ReportSourcePath.empty() ? FileNameW.c_str() : ReportSourcePath.c_str();
+    }
+    void DetachReportSource();
+    void RequestViewerReport(const std::wstring& path, int index);
+
     int EnumFileNamesSourceUID;     // UID of our source for enumerating names in the viewer
     int EnumFileNamesLastFileIndex; // index of the currently viewed file
 
@@ -590,4 +602,4 @@ extern HANDLE ViewerContinue; // helper event - waiting for the message-loop thr
 BOOL OpenViewer(const char* name, CViewType mode, int left, int top, int width, int height,
                 UINT showCmd, BOOL returnLock, HANDLE* lock, BOOL* lockOwner,
                 CSalamanderPluginViewerData* viewerData, int enumFileNamesSourceUID,
-                int enumFileNamesLastFileIndex);
+                int enumFileNamesLastFileIndex, const char* reportPluginID = NULL);

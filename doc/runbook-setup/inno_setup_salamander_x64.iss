@@ -1,4 +1,5 @@
 ; | Date | Summary | Reason | Ticket | Model |
+; | 2026-11-20 | Generate the ownership inventory at installer compile time. | Validate the finished payload for both installer modes. |  | gpt-6.2-sol |
 ; | 2026-11-16 | Always install the language pack without a task checkbox. | Make the additional UI translations available on every installation. | | openrouter/openai/gpt-6-luna-pro |
 ; | 2026-11-16 | Map Brazilian Portuguese installer language to the app language-pack ID. | Launch Samandarin with the existing portuguese.slg translation. | | openrouter/openai/gpt-6-luna-pro |
 ; | 2026-11-16 | Add localized license notices for all installer languages. | Show the license notice in the selected setup language instead of falling back to English. | | openrouter/openai/gpt-6-luna-pro |
@@ -69,6 +70,12 @@
   #else
     #define PayloadDir "..\..\output\salamander\Release_x64"
   #endif
+#endif
+
+; Build the ownership inventory from the finished payload for both installer modes.
+#define StagePayloadCommand "-NoProfile -ExecutionPolicy Bypass -File " + '"' + AddBackslash(SourcePath) + "..\..\tools\stage_inno_payload.ps1" + '"' + " -RepositoryRoot " + '"' + AddBackslash(SourcePath) + "..\.." + '"' + " -DestinationRoot " + '"' + AddBackslash(PayloadDir) + "." + '"'
+#if Exec(GetEnv("SystemRoot") + "\System32\WindowsPowerShell\v1.0\powershell.exe", StagePayloadCommand, SourcePath) != 0
+  #error Installer payload staging failed. Build the complete x64 payload before compiling Setup.
 #endif
 
 [Setup]

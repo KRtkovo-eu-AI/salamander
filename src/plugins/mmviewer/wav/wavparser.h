@@ -1,4 +1,7 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-20 | Accept an immutable wide WAV path. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
+// | 2026-11-20 | Use a wide filename for WAV input. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -29,7 +32,7 @@ public:
 
     ~CMMIO() { Close(); }
 
-    BOOL Open(char* fname);
+    BOOL Open(const wchar_t* fname);
     void Close(void);
 
     BOOL IsOpened(void) const { return m_hmmio != NULL; }

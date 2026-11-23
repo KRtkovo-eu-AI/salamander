@@ -1,7 +1,10 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-20 | Open media sources with wide file I/O. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+#include "../mfinfo.h"
 
 #ifdef _MPG_SUPPORT_
 
@@ -35,7 +38,8 @@ CParserMPG::OpenFile(const char* fileName)
 {
     CloseFile();
 
-    f = fopen(fileName, "rb");
+    const std::wstring path = MmViewerMakeExtendedPath(MmViewerPathToWide(fileName).c_str());
+    f = _wfopen(path.c_str(), L"rb");
 
     if (!f)
         return preOpenError;

@@ -1,7 +1,10 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-20 | Pass the complete wide media path to the WMA reader. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+#include "../mfinfo.h"
 
 #ifdef _WMA_SUPPORT_
 
@@ -197,7 +200,8 @@ CParserWMA::OpenFile(LPCSTR fileName)
 #ifdef _UNICODE
     pwszInFile = fileName;
 #else
-    pwszInFile = AnsiToWide(fileName, (int)strlen(fileName));
+    const std::wstring path = MmViewerMakeExtendedPath(MmViewerPathToWide(fileName).c_str());
+    pwszInFile = path.c_str();
 #endif
 
     hr = pEditor->Open(pwszInFile);

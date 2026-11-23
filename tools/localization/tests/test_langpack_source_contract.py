@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-20 | Verify that the installer always ships the language pack. | Match the current installer and require an unconditional file entry. |  | gpt-6.2-sol |
 # | 2026-11-13 | Cover the custom Pak English resource script. | Keep embedded-English detection consistent for projects overriding the shared RC. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-13 | Check legacy plug-in English resource fallback. | Ensure old plugins continue loading external english.slg resources. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-13 | Check Welcome language choices from embedded packs. | Ensure Manage Configurations lists languages after .slg files are removed. | | openrouter/openai/gpt-6-luna-pro |
@@ -135,12 +136,15 @@ def test_versinfo_can_skip_when_embedding():
     assert "SKIP_LANG_VERSIONINFO" in vers
 
 
-def test_inno_ships_optional_langpack_not_per_language_slg():
+def test_inno_always_ships_langpack_instead_of_per_language_slg():
     iss = (REPO / "doc" / "runbook-setup" / "inno_setup_salamander_x64.iss").read_text(
         encoding="utf-8", errors="replace"
     )
-    assert r"lang\langpack.dll" in iss
-    assert "additionallanguages" in iss
+    assert [
+        line.strip() for line in iss.splitlines()
+        if line.lstrip().startswith("Source:") and r'\lang\langpack.dll"' in line
+    ] == [r'Source: "{#PayloadDir}\lang\langpack.dll"; DestDir: "{app}\lang"; Flags: ignoreversion']
+    assert "additionallanguages" not in iss.lower()
     assert r"lang\czech.slg" not in iss
     assert r"plugins\zip\lang\*.slg" not in iss
     assert r"plugins\zip\zip.spl" in iss

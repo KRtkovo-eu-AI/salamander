@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-20 | Separate runtime staging from installer inventory generation. | Allow the host to build independently of plugin outputs. |  | gpt-6.2-sol |
 # | 2026-11-14 | Keep runtime payload staging independent of installer catalog generation. | A catalog refresh is an installer-only step and must not fail the C++ post-build copy. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-14 | Refresh the Inno web-package include from the stable catalogs during staging. | Keep both installer variants synchronized with release URLs, hashes, and versions. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-14 | Emit ownership inventory for installer-managed plugin files. | Upgrades need safe, component-scoped stale-file cleanup. | | openrouter/openai/gpt-6-luna-pro |
@@ -10,7 +11,9 @@ param(
     [string]$RepositoryRoot,
 
     [Parameter(Mandatory = $true)]
-    [string]$DestinationRoot
+    [string]$DestinationRoot,
+
+    [switch]$RuntimeOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -138,6 +141,13 @@ foreach ($extensionRoot in $extensionRoots) {
     }
 }
 
+Write-Host "Staged $($payloadPaths.Count) Inno payload files and $extensionFileCount files from $($extensionRoots.Count) extension trees ($copiedCount updated)."
+
+# The host can build while plugin projects are still writing their binaries.
+if ($RuntimeOnly) {
+    return
+}
+
 $managedFileEntries = [System.Collections.Generic.List[string]]::new()
 foreach ($line in $innoLines) {
     if ($line -notmatch '^\s*Source:\s+"\{#PayloadDir\}\\([^";]+)"\s*;\s*DestDir:\s+"\{app\}([^";]*)"') {
@@ -192,5 +202,4 @@ $managedManifestPath = Join-Path $destinationRoot 'managed-plugin-files.txt'
 $managedManifest = @($managedFileEntries | Sort-Object -Unique)
 [System.IO.File]::WriteAllLines($managedManifestPath, $managedManifest, [System.Text.UTF8Encoding]::new($false))
 
-Write-Host "Staged $($payloadPaths.Count) Inno payload files and $extensionFileCount files from $($extensionRoots.Count) extension trees ($copiedCount updated)."
 Write-Host "Recorded $($managedManifest.Count) component-owned installer files in $managedManifestPath."
