@@ -1,5 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Open Salamander Authors
+# SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-24 | Prefer the active MSVC compiler for native tests. | GitHub runners ship Clang 20, which cannot compile the VS 18 STL that requires Clang 22. | https://github.com/KRtkovo-eu-AI/salamander/pull/865 | Grok 4.7 |
 
 """Compile the actual operation queue and scheduler with fake window messages.
 
@@ -31,7 +34,7 @@ def main() -> int:
     parser.add_argument("--compiler")
     args = parser.parse_args()
     compiler = args.compiler or next(
-        (found for name in ("clang++", "g++", "cl") if (found := shutil.which(name))),
+        (found for name in ("cl", "clang++", "g++") if (found := shutil.which(name))),
         None,
     )
     if compiler is None:
