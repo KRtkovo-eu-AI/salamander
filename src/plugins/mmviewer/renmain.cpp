@@ -1,4 +1,7 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-20 | Use the shared UTF-8 conversion for media navigation. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
+// | 2026-11-20 | Navigate media files through the wide source-panel service. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -11,6 +14,11 @@
 //#include "dialogs.h"
 #include "mmviewer.h"
 #include "parser.h"
+#include "mfinfo.h"
+#include "../shared/spl_diskselection.h"
+
+extern CPluginInterface PluginInterface;
+extern CSalamanderViewerEnumerationAbstract* MmViewerEnumeration;
 
 #define GET_X_LPARAM(lp) ((int)(short)LOWORD(lp))
 #define GET_Y_LPARAM(lp) ((int)(short)HIWORD(lp))
@@ -23,7 +31,7 @@
 CRendererWindow::CRendererWindow(int enumFilesSourceUID, int enumFilesCurrentIndex)
     : CWindow(ooStatic)
 {
-    FileName[0] = 0;
+    FileName.clear();
     Viewer = NULL;
     Creating = TRUE;
     EnumFilesSourceUID = enumFilesSourceUID;
@@ -85,15 +93,16 @@ BOOL CRendererWindow::OpenFile(const char* name)
         delete (parser);
         Output.PrepareForRender(HWindow);
 
-        lstrcpy(FileName, name);
+        FileName = name;
     }
     else
     {
-        char buff[2 * MAX_PATH];
-        sprintf(buff, LoadStr(IDS_ERROR_OPENING), name);
-        SalGeneral->SalMessageBox(HWindow, buff, LoadStr(IDS_PLUGIN_NAME), MB_ICONEXCLAMATION);
+        const char* format = LoadStr(IDS_ERROR_OPENING);
+        std::vector<char> message(strlen(format) + strlen(name) + 1);
+        _snprintf_s(message.data(), message.size(), _TRUNCATE, format, name);
+        SalGeneral->SalMessageBox(HWindow, message.data(), LoadStr(IDS_PLUGIN_NAME), MB_ICONEXCLAMATION);
 
-        FileName[0] = 0;
+        FileName.clear();
     }
 
     SetViewerTitle();
@@ -151,12 +160,9 @@ void CRendererWindow::SetViewerTitle()
 {
     const wchar_t* convertedPluginName = AnsiToWide(LoadStr(IDS_PLUGIN_NAME), -1);
     const std::wstring pluginName(convertedPluginName != NULL ? convertedPluginName : L"");
-    if (FileName[0] != 0)
+    if (!FileName.empty())
     {
-        const wchar_t* convertedFileName = IsUTF8Text(FileName)
-                                               ? UTF8ToWide(FileName, (int)strlen(FileName))
-                                               : AnsiToWide(FileName, (int)strlen(FileName));
-        std::wstring title(convertedFileName != NULL ? convertedFileName : L"");
+        std::wstring title = MmViewerPathToWide(FileName.c_str());
         title += L" - ";
         title += pluginName;
         SetWindowTextW(GetParent(HWindow), title.c_str());
@@ -236,50 +242,50 @@ LRESULT CRendererWindow::OnCommand(WPARAM wParam, LPARAM lParam)
         BOOL ok = FALSE;
         BOOL srcBusy = FALSE;
         BOOL noMoreFiles = FALSE;
-        char fileName[MAX_PATH];
-        fileName[0] = 0;
+        std::string fileName;
         int enumFilesCurrentIndex = EnumFilesCurrentIndex;
-        if (LOWORD(wParam) == CM_FILE_PREV || LOWORD(wParam) == CM_FILE_LAST)
+        const UINT command = LOWORD(wParam);
+        const bool previous = command == CM_FILE_PREV || command == CM_FILE_LAST;
+        if (command == CM_FILE_FIRST || command == CM_FILE_LAST)
+            enumFilesCurrentIndex = -1;
+
+        if (MmViewerEnumeration != NULL)
         {
-            if (LOWORD(wParam) == CM_FILE_LAST)
-                enumFilesCurrentIndex = -1;
-            ok = SalGeneral->GetPreviousFileNameForViewer(EnumFilesSourceUID,
-                                                          &enumFilesCurrentIndex,
-                                                          FileName, FALSE, TRUE,
-                                                          fileName, &noMoreFiles,
-                                                          &srcBusy);
+            const std::wstring current = MmViewerPathToWide(FileName.c_str());
+            std::vector<wchar_t> next(SAL_MAX_PATH);
+            ok = previous
+                ? MmViewerEnumeration->GetPreviousFileName(EnumFilesSourceUID, &enumFilesCurrentIndex,
+                    current.c_str(), FALSE, TRUE, &PluginInterface, next.data(), SAL_MAX_PATH, &noMoreFiles, &srcBusy)
+                : MmViewerEnumeration->GetNextFileName(EnumFilesSourceUID, &enumFilesCurrentIndex,
+                    current.c_str(), FALSE, TRUE, &PluginInterface, next.data(), SAL_MAX_PATH, &noMoreFiles, &srcBusy);
+            if (ok && current != next.data())
+                fileName = SalamanderDiskSelection::Utf8FromWide(next.data());
         }
         else
         {
-            if (LOWORD(wParam) == CM_FILE_FIRST)
-                enumFilesCurrentIndex = -1;
-            ok = SalGeneral->GetNextFileNameForViewer(EnumFilesSourceUID,
-                                                      &enumFilesCurrentIndex,
-                                                      FileName, FALSE, TRUE,
-                                                      fileName, &noMoreFiles,
-                                                      &srcBusy);
+            // The legacy service specifies a MAX_PATH output buffer.
+            char next[MAX_PATH] = {};
+            ok = previous
+                ? SalGeneral->GetPreviousFileNameForViewer(EnumFilesSourceUID, &enumFilesCurrentIndex,
+                    FileName.c_str(), FALSE, TRUE, next, &noMoreFiles, &srcBusy)
+                : SalGeneral->GetNextFileNameForViewer(EnumFilesSourceUID, &enumFilesCurrentIndex,
+                    FileName.c_str(), FALSE, TRUE, next, &noMoreFiles, &srcBusy);
+            if (ok && lstrcmpi(next, FileName.c_str()) != 0)
+                fileName = next;
         }
 
-        if (ok) // we have a new name
+        if (!fileName.empty())
         {
-            if (lstrcmpi(fileName, FileName) != 0)
+            if (Viewer->Lock != NULL)
             {
-                if (Viewer->Lock != NULL)
-                {
-                    SetEvent(Viewer->Lock);
-                    Viewer->Lock = NULL; // now it's just up to the disk cache
-                }
-                if (!OpenFile(fileName))
-                {
-                    FileName[0] = 0;
-                }
-
-                // set the index even if it fails so the user can move to the next/previous image
-                EnumFilesCurrentIndex = enumFilesCurrentIndex;
+                SetEvent(Viewer->Lock);
+                Viewer->Lock = NULL; // now it's just up to the disk cache
             }
+            OpenFile(fileName.c_str());
+
+            // set the index even if it fails so the user can move to the next/previous image
+            EnumFilesCurrentIndex = enumFilesCurrentIndex;
         }
-        else
-            int fixme = 0;
         return 0;
     }
 
@@ -287,7 +293,10 @@ LRESULT CRendererWindow::OnCommand(WPARAM wParam, LPARAM lParam)
     {
         char fname[MAX_PATH];
         char* ext = LoadStr(IDS_HTMLEXT);
-        strcpy(fname, FileName);
+        if (FileName.size() + 5 >= sizeof(fname))
+            fname[0] = 0;
+        else
+            strcpy(fname, FileName.c_str());
         char* b = strrchr(fname, '.'); // ".cvspass" is an extension in Windows
         if (b)
             *b = 0;
@@ -322,7 +331,10 @@ LRESULT CRendererWindow::OnCommand(WPARAM wParam, LPARAM lParam)
     case CM_FILES_EXPORT_XML:
     {
         char fname[MAX_PATH];
-        strcpy(fname, FileName);
+        if (FileName.size() + 5 >= sizeof(fname))
+            fname[0] = 0;
+        else
+            strcpy(fname, FileName.c_str());
         char* b = strrchr(fname, '.'); // ".cvspass" is an extension in Windows
         if (b)
             *b = 0;

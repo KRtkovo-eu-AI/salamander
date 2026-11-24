@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-20 | Carry the report provider through wide enumeration. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -144,10 +147,26 @@ BOOL IsFileEnumSourcePanel(int srcUID, int* panel)
     return ret;
 }
 
+BOOL IsViewerFileSourceAvailable(int srcUID)
+{
+    HANDLES(EnterCriticalSection(&FileNamesEnumDataSect));
+    BOOL found = FALSE;
+    for (int i = 0; i + 1 < FileNamesEnumSources.Count; i += 2)
+    {
+        if ((int)(UINT_PTR)FileNamesEnumSources[i] == srcUID)
+        {
+            found = TRUE;
+            break;
+        }
+    }
+    HANDLES(LeaveCriticalSection(&FileNamesEnumDataSect));
+    return found;
+}
+
 static BOOL GetFileNameForViewerW(CFileNamesEnumRequestType requestType, int srcUID, int* lastFileIndex, const wchar_t* lastFileName,
                           BOOL preferSelected, BOOL onlyAssociatedExtensions, std::wstring* fileName,
                           BOOL* noMoreFiles, BOOL* srcBusy, CPluginInterfaceAbstract* plugin,
-                          BOOL* isFileSelected, BOOL select)
+                          BOOL* isFileSelected, BOOL select, const char* reportPluginID = NULL)
 {
     CALL_STACK_MESSAGE_NONE
     if (noMoreFiles != NULL)
@@ -177,6 +196,7 @@ static BOOL GetFileNameForViewerW(CFileNamesEnumRequestType requestType, int src
     FileNamesEnumData.PreferSelected = preferSelected;
     FileNamesEnumData.OnlyAssociatedExtensions = onlyAssociatedExtensions;
     FileNamesEnumData.Plugin = plugin;
+    FileNamesEnumData.ReportPluginID = reportPluginID != NULL ? reportPluginID : "";
     FileNamesEnumData.FileName.clear();
     FileNamesEnumData.TimedOut = FALSE;
     FileNamesEnumData.Found = FALSE;
@@ -327,21 +347,21 @@ BOOL SetSelectionOnFileNameForViewer(int srcUID, int lastFileIndex, const char* 
 BOOL GetNextFileNameForViewerW(int srcUID, int* lastFileIndex, const wchar_t* lastFileName,
                                    BOOL preferSelected, BOOL onlyAssociatedExtensions,
                                    std::wstring* fileName, BOOL* noMoreFiles, BOOL* srcBusy,
-                                   CPluginInterfaceAbstract* plugin)
+                                   CPluginInterfaceAbstract* plugin, const char* reportPluginID)
 {
     return GetFileNameForViewerW(fnertFindNext, srcUID, lastFileIndex, lastFileName,
                                 preferSelected, onlyAssociatedExtensions, fileName,
-                                noMoreFiles, srcBusy, plugin, NULL, FALSE);
+                                noMoreFiles, srcBusy, plugin, NULL, FALSE, reportPluginID);
 }
 
 BOOL GetPreviousFileNameForViewerW(int srcUID, int* lastFileIndex, const wchar_t* lastFileName,
                                    BOOL preferSelected, BOOL onlyAssociatedExtensions,
                                    std::wstring* fileName, BOOL* noMoreFiles, BOOL* srcBusy,
-                                   CPluginInterfaceAbstract* plugin)
+                                   CPluginInterfaceAbstract* plugin, const char* reportPluginID)
 {
     return GetFileNameForViewerW(fnertFindPrevious, srcUID, lastFileIndex, lastFileName,
                                 preferSelected, onlyAssociatedExtensions, fileName,
-                                noMoreFiles, srcBusy, plugin, NULL, FALSE);
+                                noMoreFiles, srcBusy, plugin, NULL, FALSE, reportPluginID);
 }
 
 BOOL IsFileNameForViewerSelectedW(int srcUID, int lastFileIndex, const wchar_t* lastFileName,

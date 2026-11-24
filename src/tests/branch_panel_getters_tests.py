@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-20 | Admit bundled PictView in Branch View. | Preserve panel image identity and existing viewer restrictions. |  | gpt-6.2-sol |
 """Compile actual panel path getters with isolated panel storage; no UI or disk mutation."""
 import argparse
 import os
@@ -115,7 +117,7 @@ def main():
         "TEMP_SELECTION": block(read("src/fileswn0.cpp", args.source_ref), "void CFilesWindow::SelectFocusedItemAndGetName(") + "\n" + block(read("src/fileswn0.cpp", args.source_ref), "void CFilesWindow::UnselectItemWithName("),
         "NAVIGATION": block(production, "BOOL CFilesWindow::OpenBranchItemDirectory()"),
         "CACHE": block(production, "const char* CFilesWindow::GetItemCacheKeyPtr(") + "\n" + block(production, "const CFileData* CFilesWindow::GetBranchViewFileByCacheKey("),
-        "VIEW_POLICY": block(read("src/fileswn5.cpp", args.source_ref).split("// S27a transition:", 1)[1], "    if (IsBranchView())"),
+        "VIEW_POLICY": block(read("src/fileswn5.cpp", args.source_ref), "static bool BranchViewerAllowed("),
         "GETTERS": "\n".join(block(production, "std::wstring CFilesWindow::" + name + "(")
                             for name in ("GetItemDirectoryW", "GetItemFullPathW", "GetItemIdentityW", "GetItemRelativePathW")),
     }

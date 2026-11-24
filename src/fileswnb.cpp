@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-20 | Filter generated-report candidates using the originating plug-in associations. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
 
 #include "precomp.h"
 #include "viewerpath.h"
@@ -1287,11 +1290,26 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         index = 0;
                 }
 
+                // Report navigation requires the current full path to still be present.
+                if (!FileNamesEnumData.ReportPluginID.empty() && FileNamesEnumData.LastFileIndex != -1 && indexNotFound)
+                {
+                    SetEvent(FileNamesEnumDone);
+                    HANDLES(LeaveCriticalSection(&FileNamesEnumDataSect));
+                    return 0;
+                }
+
                 int wantedViewerType = 0;
                 BOOL onlyAssociatedExtensions = FALSE;
                 if (FileNamesEnumData.OnlyAssociatedExtensions) // preje si viewer filtrovani podle asociovanych pripon?
                 {
-                    if (FileNamesEnumData.Plugin != NULL) // viewer z pluginu
+                    if (!FileNamesEnumData.ReportPluginID.empty())
+                    {
+                        int pluginIndex = Plugins.FindByStableId(FileNamesEnumData.ReportPluginID.c_str());
+                        // An unavailable provider cannot match any file.
+                        wantedViewerType = pluginIndex != -1 ? -1 - pluginIndex : INT_MIN;
+                        onlyAssociatedExtensions = TRUE;
+                    }
+                    else if (FileNamesEnumData.Plugin != NULL) // viewer z pluginu
                     {
                         int pluginIndex = Plugins.GetIndex(FileNamesEnumData.Plugin);
                         if (pluginIndex != -1) // "always true"

@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
 # | 2026-11-24 | Prefer the active MSVC compiler for native tests. | GitHub runners ship Clang 20, which cannot compile the VS 18 STL that requires Clang 22. | https://github.com/KRtkovo-eu-AI/salamander/pull/865 | Grok 4.7 |
+# | 2026-11-20 | Prefer the active MSVC compiler for native tests. | Use the compiler that matches the Windows developer prompt headers. |  | gpt-6.2-sol |
 
 """Compile the actual operation queue and scheduler with fake window messages.
 

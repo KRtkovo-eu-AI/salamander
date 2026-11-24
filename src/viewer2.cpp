@@ -4,6 +4,7 @@
 // CommentsTranslationProject: TRANSLATED
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-20 | Initialize optional report source metadata before starting the viewer. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
 | 2026-11-04 | Wrap FindPreviousDecodedEOL within one logical line; invalidate line-number checkpoints on reload. | Full-file wrap replay and line scans made EOF scrolling O(n) for large Unicode files (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
 | 2026-11-05 | Chunk decoded backwards EOL scans and cache previous visual-row size. | Line-up scrolling was still slow because each step walked scalars one Prepare() at a time (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
 | 2026-11-05 | Resolve ZeroLineSize from the logical-line index without FindSeekBefore. | Scroll-up stayed far slower than scroll-down on large files (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
@@ -214,22 +215,34 @@ DWORD WINAPI ThreadViewerMessageLoop(void* param)
 BOOL OpenViewer(const char* name, CViewType mode, int left, int top, int width, int height,
                 UINT showCmd, BOOL returnLock, HANDLE* lock, BOOL* lockOwner,
                 CSalamanderPluginViewerData* viewerData, int enumFileNamesSourceUID,
-                int enumFileNamesLastFileIndex)
+                int enumFileNamesLastFileIndex, const char* reportPluginID)
 {
     CALL_STACK_MESSAGE11("OpenViewer(%s, %d, %d, %d, %d, %d, %u, %d, , , , %d, %d)",
                          name, mode, left, top, width, height, showCmd, returnLock,
                          enumFileNamesSourceUID, enumFileNamesLastFileIndex);
     CSalamanderPluginInternalViewerData* intViewerData = NULL;
+    CSalamanderPluginInternalViewerReportData* reportData = NULL;
+    if (viewerData != NULL && viewerData->Size == sizeof(CSalamanderPluginInternalViewerReportData))
+    {
+        auto* candidate = static_cast<CSalamanderPluginInternalViewerReportData*>(viewerData);
+        if (candidate->ReportMagic == SALAMANDER_INTERNAL_VIEWER_REPORT_MAGIC)
+            reportData = candidate;
+    }
     if (viewerData != NULL && viewerData->Size == sizeof(CSalamanderPluginInternalViewerData))
     {
         intViewerData = (CSalamanderPluginInternalViewerData*)viewerData;
-        mode = (intViewerData->Mode == 0) ? vtText : vtHex;
     }
+    else if (reportData != NULL)
+        intViewerData = reportData;
+    if (intViewerData != NULL)
+        mode = (intViewerData->Mode == 0) ? vtText : vtHex;
     CViewerWindow* view = new CViewerWindow(NULL, mode, NULL, FALSE, ooStatic,
                                             enumFileNamesSourceUID, enumFileNamesLastFileIndex);
     if (view != NULL)
     {
         view->InitFindDialog(GlobalFindDialog);
+        if (reportData != NULL && reportPluginID != NULL)
+            view->SetReportSource(reportPluginID, reportData->SourceFileName, reportData->SourceUID, reportData->SourceIndex);
         if (returnLock)
         {
             *lock = view->GetLockObject();
@@ -247,6 +260,7 @@ BOOL OpenViewer(const char* name, CViewType mode, int left, int top, int width, 
         data.Name = name;
         data.ShowCmd = showCmd;
         data.Caption = intViewerData != NULL ? intViewerData->Caption : NULL;
+        data.WholeCaption = intViewerData != NULL && intViewerData->WholeCaption;
 
         DWORD ThreadID;
         HANDLE loop = HANDLES(CreateThread(NULL, 0, ThreadViewerMessageLoop, &data, 0, &ThreadID));

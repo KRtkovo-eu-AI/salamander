@@ -1,7 +1,10 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-20 | Read Markdown from the exact wide source path. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+#include "../shared/spl_diskselection.h"
 
 #include "cmark-gfm.h"
 #include "cmark-gfm-core-extensions.h"
@@ -73,7 +76,8 @@ IStream* ConvertMarkdownToHTML(const char* name)
         cmark_parser_attach_syntax_extension(parser, syntax_extension);
     }
 
-    FILE* fp = fopen(name, "r");
+    const std::wstring path = SalamanderDiskSelection::WideFileIoPath(name);
+    FILE* fp = _wfopen(path.c_str(), L"r");
     if (fp == NULL)
     {
         TRACE_E("fopen failed");

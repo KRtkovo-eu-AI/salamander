@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-20 | Add optional source metadata for generated reports. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
 // | 2026-11-04 | Stop Ctrl+arrow on both sides of spaces too. | Spaces were still skipped while punctuation already stopped before and after. | | Composer |
 // | 2026-11-04 | Describe punctuation runs as edit word boundaries. | Ctrl+arrow now stops around every punctuation and symbol run. | | Grok 4.7 |
 // | 2026-11-04 | Return a panel operations object to plug-ins. | Portable Devices needs Salamander's standard progress dialog. The method is appended so older plug-ins keep their vtable. | | Grok 4.7 |
@@ -461,6 +462,19 @@ struct CSalamanderPluginInternalViewerData : public CSalamanderPluginViewerData
     BOOL WholeCaption;   // ma vyznam pokud je Caption != NULL. TRUE -> v titulku
                          // vieweru bude zobrazen pouze retezec Caption; FALSE -> za
                          // Caption se pripoji standardni " - Viewer".
+};
+
+// Optional extension for a generated text/hex report. SourceFileName uses the
+// same encoding as the plug-in's ViewFile input and is valid for the duration
+// of ViewFileInPluginViewer. Salamander reopens the calling plug-in to render
+// other reports from this source list. Existing viewer-data layouts are unchanged.
+#define SALAMANDER_INTERNAL_VIEWER_REPORT_MAGIC 0x54505256 // 'VRPT'
+struct CSalamanderPluginInternalViewerReportData : public CSalamanderPluginInternalViewerData
+{
+    DWORD ReportMagic;
+    const char* SourceFileName;
+    int SourceUID;
+    int SourceIndex;
 };
 
 // konstanty typu parametru konfigurace Salamandera (viz CSalamanderGeneralAbstract::GetConfigParameter)
