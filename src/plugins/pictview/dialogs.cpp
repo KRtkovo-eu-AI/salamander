@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Use the standard warning dialog and expose its preference. | Allow dismissing or restoring prefetch warnings. | | gpt-6.2-sol |
+// | 2026-11-21 | Show five prefetch memory levels with image estimates. | Make the cost and reach of each level visible. | | gpt-6.2-sol |
+// | 2026-11-21 | Bind the Performance page to the prefetch option. | Enable the feature from the existing configuration dialog. | | gpt-6.2-sol |
 // | 2026-11-09 | Expose independent Page Up/Down and mouse wheel settings. | Let users choose scrolling, zooming, or image navigation for the wheel. | https://github.com/KRtkovo-eu-AI/salamander/issues/747 | GPT-6 (Codex) |
 
 #include "precomp.h"
@@ -12,6 +15,7 @@
 #include "renderer.h"
 #include "pictview.h"
 #include "dialogs.h"
+#include "prefetchbudget.h"
 #include "pictview.rh"
 #include "pictview.rh2"
 #include "lang\lang.rh"
@@ -973,6 +977,125 @@ int CALLBACK CenterCallback(HWND HWindow, UINT uMsg, LPARAM lParam)
     return 0;
 }
 
+namespace
+{
+bool HasPerformanceResources(HINSTANCE module)
+{
+    // A previous Performance template can lack the warning and its setting.
+    const auto strings = MAKEINTRESOURCEW(IDS_SLOW_PREFETCH / 16 + 1);
+    return module && FindResourceW(module, MAKEINTRESOURCEW(DLG_CFGPAGE_PERFORMANCE), MAKEINTRESOURCEW(5)) &&
+           FindResourceW(module, strings, MAKEINTRESOURCEW(6));
+}
+
+HINSTANCE LoadPerformanceResources()
+{
+    if (HasPerformanceResources(HLanguage))
+        return HLanguage;
+    if (HasPerformanceResources(DLLInstance))
+        return DLLInstance;
+
+    // Older language packs use the shipped English Performance resources.
+    std::wstring path(SAL_MAX_PATH, L'\0');
+    const DWORD length = GetModuleFileNameW(DLLInstance, path.data(), static_cast<DWORD>(path.size()));
+    if (!length || length >= path.size())
+        return nullptr;
+    path.resize(length);
+    const size_t slash = path.find_last_of(L'\\');
+    if (slash == std::wstring::npos)
+        return nullptr;
+    path.replace(slash + 1, std::wstring::npos, L"lang\\english.slg");
+    if (path.size() >= MAX_PATH)
+        path = PluginPathAddExtendedPrefixW(path.c_str());
+    const auto module = LoadLibraryExW(path.c_str(), nullptr, LOAD_LIBRARY_AS_DATAFILE | LOAD_LIBRARY_AS_IMAGE_RESOURCE);
+    if (HasPerformanceResources(module))
+        return module;
+    if (module)
+        FreeLibrary(module);
+    return nullptr;
+}
+
+void ReleasePerformanceResources(HINSTANCE module)
+{
+    if (module && module != HLanguage && module != DLLInstance)
+        FreeLibrary(module);
+}
+}
+
+int ShowSlowPrefetchWarning(HWND parent, BOOL& dontOfferAgain)
+{
+    const auto module = LoadPerformanceResources();
+    if (!module)
+        return DIALOG_CANCEL;
+
+    MSGBOXEX_PARAMS params{};
+    params.HParent = parent;
+    params.Caption = LoadStr(IDS_PLUGINNAME);
+    params.Text = SalamanderGeneral->LoadStr(module, IDS_SLOW_PREFETCH);
+    params.Flags = MSGBOXEX_YESNO | MSGBOXEX_DEFBUTTON2 | MSGBOXEX_ICONEXCLAMATION | MSGBOXEX_SILENT | MSGBOXEX_ESCAPEENABLED;
+    params.CheckBoxText = SalamanderGeneral->LoadStr(module, IDS_DONT_OFFER_PREFETCH);
+    params.CheckBoxValue = &dontOfferAgain;
+    const int result = SalamanderGeneral->SalMessageBoxEx(&params);
+    ReleasePerformanceResources(module);
+    return result;
+}
+
+CConfigPagePerformance::CConfigPagePerformance()
+    : CCommonPropSheetPage(NULL, LoadPerformanceResources(), DLG_CFGPAGE_PERFORMANCE, 0u, 0, NULL)
+{
+}
+
+CConfigPagePerformance::~CConfigPagePerformance()
+{
+    ReleasePerformanceResources(Modul);
+}
+
+void CConfigPagePerformance::Transfer(CTransferInfo& ti)
+{
+    using namespace PictView::PrefetchBudget;
+    BOOL enabled = PictViewPrefetchEnabled.load();
+    BOOL warnings = PictViewPrefetchWarnings.load();
+    ti.CheckBox(IDC_CFGPERF_PREFETCH, enabled);
+    ti.CheckBox(IDC_CFGPERF_WARNINGS, warnings);
+    HWND slider = GetDlgItem(HWindow, IDC_CFGPERF_MEMORY);
+    if (ti.Type == ttDataFromWindow)
+    {
+        const auto level = static_cast<unsigned>(SendMessage(slider, TBM_GETPOS, 0, 0));
+        PictViewPrefetchLevel.store(level < Levels ? level : DefaultLevel);
+        PictViewPrefetchEnabled.store(enabled != FALSE);
+        PictViewPrefetchWarnings.store(warnings != FALSE);
+    }
+    else
+    {
+        SendMessage(slider, TBM_SETRANGE, TRUE, MAKELPARAM(0, Levels - 1));
+        SendMessage(slider, TBM_SETPAGESIZE, 0, 1);
+        SendMessage(slider, TBM_SETPOS, TRUE, PictViewPrefetchLevel.load());
+        UpdateBudgetText();
+    }
+}
+
+void CConfigPagePerformance::UpdateBudgetText()
+{
+    using namespace PictView::PrefetchBudget;
+    const HWND slider = GetDlgItem(HWindow, IDC_CFGPERF_MEMORY);
+    const auto level = static_cast<unsigned>(SendMessage(slider, TBM_GETPOS, 0, 0));
+    const auto limit = At(level);
+    wchar_t text[384];
+    _snwprintf_s(text, _TRUNCATE, BudgetFormat, level + 1, limit.MemoryMiB, limit.PerDirection,
+                 Estimate(limit, 12), Estimate(limit, 24), Estimate(limit, 48));
+    SetDlgItemTextW(HWindow, IDC_CFGPERF_ESTIMATE, text);
+    EnableWindow(slider, IsDlgButtonChecked(HWindow, IDC_CFGPERF_PREFETCH) == BST_CHECKED);
+}
+
+INT_PTR CConfigPagePerformance::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    if (uMsg == WM_INITDIALOG)
+        GetDlgItemTextW(HWindow, IDC_CFGPERF_ESTIMATE, BudgetFormat, SizeOf(BudgetFormat));
+    if ((uMsg == WM_COMMAND && LOWORD(wParam) == IDC_CFGPERF_PREFETCH && HIWORD(wParam) == BN_CLICKED) ||
+        (uMsg == WM_HSCROLL && reinterpret_cast<HWND>(lParam) == GetDlgItem(HWindow, IDC_CFGPERF_MEMORY)))
+        UpdateBudgetText();
+    return CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
+}
+
 CConfigDialog::CConfigDialog(HWND parent)
     : CPropertyDialog(parent, HLanguage, LoadStr(IDS_CONFIGURATION_TITLE),
                       G.LastCfgPage, PSH_USECALLBACK | PSH_NOAPPLYNOW | PSH_HASHELP,
@@ -983,6 +1106,8 @@ CConfigDialog::CConfigDialog(HWND parent)
     Add(&PageKeyboard);
     Add(&PageTools);
     Add(&PageAdvanced);
+    if (PagePerformance.IsAvailable())
+        Add(&PagePerformance);
 }
 
 //****************************************************************************

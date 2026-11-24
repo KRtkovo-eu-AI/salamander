@@ -2,6 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Drop the duplicate opaque bitmap when caching. | Leave more space for preparing the next image. | | gpt-6.2-sol |
+// | 2026-11-21 | Detach displayed still images without copying their pixels. | Make immediate return reuse the existing bitmap. | | gpt-6.2-sol |
+// | 2026-11-21 | Admit speculative decode by dimensions and account for completed images. | Bound memory and permit larger images at higher levels. | | gpt-6.2-sol |
+// | 2026-11-21 | Prepare bounded WIC still images on a separate COM apartment. | Transfer only decoded pixels and bitmaps to the viewer. | | gpt-6.2-sol |
+// | 2026-11-21 | Measure viewer decode, transform, scale, and paint phases. | Attribute navigation latency without changing image processing. | | GPT-6 (Codex) |
 // | 2026-11-05 | Survive faulty shell thumbnail provider SEH. | IThumbnailProvider / IShellItemImageFactory must not terminate Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 
 #include "precomp.h"
@@ -33,6 +38,8 @@
 
 #include "../Thumbnailer.h"
 #include "../native/NativeDecoder.h"
+#include "../performance.h"
+#include "../prefetchbudget.h"
 #include "ShellPreviewHost.h"
 
 #pragma comment(lib, "windowscodecs.lib")
@@ -3007,6 +3014,9 @@ HRESULT EnsureScaledBitmap(ImageHandle& handle, FrameData& frame, UINT width, UI
         return S_OK;
     }
 
+    PictView::Perf::Scope performanceScope(PictView::Perf::Phase::Scale);
+    PictView::Perf::Count(PictView::Perf::Counter::Scale);
+
     if (frame.scaledBitmap)
     {
         DeleteObject(frame.scaledBitmap);
@@ -3408,6 +3418,51 @@ HRESULT ConvertBgraSourceToCmyk(IWICImagingFactory* factory, IWICBitmapSource* s
     return bitmap.CopyTo(convertedSource);
 }
 
+HRESULT EnsureFullSizeBitmap(FrameData& frame)
+{
+    if (frame.hbitmap)
+        return S_OK;
+    void* bits = nullptr;
+    BITMAPINFO bmi{};
+    bmi.bmiHeader = frame.bmi;
+    frame.hbitmap = CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
+    if (!frame.hbitmap)
+    {
+        return E_OUTOFMEMORY;
+    }
+    if (bits && !frame.pixels.empty())
+    {
+        memcpy(bits, frame.pixels.data(), frame.pixels.size());
+        if (frame.hasTransparency)
+        {
+            BYTE* target = static_cast<BYTE*>(bits);
+            const size_t pixelCount = frame.pixels.size() / kBytesPerPixel;
+            for (size_t i = 0; i < pixelCount; ++i)
+            {
+                BYTE* pixel = target + i * kBytesPerPixel;
+                const BYTE alpha = pixel[3];
+                if (alpha == 0)
+                {
+                    pixel[0] = 0;
+                    pixel[1] = 0;
+                    pixel[2] = 0;
+                    continue;
+                }
+                if (alpha == 255)
+                {
+                    continue;
+                }
+                const unsigned int a = alpha;
+                pixel[0] = static_cast<BYTE>((static_cast<unsigned int>(pixel[0]) * a + 127u) / 255u);
+                pixel[1] = static_cast<BYTE>((static_cast<unsigned int>(pixel[1]) * a + 127u) / 255u);
+                pixel[2] = static_cast<BYTE>((static_cast<unsigned int>(pixel[2]) * a + 127u) / 255u);
+            }
+        }
+    }
+
+    return S_OK;
+}
+
 HRESULT FinalizeDecodedFrame(Backend* backend, FrameData& frame)
 {
     const size_t lineCount = static_cast<size_t>(frame.height);
@@ -3486,44 +3541,9 @@ HRESULT FinalizeDecodedFrame(Backend* backend, FrameData& frame)
     frame.scaledWidth = 0;
     frame.scaledHeight = 0;
 
-    void* bits = nullptr;
-    BITMAPINFO bmi{};
-    bmi.bmiHeader = frame.bmi;
-    frame.hbitmap = CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
-    if (!frame.hbitmap)
-    {
-        return E_OUTOFMEMORY;
-    }
-    if (bits && !frame.pixels.empty())
-    {
-        memcpy(bits, frame.pixels.data(), frame.pixels.size());
-        if (frame.hasTransparency)
-        {
-            BYTE* target = static_cast<BYTE*>(bits);
-            const size_t pixelCount = frame.pixels.size() / kBytesPerPixel;
-            for (size_t i = 0; i < pixelCount; ++i)
-            {
-                BYTE* pixel = target + i * kBytesPerPixel;
-                const BYTE alpha = pixel[3];
-                if (alpha == 0)
-                {
-                    pixel[0] = 0;
-                    pixel[1] = 0;
-                    pixel[2] = 0;
-                    continue;
-                }
-                if (alpha == 255)
-                {
-                    continue;
-                }
-                const unsigned int a = alpha;
-                pixel[0] = static_cast<BYTE>((static_cast<unsigned int>(pixel[0]) * a + 127u) / 255u);
-                pixel[1] = static_cast<BYTE>((static_cast<unsigned int>(pixel[1]) * a + 127u) / 255u);
-                pixel[2] = static_cast<BYTE>((static_cast<unsigned int>(pixel[2]) * a + 127u) / 255u);
-            }
-        }
-    }
-
+    const HRESULT bitmapHr = EnsureFullSizeBitmap(frame);
+    if (FAILED(bitmapHr))
+        return bitmapHr;
     frame.decoded = true;
     return S_OK;
 }
@@ -4310,6 +4330,9 @@ HRESULT DecodeFrame(ImageHandle& handle, size_t index)
         return S_OK;
     }
 
+    PictView::Perf::Scope performanceScope(PictView::Perf::Phase::Decode);
+    PictView::Perf::Count(PictView::Perf::Counter::Decode);
+
     if (handle.baseInfo.Format == PVF_GIF && index > 0)
     {
         HRESULT previousHr = DecodeFrame(handle, index - 1);
@@ -4625,32 +4648,29 @@ PVCODE PopulateImageInfo(ImageHandle& handle, LPPVImageInfo info, DWORD bufferSi
     }
     info->BytesPerLine = frame.displayStride != 0 ? frame.displayStride : frame.stride;
 
-    double dpiX = 0.0;
-    double dpiY = 0.0;
-    if (frame.frame)
+    double dpiX = frame.detachedDpiX;
+    double dpiY = frame.detachedDpiY;
+    if (!frame.frame || SUCCEEDED(frame.frame->GetResolution(&dpiX, &dpiY)))
     {
-        if (SUCCEEDED(frame.frame->GetResolution(&dpiX, &dpiY)))
-        {
-            auto clampDpi = [](double value) -> DWORD {
-                if (!std::isfinite(value) || value <= 0.0)
-                {
-                    return 0;
-                }
-                const double rounded = std::floor(value + 0.5);
-                if (rounded <= 0.0)
-                {
-                    return 0;
-                }
-                if (rounded > static_cast<double>(std::numeric_limits<DWORD>::max()))
-                {
-                    return std::numeric_limits<DWORD>::max();
-                }
-                return static_cast<DWORD>(rounded);
-            };
+        auto clampDpi = [](double value) -> DWORD {
+            if (!std::isfinite(value) || value <= 0.0)
+            {
+                return 0;
+            }
+            const double rounded = std::floor(value + 0.5);
+            if (rounded <= 0.0)
+            {
+                return 0;
+            }
+            if (rounded > static_cast<double>(std::numeric_limits<DWORD>::max()))
+            {
+                return std::numeric_limits<DWORD>::max();
+            }
+            return static_cast<DWORD>(rounded);
+        };
 
-            info->HorDPI = clampDpi(dpiX);
-            info->VerDPI = clampDpi(dpiY);
-        }
+        info->HorDPI = clampDpi(dpiX);
+        info->VerDPI = clampDpi(dpiY);
     }
 
     const LONGLONG stretchWidthSigned = handle.stretchWidth ? static_cast<LONGLONG>(handle.stretchWidth)
@@ -5090,6 +5110,8 @@ PVCODE DrawFrame(ImageHandle& handle, FrameData& frame, HDC dc, int x, int y, LP
         return PVC_OK;
     }
 
+    PictView::Perf::Scope performanceScope(PictView::Perf::Phase::Paint);
+
     const LONGLONG stretchWidthSigned = handle.stretchWidth ? static_cast<LONGLONG>(handle.stretchWidth)
                                                             : static_cast<LONGLONG>(frame.width);
     const LONGLONG stretchHeightSigned = handle.stretchHeight ? static_cast<LONGLONG>(handle.stretchHeight)
@@ -5169,6 +5191,10 @@ PVCODE DrawFrame(ImageHandle& handle, FrameData& frame, HDC dc, int x, int y, LP
             return PVC_OK;
         }
     }
+
+    PictView::Perf::Count(PictView::Perf::Counter::Draw);
+    PictView::Perf::SetImageSize(frame.width, frame.height);
+    PictView::Perf::SetDisplaySize(static_cast<UINT>(stretchWidthAbs), static_cast<UINT>(stretchHeightAbs));
 
     if (frame.hasTransparency)
     {
@@ -6094,8 +6120,8 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         }
     }
 
-    double sourceDpiX = 0.0;
-    double sourceDpiY = 0.0;
+    double sourceDpiX = frame.detachedDpiX;
+    double sourceDpiY = frame.detachedDpiY;
     if (frame.frame)
     {
         frame.frame->GetResolution(&sourceDpiX, &sourceDpiY);
@@ -6795,6 +6821,141 @@ PVCODE WINAPI Backend::sPVOpenImageEx(LPPVHandle* Img, LPPVOpenImageExInfo pOpen
     return PVC_OK;
 }
 
+Backend::PreparedImage Backend::DecodeForPrefetch(const std::wstring& path, PVImageInfo& info,
+                                                  ULONGLONG budgetBytes, UINT viewportWidth, UINT viewportHeight,
+                                                  DWORD fileBytes, PrefetchReservation reserve, void* reservation)
+{
+    PreparedImage image(nullptr, [](void* handle) { sPVCloseImage(handle); });
+    if (!Factory())
+        return image;
+
+    std::vector<std::string> masks;
+    PictView::Native::GetDecoderMasks(masks);
+    if (HasExtensionMask(path, masks) || !GetWicDecoderMasks(masks) || !HasExtensionMask(path, masks))
+        return image;
+
+    auto widePath = AddExtendedPrefixIfNeeded(path);
+    ComPtr<IWICBitmapDecoder> decoder;
+    if (FAILED(CreateDecoder(*this, widePath, &decoder)) || !decoder)
+        return image;
+
+    GUID container{};
+    UINT count = 0, width = 0, height = 0;
+    ComPtr<IWICBitmapFrameDecode> first;
+    if (FAILED(decoder->GetContainerFormat(&container)) ||
+        (container != GUID_ContainerFormatJpeg && container != GUID_ContainerFormatPng &&
+         container != GUID_ContainerFormatTiff) ||
+        FAILED(decoder->GetFrameCount(&count)) || count != 1 ||
+        FAILED(decoder->GetFrame(0, &first)) || !first || FAILED(first->GetSize(&width, &height)) ||
+        !width || !height)
+        return image;
+
+    // Check both possible display shapes before reading the raster.
+    const auto pixels = static_cast<ULONGLONG>(width) * height;
+    if (pixels > budgetBytes / 20)
+        return image;
+    UINT normalWidth, normalHeight, rotatedWidth, rotatedHeight;
+    FitToViewport(width, height, viewportWidth, viewportHeight, normalWidth, normalHeight);
+    FitToViewport(height, width, viewportWidth, viewportHeight, rotatedWidth, rotatedHeight);
+    const auto displayPixels = std::max(static_cast<ULONGLONG>(normalWidth) * normalHeight,
+                                        static_cast<ULONGLONG>(rotatedWidth) * rotatedHeight);
+    if (!reserve(reservation, PictView::PrefetchBudget::WorkingBytes(pixels, displayPixels, fileBytes)))
+        return image;
+
+    auto owned = std::make_unique<ImageHandle>();
+    auto& handle = *owned;
+    image.reset(owned.release());
+    handle.backend = this;
+    handle.fileName = std::move(widePath);
+    if (FAILED(CollectFrames(*this, decoder.Get(), handle)) ||
+        (handle.baseInfo.Flags & PVFF_IMAGESEQUENCE) ||
+        FAILED(DecodeFrame(handle, 0)) ||
+        PopulateImageInfo(handle, &info, sizeof(info), false, 0, 0) != PVC_OK ||
+        (info.HorDPI && info.VerDPI && info.HorDPI != info.VerDPI))
+        image.reset();
+    return image;
+}
+
+static void DetachPreparedImage(ImageHandle& handle)
+{
+    // Retain the DPI needed for info and save operations. Release decoder
+    // interfaces and their file streams on the thread that used them.
+    auto& frame = handle.frames[0];
+    if (frame.frame)
+        frame.frame->GetResolution(&frame.detachedDpiX, &frame.detachedDpiY);
+    frame.converter.Reset();
+    frame.colorConvertedSource.Reset();
+    frame.frame.Reset();
+    handle.backend = nullptr;
+    // Opaque frames draw from the pixel buffer, never from this full-size
+    // duplicate. Legacy handle consumers can recreate it on demand.
+    if (!frame.hasTransparency && frame.hbitmap && DeleteObject(frame.hbitmap))
+    {
+        frame.hbitmap = nullptr;
+        handle.handles = {};
+    }
+}
+
+bool Backend::PrepareForTransfer(void* image, DWORD rotate, UINT viewportWidth, UINT viewportHeight)
+{
+    auto& handle = *FromHandle(image);
+    if (rotate && sPVChangeImage(image, rotate) != PVC_OK)
+        return false;
+
+    auto& frame = handle.frames[0];
+    UINT width, height;
+    FitToViewport(frame.width, frame.height, viewportWidth, viewportHeight, width, height);
+    const bool useIndexed = frame.useIndexedPixels && !frame.indexedPixels.empty();
+    if (!useIndexed && (width != frame.width || height != frame.height) &&
+        FAILED(EnsureScaledBitmap(handle, frame, width, height)))
+        return false;
+
+    DetachPreparedImage(handle);
+    return true;
+}
+
+bool Backend::CanParkPrefetch(LPPVHandle image)
+{
+    const auto* handle = FromHandle(image);
+    return handle && !handle->fileName.empty() && !HandleHasInteractivePreview(*handle) &&
+           handle->frames.size() == 1 && handle->frames[0].decoded &&
+           !(handle->baseInfo.Flags & PVFF_IMAGESEQUENCE) &&
+           (handle->baseInfo.Format == PVF_JPG || handle->baseInfo.Format == PVF_PNG ||
+            handle->baseInfo.Format == PVF_TIFF);
+}
+
+Backend::PreparedImage Backend::ParkPrefetch(LPPVHandle image)
+{
+    DetachPreparedImage(*FromHandle(image));
+    return PreparedImage(image, [](void* handle) { sPVCloseImage(handle); });
+}
+
+ULONGLONG Backend::PreparedBytes(void* image)
+{
+    const auto& handle = *FromHandle(image);
+    const auto& frame = handle.frames[0];
+    ULONGLONG bytes = sizeof(handle) + handle.frames.capacity() * sizeof(FrameData) +
+                     handle.fileName.capacity() * sizeof(wchar_t) +
+                     static_cast<ULONGLONG>(frame.pixels.capacity()) + frame.compositedPixels.capacity() +
+                     frame.indexedPixels.capacity() + frame.disposalBuffer.capacity() + frame.scaledPixels.capacity() +
+                     frame.linePointers.capacity() * sizeof(BYTE*) + frame.palette.capacity() * sizeof(RGBQUAD);
+    for (auto bitmap : {frame.hbitmap, frame.scaledBitmap, frame.transparencyMask})
+    {
+        BITMAP info{};
+        if (bitmap && GetObject(bitmap, sizeof(info), &info) == sizeof(info))
+            bytes += static_cast<ULONGLONG>(info.bmWidthBytes) * info.bmHeight;
+    }
+    return bytes;
+}
+
+LPPVHandle Backend::AdoptPrefetch(PreparedImage& image, PVImageInfo& info)
+{
+    auto& handle = *FromHandle(image.get());
+    handle.backend = &Instance();
+    PopulateImageInfo(handle, &info, sizeof(info), false, 0, 0);
+    return image.release();
+}
+
 PVCODE WINAPI Backend::sPVCloseImage(LPPVHandle Img)
 {
     auto handle = FromHandle(Img);
@@ -7034,6 +7195,9 @@ PVCODE WINAPI Backend::sPVGetHandles2(LPPVHandle Img, LPPVImageHandles* pHandles
     }
     auto& frame = handle->frames[0];
     PVImageHandles& handles = handle->handles;
+    hr = EnsureFullSizeBitmap(frame);
+    if (FAILED(hr))
+        return HResultToPvCode(hr);
     ZeroMemory(&handles, sizeof(PVImageHandles));
     const bool hasIndexedPixels = frame.useIndexedPixels && !frame.indexedPixels.empty();
     const bool providePaletteHandle = hasIndexedPixels || (frame.realizePalette && frame.paletteHandle);
@@ -7113,6 +7277,9 @@ PVCODE WINAPI Backend::sPVChangeImage(LPPVHandle Img, DWORD flags)
     {
         return PVC_OK;
     }
+
+    PictView::Perf::Scope performanceScope(PictView::Perf::Phase::Transform);
+    PictView::Perf::Count(PictView::Perf::Counter::Transform);
 
     const UINT newWidth = frame.height;
     const UINT newHeight = frame.width;

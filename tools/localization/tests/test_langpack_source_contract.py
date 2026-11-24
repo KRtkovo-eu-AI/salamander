@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-24 | Require an unconditional installer language pack. | The AdditionalLanguages task was removed, so the contract must match the always-installed langpack.dll entry. | https://github.com/KRtkovo-eu-AI/salamander/pull/865 | Grok 4.7 |
 # | 2026-11-20 | Verify that the installer always ships the language pack. | Match the current installer and require an unconditional file entry. |  | gpt-6.2-sol |
 # | 2026-11-13 | Cover the custom Pak English resource script. | Keep embedded-English detection consistent for projects overriding the shared RC. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-13 | Check legacy plug-in English resource fallback. | Ensure old plugins continue loading external english.slg resources. | | openrouter/openai/gpt-6-luna-pro |

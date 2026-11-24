@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-21 | Run native PictView performance logging tests. | Validate exclusive timings, anonymous CSV, and viewer sample lifecycle. | | GPT-6 (Codex) |
 # | 2026-11-10 | Print captured output for failed native and contract test groups. | Surface compiler diagnostics in Actions logs as well as the JUnit artifact. | https://github.com/KRtkovo-eu-AI/salamander/pull/844 | GPT-6 |
 # | 2026-11-10 | Run the file-association model and Apply contract test. | Catch regressions in selected pattern fallback, user-override persistence, and canonical table refresh. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 # | 2026-11-07 | Run the native Find log ownership fixture. | Verify real worker log storage and snapshots without a dialog. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
@@ -697,6 +698,15 @@ try {
             Arguments = @(
                 '-B',
                 (Join-Path $repositoryRoot 'src\tests\pictview_thumbnail_paths_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
+            Name = 'pictview_performance_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\pictview_performance_tests.py'),
                 '--configuration', $Configuration
             )
         },

@@ -50,6 +50,16 @@ COMMENT,"Česká verze"
 2053,7,89,172,12,1,"In&formovat oknem o úspěšném uložení souboru"
 2054,7,101,261,12,1,"&Pamatovat si cestu pro ukládání fotek obrazovky, skenů, obrázků ze schránky"
 
+[DIALOG 2044]
+268,150,1,"Výkon"
+2042,7,7,251,12,1,"Před&načítat okolní obrázky v obou směrech"
+2043,7,25,251,22,1,"Pro místní obrázky JPEG, PNG a jednostránkové TIFF v režimu Umístit do okna nebo Celá obrazovka."
+2045,7,51,251,9,1,"&Limit paměti"
+2046,7,63,251,18,1,""
+2047,7,86,251,29,1,"Úroveň %u z 5: %u MiB. Až %u obrázků v každém směru.\r\nPřibližně celkem: %u při 12 MP, %u při 24 MP nebo %u při 48 MP."
+2048,7,115,251,19,1,"Odhady platí pro obrázky bez průhlednosti. Zobrazený obrázek se do limitu nezapočítává."
+2049,7,134,251,12,1,"&Nabídnout vypnutí, pokud přednačítání zpomaluje procházení"
+
 [DIALOG 2060]
 268,150,1,"Klávesnice a myš"
 3000,6,5,256,43,1,"Klávesy PageUp a PageDown, kolečko myši"
@@ -775,4 +785,8 @@ COMMENT,"Česká verze"
 
 [STRINGTABLE 48]
 4418,1,"Obsahuje EXIF informace"
+
+[STRINGTABLE 49]
+4432,1,"Přednačítání může na tomto disku zpomalovat procházení obrázků.\n\nChcete přednačítání vypnout?"
+4433,1,"Příště už vypnutí přednačítání nenabízet"
 
