@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-25 | Admit bundled Branch viewers without dropping protected reads. | ViewFileInt keeps one consent scope and the Branch View handler policy. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 // | 2026-11-15 | Open protected viewer documents through verified read handles. | Preserve panel consent and native block-based viewing. | #731 | GPT-6 |
 // | 2026-11-12 | Preserve protected panel identity for explicit internal viewers. | Keep View With on the existing viewer and refuse stale modal state. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Offer verified time-only metadata for one special NTFS file. | Preserve compression, sparsity and encryption without treating untouched controls as changes. | #731 | GPT-6.1 Terra |
@@ -11,6 +12,10 @@
 // | 2026-11-07 | Offer one-file broker rename in the shared panel rename path. | Keep ordinary rename and overwrite semantics while adding explicit consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Connect native F7 to the protected mkdir pilot. | Offer elevation only for a verified existing parent. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-20 | Allow bundled IEViewer and UnISO viewers in Branch View. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
+// | 2026-11-20 | Allow multimedia metadata viewing in Branch View. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
+// | 2026-11-20 | Allow bundled JSON and WebView2 viewers in Branch View. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
+// | 2026-11-20 | Admit bundled PictView in Branch View. | Preserve panel image identity and existing viewer restrictions. |  | gpt-6.2-sol |
 // | 2026-11-15 | Clarify protected viewer session reuse. | Distinguish panel reads from separate scoped consent. | #731 | GPT-6 |
 // | 2026-11-15 | Explain UAC previews and panel identity guards. | Clarify when the normal dialogs may offer elevation. | #731 | GPT-6 |
 // | 2026-11-14 | Reuse approved panel reads for internal F3. | Avoid a second consent for files already within the live panel scope. | #731 | GPT-6 |
@@ -2297,35 +2302,10 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
         }
     }
 
-    // S27a transition: plugin viewers require their own panel-to-result acceptance.
-    // Resolve the first configured mask without invoking any plugin callback.
-    if (IsBranchView())
-    {
-        if (handlerID != 0xFFFFFFFF) return;
-        const char* base = strrchr(name, '\\');
-        if (base == NULL) return;
-        ++base;
-        const char* extension = strrchr(base, '.');
-        extension = extension != NULL ? extension + 1 : base + strlen(base);
-        CViewerMasks* masks = altView ? MainWindow->AltViewerMasks : MainWindow->ViewerMasks;
-        BOOL allowed = FALSE;
-        for (int i = 0; i < masks->Count; ++i)
-        {
-            int error;
-            CViewerMasksItem* viewer = masks->At(i);
-            if (viewer->Masks->PrepareMasks(error) && viewer->Masks->AgreeMasks(base, extension))
-            {
-                allowed = viewer->ViewerType == VIEWER_INTERNAL || viewer->ViewerType == VIEWER_EXTERNAL;
-                break;
-            }
-        }
-        if (!allowed) return;
-    }
-
     HANDLE lock = NULL;
     BOOL lockOwner = FALSE;
     ViewFileInt(owner, name, altView, handlerID, useDiskCache, lock, lockOwner, addToHistory,
-                enumFileNamesSourceUID, enumFileNamesLastFileIndex,
+                enumFileNamesSourceUID, enumFileNamesLastFileIndex, IsBranchView(),
                 protectedCandidate.empty() ? nullptr : &protectedCandidate, deferredPathCheck ? ProtectedListing.get() : nullptr,
                 found ? found->FoundView : nullptr, deniedParent);
 
@@ -2520,11 +2500,33 @@ static CEditorMasksItem* FindUserEditorAssociation(CEditorMasks* masks,
     return best;
 }
 
+// Inspect registration metadata only, before loading a plug-in or calling it.
+static bool BranchViewerAllowed(int viewerType, bool explicitHandler, const CPluginData* plugin)
+{
+    if (viewerType == VIEWER_INTERNAL || viewerType == VIEWER_EXTERNAL)
+        return !explicitHandler;
+    if (plugin == NULL || !plugin->SupportViewer || plugin->DLLName == NULL)
+        return false;
+
+    const char* const viewers[] = {
+        "pictview\\pictview.spl",
+        "mmviewer\\mmviewer.spl",
+        "ieviewer\\ieviewer.spl",
+        "jsonviewer\\jsonviewer.spl",
+        "uniso\\uniso.spl",
+        "webview2renderviewer\\webview2renderviewer.spl",
+    };
+    for (const char* viewer : viewers)
+        if (_stricmp(plugin->DLLName, viewer) == 0)
+            return true;
+    return false;
+}
+
 BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, BOOL returnLock,
                  HANDLE& lock, BOOL& lockOwner, BOOL addToHistory, int enumFileNamesSourceUID,
-                 int enumFileNamesLastFileIndex, const std::wstring* protectedCandidate, UacF7::ListingSession* protectedListing,
-                 const UacF7::PreparedLeaf* foundView, bool deniedParent, const UacF7::PreparedLeaf* panelView,
-                 bool (*panelStillCurrent)(void*), void* panelContext)
+                 int enumFileNamesLastFileIndex, BOOL fromBranchView, const std::wstring* protectedCandidate,
+                 UacF7::ListingSession* protectedListing, const UacF7::PreparedLeaf* foundView, bool deniedParent,
+                 const UacF7::PreparedLeaf* panelView, bool (*panelStillCurrent)(void*), void* panelContext)
 {
     BOOL success = FALSE;
     lock = NULL;
@@ -2589,6 +2591,10 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
         }
     }
 
+    // An explicit Branch handler must still exist after the menu closes.
+    if (fromBranchView && handlerID != 0xFFFFFFFF && viewer == NULL)
+        return FALSE;
+
     // User rows are selected from the active association table, independently
     // of the legacy runtime row order. Among overlapping user patterns, the
     // most specific matching pattern wins.
@@ -2611,6 +2617,8 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
                         viewer->ViewerType != VIEWER_INTERNAL)
                     { // plug-in viewers only
                         CPluginData* plugin = Plugins.Get(-viewer->ViewerType - 1);
+                        if (fromBranchView && !BranchViewerAllowed(viewer->ViewerType, false, plugin))
+                            return FALSE;
                         if (plugin != NULL && plugin->SupportViewer)
                         {
                             if (!plugin->CanViewFile(name))
@@ -2652,6 +2660,13 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
     {
         SalMessageBox(parent, GetErrorText(ERROR_ACCESS_DENIED), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
         return FALSE;
+    }
+
+    if (fromBranchView && viewer != NULL)
+    {
+        CPluginData* plugin = viewer->ViewerType < 0 ? Plugins.Get(-viewer->ViewerType - 1) : NULL;
+        if (!BranchViewerAllowed(viewer->ViewerType, handlerID != 0xFFFFFFFF, plugin))
+            return FALSE;
     }
 
     if (viewer != NULL)
@@ -3519,7 +3534,7 @@ void CFilesWindow::OnViewFileWith(int index)
                                     HANDLE lock = NULL;
                                     BOOL lockOwner = FALSE;
                                     ViewFileInt(HWindow, encoded.c_str(), FALSE, selectedHandler, FALSE, lock, lockOwner,
-                                                TRUE, EnumFileNamesSourceUID, caret,
+                                                TRUE, EnumFileNamesSourceUID, caret, FALSE,
                                                 localError == ERROR_ACCESS_DENIED ? &path : nullptr,
                                                 nullptr, nullptr, false,
                                                 localError == ERROR_ACCESS_DENIED ? &prepared : nullptr,

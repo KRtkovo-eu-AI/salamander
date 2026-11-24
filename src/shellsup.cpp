@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-25 | Keep Shell menu labels valid for protected and background menus. | Unicode shell entries stay intact for both administrator and Paste menus. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
+// | 2026-11-20 | Build the background Paste menu with wide labels. | Keep shell and host menu entries valid after the Unicode conversion. |  | gpt-6.2-sol |
 // | 2026-11-16 | Keep distinct buffers for Shell and application menu labels. | Preserve Unicode shell entries while compiling the existing ANSI menu commands. | #731 | GPT-6 |
 // | 2026-11-15 | Preserve Unicode labels from the Shell background menu. | Avoid truncating localized menu text during ANSI conversion. | | openai/gpt-6-luna-pro |
 // | 2026-11-10 | Fix signedness in the archive clipboard buffer bounds check. | Keep the Win32 warning-as-error build passing. | https://github.com/KRtkovo-eu-AI/salamander/pull/844 | GPT-6 |
@@ -2739,6 +2741,7 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                                     TRACE_E("Unable to get item information from menu: " << GetErrorText(err));
                                 }
                             }
+                            MENUITEMINFOW mi = {};
                             if (bckgndMenuInsert > 0) // separate Explore + Open from the rest of the menu
                             {
                                 // separator
@@ -2746,11 +2749,11 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                                 mi.fMask = MIIM_TYPE;
                                 mi.fType = MFT_SEPARATOR;
                                 mi.dwTypeData = NULL;
-                                InsertMenuItem(bckgndMenu, bckgndMenuInsert++, TRUE, &mi);
+                                InsertMenuItemW(bckgndMenu, bckgndMenuInsert++, TRUE, &mi);
                             }
 
                             /* used by the export_mnu.py script, which generates salmenu.mnu for Translator
-   keep synchronized with the InsertMenuItem() calls below...
+   keep synchronized with the InsertMenuItemW() calls below...
 MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
 {
   {MNTT_PB, 0
@@ -2762,49 +2765,46 @@ MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
 */
 
                             // add the Paste command (if it is a "change directory" type paste, show it in the Paste item)
-                            char tail[50];
-                            tail[0] = 0;
-                            strcpy(itemName, LoadStr(IDS_MENU_EDIT_PASTE));
+                            std::wstring pasteLabel = SalMultiByteToWidePath(LoadStr(IDS_MENU_EDIT_PASTE), CP_UTF8);
                             if (EnablerPastePath && !EnablerPasteFiles) // PasteFiles has priority
                             {
-                                char* p = strrchr(itemName, '\t');
-                                if (p != NULL)
-                                    strcpy(tail, p);
-                                else
-                                    p = itemName + strlen(itemName);
-
-                                sprintf(p, " (%s)%s", LoadStr(IDS_PASTE_CHANGE_DIRECTORY), tail);
+                                const size_t shortcut = pasteLabel.find_last_of(L'\t');
+                                const std::wstring changeDirectory =
+                                    SalMultiByteToWidePath(LoadStr(IDS_PASTE_CHANGE_DIRECTORY), CP_UTF8);
+                                pasteLabel.insert(shortcut == std::wstring::npos ? pasteLabel.size() : shortcut,
+                                                  L" (" + changeDirectory + L")");
                             }
                             mi.cbSize = sizeof(mi);
                             mi.fMask = MIIM_STATE | MIIM_ID | MIIM_TYPE;
                             mi.fType = MFT_STRING;
                             mi.fState = EnablerPastePath || EnablerPasteFiles ? MFS_ENABLED : MFS_DISABLED;
-                            mi.dwTypeData = itemName;
+                            mi.dwTypeData = pasteLabel.data();
                             mi.wID = 10000;
-                            InsertMenuItem(bckgndMenu, bckgndMenuInsert++, TRUE, &mi);
+                            InsertMenuItemW(bckgndMenu, bckgndMenuInsert++, TRUE, &mi);
 
                             // add the Paste Shortcuts command
                             mi.cbSize = sizeof(mi);
                             mi.fMask = MIIM_STATE | MIIM_ID | MIIM_TYPE;
                             mi.fType = MFT_STRING;
                             mi.fState = EnablerPasteLinksOnDisk ? MFS_ENABLED : MFS_DISABLED;
-                            mi.dwTypeData = LoadStr(IDS_MENU_EDIT_PASTELINKS);
+                            std::wstring pasteLinksLabel = SalMultiByteToWidePath(LoadStr(IDS_MENU_EDIT_PASTELINKS), CP_UTF8);
+                            mi.dwTypeData = pasteLinksLabel.data();
                             mi.wID = 10001;
-                            InsertMenuItem(bckgndMenu, bckgndMenuInsert++, TRUE, &mi);
+                            InsertMenuItemW(bckgndMenu, bckgndMenuInsert++, TRUE, &mi);
 
                             // insert a separator if it is not there yet
-                            MENUITEMINFO mi2;
+                            MENUITEMINFOW mi2;
                             memset(&mi2, 0, sizeof(mi2));
                             mi2.cbSize = sizeof(mi);
                             mi2.fMask = MIIM_TYPE;
-                            if (!GetMenuItemInfo(bckgndMenu, bckgndMenuInsert, TRUE, &mi2) ||
+                            if (!GetMenuItemInfoW(bckgndMenu, bckgndMenuInsert, TRUE, &mi2) ||
                                 (mi2.fType & MFT_SEPARATOR) == 0)
                             {
                                 mi.cbSize = sizeof(mi);
                                 mi.fMask = MIIM_TYPE;
                                 mi.fType = MFT_SEPARATOR;
                                 mi.dwTypeData = NULL;
-                                InsertMenuItem(bckgndMenu, bckgndMenuInsert++, TRUE, &mi);
+                                InsertMenuItemW(bckgndMenu, bckgndMenuInsert++, TRUE, &mi);
                             }
 
                             // The background Sharing handler exposes "Give access to"

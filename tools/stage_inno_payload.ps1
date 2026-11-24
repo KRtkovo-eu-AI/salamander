@@ -1,4 +1,6 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-25 | Stage runtime files without a stale installer inventory. | Host builds skip plugin inventory and refuse a leftover manifest. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
+# | 2026-11-20 | Separate runtime staging from installer inventory generation. | Allow the host to build independently of plugin outputs. |  | gpt-6.2-sol |
 # | 2026-11-16 | Support explicit runtime-only staging. | Keep host-only builds independent of unfinished plugin binaries. | | GPT-6 |
 # | 2026-11-14 | Keep runtime payload staging independent of installer catalog generation. | A catalog refresh is an installer-only step and must not fail the C++ post-build copy. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-14 | Refresh the Inno web-package include from the stable catalogs during staging. | Keep both installer variants synchronized with release URLs, hashes, and versions. | | openrouter/openai/gpt-6-luna-pro |
@@ -205,5 +207,4 @@ $managedManifestPath = Join-Path $destinationRoot 'managed-plugin-files.txt'
 $managedManifest = @($managedFileEntries | Sort-Object -Unique)
 [System.IO.File]::WriteAllLines($managedManifestPath, $managedManifest, [System.Text.UTF8Encoding]::new($false))
 
-Write-Host "Staged $($payloadPaths.Count) Inno payload files and $extensionFileCount files from $($extensionRoots.Count) extension trees ($copiedCount updated)."
 Write-Host "Recorded $($managedManifest.Count) component-owned installer files in $managedManifestPath."

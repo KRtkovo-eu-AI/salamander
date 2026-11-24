@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-20 | Check the owned media path for emptiness. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
+// | 2026-11-20 | Preserve complete viewer launch paths and query wide enumeration. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
 // | 2026-11-04 | Register video containers with existing viewers. | Installed viewers kept the previous audio-only extension list. | https://github.com/KRtkovo-eu-AI/salamander/issues/732 | Grok 4.7 |
 
 #include "precomp.h"
@@ -21,6 +23,7 @@
 
 // plugin interface object, its methods are called from Salamander
 CPluginInterface PluginInterface;
+CSalamanderViewerEnumerationAbstract* MmViewerEnumeration = NULL;
 // part of the CPluginInterface interface for the viewer
 CPluginInterfaceForViewer InterfaceForViewer;
 CPluginInterfaceForMenuExt InterfaceForMenuExt;
@@ -305,6 +308,13 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     SalamanderGUI = salamander->GetSalamanderGUI();
 
     // set the help file name
+    CSalamanderServiceQuery query = {SALAMANDER_SERVICE_VIEWER_ENUMERATION,
+                                     SALAMANDER_VIEWER_ENUMERATION_VERSION_1_0, 0};
+    CSalamanderServiceResult service = {};
+    if (SalGeneral->QueryService(&query, &service) &&
+        service.Version >= SALAMANDER_VIEWER_ENUMERATION_VERSION_1_0)
+        MmViewerEnumeration = static_cast<CSalamanderViewerEnumerationAbstract*>(service.Interface);
+
     SalGeneral->SetHelpFileName("mmviewer.chm");
 
     if (!InitViewer())
@@ -657,8 +667,7 @@ unsigned WINAPI ViewerThreadBody(void* param)
     }
 
     CALL_STACK_MESSAGE1("ViewerThreadBody::SetEvent");
-    char name[MAX_PATH];
-    strcpy(name, data->Name);
+    const std::string name(data->Name);
     BOOL openFile = data->Success;
     SetEvent(data->Continue); // let the main thread continue, data are invalid from this point (=NULL)
     data = NULL;
@@ -667,7 +676,7 @@ unsigned WINAPI ViewerThreadBody(void* param)
     if (openFile)
     {
         CALL_STACK_MESSAGE1("ViewerThreadBody::OpenFile");
-        window->Renderer.OpenFile(name);
+        window->Renderer.OpenFile(name.c_str());
 
         CALL_STACK_MESSAGE1("ViewerThreadBody::message-loop");
         // message loop
@@ -868,7 +877,7 @@ CViewerWindow::GetLock()
 
 void CViewerWindow::UpdateEnablers()
 {
-    Enablers[vweFileOpened] = Renderer.FileName[0] != 0;
+    Enablers[vweFileOpened] = !Renderer.FileName.empty();
     if (ToolBar != NULL)
         ToolBar->UpdateItemsState();
 }

@@ -1,7 +1,10 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-20 | Open exact wide disc-image paths and preserve full error paths. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+#include "../shared/spl_diskselection.h"
 #include "dbg.h"
 
 #include "uniso.h"
@@ -826,13 +829,15 @@ BOOL CISOImage::Open(const char* fileName, BOOL quiet /* = FALSE*/)
 
     strcpy(FileName, fileName);
 
-    HANDLE hFile = CreateFile(fileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+    const std::wstring path = SalamanderDiskSelection::WideFileIoPath(fileName);
+    HANDLE hFile = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
     if (hFile == INVALID_HANDLE_VALUE)
     {
-        char errStr[MAX_PATH];
-
-        sprintf(errStr, LoadStr(IDS_CANT_OPEN_FILE), fileName);
-        return Error(errStr, GetLastError(), quiet);
+        const DWORD error = GetLastError();
+        const char* format = LoadStr(IDS_CANT_OPEN_FILE);
+        std::vector<char> message(strlen(format) + strlen(fileName) + 1);
+        _snprintf_s(message.data(), message.size(), _TRUNCATE, format, fileName);
+        return Error(message.data(), error, quiet);
     }
     DWORD l = 0;
     DWORD dwBytesRead;
@@ -1454,10 +1459,12 @@ int CISOImage::UnpackFile(CSalamanderForOperationsAbstract* salamander, const ch
         return UNPACK_ERROR;
     }
 
-    char nameInArc[MAX_PATH + MAX_PATH];
-    strcpy(nameInArc, FileName);
-    SalamanderGeneral->SalPathAppend(nameInArc, srcPath, MAX_PATH + MAX_PATH);
-    SalamanderGeneral->SalPathAppend(nameInArc, fileData->Name, MAX_PATH + MAX_PATH);
+    const size_t capacity = strlen(FileName) + strlen(srcPath) + strlen(fileData->Name) + 3;
+    std::vector<char> sourceName(capacity);
+    char* nameInArc = sourceName.data();
+    strcpy_s(nameInArc, capacity, FileName);
+    SalamanderGeneral->SalPathAppend(nameInArc, srcPath, static_cast<int>(capacity));
+    SalamanderGeneral->SalPathAppend(nameInArc, fileData->Name, static_cast<int>(capacity));
 
     CUnISOFSAbstract* fileSystem = Tracks[track]->FileSystem;
     if (fileSystem != NULL)

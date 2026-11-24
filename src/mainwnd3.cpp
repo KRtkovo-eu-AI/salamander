@@ -3,6 +3,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Route explicit Refresh to protected archives. | Leave background refresh noninteractive. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-25 | Dispatch protected copy tests and generated-report opens together. | The main window keeps both the laboratory F5 gate and UnISO report navigation. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
+// | 2026-11-20 | Reopen the exact enumerated source image on the plug-in UI thread. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
+// | 2026-11-20 | Admit bundled PictView in Branch View. | Preserve panel image identity and existing viewer restrictions. |  | gpt-6.2-sol |
 // | 2026-11-15 | Explain administrator shell foreground ownership. | Keep cancellation separate from successful shell activation. | #731 | GPT-6 |
 // | 2026-11-15 | Explain explicit protected ZIP refresh. | Avoid starting an interactive read from background refresh. | #731 | GPT-6 |
 // | 2026-11-12 | Handle thin F5 focus handoff on the main UI thread. | Complete foreground activation before progress closes. | #731 | GPT-6 |
@@ -35,6 +38,7 @@ void ReleaseDPIAwareWindowIcons(HWND hWindow);
 
 void ReleaseDPIAwareWindowIcons(HWND hWindow);
 
+#include <memory>
 #include <algorithm>
 #include <new>
 #include <string>
@@ -4352,7 +4356,8 @@ static bool BranchReadOnlyCommandAllowed(UINT command)
         (command >= CM_LEFTEXTRAMODE_MIN && command <= CM_LEFTEXTRAMODE_MAX) ||
         (command >= CM_RIGHTEXTRAMODE_MIN && command <= CM_RIGHTEXTRAMODE_MAX) ||
         (command >= CM_LEFTSORTBY_MIN && command <= CM_LEFTSORTBY_MAX) ||
-        (command >= CM_RIGHTSORTBY_MIN && command <= CM_RIGHTSORTBY_MAX))
+        (command >= CM_RIGHTSORTBY_MIN && command <= CM_RIGHTSORTBY_MAX) ||
+        (command >= CM_VIEWWITH_MIN && command <= CM_VIEWWITH_MAX))
         return true;
     // S29: existing tab/history handlers restore owned full-identity snapshots.
     if ((command >= CM_LEFTHISTORYPATH_MIN && command <= CM_LEFTHISTORYPATH_MAX) ||
@@ -4379,6 +4384,7 @@ static bool BranchReadOnlyCommandAllowed(UINT command)
     case CM_OPEN:
     case CM_VIEW:
     case CM_ALTVIEW:
+    case CM_VIEW_WITH: // ViewFileInt admits only the qualified explicit viewer.
     case CM_EDIT:
     case CM_COMPRESS: // S31b3a4b: NTFS confirmation and exact selection guards.
     case CM_UNCOMPRESS:
@@ -4794,6 +4800,44 @@ CMainWindow::WindowProcImpl(UINT uMsg, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 #endif
+    case WM_USER_OPEN_VIEWER_REPORT:
+    {
+        std::unique_ptr<CViewerReportRequest> request(reinterpret_cast<CViewerReportRequest*>(lParam));
+        if (request == NULL)
+            return 0;
+        HWND viewer = request->ViewerWindow;
+        if (GetPropW(viewer, ViewerReportRequestProperty) != request->Ticket)
+            return 0;
+
+        BOOL opened = FALSE;
+        if (CanClose && !HasLockedUI() && IsWindowEnabled(HWindow) && IsViewerFileSourceAvailable(request->SourceUID))
+        {
+            const int pluginIndex = Plugins.FindByStableId(request->PluginID.c_str());
+            CPluginData* plugin = pluginIndex >= 0 ? Plugins.Get(pluginIndex) : NULL;
+            if (plugin != NULL && plugin->SupportViewer)
+            {
+                WINDOWPLACEMENT placement = {sizeof(WINDOWPLACEMENT)};
+                if (GetWindowPlacement(viewer, &placement))
+                {
+                    RECT bounds = placement.rcNormalPosition;
+                    RECT monitor, work;
+                    MultiMonGetClipRectByRect(&bounds, &work, &monitor);
+                    OffsetRect(&bounds, work.left - monitor.left, work.top - monitor.top);
+                    const std::string path = SalWideToMultiBytePath(request->SourcePath.c_str(), CP_UTF8);
+                    HANDLE lock = NULL;
+                    BOOL lockOwner = FALSE;
+                    if (!path.empty())
+                        opened = plugin->ViewFile(path.c_str(), bounds.left, bounds.top,
+                                                  bounds.right - bounds.left, bounds.bottom - bounds.top,
+                                                  placement.showCmd, Configuration.AlwaysOnTop,
+                                                  FALSE, &lock, &lockOwner, request->SourceUID, request->SourceIndex);
+                }
+            }
+        }
+        PostMessage(viewer, WM_USER_OPEN_VIEWER_REPORT, opened, reinterpret_cast<LPARAM>(request->Ticket));
+        return 0;
+    }
+
     case WM_USER_SALAMANDER_MAIN_THREAD:
     {
         CSalamanderMainThreadCall* call =

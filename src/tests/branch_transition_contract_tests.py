@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-25 | Keep protected Branch lifetime checks beside PictView admission. | Transition gates still cover deletion identity and bundled viewers. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
+# | 2026-11-20 | Admit bundled PictView in Branch View. | Preserve panel image identity and existing viewer restrictions. |  | gpt-6.2-sol |
 # | 2026-11-11 | Check the current Branch View path and generation guards. | Cover exact deletion and reject a stale row after consent. | #731 | GPT-6.1 Sol |
 # | 2026-11-08 | Check the shared Shell recycle flags. | Keep recycling and permanent deletion separate. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-13 | Verify English strings through the host RC chain. | Do not expect duplicate fallback literals in salamand.rc. | | openrouter/openai/gpt-6-luna-pro |
@@ -34,7 +36,7 @@ class BranchTransitionContracts(unittest.TestCase):
   text=source('mainwnd3.cpp');start=text.index('CFilesWindow* branchCommandPanel');part=text[start:]
   self.assertLess(part.index('!BranchReadOnlyCommandAllowed(LOWORD(wParam))'),part.index('if (HelpMode'))
   gate=function('mainwnd3.cpp','static bool BranchReadOnlyCommandAllowed(')
-  for forbidden in ('CM_VIEW_WITH','CM_EDIT_WITH','CM_CLIPPASTELINKS'):
+  for forbidden in ('CM_EDIT_WITH','CM_CLIPPASTELINKS'):
    self.assertNotIn('case '+forbidden+':',gate)
   for allowed in ('CM_OPEN','CM_VIEW','CM_ALTVIEW','CM_EDIT','CM_BRANCH_OPENPARENT','CM_RENAMEFILE','CM_COPYFILES','CM_MOVEFILES','CM_DELETEFILES','CM_PROPERTIES','CM_CLIPCOPY','CM_CLIPCUT','CM_CLIPPASTE','CM_PACK','CM_UNPACK','CM_CONTEXTMENU','CM_TOGGLEHIDDENFILES'):
    self.assertIn('case '+allowed+':',gate)
@@ -198,11 +200,16 @@ class BranchTransitionContracts(unittest.TestCase):
   self.assertLess(edit.index('GetBranchViewFileByCacheKey(key) != f'),edit.index('GetItemFullPathW(*f)'))
   self.assertLess(edit.index('branchGeneration != GetBranchViewGeneration()'),edit.index('LaunchElevatedFileEdit('))
  def test_plugin_viewer_policy_precedes_the_dispatch(self):
-  part=function('fileswn5.cpp','void CFilesWindow::ViewFile(')
-  self.assertLess(part.index('// S27a transition:'),part.index('ViewFileInt('))
-  self.assertIn('viewer->ViewerType == VIEWER_INTERNAL || viewer->ViewerType == VIEWER_EXTERNAL',part)
-  self.assertIn('if (!allowed) return;',part)
-  self.assertNotIn('CanViewFile(',part)
+  entry=function('fileswn5.cpp','void CFilesWindow::ViewFile(')
+  self.assertIn('enumFileNamesSourceUID, enumFileNamesLastFileIndex, IsBranchView()',entry)
+  self.assertNotIn('CanViewFile(',entry)
+  part=function('fileswn5.cpp','BOOL ViewFileInt(')
+  self.assertLess(part.index('fromBranchView && handlerID != 0xFFFFFFFF && viewer == NULL'),part.index('FindUserViewerAssociation('))
+  self.assertLess(part.index('!BranchViewerAllowed('),part.index('plugin->CanViewFile('))
+  self.assertLess(part.index('if (fromBranchView && viewer != NULL)'),part.index('plugin->ViewFile('))
+  routing=function('mainwnd3.cpp','static bool BranchReadOnlyCommandAllowed(')
+  self.assertIn('case CM_VIEW_WITH:',routing)
+  self.assertIn('command >= CM_VIEWWITH_MIN && command <= CM_VIEWWITH_MAX',routing)
  def test_parent_navigation_rejects_missing_identity(self):
   part=function('branch_view.cpp','BOOL CFilesWindow::OpenBranchItemDirectory()')
   self.assertLess(part.index('GetBranchViewFileByCacheKey('),part.index('ChangePathToDiskW('))
@@ -278,7 +285,6 @@ class BranchTransitionContracts(unittest.TestCase):
   gate=function('mainwnd3.cpp','static bool BranchReadOnlyCommandAllowed(')
   for first,last in (('ACTIVEMODE_1','ACTIVEMODE_10'),('LEFTMODE_1','LEFTMODE_10'),('RIGHTMODE_1','RIGHTMODE_10'),('ACTIVEEXTRAMODE_MIN','ACTIVEEXTRAMODE_MAX'),('LEFTEXTRAMODE_MIN','LEFTEXTRAMODE_MAX'),('RIGHTEXTRAMODE_MIN','RIGHTEXTRAMODE_MAX'),('LEFTSORTBY_MIN','LEFTSORTBY_MAX'),('RIGHTSORTBY_MIN','RIGHTSORTBY_MAX')):
    self.assertIn('command >= CM_'+first+' && command <= CM_'+last,gate)
-  self.assertNotIn('command >= CM_VIEWWITH_MIN',gate)
   self.assertNotIn('command >= CM_EDITWITH_MIN',gate)
   self.assertIn('return false;',gate)
  def test_program_broker_keeps_windows_execution_and_no_security_retry(self):

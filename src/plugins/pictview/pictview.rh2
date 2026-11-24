@@ -2,6 +2,9 @@
 #ifndef __PICTVIEW_RH2
 #define __PICTVIEW_RH2
 
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Identify the slow prefetch prompt strings. | Let language packs provide the warning text. | | gpt-6.2-sol |
+
 #if defined(APSTUDIO_INVOKED) && !defined(APSTUDIO_READONLY_SYMBOLS)
 #error this file is not editable by Microsoft Visual C++
 #endif //defined(APSTUDIO_INVOKED) && !defined(APSTUDIO_READONLY_SYMBOLS)
@@ -390,6 +393,8 @@
 #define IDS_WIA_STATUS_TRANSFER_TO_CLIENT   1164
 
 #define IDS_SCAN_OPEN_EXTRA_IMGS 1170
+#define IDS_SLOW_PREFETCH         4432
+#define IDS_DONT_OFFER_PREFETCH   4433
 
 // Toolbar Tooltips
 #define IDS_TT_OPEN              2200

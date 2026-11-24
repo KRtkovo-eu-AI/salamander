@@ -4,6 +4,8 @@
 // CommentsTranslationProject: TRANSLATED
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-25 | Open a protected document and record its report source together. | Viewer startup keeps the approved bytes and the plug-in that produced the report. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
+| 2026-11-20 | Initialize optional report source metadata before starting the viewer. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
 | 2026-11-15 | Read verified handles with the existing block reader. | Preserve viewer navigation without a size limit. | #731 | GPT-6 |
 | 2026-11-15 | Explain protected viewer snapshots. | Document ownership and the ordinary viewer read path. | #731 | GPT-6 |
 | 2026-11-08 | Read protected viewer data from memory. | Keep parsing in the ordinary process and scope the bytes to one open document. | | GPT-6.1 Sol (Codex) |
@@ -223,22 +225,34 @@ BOOL OpenViewer(const char* name, CViewType mode, int left, int top, int width, 
                 UINT showCmd, BOOL returnLock, HANDLE* lock, BOOL* lockOwner,
                 CSalamanderPluginViewerData* viewerData, int enumFileNamesSourceUID,
                 int enumFileNamesLastFileIndex, std::unique_ptr<std::vector<BYTE>> snapshot,
-                ViewerReadHandle readHandle)
+                ViewerReadHandle readHandle, const char* reportPluginID)
 {
     CALL_STACK_MESSAGE11("OpenViewer(%s, %d, %d, %d, %d, %d, %u, %d, , , , %d, %d)",
                          name, mode, left, top, width, height, showCmd, returnLock,
                          enumFileNamesSourceUID, enumFileNamesLastFileIndex);
     CSalamanderPluginInternalViewerData* intViewerData = NULL;
+    CSalamanderPluginInternalViewerReportData* reportData = NULL;
+    if (viewerData != NULL && viewerData->Size == sizeof(CSalamanderPluginInternalViewerReportData))
+    {
+        auto* candidate = static_cast<CSalamanderPluginInternalViewerReportData*>(viewerData);
+        if (candidate->ReportMagic == SALAMANDER_INTERNAL_VIEWER_REPORT_MAGIC)
+            reportData = candidate;
+    }
     if (viewerData != NULL && viewerData->Size == sizeof(CSalamanderPluginInternalViewerData))
     {
         intViewerData = (CSalamanderPluginInternalViewerData*)viewerData;
-        mode = (intViewerData->Mode == 0) ? vtText : vtHex;
     }
+    else if (reportData != NULL)
+        intViewerData = reportData;
+    if (intViewerData != NULL)
+        mode = (intViewerData->Mode == 0) ? vtText : vtHex;
     CViewerWindow* view = new CViewerWindow(NULL, mode, NULL, FALSE, ooStatic,
                                             enumFileNamesSourceUID, enumFileNamesLastFileIndex);
     if (view != NULL)
     {
         view->InitFindDialog(GlobalFindDialog);
+        if (reportData != NULL && reportPluginID != NULL)
+            view->SetReportSource(reportPluginID, reportData->SourceFileName, reportData->SourceUID, reportData->SourceIndex);
         if (returnLock)
         {
             *lock = view->GetLockObject();

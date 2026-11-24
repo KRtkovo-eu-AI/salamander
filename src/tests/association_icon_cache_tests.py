@@ -2,6 +2,8 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-24 | Prefer the active MSVC compiler for native tests. | GitHub runners ship Clang 20, which cannot compile the VS 18 STL that requires Clang 22. | https://github.com/KRtkovo-eu-AI/salamander/pull/865 | Grok 4.7 |
+# | 2026-11-20 | Prefer the active MSVC compiler for native tests. | Use the compiler that matches the Windows developer prompt headers. |  | gpt-6.2-sol |
 # | 2026-11-06 | Extract the production prepared association cache and dependencies. | IsAssociated now calls the cache helper; native checks must execute its real body. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 # | 2026-11-04 | Stop a timed-out association-cache compiler and its children. | A compiler left running after the timeout starved the following contract tests. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
 
@@ -94,7 +96,7 @@ def main() -> int:
     parser.add_argument("--compiler", help="C++ compiler executable")
     args = parser.parse_args()
     compiler = args.compiler or next(
-        (found for name in ("clang++", "g++", "cl") if (found := shutil.which(name))),
+        (found for name in ("cl", "clang++", "g++") if (found := shutil.which(name))),
         None,
     )
     if compiler is None:

@@ -1,0 +1,236 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-21 | Exercise contention and quiet probes. | Cover slow media, dissimilar images, and inconclusive measurements. | | gpt-6.2-sol |
+// | 2026-11-21 | Test actual timing API lifecycle and TLS boundaries. | Keep exclusive measurements and anonymous CSV reliable. | | GPT-6 (Codex) |
+
+#define NOMINMAX
+#include "@@PERFORMANCE_HEADER@@"
+#include "@@PREFETCH_HEALTH_HEADER@@"
+#include <atomic>
+#include <cstdio>
+#include <memory>
+#include <thread>
+
+namespace Perf = PictView::Perf;
+
+#ifdef PICTVIEW_PERF_SECOND_TU
+
+Perf::Sample* ForeignSample() { return &Perf::Current(); }
+void ForeignDecode()
+{
+    Perf::Scope decode(Perf::Phase::Decode);
+    Perf::Count(Perf::Counter::Decode);
+    Perf::SetImageSize(120, 80);
+    Perf::SetDisplaySize(60, 40);
+    Sleep(10);
+    {
+        Perf::Scope scale(Perf::Phase::Scale);
+        Perf::Count(Perf::Counter::Scale);
+        Sleep(10);
+    }
+}
+
+#else
+
+Perf::Sample* ForeignSample();
+void ForeignDecode();
+static int checks = 0, failures = 0;
+
+static void Check(bool value, const char* description)
+{
+    ++checks;
+    if (!value)
+    {
+        ++failures;
+        std::printf("FAIL: %s\n", description);
+    }
+}
+
+static bool Exists(const wchar_t* path) { return GetFileAttributesW(path) != INVALID_FILE_ATTRIBUTES; }
+
+static void CheckPrefetchHealth()
+{
+    using namespace PictView::PrefetchHealth;
+    Monitor monitor;
+    const Observation busy{'C', 1, 24000000, 5000000, 900, Activity::SameDrive};
+    auto quiet = busy;
+    quiet.activity = Activity::Quiet;
+    quiet.milliseconds = 400;
+    for (int i = 0; i < 4; ++i)
+        Check(!monitor.Observe(quiet) && !monitor.NeedsQuietOpen(), "quiet navigation never arms a probe");
+
+    auto startProbe = [&] {
+        for (int i = 0; i < 3; ++i)
+            Check(!monitor.Observe(busy) && monitor.NeedsQuietOpen() == (i == 2),
+                  "three comparable slow misses arm a quiet probe without a warning");
+    };
+    startProbe();
+    Check(monitor.Observe(quiet) && !monitor.NeedsQuietOpen(), "a comparable quiet open confirms contention");
+
+    startProbe();
+    auto stillSlow = quiet;
+    stillSlow.milliseconds = 800;
+    Check(!monitor.Observe(stillSlow) && !monitor.NeedsQuietOpen(), "a slow drive alone does not trigger an offer");
+
+    startProbe();
+    auto smaller = quiet;
+    smaller.pixels /= 2;
+    Check(!monitor.Observe(smaller) && !monitor.NeedsQuietOpen(), "a smaller image is not a valid baseline");
+
+    startProbe();
+    auto smallerFile = quiet;
+    smallerFile.bytes /= 2;
+    Check(!monitor.Observe(smallerFile) && !monitor.NeedsQuietOpen(), "a smaller encoded file is not a valid baseline");
+
+    startProbe();
+    auto otherDrive = quiet;
+    otherDrive.drive = 'D';
+    Check(!monitor.Observe(otherDrive) && !monitor.NeedsQuietOpen(), "a different drive invalidates the comparison");
+
+    startProbe();
+    auto unclear = quiet;
+    unclear.activity = Activity::Unclear;
+    Check(!monitor.Observe(unclear) && monitor.NeedsQuietOpen(), "an overlapping probe has one retry");
+    Check(!monitor.Observe(unclear) && !monitor.NeedsQuietOpen(), "prefetch resumes after inconclusive probes");
+
+    auto fast = busy;
+    fast.milliseconds = 500;
+    for (int i = 0; i < 4; ++i)
+        Check(!monitor.Observe(fast) && !monitor.NeedsQuietOpen(), "fast foreground opens never arm a probe");
+}
+
+static void Disabled(const wchar_t* log)
+{
+    int owner = 0;
+    Perf::Begin(&owner, "open");
+    Perf::BeginOpen(&owner);
+    {
+        Perf::Scope scope(Perf::Phase::Decode);
+        Perf::Count(Perf::Counter::Decode);
+        Perf::SetFileBytes(99);
+    }
+    Perf::Finish(&owner, "complete");
+    Check(!Perf::Config().path && !Perf::Active(&owner) && Perf::Serial(&owner) == 0,
+          "missing or relative opt-in never activates a sample");
+    Check(Perf::Current().attempts[0] == 0 && !Exists(log), "disabled instrumentation has no output or counters");
+}
+
+static void Enabled(const wchar_t* log)
+{
+    int owner = 0, wrongOwner = 0, image = 0, oldImage = 0;
+    Perf::Begin(&owner, "navigation");
+    Check(Perf::Active(&owner) && !Perf::Active(&wrongOwner) && ForeignSample() == &Perf::Current(),
+          "translation units share one active TLS sample with owner isolation");
+    const ULONG_PTR navigation = Perf::Serial(&owner);
+    Perf::BeginOpen(&owner);
+    Check(Perf::Serial(&owner) == navigation, "opening navigation target preserves the navigation sample");
+    Perf::SetFileBytes(987654);
+    {
+        Perf::Scope open(Perf::Phase::Open);
+        Sleep(10);
+        ForeignDecode();
+        Check(Perf::Current().phase == Perf::Phase::Open, "nested phase restores its caller across translation units");
+        Sleep(10);
+    }
+    Check(!Exists(log), "hot-path measurements perform no log creation before Finish");
+    Perf::Finish(&wrongOwner, "complete");
+    Check(Perf::Active(&owner), "wrong owner cannot finish another sample");
+    Perf::Finish(&owner, "complete");
+    Check(!Perf::Active(&owner) && Exists(log), "Finish writes and deactivates exactly one sample");
+
+    Perf::Begin(&owner, "open");
+    auto stale = std::make_unique<Perf::Scope>(Perf::Phase::Open);
+    const ULONG_PTR oldSerial = Perf::Serial(&owner);
+    Perf::Begin(&owner, "navigation");
+    {
+        Perf::Scope fresh(Perf::Phase::Decode);
+        stale.reset();
+        Check(Perf::Serial(&owner) != oldSerial && Perf::Current().phase == Perf::Phase::Decode,
+              "superseded scope destructor cannot overwrite the replacement sample phase");
+        Sleep(10);
+    }
+    Perf::Finish(&owner, "complete");
+
+    Perf::BeginOpen(&owner);
+    const ULONG_PTR paintSerial = Perf::Serial(&owner);
+    Perf::Painted(&owner, paintSerial, &image, true);
+    Check(Perf::Active(&owner), "unarmed image cannot finish opening");
+    Perf::ArmPaint(&owner, &image);
+    Perf::Painted(&owner, paintSerial, &oldImage, true);
+    Perf::Painted(&owner, paintSerial - 1, &image, true);
+    Perf::Painted(&owner, paintSerial, &image, false);
+    Check(Perf::Active(&owner), "old handle, stale serial and failed paints cannot finish the sample");
+    Perf::Painted(&owner, paintSerial, &image, true);
+    Check(!Perf::Active(&owner), "matching successful armed paint finishes the sample");
+
+    Perf::BeginOpen(&owner);
+    Perf::ArmPaint(&owner, &image);
+    const ULONG_PTR transformSerial = Perf::Serial(&owner);
+    const LPARAM cookie = Perf::PendingTransforms(&owner, 2);
+    Perf::Painted(&owner, transformSerial, &image, true);
+    {
+        Perf::AutoTransform staleTransform(&owner, cookie - 1);
+        Perf::AutoTransform otherTransform(&wrongOwner, cookie);
+    }
+    Check(Perf::Active(&owner) && Perf::Current().pendingTransforms == 2,
+          "pending transforms block paint completion and reject stale or foreign commands");
+    {
+        Perf::AutoTransform transform(&owner, cookie);
+        Perf::Painted(&owner, transformSerial, &image, true);
+    }
+    Check(Perf::Active(&owner) && Perf::Current().pendingTransforms == 1,
+          "first transform completion retains the remaining command");
+    {
+        Perf::AutoTransform transform(&owner, cookie);
+        Perf::Scope phase(Perf::Phase::Transform);
+        Sleep(10);
+    }
+    Perf::Painted(&owner, transformSerial, &image, true);
+    Check(!Perf::Active(&owner), "final transformed paint completes only after all commands return");
+
+    std::atomic<unsigned> ready{0};
+    std::atomic<bool> release{false};
+    bool isolated[2] = {false, false};
+    Perf::Sample* mainSample = &Perf::Current();
+    auto worker = [&](unsigned index) {
+        int threadOwner = 0;
+        isolated[index] = !Perf::Current().active && &Perf::Current() != mainSample && ForeignSample() == &Perf::Current();
+        Perf::Begin(&threadOwner, "open");
+        Perf::SetFileBytes(index == 0 ? 101 : 202);
+        {
+            Perf::Scope decode(Perf::Phase::Decode);
+            Perf::Count(Perf::Counter::Decode);
+            Sleep(10);
+        }
+        ready.fetch_add(1);
+        while (!release.load())
+            Sleep(1);
+        Perf::Finish(&threadOwner, "thread");
+    };
+    std::thread first(worker, 0), second(worker, 1);
+    while (ready.load() != 2)
+        Sleep(1);
+    Check(!Perf::Current().active, "worker samples do not activate the main thread");
+    release.store(true);
+    first.join();
+    second.join();
+    Check(isolated[0] && isolated[1], "threads have separate samples and shared translation-unit TLS within each thread");
+}
+
+int wmain(int argc, wchar_t** argv)
+{
+    if (argc != 3)
+        return 2;
+    if (wcscmp(argv[1], L"enabled") == 0)
+    {
+        CheckPrefetchHealth();
+        Enabled(argv[2]);
+    }
+    else
+        Disabled(argv[2]);
+    std::printf("PictView performance API: %d checks, %d failures\n", checks, failures);
+    return failures ? 1 : 0;
+}
+
+#endif

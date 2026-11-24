@@ -1,7 +1,10 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-20 | Own the complete Markdown filename in the browser site. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
+#include <string>
 
 BOOL InitViewer();
 void ReleaseViewer();
@@ -328,7 +331,7 @@ protected:
 
     DWORD m_dwCookie; //connection point identifier for m_pConnectionPoint
 
-    char MarkdownFilename[MAX_PATH];
+    std::string MarkdownFilename;
 
     //Object interfaces
     IUnknown* m_pIUnknown;

@@ -1,7 +1,10 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-20 | Keep the complete current media path. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
+#include <string>
 
 #define WM_ENSUREVISIBLE WM_APP
 
@@ -17,7 +20,7 @@ class CRendererWindow : public CWindow
 public:
     COutput Output; // interface for working with the open database
     CViewerWindow* Viewer;
-    char FileName[MAX_PATH]; // name of the currently opened file; 0 if none is open
+    std::string FileName; // Empty when no file is open.
 
     BOOL Creating; // the window is being created -- do not erase the background yet
 

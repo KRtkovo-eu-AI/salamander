@@ -4,6 +4,8 @@
 // CommentsTranslationProject: TRANSLATED
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-25 | Keep report navigation beside protected viewer refresh rules. | A generated report still returns to its source, and a protected view stays explicit. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
+| 2026-11-20 | Use source identities for report navigation and retain reports on failure. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
 | 2026-11-15 | Explain protected viewer UI behavior. | Distinguish a scoped snapshot from a live file. | #731 | GPT-6 |
 | 2026-11-12 | Release drops ignored while viewer refresh is pending. | Balance WM_DROPFILES ownership without opening a file during recovery. | #731 | GPT-6 (Codex) |
 | 2026-11-08 | Label the protected viewer snapshot and keep refresh explicit. | Avoid re-opening a protected object from automatic viewer activity. | | GPT-6.1 Sol (Codex) |
@@ -12,8 +14,10 @@
 */
 
 #include "precomp.h"
+#include "viewerpath.h"
 #include "common/winlibdpi.h"
 
+#include <memory>
 #include <string>
 
 #include "cfgdlg.h"
@@ -723,6 +727,57 @@ void CViewerWindow::EnsureXVisibleInView(__int64 x, BOOL showPrevChar, BOOL& ful
 
 #define WM_MOUSEHWHEEL 0x020E
 
+void CViewerWindow::SetReportSource(const char* pluginID, const char* sourcePath, int sourceUID, int sourceIndex)
+{
+    if (sourcePath == NULL || sourceUID == -1)
+        return;
+    std::wstring path = Salamander::ViewerPaths::Decode(sourcePath);
+    if (path.empty())
+        return;
+
+    ReportSourcePath = std::move(path);
+    ReportPluginID = pluginID;
+    EnumFileNamesSourceUID = sourceUID;
+    EnumFileNamesLastFileIndex = sourceIndex;
+}
+
+void CViewerWindow::DetachReportSource()
+{
+    if (!ReportPluginID.empty())
+    {
+        RemovePropW(HWindow, ViewerReportRequestProperty);
+        ReportPluginID.clear();
+        ReportSourcePath.clear();
+        EnumFileNamesSourceUID = EnumFileNamesLastFileIndex = -1;
+    }
+}
+
+void CViewerWindow::RequestViewerReport(const std::wstring& path, int index)
+{
+    if (GetPropW(HWindow, ViewerReportRequestProperty) != NULL)
+        return;
+
+    static volatile LONG nextTicket = 0;
+    HANDLE ticket = ULongToHandle(static_cast<ULONG>(InterlockedIncrement(&nextTicket)));
+    auto request = std::make_unique<CViewerReportRequest>();
+    request->ViewerWindow = HWindow;
+    request->Ticket = ticket;
+    request->PluginID = ReportPluginID;
+    request->SourcePath = path;
+    request->SourceUID = EnumFileNamesSourceUID;
+    request->SourceIndex = index;
+    if (SetPropW(HWindow, ViewerReportRequestProperty, ticket))
+    {
+        // Release before posting: the main thread can take ownership immediately.
+        CViewerReportRequest* pending = request.release();
+        if (!PostMessage(MainWindow->HWindow, WM_USER_OPEN_VIEWER_REPORT, 0, reinterpret_cast<LPARAM>(pending)))
+        {
+            delete pending;
+            RemovePropW(HWindow, ViewerReportRequestProperty);
+        }
+    }
+}
+
 LRESULT
 CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -1138,6 +1193,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     SetEvent(Lock);
                     Lock = NULL; // from now on it relies on the disk cache only
                 }
+                DetachReportSource();
                 OpenFile(path, NULL, FALSE);
             }
         }
@@ -1604,6 +1660,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         SetEvent(Lock);
                         Lock = NULL; // from now on it relies on the disk cache only
                     }
+                    DetachReportSource();
                     OpenFile(file, NULL, FALSE);
                 }
             }
@@ -1628,9 +1685,9 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     enumFileNamesLastFileIndex = -1;
                 ok = GetPreviousFileNameForViewerW(EnumFileNamesSourceUID,
                                                   &enumFileNamesLastFileIndex,
-                                                  FileNameW.c_str(), LOWORD(wParam) == CM_PREVSELFILE, TRUE,
+                                                  GetEnumerationPath(), LOWORD(wParam) == CM_PREVSELFILE, TRUE,
                                                   &fileName, &noMoreFiles,
-                                                  &srcBusy, NULL);
+                                                  &srcBusy, NULL, ReportPluginID.c_str());
                 if (ok && LOWORD(wParam) == CM_PREVSELFILE) // take only selected files
                 {
                     BOOL isSrcFileSel = FALSE;
@@ -1646,9 +1703,9 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     enumFileNamesLastFileIndex = -1;
                 ok = GetNextFileNameForViewerW(EnumFileNamesSourceUID,
                                               &enumFileNamesLastFileIndex,
-                                              FileNameW.c_str(), LOWORD(wParam) == CM_NEXTSELFILE, TRUE,
+                                              GetEnumerationPath(), LOWORD(wParam) == CM_NEXTSELFILE, TRUE,
                                               &fileName, &noMoreFiles,
-                                              &srcBusy, NULL);
+                                              &srcBusy, NULL, ReportPluginID.c_str());
                 if (ok && LOWORD(wParam) == CM_NEXTSELFILE) // take only selected files
                 {
                     BOOL isSrcFileSel = FALSE;
@@ -1661,6 +1718,12 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
             if (ok) // we have a new name
             {
+                if (!ReportPluginID.empty())
+                {
+                    if (fileName != ReportSourcePath)
+                        RequestViewerReport(fileName, enumFileNamesLastFileIndex);
+                    return 0;
+                }
                 if (Lock != NULL)
                 {
                     SetEvent(Lock);
@@ -4011,9 +4074,9 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     int enumFileNamesLastFileIndex = EnumFileNamesLastFileIndex;
                     ok = GetPreviousFileNameForViewerW(EnumFileNamesSourceUID,
                                                       &enumFileNamesLastFileIndex,
-                                                      FileNameW.c_str(), FALSE, TRUE,
+                                                      GetEnumerationPath(), FALSE, TRUE,
                                                       &fileName, &noMoreFiles,
-                                                      &srcBusy, NULL);
+                                                      &srcBusy, NULL, ReportPluginID.c_str());
 
                     prevFile = ok || srcBusy;                     // only if a previous file exists (or Salamander is busy, then the user must try again later)
                     firstLastFile = ok || srcBusy || noMoreFiles; // jumping to the first or last file works only if the source link is intact (or Salamander is busy, then the user must try again later)
@@ -4022,9 +4085,9 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         enumFileNamesLastFileIndex = EnumFileNamesLastFileIndex;
                         ok = GetPreviousFileNameForViewerW(EnumFileNamesSourceUID,
                                                           &enumFileNamesLastFileIndex,
-                                                          FileNameW.c_str(), TRUE /* prefer selected */, TRUE,
+                                                          GetEnumerationPath(), TRUE /* prefer selected */, TRUE,
                                                           &fileName, &noMoreFiles,
-                                                          &srcBusy, NULL);
+                                                          &srcBusy, NULL, ReportPluginID.c_str());
                         BOOL isSrcFileSel = FALSE;
                         if (ok)
                         {
@@ -4036,17 +4099,17 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         enumFileNamesLastFileIndex = EnumFileNamesLastFileIndex;
                         ok = GetNextFileNameForViewerW(EnumFileNamesSourceUID,
                                                       &enumFileNamesLastFileIndex,
-                                                      FileNameW.c_str(), FALSE, TRUE,
+                                                      GetEnumerationPath(), FALSE, TRUE,
                                                       &fileName, &noMoreFiles,
-                                                      &srcBusy, NULL);
+                                                      &srcBusy, NULL, ReportPluginID.c_str());
                         nextFile = ok || srcBusy; // only if another file exists (or Salamander is busy, then the user must try again later)
 
                         enumFileNamesLastFileIndex = EnumFileNamesLastFileIndex;
                         ok = GetNextFileNameForViewerW(EnumFileNamesSourceUID,
                                                       &enumFileNamesLastFileIndex,
-                                                      FileNameW.c_str(), TRUE /* prefer selected */, TRUE,
+                                                      GetEnumerationPath(), TRUE /* prefer selected */, TRUE,
                                                       &fileName, &noMoreFiles,
-                                                      &srcBusy, NULL);
+                                                      &srcBusy, NULL, ReportPluginID.c_str());
                         isSrcFileSel = FALSE;
                         if (ok)
                         {
@@ -4445,8 +4508,21 @@ MENU_TEMPLATE_ITEM ViewerCodingMenu[] =
         DestroyWindow(HWindow);
         return 0;
 
+    case WM_USER_OPEN_VIEWER_REPORT:
+        if (GetPropW(HWindow, ViewerReportRequestProperty) == reinterpret_cast<HANDLE>(lParam))
+        {
+            RemovePropW(HWindow, ViewerReportRequestProperty);
+            if (wParam)
+            {
+                DestroyViewerMenuControls();
+                DestroyWindow(HWindow);
+            }
+        }
+        return 0;
+
     case WM_DESTROY:
     {
+        DetachReportSource();
         // WM_DESTROY can also be reached through a direct DestroyWindow call.
         DestroyViewerMenuControls();
         CancelLogViewRetry();

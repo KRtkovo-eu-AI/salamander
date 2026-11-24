@@ -4,6 +4,8 @@
 // CommentsTranslationProject: TRANSLATED
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-25 | Accept a protected read and a generated-report source together. | Internal viewer navigation keeps both the approved handle and the original file. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
+| 2026-11-20 | Store the original source and provider beside the generated report. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
 | 2026-11-15 | Own a verified read handle per viewer document. | Read protected files without a whole-file snapshot. | #731 | GPT-6 |
 | 2026-11-15 | Explain protected viewer ownership. | Keep one approved snapshot scoped to its viewer. | #731 | GPT-6 |
 | 2026-11-08 | Accept an optional read-only snapshot in the internal viewer. | Keep the normal file reader and plugin entry points available. | | GPT-6.1 Sol (Codex) |
@@ -160,6 +162,8 @@ public:
                   std::unique_ptr<std::vector<BYTE>> snapshot = {}, ViewerReadHandle readHandle = {}); // does not manage Lock
     void OpenFileW(const wchar_t* file, const char* caption, BOOL wholeCaption,
                    std::unique_ptr<std::vector<BYTE>> snapshot = {}, ViewerReadHandle readHandle = {}); // does not manage Lock
+
+    void SetReportSource(const char* pluginID, const char* sourcePath, int sourceUID, int sourceIndex);
 
     virtual BOOL Is(int type) { return type == otViewerWindow || CWindow::Is(type); }
     BOOL IsGood() { return Buffer != NULL && ViewerFont != NULL; }
@@ -560,6 +564,15 @@ protected:
     __int64 LineNumberCacheLineStart; // logical line start for that offset
     BOOL LayoutNeeded; // TRUE = LayoutStatusBar() must run before the next paint
 
+    std::string ReportPluginID;
+    std::wstring ReportSourcePath;
+    const wchar_t* GetEnumerationPath() const
+    {
+        return ReportSourcePath.empty() ? FileNameW.c_str() : ReportSourcePath.c_str();
+    }
+    void DetachReportSource();
+    void RequestViewerReport(const std::wstring& path, int index);
+
     int EnumFileNamesSourceUID;     // UID of our source for enumerating names in the viewer
     int EnumFileNamesLastFileIndex; // index of the currently viewed file
 
@@ -610,4 +623,4 @@ BOOL OpenViewer(const char* name, CViewType mode, int left, int top, int width, 
                 UINT showCmd, BOOL returnLock, HANDLE* lock, BOOL* lockOwner,
                 CSalamanderPluginViewerData* viewerData, int enumFileNamesSourceUID,
                 int enumFileNamesLastFileIndex, std::unique_ptr<std::vector<BYTE>> snapshot = {},
-                ViewerReadHandle readHandle = {});
+                ViewerReadHandle readHandle = {}, const char* reportPluginID = NULL);

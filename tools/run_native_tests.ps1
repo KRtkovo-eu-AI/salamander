@@ -4,6 +4,8 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-25 | Run protected copy regressions and PictView performance tests. | Native CI keeps both the UAC worker checks and the viewer timings. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
+# | 2026-11-21 | Run native PictView performance logging tests. | Validate exclusive timings, anonymous CSV, and viewer sample lifecycle. | | GPT-6 (Codex) |
 # | 2026-11-11 | Run native overwrite transactions and worker conflict regressions. | Verify replacement recovery, read-only moves and original UI decisions. | #731 | GPT-6.1 Sol |
 # | 2026-11-11 | Run shared native copy and delete regressions. | Cover large copies, attribute-aware unlink and host delete confirmations. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Print captured output for failed native and contract test groups. | Surface compiler diagnostics in Actions logs as well as the JUnit artifact. | https://github.com/KRtkovo-eu-AI/salamander/pull/844 | GPT-6 |
@@ -741,6 +743,15 @@ try {
             Arguments = @(
                 '-B',
                 (Join-Path $repositoryRoot 'src\tests\pictview_thumbnail_paths_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
+            Name = 'pictview_performance_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\pictview_performance_tests.py'),
                 '--configuration', $Configuration
             )
         },

@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-25 | Pass the report plug-in after the protected viewer arguments. | OpenViewer keeps optional snapshots and the generated-report source. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
+// | 2026-11-20 | Bind generated reports to the plug-in which handed them to the viewer. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
 // | 2026-11-04 | Resolve the plug-in DLL via Plugins.GetPluginData before FreeLibrary. | CSalamanderGeneral::Plugin is CPluginInterfaceAbstract*, which has no GetPluginDLL. | | Composer |
 // | 2026-11-04 | Do not FreeLibrary English language modules that are the plug-in .spl itself. | English UI is embedded in the host PE. | | Composer |
 // | 2026-11-04 | Create panel operations objects for plug-ins. | Portable Devices opens the standard progress dialog through the same object archivers use. | | Grok 4.7 |
@@ -3353,7 +3355,7 @@ BOOL CSalamanderGeneral::IsPluginInstalled(const char* pluginSPL)
 BOOL ViewFileInPluginViewer(const char* pluginSPL,
                             CSalamanderPluginViewerData* pluginData,
                             BOOL useCache, const char* rootTmpPath,
-                            const char* fileNameInCache, int& error)
+                            const char* fileNameInCache, int& error, const char* reportPluginID)
 {
     error = -1; // unknown
     if (pluginData == NULL || pluginData->Size < sizeof(CSalamanderPluginViewerData) ||
@@ -3520,7 +3522,7 @@ BOOL ViewFileInPluginViewer(const char* pluginSPL,
                        place.rcNormalPosition.top,
                        place.rcNormalPosition.right - place.rcNormalPosition.left,
                        place.rcNormalPosition.bottom - place.rcNormalPosition.top,
-                       place.showCmd, useCache, &lock, &lockOwner, pluginData, -1, -1))
+                       place.showCmd, useCache, &lock, &lockOwner, pluginData, -1, -1, {}, {}, reportPluginID))
         {
             if (useCache && lock != NULL)
             {
@@ -3561,8 +3563,13 @@ BOOL CSalamanderGeneral::ViewFileInPluginViewer(const char* pluginSPL,
         return FALSE;
     }
 
+    CPluginData* reportProvider = NULL;
+    if (pluginSPL == NULL && pluginData != NULL &&
+        pluginData->Size == sizeof(CSalamanderPluginInternalViewerReportData))
+        reportProvider = Plugins.GetPluginData(Plugin);
     return ::ViewFileInPluginViewer(pluginSPL, pluginData, useCache,
-                                    rootTmpPath, fileNameInCache, error);
+                                    rootTmpPath, fileNameInCache, error,
+                                    reportProvider != NULL ? reportProvider->GetStableId() : NULL);
 }
 
 BOOL CSalamanderGeneral::OpenFileInConfiguredViewer(HWND parent,

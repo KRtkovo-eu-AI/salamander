@@ -2,6 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-25 | Cover protected Branch routes and bundled viewer admission. | The fixture keeps UAC recycle checks and the current Branch viewer policy. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
+// | 2026-11-20 | Cover IEViewer and UnISO admission. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
+// | 2026-11-20 | Exercise MMViewer admission through both dispatch routes. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
+// | 2026-11-20 | Cover additional bundled viewer registrations. | Preserve exact Branch View file identity. |  | gpt-6.2-sol |
+// | 2026-11-20 | Admit bundled PictView in Branch View. | Preserve panel image identity and existing viewer restrictions. |  | gpt-6.2-sol |
 // | 2026-11-11 | Exercise the protected-folder recycle diagnostic. | Keep Shell errors and selected identities precise. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Initialize the extracted copy target state. | Match the inputs of the production copy planner. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Model the clipboard lease in the Shell data fixture. | Compile the extracted delayed copy handoff against CCopyMoveData's current contract. | https://github.com/KRtkovo-eu-AI/salamander/pull/844 | GPT-6 |
@@ -88,18 +93,8 @@ struct TestRows {
     int Count = 0;
     CFileData& At(int i) { return Values.at(i); }
 };
-struct TestMasks {
-    BOOL Ready = TRUE, Match = TRUE;
-    BOOL PrepareMasks(int& error) { error = 0; return Ready; }
-    BOOL AgreeMasks(const char*, const char*) { return Match; }
-};
 const int VIEWER_EXTERNAL = 0, VIEWER_INTERNAL = 1;
-struct CViewerMasksItem { TestMasks* Masks; int ViewerType; };
-struct CViewerMasks {
-    std::vector<CViewerMasksItem*> Values;
-    int Count = 0;
-    CViewerMasksItem* At(int i) { return Values.at(i); }
-};
+struct CPluginData { BOOL SupportViewer; const char* DLLName; };
 struct TestHistory {
     int Count = 0;
     std::string Path;
@@ -128,8 +123,6 @@ static void ShowBranchLaunchFailure(HWND, const std::wstring&, HRESULT, bool) {+
 struct TestMainWindow {
     TestHistory History;
     TestHistory* FileHistory=&History;
-    CViewerMasks* ViewerMasks = nullptr;
-    CViewerMasks* AltViewerMasks = nullptr;
 } TestMain;
 static TestMainWindow* MainWindow = &TestMain;
 static DWORD ParentAttributes = FILE_ATTRIBUTE_DIRECTORY;
@@ -206,7 +199,7 @@ struct CFilesWindow
     HWND HWindow = nullptr;
     int Caret = 0, NavigationCalls = 0, FocusCalls = 0, FocusedIndex = -1, EndRefreshCalls=0, ArchiveCalls=0;
     std::string OpenedArchive;
-    BOOL NavigationSuccess = TRUE, ViewGatePassed = FALSE;
+    BOOL NavigationSuccess = TRUE;
     std::function<void()> OnNavigate;
     std::wstring OpenedDirectory;
     std::string FocusName;
@@ -252,7 +245,6 @@ struct CFilesWindow
     int FreeSpaceCalls=0;
     void RefreshDiskFreeSpace(BOOL,BOOL){++FreeSpaceCalls;}
     void ExecuteBranch(CFileData* file);
-    void ViewPolicy(const char* name, BOOL altView, DWORD handlerID);
 
 };
 #include "@@RECYCLE_HEADER@@"
@@ -528,11 +520,7 @@ void CFilesWindow::ExecuteBranch(CFileData* file) {
 #define HANDLES_Q(call) (call)
 @@ARCHIVE_READ@@
 #undef HANDLES_Q
-void CFilesWindow::ViewPolicy(const char* name, BOOL altView, DWORD handlerID) {
-    ViewGatePassed = FALSE;
 @@VIEW_POLICY@@
-    ViewGatePassed = TRUE;
-}
 
 static int Checks = 0, Failures = 0;
 static void Check(bool success, const char* description)
@@ -1149,30 +1137,32 @@ static void NavigationTests()
     Check(panel.OpenBranchItemDirectory() != FALSE, "actual parent navigation tolerates replacement of all original rows and metadata");
     Check(panel.FocusedIndex == 1 && !state.Enabled, "owned wide basename beyond MAX_PATH UTF8 bytes focuses the exact replacement row");
     panel.OnNavigate = nullptr;
-    state.Enabled = true;
-    TestMasks match, noMatch; noMatch.Match = FALSE;
-    CViewerMasksItem internal = {&match, VIEWER_INTERNAL}, external = {&match, VIEWER_EXTERNAL}, plugin = {&match, -1}, skippedPlugin = {&noMatch, -1};
-    CViewerMasks normal, alternate; MainWindow->ViewerMasks = &normal; MainWindow->AltViewerMasks = &alternate;
-    normal.Count = 1; alternate.Count = 1; alternate.Values = {&external};
-    for (auto* viewer : {&internal, &external, &plugin}) {
-        normal.Values = {viewer}; panel.ViewPolicy("C:\\東京\\same.txt", FALSE, 0xFFFFFFFF);
-        Check((panel.ViewGatePassed != FALSE) == (viewer != &plugin), "first matching mask allows only core/configured external viewer");
+}
+
+static void ViewerPolicyTests()
+{
+    const CPluginData pictView = {TRUE, "pictview\\pictview.spl"};
+    const CPluginData media = {TRUE, "mmviewer\\mmviewer.spl"};
+    const CPluginData json = {TRUE, "jsonviewer\\jsonviewer.spl"};
+    const CPluginData web = {TRUE, "webview2renderviewer\\webview2renderviewer.spl"};
+    const CPluginData ie = {TRUE, "ieviewer\\ieviewer.spl"};
+    const CPluginData iso = {TRUE, "uniso\\uniso.spl"};
+    const CPluginData renamed = {TRUE, "custom\\pictview.spl"};
+    const CPluginData noViewer = {FALSE, "pictview\\pictview.spl"};
+    const CPluginData missingName = {TRUE, NULL};
+    for (const bool explicitHandler : {false, true})
+    {
+        Check(BranchViewerAllowed(-1, explicitHandler, &pictView), "bundled PictView admitted by either entry point");
+        Check(BranchViewerAllowed(-1, explicitHandler, &media), "bundled MMViewer admitted");
+        Check(BranchViewerAllowed(-1, explicitHandler, &json), "bundled JSON Viewer admitted");
+        Check(BranchViewerAllowed(-1, explicitHandler, &web), "bundled WebView2 viewer admitted");
+        Check(BranchViewerAllowed(-1, explicitHandler, &ie), "bundled IEViewer admitted");
+        Check(BranchViewerAllowed(-1, explicitHandler, &iso), "bundled UnISO admitted");
+        for (const CPluginData* other : {&renamed, &noViewer, &missingName, static_cast<const CPluginData*>(NULL)})
+            Check(!BranchViewerAllowed(-1, explicitHandler, other), "unqualified plug-in rejected before callbacks");
+        Check(BranchViewerAllowed(VIEWER_INTERNAL, explicitHandler, NULL) == !explicitHandler, "Internal Viewer boundary unchanged");
+        Check(BranchViewerAllowed(VIEWER_EXTERNAL, explicitHandler, NULL) == !explicitHandler, "external viewer boundary unchanged");
     }
-    normal.Values = {&plugin, &internal}; normal.Count = 2;
-    panel.ViewPolicy("C:\\same.txt", FALSE, 0xFFFFFFFF);
-    Check(!panel.ViewGatePassed, "unverified matching plugin cannot fall through to launch");
-    normal.Values = {&skippedPlugin, &internal};
-    panel.ViewPolicy("C:\\same.txt", FALSE, 0xFFFFFFFF);
-    Check(panel.ViewGatePassed != FALSE, "nonmatching plugin mask does not block the selected core viewer");
-    panel.ViewPolicy("C:\\same.txt", TRUE, 0xFFFFFFFF);
-    Check(panel.ViewGatePassed != FALSE, "alternate configured external viewer is allowed");
-    panel.ViewPolicy("C:\\same.txt", FALSE, 123);
-    Check(!panel.ViewGatePassed, "unvalidated explicit handler selection stays blocked");
-    panel.ViewPolicy("relative.txt", FALSE, 0xFFFFFFFF);
-    Check(!panel.ViewGatePassed, "non-full viewer path is rejected");
-    state.Enabled = false; normal.Values = {&plugin}; normal.Count = 1;
-    panel.ViewPolicy("C:\\same.txt", FALSE, 123);
-    Check(panel.ViewGatePassed != FALSE, "ordinary panel keeps its previous viewer dispatch policy");
 }
 
 static void EnterTests()
@@ -1355,6 +1345,7 @@ int wmain(int argc, wchar_t** argv)
     try { ReceiveTests(); HostMenuTests(); DropParentTests(); PropertiesTests(); RecycleQueueTests(); NotificationTests(); RelativeCopyTests(); CopySourceTests(); AttributeSourceTests(); RenameMetadataTests(); }
     catch (const std::exception& error) { Check(false,error.what()); }
     NavigationTests();
+    ViewerPolicyTests();
     ArchiveReadTests(argv[1]);
     EnterTests();
     ProgramDispatchTests();

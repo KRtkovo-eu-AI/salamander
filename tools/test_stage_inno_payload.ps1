@@ -1,4 +1,6 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-25 | Reject a stale manifest during runtime-only staging. | A host build must not treat an older installer inventory as current. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
+# | 2026-11-20 | Verify standalone runtime staging and strict installer staging. | Cover incomplete and complete plugin output directories. |  | gpt-6.2-sol |
 # | 2026-11-14 | Verify component ownership manifest output. | Regression-test file inventory needed by managed upgrades. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-14 | Test staging of installer-declared extension trees. | Detect missing Release payload files, including nested extension assets. | | openrouter/openai/gpt-6-luna-pro |
 

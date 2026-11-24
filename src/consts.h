@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-25 | Keep protected viewer parameters beside Branch View admission. | One declaration serves scoped reads and generated-report navigation. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
+// | 2026-11-20 | Declare generated-report dispatch and enumeration identity. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
+// | 2026-11-20 | Admit bundled PictView in Branch View. | Preserve panel image identity and existing viewer restrictions. |  | gpt-6.2-sol |
 // | 2026-11-15 | Explain protected operation interfaces. | Document scoped panel reads and deferred destinations. | #731 | GPT-6 |
 // | 2026-11-12 | Carry owned protected panel viewer state. | Validate the source after modal dispatch. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Expose optional deferral after a target directory create denial. | Keep plugin and ordinary target parsing on their existing path. | #731 | GPT-6.1 Sol |
@@ -676,7 +679,8 @@ namespace UacF7 { class ElevatedEditor; class ListingSession; class PreparedLeaf
 
 BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, BOOL returnLock,
                  HANDLE& lock, BOOL& lockOwner, BOOL addToHistory, int enumFileNamesSourceUID,
-                 int enumFileNamesLastFileIndex, const std::wstring* protectedCandidate = nullptr,
+                 int enumFileNamesLastFileIndex, BOOL fromBranchView = FALSE,
+                 const std::wstring* protectedCandidate = nullptr,
                  UacF7::ListingSession* protectedListing = nullptr,
                  const UacF7::PreparedLeaf* foundView = nullptr, bool deniedParent = false,
                  const UacF7::PreparedLeaf* panelView = nullptr,
@@ -1251,6 +1255,7 @@ struct COpenEditorData
 
 #define WM_USER_TREEVIEW_ASYNC_DONE WM_APP + 420 // [0, CTreeViewAsyncLoadData*] - asynchronni nacteni obsahu slozky dokonceno
 #define WM_USER_EXPLORER_SORT_DONE WM_APP + 421  // [0, CExplorerSortAsyncData*] - Explorer property values for startup sorting are ready
+#define WM_USER_OPEN_VIEWER_REPORT (WM_APP + 423) // [success, CViewerReportRequest*] request to main window and result to viewer
 #define WM_USER_PANELTAB_CONTEXTCOMMAND WM_APP + 422 // [0, 0] - detach/move after the tab control finishes NM_RCLICK
 
 // states for Shift+F1 help mode
@@ -2282,6 +2287,18 @@ enum CFileNamesEnumRequestType
     fnertSetSelection, // nastavujeme oznaceni souboru ve zdroji
 };
 
+inline constexpr wchar_t ViewerReportRequestProperty[] = L"OpenSamandarin.ViewerReportRequest";
+
+struct CViewerReportRequest
+{
+    HWND ViewerWindow;
+    HANDLE Ticket;
+    std::string PluginID;
+    std::wstring SourcePath;
+    int SourceUID;
+    int SourceIndex;
+};
+
 struct CFileNamesEnumData
 {
     // pozadavek:
@@ -2293,6 +2310,7 @@ struct CFileNamesEnumData
     BOOL PreferSelected;
     BOOL OnlyAssociatedExtensions;
     CPluginInterfaceAbstract* Plugin; // pouziva se pri 'OnlyAssociatedExtensions'==TRUE, oznacuje pro jaky plugin filtrovat jmena souboru ('Plugin'==NULL = interni viewer)
+    std::string ReportPluginID;
     std::wstring FileName;
     BOOL Select;
     BOOL TimedOut; // TRUE pokud uz na vysledek nikdo neceka (zbytecne provadet hledani jmena)
@@ -2390,11 +2408,12 @@ BOOL SetSelectionOnFileNameForViewer(int srcUID, int lastFileIndex, const char* 
 BOOL GetNextFileNameForViewerW(int srcUID, int* lastFileIndex, const wchar_t* lastFileName,
                               BOOL preferSelected, BOOL onlyAssociatedExtensions,
                               std::wstring* fileName, BOOL* noMoreFiles, BOOL* srcBusy,
-                              CPluginInterfaceAbstract* plugin);
+                              CPluginInterfaceAbstract* plugin, const char* reportPluginID = NULL);
 BOOL GetPreviousFileNameForViewerW(int srcUID, int* lastFileIndex, const wchar_t* lastFileName,
                                   BOOL preferSelected, BOOL onlyAssociatedExtensions,
                                   std::wstring* fileName, BOOL* noMoreFiles, BOOL* srcBusy,
-                                  CPluginInterfaceAbstract* plugin);
+                                  CPluginInterfaceAbstract* plugin, const char* reportPluginID = NULL);
+BOOL IsViewerFileSourceAvailable(int srcUID);
 BOOL IsFileNameForViewerSelectedW(int srcUID, int lastFileIndex, const wchar_t* lastFileName,
                                  BOOL* isFileSelected, BOOL* srcBusy);
 BOOL SetSelectionOnFileNameForViewerW(int srcUID, int lastFileIndex, const wchar_t* lastFileName,

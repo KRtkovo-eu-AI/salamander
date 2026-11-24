@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-25 | Keep protected Find handoffs beside generated-report filtering. | Find still uses one consent scope, and report candidates stay tied to their plug-in. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
+// | 2026-11-20 | Filter generated-report candidates using the originating plug-in associations. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
 // | 2026-11-15 | Allow large protected Find results in the viewer. | Retain identity checks without a snapshot size limit. | #731 | GPT-6 |
 // | 2026-11-15 | Keep the protected Find F3 snapshot limit before consent. | Retain large-file identities for Refine without prompting for an unsupported view. | #731 | GPT-6 |
 // | 2026-11-15 | Document protected Find dialog handoffs. | Explain consent ownership and verified viewer access. | #731 | GPT-6 |
@@ -1566,11 +1568,27 @@ CFoundFilesListView::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     index = 0;
             }
 
+            // Report navigation requires the current full path to still be present.
+            if (!FileNamesEnumData.ReportPluginID.empty() && FileNamesEnumData.LastFileIndex != -1 && indexNotFound)
+            {
+                HANDLES(LeaveCriticalSection(&DataCriticalSection));
+                SetEvent(FileNamesEnumDone);
+                HANDLES(LeaveCriticalSection(&FileNamesEnumDataSect));
+                return 0;
+            }
+
             int wantedViewerType = 0;
             BOOL onlyAssociatedExtensions = FALSE;
             if (FileNamesEnumData.OnlyAssociatedExtensions) // does the viewer request filtering by associated extensions?
             {
-                if (FileNamesEnumData.Plugin != NULL) // viewer from a plugin
+                if (!FileNamesEnumData.ReportPluginID.empty())
+                {
+                    int pluginIndex = Plugins.FindByStableId(FileNamesEnumData.ReportPluginID.c_str());
+                    // An unavailable provider cannot match any file.
+                    wantedViewerType = pluginIndex != -1 ? -1 - pluginIndex : INT_MIN;
+                    onlyAssociatedExtensions = TRUE;
+                }
+                else if (FileNamesEnumData.Plugin != NULL) // viewer from a plugin
                 {
                     int pluginIndex = Plugins.GetIndex(FileNamesEnumData.Plugin);
                     if (pluginIndex != -1) // "always true"

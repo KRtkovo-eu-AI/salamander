@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-25 | Accept the Branch View flag in the View With stub. | The production call now passes that flag before the protected identity. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 // | 2026-11-12 | Test protected panel View With routing. | Verify explicit internal routing without changing other handlers. | #731 | GPT-6 (Codex) |
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -102,7 +103,7 @@ struct CFilesActionDiskTarget
     static CFilesWindow* FindLive(CMainWindow* main, CFilesWindow* expected)
     { return main && main->live == expected ? expected : nullptr; }
 };
-static BOOL ViewFileInt(HWND, const char*, BOOL, DWORD, BOOL, HANDLE&, BOOL&, BOOL, int, int,
+static BOOL ViewFileInt(HWND, const char*, BOOL, DWORD, BOOL, HANDLE&, BOOL&, BOOL, int, int, BOOL,
                         const std::wstring*, UacF7::ListingSession*, const UacF7::PreparedLeaf*, bool,
                         const UacF7::PreparedLeaf* panelView, bool (*current)(void*), void* context)
 {
