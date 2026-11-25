@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-25 | Expect gh-based cleanup that cannot skip the real checks. | The pull request showed cancelled and unexpanded skipped jobs after ready for review. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 # | 2026-11-04 | Expect one queued source-growth run on Ubuntu. | The report was occupying Windows runners beside the test workflow. | | Grok 4.7 |
 
 import json
@@ -227,13 +228,16 @@ def test_workflow_is_source_only_and_pr_build_calls_codeql_after_success() -> No
     assert "needs: prepare" in pr_build
     assert "has_build_relevant_changes == 'true') && 'windows-2025' || 'ubuntu-latest'" in pr_build
     keeper = (ROOT / ".github" / "workflows" / "keep-latest-pr-run.yml").read_text(encoding="utf-8")
-    assert "cancelWorkflowRun" in keeper
-    assert "run.id >= currentRunId" in keeper
-    assert "run.event !== eventName" in keeper
-    assert "run.head_branch !== headBranch" in keeper
+    assert "actions/github-script" not in keeper
+    assert "timeout-minutes: 10" in keeper
+    assert 'actions/runs/${id}/cancel' in keeper
+    assert '[ "${id}" -ge "${KEEP_CURRENT_RUN_ID}" ]' in keeper
+    assert '[ "${event}" != "${KEEP_EVENT_NAME}" ]' in keeper
+    assert '[ "${branch}" != "${KEEP_HEAD_BRANCH}" ]' in keeper
     pr_tests = (ROOT / ".github" / "workflows" / "pr-tests.yml").read_text(encoding="utf-8")
     assert "workflow_file: pr-tests.yml" in pr_tests
     assert "needs: keep-latest" in pr_tests
+    assert "if: always()" in pr_tests
     assert "use-actions-summary: true" in pr_tests
     assert "use-actions-summary: false" not in pr_tests
     guard = (ROOT / ".github" / "workflows" / "pr-comments-guard.yml").read_text(encoding="utf-8")

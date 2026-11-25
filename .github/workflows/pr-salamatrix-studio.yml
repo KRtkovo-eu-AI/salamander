@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-25 | Let the Studio job continue when run cleanup fails. | A cancelled cleanup job must not leave the VSIX check skipped. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 # | 2026-11-04 | Cancel an older Salamatrix Studio run before queueing Windows. | A new push should not leave the previous VSIX build waiting for a runner. | | Grok 4.7 |
 
 name: PR Salamatrix Studio
@@ -29,6 +30,7 @@ concurrency:
 
 jobs:
   keep-latest:
+    continue-on-error: true
     uses: ./.github/workflows/keep-latest-pr-run.yml
     with:
       workflow_file: pr-salamatrix-studio.yml
@@ -40,6 +42,7 @@ jobs:
   test:
     name: VSIX build and tests
     needs: keep-latest
+    if: always()
     runs-on: windows-2025
     timeout-minutes: 10
 

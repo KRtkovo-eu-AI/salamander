@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-25 | Let the Windows build continue when run cleanup fails. | A cancelled cleanup job was publishing skipped checks, including an unexpanded matrix name. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 # | 2026-11-16 | Select runtime-only staging for validation builds. | Project checks do not produce a complete installer payload. | #731 | GPT-6 |
 # | 2026-11-04 | Queue only the newest build and skip Windows when nothing compiles. | Older pulls stayed in the Windows runner queue, including pulls with no build. | | Grok 4.7 |
 
@@ -22,6 +23,7 @@ concurrency:
 
 jobs:
   keep-latest:
+    continue-on-error: true
     uses: ./.github/workflows/keep-latest-pr-run.yml
     with:
       workflow_file: pr-msbuild.yml
@@ -33,6 +35,7 @@ jobs:
   prepare:
     name: Decide whether a Windows build is needed
     needs: keep-latest
+    if: always()
     runs-on: ubuntu-latest
     outputs:
       has_build_relevant_changes: ${{ steps.build_changes.outputs.has_build_relevant_changes }}
