@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-25 | Use one wide item record for the background Paste menu. | The merged shell and Paste paths were declaring two mi variables in the same scope. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 // | 2026-11-25 | Keep Shell menu labels valid for protected and background menus. | Unicode shell entries stay intact for both administrator and Paste menus. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 // | 2026-11-20 | Build the background Paste menu with wide labels. | Keep shell and host menu entries valid after the Unicode conversion. |  | gpt-6.2-sol |
 // | 2026-11-16 | Keep distinct buffers for Shell and application menu labels. | Preserve Unicode shell entries while compiling the existing ANSI menu commands. | #731 | GPT-6 |
@@ -2710,8 +2711,6 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                             // Keep Windows-localized labels in UTF-16 while copying the shell commands.
                             MENUITEMINFOW shellMi;
                             WCHAR shellItemName[500];
-                            MENUITEMINFO mi{};
-                            char itemName[500];
                             int i;
                             for (i = 0; i < miCount; i++)
                             {
