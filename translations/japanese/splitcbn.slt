@@ -5,9 +5,9 @@ VERSION,"1,13,0,197"
 
 [TRANSLATION]
 LANGID,1041
-AUTHOR,"Open Samandarin"
+AUTHOR,"Open Samandarin Authors"
 WEB,"open.samandarin.net"
-COMMENT,"Japanese (ja-JP) UI translation"
+COMMENT,"japanese (automatic AI translation)"
 
 [DIALOG 101]
 210,102,1,"構成の分割と結合"

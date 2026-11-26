@@ -5,9 +5,9 @@ VERSION,"5,0,0,197"
 
 [TRANSLATION]
 LANGID,1032
-AUTHOR,"Open Samandarin"
+AUTHOR,"Open Samandarin Authors"
 WEB,"open.samandarin.net"
-COMMENT,"greek translation (automatic AI translation)"
+COMMENT,"greek (automatic AI translation)"
 HELPDIR,"ENGLISH"
 SLGINCOMPLETE,""
 

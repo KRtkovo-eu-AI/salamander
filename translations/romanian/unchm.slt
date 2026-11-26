@@ -5,9 +5,9 @@ VERSION,"1,7,0,197"
 
 [TRANSLATION]
 LANGID,1048
-AUTHOR,"Ioan Stefancu, Donca Radu"
-WEB,"forum.altap.cz/viewtopic.php?f=23&t=6165"
-COMMENT,"Versiunea romana"
+AUTHOR,"Ioan Stefancu, Donca Radu, Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"romanian (automatic AI translation)"
 
 [STRINGTABLE 0]
 1000,1,"UnCHM"

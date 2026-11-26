@@ -5,9 +5,9 @@ VERSION,"1,15,0,197"
 
 [TRANSLATION]
 LANGID,1031
-AUTHOR,"Dirk Bornhütter, Thomas Kelso, Thomas Pagels, Thomas Wölk, Marko Meister und Mick Weiss"
-WEB,"forum.altap.cz/viewtopic.php?f=23&t=7334"
-COMMENT,"Deutsche Version"
+AUTHOR,"Dirk Bornhütter, Thomas Kelso, Thomas Pagels, Thomas Wölk, Marko Meister und Mick Weiss, Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"german (automatic AI translation)"
 
 [MENU 109]
 0,1,"&Datei"

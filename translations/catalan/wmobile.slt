@@ -5,9 +5,9 @@ VERSION,"1,12,0,197"
 
 [TRANSLATION]
 LANGID,1027
-AUTHOR,"Juraj Rojko"
-WEB,"samandarin.net"
-COMMENT,"English version"
+AUTHOR,"Juraj Rojko, Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"catalan (automatic AI translation)"
 
 [DIALOG 500]
 353,77,1,""

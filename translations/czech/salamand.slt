@@ -5,9 +5,9 @@ VERSION,"5,0,0,197"
 
 [TRANSLATION]
 LANGID,1029
-AUTHOR,"Hynek Mikulič"
-WEB,"forum.altap.cz/viewtopic.php?f=23&t=7008"
-COMMENT,"Česká verze"
+AUTHOR,"Hynek Mikulič, Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"czech (automatic AI translation)"
 HELPDIR,"ENGLISH"
 SLGINCOMPLETE,""
 

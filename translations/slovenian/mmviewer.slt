@@ -5,9 +5,9 @@ VERSION,"1,19,0,197"
 
 [TRANSLATION]
 LANGID,1060
-AUTHOR,"Open Salamander"
-WEB,"samandarin.net"
-COMMENT,"English version"
+AUTHOR,"Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"slovenian (automatic AI translation)"
 
 [DIALOG 10500]
 364,132,1,"O vtičniku"

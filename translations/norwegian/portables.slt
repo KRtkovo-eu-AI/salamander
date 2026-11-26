@@ -5,9 +5,9 @@ VERSION,"0,7,0,197"
 
 [TRANSLATION]
 LANGID,1044
-AUTHOR,"Open Salamander"
-WEB,"https://samandarin.net/"
-COMMENT,"English version"
+AUTHOR,"Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"norwegian (automatic AI translation)"
 
 [STRINGTABLE 0]
 128,1,"{!}%d valgte enheter{2:s|0||1|s}"

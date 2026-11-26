@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Remember which file contains a language. | Select Language was still showing a per-language .slg path. | https://github.com/KRtkovo-eu-AI/salamander/issues/857 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
@@ -698,12 +701,18 @@ public:
     WCHAR* CommentW;
     char* HelpDir;
 
+    // Relative path shown in Select Language: lang\langpack.dll, the module file
+    // name, or a legacy lang\name.slg. NULL when the caller does not display it.
+    char* SourcePath;
+
 public:
     CLanguage();
 
     BOOL Init(const char* fileName, WORD languageID, const WCHAR* authorW,
               const char* web, const WCHAR* commentW, const char* helpdir);
     BOOL Init(const char* fileName, HINSTANCE modul);
+    // Replaces SourcePath. NULL clears it. Returns FALSE on allocation failure.
+    BOOL SetSourcePath(const char* path);
     void Free();
     BOOL GetLanguageName(char* buffer, int bufferSize);
 };

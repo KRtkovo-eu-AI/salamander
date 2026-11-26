@@ -5,9 +5,9 @@ VERSION,"1,9,0,197"
 
 [TRANSLATION]
 LANGID,1030
-AUTHOR,"Open Salamander"
-WEB,"samandarin.net"
-COMMENT,"English version"
+AUTHOR,"Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"danish (automatic AI translation)"
 
 [DIALOG 100]
 308,201,1,"Flere pakkemuligheder"

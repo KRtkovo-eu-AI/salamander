@@ -5,9 +5,9 @@ VERSION,"1,1,0,197"
 
 [TRANSLATION]
 LANGID,1041
-AUTHOR,"Open Samandarin"
-WEB,"samandarin.net"
-COMMENT,"Japanese (ja-JP) UI translation"
+AUTHOR,"Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"japanese (automatic AI translation)"
 
 [DIALOG 200]
 278,94,1,"DiskDir カタログの作成"

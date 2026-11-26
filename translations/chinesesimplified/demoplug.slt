@@ -5,9 +5,9 @@ VERSION,"2,1,0,197"
 
 [TRANSLATION]
 LANGID,2052
-AUTHOR,"Open Samandarin"
+AUTHOR,"Open Samandarin Authors"
 WEB,"open.samandarin.net"
-COMMENT,"Automatic AI translation"
+COMMENT,"chinesesimplified (automatic AI translation)"
 
 [DIALOG 490]
 205,61,1,"查看器"

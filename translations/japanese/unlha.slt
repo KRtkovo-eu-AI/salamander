@@ -5,9 +5,9 @@ VERSION,"1,16,0,197"
 
 [TRANSLATION]
 LANGID,1041
-AUTHOR,"Open Samandarin"
+AUTHOR,"Open Samandarin Authors"
 WEB,"open.samandarin.net"
-COMMENT,"Japanese (ja-JP) UI translation"
+COMMENT,"japanese (automatic AI translation)"
 
 [STRINGTABLE 0]
 1,1,"無効なLZH ファイルまたは不明なファイル形式です。"

@@ -5,9 +5,9 @@ VERSION,"1,19,0,197"
 
 [TRANSLATION]
 LANGID,1038
-AUTHOR,"Török József"
-WEB,"forum.altap.cz/viewtopic.php?f=23&t=6164"
-COMMENT,"Magyar változat"
+AUTHOR,"Török József, Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"hungarian (automatic AI translation)"
 
 [DIALOG 10500]
 364,132,1,"Plugin névjegy"

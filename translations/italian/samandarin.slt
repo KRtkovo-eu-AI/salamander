@@ -5,9 +5,9 @@ VERSION,"0,11,0,197"
 
 [TRANSLATION]
 LANGID,1040
-AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net"
-COMMENT,"Automatic AI translation"
+AUTHOR,"Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"italian (automatic AI translation)"
 
 [STRINGTABLE 0]
 46,1,"Notificatore aggiornamenti Samandarin"

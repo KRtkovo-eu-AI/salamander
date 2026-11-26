@@ -5,9 +5,9 @@ VERSION,"1,0,6,197"
 
 [TRANSLATION]
 LANGID,2052
-AUTHOR,"KRtekTM"
+AUTHOR,"KRtekTM, Open Samandarin Authors"
 WEB,"open.samandarin.net"
-COMMENT,"automatic translate with gpt-5.4-nano"
+COMMENT,"chinesesimplified (automatic AI translation)"
 
 [STRINGTABLE 0]
 46,1,"C# 演示"

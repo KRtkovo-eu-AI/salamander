@@ -5,9 +5,9 @@ VERSION,"1,30,0,197"
 
 [TRANSLATION]
 LANGID,1035
-AUTHOR,"Open Salamander"
-WEB,"samandarin.net"
-COMMENT,"English version"
+AUTHOR,"Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"finnish (automatic AI translation)"
 
 [DIALOG 100]
 221,122,1,"Seuraava CAB-levy"

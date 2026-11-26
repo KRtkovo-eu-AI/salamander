@@ -5,9 +5,9 @@ VERSION,"1,37,0,197"
 
 [TRANSLATION]
 LANGID,1027
-AUTHOR,"Open Salamander"
-WEB,"samandarin.net"
-COMMENT,"English version"
+AUTHOR,"Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"catalan (automatic AI translation)"
 
 [DIALOG 1200]
 220,200,1,"Configuració 7-Zip"
