@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-26 | Reject a policy override switch in Extension Menu Builder. | The shipped script was flagged as a dropper for embedding that command line. | | Grok 4.7 |
 # | 2026-11-13 | Accept later plug-in versions in safety guards. | Keep refresh and service-cache version floors valid after subsequent releases. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-12 | Derive extension locale coverage from shipped locale resources. | Translation expansion must not stale fixed locale lists. | | openai/gpt-6-luna-pro |
 # | 2026-11-07 | Check foreground ownership for viewers and extension UI. | Issue #757 regressions must keep dialogs and viewers attached to the active extension window. | https://github.com/KRtkovo-eu-AI/salamander/issues/757 | OpenAI GPT-5.6 Luna Pro |
@@ -2174,6 +2175,14 @@ def main() -> int:
         r"focusedItem\.path.*?selectedItems.*?activePanel\.path.*?"
         r"targetPanel\.path",
         "generated custom menus do not expand Salamander panel tokens")
+    require(
+        menu_builder,
+        r"-NoProfile -File",
+        "generated custom menus do not launch the selected script file")
+    require_absent(
+        menu_builder,
+        r"(?i)-executionpolicy\b|\bbypass\b",
+        "Extension Menu Builder still embeds a policy override command")
     require(
         setup,
         r"AddPlugin\('extensionmenubuilder',\s*'Extension Menu Builder'",

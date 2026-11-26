@@ -1,4 +1,5 @@
 ; | Date | Summary | Reason | Ticket | Model |
+; | 2026-11-26 | Show Extension Menu Builder 1.1.3 in the installer. | Keep the setup entry aligned with the extension manifest. | | Grok 4.7 |
 ; | 2026-11-20 | Generate the ownership inventory at installer compile time. | Validate the finished payload for both installer modes. |  | gpt-6.2-sol |
 ; | 2026-11-16 | Always install the language pack without a task checkbox. | Make the additional UI translations available on every installation. | | openrouter/openai/gpt-6-luna-pro |
 ; | 2026-11-16 | Map Brazilian Portuguese installer language to the app language-pack ID. | Launch Samandarin with the existing portuguese.slg translation. | | openrouter/openai/gpt-6-luna-pro |
@@ -3838,7 +3839,7 @@ begin
   AddPlugin('demoplug', 'Demo Plugin', '2.1 (x64)', 'expert');
   AddPlugin('diskdir', 'DiskDir', '1.1 (x64)', 'base,standard,advanced,expert');
   AddPlugin('diskmap', 'DiskMap', '1.15 (x64)', 'advanced,expert');
-  AddPlugin('extensionmenubuilder', 'Extension Menu Builder', '1.1.2 (x64)', 'advanced,expert');
+  AddPlugin('extensionmenubuilder', 'Extension Menu Builder', '1.1.3 (x64)', 'advanced,expert');
   AddPlugin('filecomp', 'File Comparator', '1.23 (x64)', 'base,standard,advanced,expert');
   AddPlugin('filelockinspector', 'File Lock Inspector', '1.0.3 (x64)', 'advanced,expert');
   AddPlugin('processexplorer', 'Process Explorer', '1.3.0 (x64)', 'advanced,expert');
