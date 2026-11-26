@@ -4,6 +4,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-26 | Run the working-directory history metadata test. | Cover persisted source identity and last-known captions in native CI. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 # | 2026-11-25 | Run protected copy regressions and PictView performance tests. | Native CI keeps both the UAC worker checks and the viewer timings. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 # | 2026-11-21 | Run native PictView performance logging tests. | Validate exclusive timings, anonymous CSV, and viewer sample lifecycle. | | GPT-6 (Codex) |
 # | 2026-11-11 | Run native overwrite transactions and worker conflict regressions. | Verify replacement recovery, read-only moves and original UI decisions. | #731 | GPT-6.1 Sol |
@@ -764,6 +765,11 @@ try {
             Name = 'branch_restore_state_tests'
             ClassName = 'native-generated'
             Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_restore_state_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'working_directory_history_source_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\working_directory_history_source_tests.py'), '--configuration', $Configuration)
         },
         @{
             Name = 'branch_archive_selection_tests'

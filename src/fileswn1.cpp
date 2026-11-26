@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Generate history identities when constructing tabs. | Give intentional duplicates independent persistent identities. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-15 | Probe ordinary file operations with the existing folder worker. | Indicate denied access without changing files or treating a read grant as write authority. | #731 | GPT-6 |
 // | 2026-11-15 | Probe folder access off the UI thread. | Mark known denied local folders without changing panel or plugin identities. | #731 | GPT-6 |
 // | 2026-11-15 | Explain protected panel path marking. | Identify the path component covered by the active session. | #731 | GPT-6 |
@@ -3118,6 +3120,8 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     PanelTabId = ++nextPanelTabId;
     if (PanelTabId == 0)
         PanelTabId = ++nextPanelTabId;
+    if (FAILED(CoCreateGuid(&HistoryTabId)))
+        HistoryTabId = {};
     CustomTabColorValid = false;
     CustomTabColor = RGB(0, 0, 0);
     CustomTabPrefixValid = false;

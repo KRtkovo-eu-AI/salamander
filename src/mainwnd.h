@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Identify explicit panel refresh commands. | Prompt for a fresh archive read only on user refresh. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Expose persistent tab identity and title lookup. | Carry the history identity through Undo Close Tab. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Expose a live tab name lookup by identity. | Resolve history sources in either panel and in detached tabs. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-15 | Explain protected panel refresh. | Keep background notifications noninteractive. | #731 | GPT-6 |
 // | 2026-11-07 | Track the temporary Find notice separately from the normal caption. | Preserve custom and detached-window titles. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
@@ -424,6 +425,7 @@ public:
     struct SClosedPanelTab
     {
         int InsertIndex;
+        GUID HistoryTabId;
         std::string GeneralPath;
         std::string FallbackPath;
         std::wstring DiskPathW;
@@ -673,7 +675,9 @@ public:
     void RequestPanelRefresh(CFilesWindow* panel, bool rebuildDriveBars,
                              bool postRefreshMessage = false, bool explicitRefresh = false);
     std::wstring GetPanelTabDisplayText(CFilesWindow* panel) const;
-    std::wstring GetPanelTabNameById(ULONGLONG tabId) const;
+    std::wstring GetPanelTabName(CFilesWindow* panel) const;
+    std::wstring GetPanelTabNameById(const GUID& tabId) const;
+    void RememberWorkingDirectoryTabName(CFilesWindow* panel);
     void UpdatePanelTabTitle(CFilesWindow* panel);
     void UpdatePanelTabColor(CFilesWindow* panel);
     void RefreshPanelTabLayout();
@@ -1085,6 +1089,9 @@ private:
     void RebuildPanelTabs(CPanelSide side);
     void ClearPanelTabDragTargetIndicator();
     CFilesWindow* CreateDuplicatePanelTab(CPanelSide targetSide, CFilesWindow* sourcePanel, int insertIndex);
+    CFilesWindow* FindPanelTabByHistoryId(const GUID& tabId) const;
+    void RestorePanelTabHistoryId(CFilesWindow* panel, const GUID& tabId);
+    void LoadPanelTabHistoryId(CFilesWindow* panel, HKEY key);
 
     int PanelTabMouseWheelAccumulator;
     DWORD PanelTabMouseWheelSwitchTime;

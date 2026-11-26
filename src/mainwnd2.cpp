@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Save and restore optional persistent tab GUIDs. | Retain working directory history attribution across restarts. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-15 | Explain protected panel startup fallback. | Document how the readable ancestor is selected without consent. | #731 | GPT-6 |
 // | 2026-11-10 | Restore protected saved panel paths to a readable ancestor. | Do not prompt for elevation while starting the application. | #731 | GPT-6.1 Sol |
 // | 2026-11-09 | Save and load the Change Drive block order. | Keep the chosen Plugin/Hot Paths ordering across restarts. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
@@ -1216,6 +1217,7 @@ const char* PANEL_ACTIVETAB_REG = "Active Tab";
 const char* PANEL_TABCOLOR_REG = "Tab Color";
 const char* PANEL_TABPREFIX_REG = "Tab Prefix";
 const char* PANEL_TABLOCKED_REG = "Tab Locked";
+const char* PANEL_HISTORYTABID_REG = "History Tab ID";
 const char* DETACHED_TAB_PRESENT_REG = "Present";
 const char* DETACHED_TAB_SIDE_REG = "Original Side";
 const char* DETACHED_TAB_INDEX_REG = "Original Index";
@@ -2668,6 +2670,12 @@ static void SavePanelSettingsToKey(CFilesWindow* panel, HKEY key, BOOL useGenera
     else
         lstrcpyn(path, panel->GetPath(), _countof(path));
     SetValue(key, PANEL_PATH_REG, REG_SZ, path, -1);
+
+    // The compatibility panel key stores the active tab's layout. Only the
+    // actual attached and detached tab keys store an identity.
+    const GUID& tabId = panel->GetHistoryTabId();
+    if (useGeneralPath && !IsEqualGUID(tabId, GUID{}))
+        SetValue(key, PANEL_HISTORYTABID_REG, REG_BINARY, &tabId, sizeof(tabId));
 
     value = panel->GetViewTemplateIndex();
     SetValue(key, PANEL_VIEW_REG, REG_DWORD, &value, sizeof(DWORD));
@@ -4312,6 +4320,15 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
     }
 }
 
+void CMainWindow::LoadPanelTabHistoryId(CFilesWindow* panel, HKEY key)
+{
+    GUID tabId = {};
+    DWORD size = 0;
+    if (GetValueAux(NULL, key, PANEL_HISTORYTABID_REG, REG_BINARY, &tabId, sizeof(tabId), TRUE) &&
+        GetSize(key, PANEL_HISTORYTABID_REG, REG_BINARY, size) && size == sizeof(tabId))
+        RestorePanelTabHistoryId(panel, tabId);
+}
+
 void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalamander, const char* reg)
 {
     if (panelPath != NULL)
@@ -4446,6 +4463,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         HKEY tabKey;
         if (OpenKey(actKey, tabKeyName, tabKey))
         {
+            LoadPanelTabHistoryId(panel, tabKey);
             LoadPanelSettingsFromKey(panel, tabKey, path, _countof(path));
             if (Configuration.SaveHistory && Configuration.SaveNavigatedDirs)
                 panel->PathHistory->LoadFromRegistry(tabKey, CONFIG_NAVIGATEDDIRSHISTORY_REG, TRUE);
@@ -4600,6 +4618,7 @@ void CMainWindow::LoadDetachedTabConfig(HKEY hSalamander)
         }
 
         std::vector<char> path(2 * SAL_MAX_PATH);
+        LoadPanelTabHistoryId(panel, tabKey);
         LoadPanelSettingsFromKey(panel, tabKey, path.data(), (int)path.size());
         if (Configuration.SaveHistory && Configuration.SaveNavigatedDirs)
             panel->PathHistory->LoadFromRegistry(tabKey, CONFIG_NAVIGATEDDIRSHISTORY_REG, TRUE);

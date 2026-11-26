@@ -4,6 +4,7 @@
 // | 2026-11-15 | Expose a temporary ZIP viewer read handle. | Keep entry data outside the viewer memory budget. | #731 | GPT-6 |
 // | 2026-11-08 | Track protected archive mode on the panel. | Distinguish manual refresh from background refresh. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Add a persistent history identity to each tab. | Keep the process-local tab ID available for existing callers. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-15 | Track file access indicators with directory indicators. | Keep the background snapshot independent of plugin data. | #731 | GPT-6 |
 // | 2026-11-15 | Track asynchronous UAC folder indicators per panel. | Avoid filesystem access in the drawing path and preserve plugin ABI. | #731 | GPT-6 |
 // | 2026-11-15 | Explain panel-owned UAC sessions. | Clarify session lifetime across panel navigation. | #731 | GPT-6 |
@@ -929,6 +930,7 @@ public:
 
     CPanelSide PanelSide;
     ULONGLONG PanelTabId;
+    GUID HistoryTabId; // persisted identity for working directory history
 
     CBranchViewState* BranchView; // core-owned disk collection, NULL for ordinary panels
     // Each panel owns its scoped read sessions; a cancelled path change retains the previous listing.
@@ -1166,6 +1168,8 @@ public:
 
     CPanelSide GetPanelSide() const { return PanelSide; }
     ULONGLONG GetPanelTabId() const { return PanelTabId; }
+    const GUID& GetHistoryTabId() const { return HistoryTabId; }
+    void SetHistoryTabId(const GUID& id) { HistoryTabId = id; }
     BOOL IsLeftPanel() const { return PanelSide == cpsLeft; }
     BOOL IsRightPanel() const { return PanelSide == cpsRight; }
     void SetPanelSide(CPanelSide side);

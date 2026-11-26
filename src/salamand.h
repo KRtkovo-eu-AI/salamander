@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Store a durable origin and caption with working directory visits. | Associate provenance with the same item through loading and history copies. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Track the source tab of a working directory visit. | Carry provenance through history items. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // CommentsTranslationProject: TRANSLATED
 
@@ -137,6 +138,12 @@ public:
 
 struct CBranchViewRestoreState;
 
+struct CWorkingDirectorySource
+{
+    GUID Id{};
+    std::wstring Name;
+};
+
 class CPathHistoryItem
 {
 protected:
@@ -149,12 +156,12 @@ protected:
     int TopIndex;      // top index at the time the panel state was saved
     char* FocusedName; // focused item at the time the panel state was saved
     std::shared_ptr<CBranchViewRestoreState> BranchState;
-    ULONGLONG SourceTabId; // process-local origin of a working directory visit, or zero
+    CWorkingDirectorySource Source; // working directory origin and last known tab name
 
 public:
     CPathHistoryItem(int type, const char* pathOrArchiveOrFSName,
                      const char* archivePathOrFSUserPart, HICON hIcon,
-                     CPluginFSInterfaceAbstract* pluginFS, ULONGLONG sourceTabId = 0);
+                     CPluginFSInterfaceAbstract* pluginFS, const CWorkingDirectorySource& source = {});
     ~CPathHistoryItem();
 
     // change of top index and focused name (repeated addition of one path to the history)
@@ -191,12 +198,15 @@ public:
 
     // adds a path to the history
     void AddPath(int type, const char* pathOrArchiveOrFSName, const char* archivePathOrFSUserPart,
-                 CPluginFSInterfaceAbstract* pluginFS, CPluginFSInterfaceEncapsulation* curPluginFS);
+                 CPluginFSInterfaceAbstract* pluginFS, CPluginFSInterfaceEncapsulation* curPluginFS,
+                 const CWorkingDirectorySource& source = {});
 
     // Adds a path or moves an existing entry to the top, updating its origin and FS interface.
     void AddPathUnique(int type, const char* pathOrArchiveOrFSName, const char* archivePathOrFSUserPart,
                        HICON hIcon, CPluginFSInterfaceAbstract* pluginFS,
-                       CPluginFSInterfaceEncapsulation* curPluginFS, ULONGLONG sourceTabId);
+                       CPluginFSInterfaceEncapsulation* curPluginFS, const CWorkingDirectorySource& source);
+
+    void RememberSourceTabName(const GUID& tabId, const std::wstring& name);
 
     // changes the data (top index and focused name) of the current path only if the given path
     // matches the current path in the history

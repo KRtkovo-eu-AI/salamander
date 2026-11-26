@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Disable entry content actions for the protected listing. | Keep metadata and navigation available. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Clear working directory history from closed-tab snapshots. | Prevent Undo Close Tab from restoring cleared paths and source names. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-15 | Explain protected ZIP command availability. | Keep unsupported archive actions outside the approved path. | #731 | GPT-6 |
 // | 2026-11-12 | Observe F5 panel readiness in test builds. | Coordinate the isolated real-worker acceptance test without changing commands. | #731 | GPT-6 |
 // | 2026-11-08 | Enable archive deletion for an open protected ZIP with a verified editor. | Preserve ordinary archive capability checks. | | GPT-6.1 Sol (Codex) |
@@ -632,6 +633,15 @@ void CMainWindow::ClearHistory()
     for (size_t i = 0; i < DetachedTabs.size(); ++i)
         if (DetachedTabs[i].Panel != NULL)
             DetachedTabs[i].Panel->ClearWorkDirHistory();
+
+    for (auto& side : ClosedPanelTabs)
+    {
+        for (auto& closed : side)
+        {
+            if (closed.WorkDirHistory != NULL)
+                closed.WorkDirHistory->ClearHistory();
+        }
+    }
 
     UpdateAllDirectoryLineHistoryStates();
     RefreshCommandStates();

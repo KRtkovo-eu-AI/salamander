@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Route explicit Refresh to protected archives. | Leave background refresh noninteractive. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Resolve and preserve history origins by tab GUID. | Capture the title before a tab closes and restore identity on undo. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Reuse undecorated live tab names in working directory history. | Keep tab state indicators separate from source labels. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-25 | Dispatch protected copy tests and generated-report opens together. | The main window keeps both the laboratory F5 gate and UnISO report navigation. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 // | 2026-11-20 | Reopen the exact enumerated source image on the plug-in UI thread. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
@@ -679,6 +680,7 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel, bool storeForReopen)
         return;
 
     int originalIndex = index;
+    RememberWorkingDirectoryTabName(panel);
 
     TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
     CTabWindow* tabWnd = GetPanelTabWindow(side);
@@ -768,6 +770,7 @@ void CMainWindow::RememberClosedTab(CPanelSide side, CFilesWindow* panel, int in
 
     SClosedPanelTab info;
     info.InsertIndex = insertIndex;
+    info.HistoryTabId = panel->GetHistoryTabId();
 
     char path[2 * MAX_PATH];
     path[0] = 0;
@@ -978,27 +981,46 @@ std::wstring CMainWindow::GetPanelTabDisplayText(CFilesWindow* panel) const
     return text;
 }
 
-std::wstring CMainWindow::GetPanelTabNameById(ULONGLONG tabId) const
+CFilesWindow* CMainWindow::FindPanelTabByHistoryId(const GUID& tabId) const
 {
-    if (tabId == 0)
-        return {};
+    if (IsEqualGUID(tabId, GUID{}))
+        return NULL;
 
     for (CPanelSide side : {cpsLeft, cpsRight})
     {
-        for (int i = 0; i < GetPanelTabCount(side); ++i)
+        const int count = GetPanelTabCount(side);
+        for (int i = 0; i < count; ++i)
         {
             CFilesWindow* panel = GetPanelTabAt(side, i);
-            if (panel != NULL && panel->GetPanelTabId() == tabId)
-                return BuildTabName(panel);
+            if (panel != NULL && IsEqualGUID(panel->GetHistoryTabId(), tabId))
+                return panel;
         }
     }
     for (int i = 0; i < GetDetachedTabCount(); ++i)
     {
         CFilesWindow* panel = GetDetachedTabAt(i);
-        if (panel != NULL && panel->GetPanelTabId() == tabId)
-            return BuildTabName(panel);
+        if (panel != NULL && IsEqualGUID(panel->GetHistoryTabId(), tabId))
+            return panel;
     }
-    return {};
+    return NULL;
+}
+
+void CMainWindow::RestorePanelTabHistoryId(CFilesWindow* panel, const GUID& tabId)
+{
+    if (IsEqualGUID(tabId, GUID{}) || FindPanelTabByHistoryId(tabId) != NULL)
+        return;
+
+    panel->SetHistoryTabId(tabId);
+}
+
+std::wstring CMainWindow::GetPanelTabName(CFilesWindow* panel) const
+{
+    return panel != NULL ? BuildTabName(panel) : std::wstring();
+}
+
+std::wstring CMainWindow::GetPanelTabNameById(const GUID& tabId) const
+{
+    return GetPanelTabName(FindPanelTabByHistoryId(tabId));
 }
 
 void CMainWindow::UpdatePanelTabTitle(CFilesWindow* panel)
@@ -2579,6 +2601,8 @@ bool CMainWindow::CommandReopenClosedTab(CPanelSide side)
         ClosedPanelTabs[vectorIndex].push_back(std::move(entry));
         return false;
     }
+
+    RestorePanelTabHistoryId(panel, entry.HistoryTabId);
 
     if (panel->IsViewTemplateValid(entry.ViewTemplateIndex))
         panel->SelectViewTemplate(entry.ViewTemplateIndex, TRUE, FALSE);

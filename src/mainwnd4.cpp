@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Use persistent tab IDs and retain the final caption at close. | Keep history attribution after the source panel is gone. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Record the originating tab for working directory visits. | Attribute shared history to the tab where the path was used. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-15 | Explain protected file-list handoff. | Document temporary source ownership and panel validation. | #731 | GPT-6 |
 // | 2026-11-14 | Bound file-list error formatting. | Treat localized strings and paths as data. | #731 | GPT-6 |
@@ -271,6 +272,39 @@ void CMainWindow::ClearPluginFSFromHistory(CPluginFSInterfaceAbstract* fs)
     UpdateAllDirectoryLineHistoryStates();
 }
 
+void CMainWindow::RememberWorkingDirectoryTabName(CFilesWindow* panel)
+{
+    const GUID& tabId = panel->GetHistoryTabId();
+    if (IsEqualGUID(tabId, GUID{}))
+        return;
+
+    const std::wstring name = GetPanelTabName(panel);
+    if (name.empty())
+        return;
+
+    auto remember = [&](CPathHistory* history) {
+        if (history != NULL)
+            history->RememberSourceTabName(tabId, name);
+    };
+    remember(DirHistory);
+    for (CPanelSide side : {cpsLeft, cpsRight})
+    {
+        for (int i = 0; i < GetPanelTabCount(side); ++i)
+            remember(GetPanelTabAt(side, i)->GetWorkDirHistory());
+    }
+    for (int i = 0; i < GetDetachedTabCount(); ++i)
+    {
+        CFilesWindow* detached = GetDetachedTabAt(i);
+        if (detached != NULL)
+            remember(detached->GetWorkDirHistory());
+    }
+    for (const auto& side : ClosedPanelTabs)
+    {
+        for (const auto& closed : side)
+            remember(closed.WorkDirHistory.get());
+    }
+}
+
 void CMainWindow::DirHistoryAddPathUnique(CFilesWindow* panel, int type,
                                           const char* pathOrArchiveOrFSName,
                                           const char* archivePathOrFSUserPart, HICON hIcon,
@@ -286,7 +320,7 @@ void CMainWindow::DirHistoryAddPathUnique(CFilesWindow* panel, int type,
 
     CPathHistory* sharedHistory = DirHistory;
     CPathHistory* panelHistory = (panel != NULL) ? panel->EnsureWorkDirHistory() : NULL;
-    const ULONGLONG sourceTabId = (panel != NULL) ? panel->GetPanelTabId() : 0;
+    const CWorkingDirectorySource source = {panel != NULL ? panel->GetHistoryTabId() : GUID{}, {}};
 
     CPathHistory* primaryHistory = UsingSharedWorkDirHistory() ? sharedHistory : panelHistory;
     CPathHistory* secondaryHistory = NULL;
@@ -309,14 +343,14 @@ void CMainWindow::DirHistoryAddPathUnique(CFilesWindow* panel, int type,
     if (primaryHistory != NULL)
     {
         primaryHistory->AddPathUnique(type, pathOrArchiveOrFSName, archivePathOrFSUserPart, hIcon,
-                                      pluginFS, curPluginFS, sourceTabId);
+                                      pluginFS, curPluginFS, source);
         hIcon = NULL;
     }
 
     if (secondaryHistory != NULL)
     {
         secondaryHistory->AddPathUnique(type, pathOrArchiveOrFSName, archivePathOrFSUserPart, secondaryIcon,
-                                        pluginFS, curPluginFS, sourceTabId);
+                                        pluginFS, curPluginFS, source);
         secondaryIcon = NULL;
     }
 
