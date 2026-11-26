@@ -5,7 +5,7 @@ VERSION,"2,28,0,197"
 
 [TRANSLATION]
 LANGID,1050
-AUTHOR,"Open Samandarin"
+AUTHOR,"Open Samandarin Authors"
 WEB,"open.samandarin.net"
 COMMENT,"croatian (automatic AI translation)"
 
@@ -49,6 +49,16 @@ COMMENT,"croatian (automatic AI translation)"
 2052,7,77,247,12,1,"Automatski &zakreni EXIF JPEG slike (fotografije digitalnog fotoaparata)"
 2053,7,89,187,12,1,"&Prikaži poruku nakon uspješnog spremanja datoteke"
 2054,7,101,261,12,1,"Zapamti &putanju pri spremanju snimki zaslona, skeniranih slika i sadržaja međuspremnika"
+
+[DIALOG 2044]
+268,150,1,"Performanse"
+2042,7,7,251,12,1,"&Prethodno učitaj okolne slike obostrano"
+2043,7,25,251,22,1,"Za JPEG, PNG i jednstranične TIFF slike u načinu cijele slike ili cijeli zaslon."
+2045,7,51,251,9,1,"&Budžet RAM-a"
+2046,7,63,251,18,1,""
+2047,7,86,251,29,1,"Razina %u od 5: %u MiB. Maks. po smjeru: %u.\r\nUkupno oko: %u pri 12 MP, %u pri 24 MP ili %u pri 48 MP."
+2048,7,115,251,19,1,"Procjene pretpostavljaju neprozirne slike. Prikazana slika nije u ovom proračunu."
+2049,7,134,251,12,1,"&Ponudi isključivanje prethodnog učitavanja ako uspori"
 
 [DIALOG 2060]
 268,150,1,"Tipkovnica && miš"
@@ -775,4 +785,8 @@ COMMENT,"croatian (automatic AI translation)"
 
 [STRINGTABLE 48]
 4418,1,"Sadrži EXIF podatke"
+
+[STRINGTABLE 49]
+4432,1,"Prethodno učitavanje možda usporava pregled slika na ovom disku.\n\nŽelite li ga isključiti?"
+4433,1,"Ne nudi opet isključenje pred učitavanja"
 

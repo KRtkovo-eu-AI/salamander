@@ -5,9 +5,9 @@ VERSION,"1,15,0,197"
 
 [TRANSLATION]
 LANGID,1027
-AUTHOR,"Ondrej Zarevucky"
-WEB,"samandarin.net"
-COMMENT,"English version"
+AUTHOR,"Ondrej Zarevucky, Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"catalan (automatic AI translation)"
 
 [MENU 109]
 0,1,"&Arxiu"

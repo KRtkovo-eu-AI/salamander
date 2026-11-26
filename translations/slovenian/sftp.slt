@@ -5,9 +5,9 @@ VERSION,"1,4,0,197"
 
 [TRANSLATION]
 LANGID,1060
-AUTHOR,"Dupl3xx"
-WEB,"samandarin.net"
-COMMENT,"English version"
+AUTHOR,"Dupl3xx, Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"slovenian (automatic AI translation)"
 
 [DIALOG 490]
 205,61,1,"Pregl."

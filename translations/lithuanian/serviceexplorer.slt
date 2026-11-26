@@ -5,9 +5,9 @@ VERSION,"0,16,0,197"
 
 [TRANSLATION]
 LANGID,1063
-AUTHOR,"ALTAP"
-WEB,"http://www.jamik.de"
-COMMENT,"Original English resources."
+AUTHOR,"ALTAP, Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"lithuanian (automatic AI translation)"
 
 [DIALOG 490]
 205,61,1,"Peržiūra"

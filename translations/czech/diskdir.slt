@@ -5,9 +5,9 @@ VERSION,"1,1,0,197"
 
 [TRANSLATION]
 LANGID,1029
-AUTHOR,"KRtkovo.eu"
-WEB,"samandarin.net"
-COMMENT,"Automatic AI translation"
+AUTHOR,"KRtkovo.eu, Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"czech (automatic AI translation)"
 
 [DIALOG 200]
 278,94,1,"Vytvořit katalog DiskDir"

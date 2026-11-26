@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Open the Localization issue form and show langpack.dll paths. | Get More Languages still opened the Altap forum, and the list named removed .slg files. | https://github.com/KRtkovo-eu-AI/salamander/issues/857 | Grok 4.7 |
 // | 2026-11-15 | Explain UAC integration boundaries. | Document scope, lifetime and native workflow decisions. | #731 | GPT-6 |
 // | 2026-11-08 | Estimate occupied space only from a complete set of logical file sizes. | Keep estimates correct for empty files and arbitrary cluster sizes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Keep the same full size results dialog for protected totals. | Preserve the layout and leave unavailable values disabled. | | GPT-6.1 Sol (Codex) |
@@ -1132,7 +1133,10 @@ void CLanguageSelectorDialog::LoadListView()
 
         Items[i].GetLanguageName(buff, 200);
         ListView_SetItemText(HListView, i, 0, buff);
-        sprintf(buff, "lang\\%s", Items[i].FileName);
+        if (Items[i].SourcePath != NULL && Items[i].SourcePath[0] != 0)
+            lstrcpyn(buff, Items[i].SourcePath, sizeof(buff));
+        else
+            _snprintf_s(buff, _TRUNCATE, "lang\\%s", Items[i].FileName != NULL ? Items[i].FileName : "");
         ListView_SetItemText(HListView, i, 1, buff);
     }
 
@@ -1197,8 +1201,58 @@ struct CAddPackLangCtx
 {
     TDirectArray<CLanguage>* Items;
     HINSTANCE PluginDLL;
+    const char* SourcePath;
     BOOL Ok;
 };
+
+void LanguageModuleFileName(HINSTANCE module, char* out, int outSize)
+{
+    HINSTANCE host = module != NULL ? module : HInstance;
+    const char* fallback = module == NULL || host == HInstance ? "salamand.exe" : "plugin.spl";
+    if (out == NULL || outSize <= 0)
+        return;
+    out[0] = 0;
+    char* path = (char*)malloc(SAL_MAX_PATH);
+    if (path == NULL)
+    {
+        lstrcpyn(out, fallback, outSize);
+        return;
+    }
+    DWORD got = GetModuleFileName(host, path, SAL_MAX_PATH);
+    if (got == 0 || got >= SAL_MAX_PATH)
+        lstrcpyn(out, fallback, outSize);
+    else
+    {
+        const char* slash = strrchr(path, '\\');
+        lstrcpyn(out, slash != NULL ? slash + 1 : path, outSize);
+    }
+    free(path);
+}
+
+BOOL LanguageHasEmbeddedEnglish(HINSTANCE module)
+{
+    HINSTANCE host = module != NULL ? module : HInstance;
+    if (host == GetModuleHandle(NULL))
+        return TRUE;
+    return FindResourceA(host, SAL_LANGPACK_EMBEDDED_ENGLISH_RESOURCE_NAME, RT_RCDATA) != NULL;
+}
+
+BOOL AddLanguageItem(TDirectArray<CLanguage>& items, CLanguage& lang, const char* sourcePath)
+{
+    if (!lang.SetSourcePath(sourcePath))
+    {
+        lang.Free();
+        return FALSE;
+    }
+    items.Add(lang);
+    if (!items.IsGood())
+    {
+        items.ResetState();
+        lang.Free();
+        return FALSE;
+    }
+    return TRUE;
+}
 
 BOOL AddPackLanguageToSelector(const char* languageBase, void* userData)
 {
@@ -1215,11 +1269,8 @@ BOOL AddPackLanguageToSelector(const char* languageBase, void* userData)
     CLanguage lang;
     if (lang.Init(slgName, ctx->PluginDLL))
     {
-        ctx->Items->Add(lang);
-        if (!ctx->Items->IsGood())
+        if (!AddLanguageItem(*ctx->Items, lang, ctx->SourcePath))
         {
-            ctx->Items->ResetState();
-            lang.Free();
             ctx->Ok = FALSE;
             return FALSE;
         }
@@ -1231,18 +1282,17 @@ BOOL AddPackLanguageToSelector(const char* languageBase, void* userData)
 
 BOOL CLanguageSelectorDialog::Initialize(const char* slgSearchPath, HINSTANCE pluginDLL)
 {
+    char moduleFile[512];
+    LanguageModuleFileName(pluginDLL, moduleFile, (int)sizeof(moduleFile));
+
     // Always offer embedded English from the host binary.
     {
         CLanguage english;
         if (english.Init("english.slg", pluginDLL))
         {
-            Items.Add(english);
-            if (!Items.IsGood())
-            {
-                Items.ResetState();
-                english.Free();
+            const char* englishPath = LanguageHasEmbeddedEnglish(pluginDLL) ? moduleFile : "lang\\english.slg";
+            if (!AddLanguageItem(Items, english, englishPath))
                 return FALSE;
-            }
         }
     }
 
@@ -1250,6 +1300,7 @@ BOOL CLanguageSelectorDialog::Initialize(const char* slgSearchPath, HINSTANCE pl
     CAddPackLangCtx packCtx;
     packCtx.Items = &Items;
     packCtx.PluginDLL = pluginDLL;
+    packCtx.SourcePath = moduleFile;
     packCtx.Ok = TRUE;
     const char* moduleKey = SAL_LANGPACK_MODULE_SALAMAND;
     char pluginKey[64];
@@ -1273,7 +1324,12 @@ BOOL CLanguageSelectorDialog::Initialize(const char* slgSearchPath, HINSTANCE pl
     }
     SalEnumModuleLanguages(pluginDLL, moduleKey, AddPackLanguageToSelector, &packCtx);
     if (packCtx.Ok)
+    {
+        char packPath[64];
+        _snprintf_s(packPath, _TRUNCATE, "lang\\%s", SAL_LANGPACK_FILENAME);
+        packCtx.SourcePath = packPath;
         SalEnumLangPackLanguages(moduleKey, AddPackLanguageToSelector, &packCtx);
+    }
     if (!packCtx.Ok)
         return FALSE;
 
@@ -1311,11 +1367,11 @@ BOOL CLanguageSelectorDialog::Initialize(const char* slgSearchPath, HINSTANCE pl
                 CLanguage lang;
                 if (lang.Init(file.cFileName, pluginDLL))
                 {
-                    Items.Add(lang);
-                    if (!Items.IsGood())
+                    char sourcePath[512];
+                    _snprintf_s(sourcePath, _TRUNCATE, "lang\\%s", file.cFileName);
+                    if (!AddLanguageItem(Items, lang, sourcePath))
                     {
-                        Items.ResetState();
-                        lang.Free();
+                        HANDLES(FindClose(hFind));
                         return FALSE;
                     }
                 }
@@ -1382,11 +1438,7 @@ CLanguageSelectorDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_INITDIALOG:
     {
 
-        // JRY: For AS 2.53 which ships with Czech, German and English we send other translations to the "Translations" section on the forum
-        //     https://forum.altap.cz/viewforum.php?f=23 - in the hope that someone will be motivated to create a translation.
-
-        // There is no download page for languages yet, so this button is disabled
-        // EnableWindow(GetDlgItem(HWindow, IDB_GETMORELANGS), FALSE);
+        // Get More Languages opens a Localization issue so a missing language can be requested.
 
         if (!OpenedFromConfiguration && !OpenedForPlugin)
         {
@@ -1446,7 +1498,9 @@ CLanguageSelectorDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (PluginName != NULL && LOWORD(wParam) == IDCANCEL)
             return 0;
         if (LOWORD(wParam) == IDB_GETMORELANGS)
-            ShellExecute(HWindow, "open", "https://forum.altap.cz/viewforum.php?f=23", NULL, NULL, SW_SHOWNORMAL);
+            ShellExecute(HWindow, "open",
+                         "https://github.com/KRtkovo-eu-AI/salamander/issues/new?template=06-localization.yml",
+                         NULL, NULL, SW_SHOWNORMAL);
         if (LOWORD(wParam) == IDB_REFRESHLANGS)
         {
             ListView_DeleteAllItems(HListView);

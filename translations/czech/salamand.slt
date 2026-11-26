@@ -5,9 +5,9 @@ VERSION,"5,0,0,197"
 
 [TRANSLATION]
 LANGID,1029
-AUTHOR,"Hynek Mikulič"
-WEB,"forum.altap.cz/viewtopic.php?f=23&t=7008"
-COMMENT,"Česká verze"
+AUTHOR,"Hynek Mikulič, Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"czech (automatic AI translation)"
 HELPDIR,"ENGLISH"
 SLGINCOMPLETE,""
 
@@ -4447,17 +4447,12 @@ SLGINCOMPLETE,""
 14694,1,"Souhlas platí i pro chráněné složky pod touto cestou:"
 14695,1,"Přístup byl odepřen. Číst pro toto porovnání obsah souborů pod touto cestou jako správce?"
 14696,1,"Odkaz Windows pro kompatibilitu byl přeskočen. Do součtu se započítává 0 bajtů."
-
 14697,1,"Přístup byl odepřen. Zjistit místo obsazené tímto souborem na disku jako správce?"
 14698,1,"Operaci se nepodařilo potvrdit jako dokončenou. Pracovní záloha nebo žurnál mohly zůstat zachovány. Před opakováním zkontrolujte zdroj, cíl a případnou zálohu."
-
 14699,1,"Přístup byl odepřen. Nahradit tento soubor jako správce se zachováním oprávnění cíle? Náhradní soubor nebude obsahovat alternativní datové proudy."
-
 14700,1,"Byl dosažen limit správcovského přístupu (%s chráněných položek). Tato položka nebyla prohledána; výsledky mohou být neúplné."
 14701,1,"Neúplné (limit správce)"
-
 14702,1,"Dřívější hledání v těchto výsledcích dosáhlo limitu přístupu správce (%s chráněných položek). Některé položky nebyly prohledány."
-
 14703,1,"Přesun chráněné složky do Koše s oprávněními správce zatím není podporován."
 
 [STRINGTABLE 198]
@@ -4467,30 +4462,26 @@ SLGINCOMPLETE,""
 14707,1,"Chráněný podstrom překročil limit hloubky. Některé položky nebyly prohledány."
 14708,1,"Některé cíle odkazů nebyly prohledány."
 14709,1,"Přístup k části chráněného stromu nebyl schválen nebo selhal. Některé položky nebyly prohledány."
-
 14710,1,"Zvolený prohlížeč zatím neumí bezpečně otevřít tento ověřený výsledek. Použijte interní prohlížeč."
 14711,1,"Tento výsledek je svázán s dříve ověřenou identitou. Otevřít jeho snímek pro čtení v interním prohlížeči jako správce? Snímek je omezen na 16 MB."
-
 14712,1,"Ověřená identita tohoto chráněného výsledku není k dispozici. Soubor nelze bezpečně otevřít; zkuste hledání zopakovat."
 14713,1,"Volba View With zatím neumí bezpečně zachovat ověřenou identitu tohoto chráněného výsledku. Použijte běžné F3."
-
 14714,1,"Obsah ani štítky chráněného výsledku nyní nelze při zpřesnění bezpečně přečíst s původní ověřenou identitou. Tato položka nebyla ověřena."
 14715,1,"Přístup byl odepřen. Vytvořit tento seznam souborů jako správce?"
-
 14716,1,"Identitu některých chráněných složek nelze ověřit. Nebyly otevřeny; výpis je neúplný. První složka:"
 14717,1,"Chráněná složka obsahuje více než 4096 položek. Její výpis je neúplný."
-
 14719,1,"Branch View - %I64u souborů; výsledek může být neúplný"
-14720,1,"Výpis adresáře byl přerušen a obnoven. Soubory se mezitím mohly změnit, proto může být sloučený výpis neúplný. Ověřte jej obnovením."
 
+[STRINGTABLE 199]
+14720,1,"Výpis adresáře byl přerušen a obnoven. Soubory se mezitím mohly změnit, proto může být sloučený výpis neúplný. Ověřte jej obnovením."
 14721,1,"Přístup byl odepřen. Zkopírovat tento soubor jako správce? Soubory s alternativními datovými proudy nejsou v tomto režimu podporovány."
 14722,1,"Přístup byl odepřen i s oprávněním správce. Oprávnění této položky mohou přístup omezovat; nepřístupné položky nejsou zahrnuty do výsledku."
 14723,1,"Přístup byl odepřen i s oprávněním správce. Oprávnění této složky mohou přístup omezovat."
 
-[STRINGTABLE 199]
+[STRINGTABLE 200]
 14991,1,"Čtení přidružení souborů ze souborového úložiště, čekejte prosím..."
 
-[STRINGTABLE 200]
+[STRINGTABLE 201]
 14992,1,"Ukládání konfigurace do souborového úložiště, čekejte prosím..."
 14993,1,"Odstraňování staré konfigurace ze souborového úložiště, čekejte prosím..."
 14994,1,"Probíhá čtení přidružení souborů ze souborového úložiště..."

@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-26 | Stamp new language stubs with the shared author and web. | Keep generated translations aligned with Select Language details. | https://github.com/KRtkovo-eu-AI/salamander/issues/857 | Grok 4.7 |
 # | 2026-11-06 | Bootstrap stub languages from english.slg PE resources. | Empty translation folders need English state=0 archives before manual/AI translation. | | Composer |
 #!/usr/bin/env python3
 """Overlay English texts from english.slg onto a reference .slt structure.
@@ -276,7 +277,10 @@ def rewrite_header(lines: list[str], language: str, langid: int, ending: str) ->
                 out.append(f"LANGID,{langid}{ending}")
                 continue
             if stripped.startswith("AUTHOR,"):
-                out.append(f'AUTHOR,"Open Samandarin"{ending}')
+                out.append(f'AUTHOR,"Open Samandarin Authors"{ending}')
+                continue
+            if stripped.startswith("WEB,"):
+                out.append(f'WEB,"open.samandarin.net"{ending}')
                 continue
             if stripped.startswith("COMMENT,"):
                 out.append(f'COMMENT,"{language} (automatic AI translation)"{ending}')

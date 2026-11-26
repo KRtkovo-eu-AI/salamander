@@ -5,9 +5,9 @@ VERSION,"1,9,0,197"
 
 [TRANSLATION]
 LANGID,1040
-AUTHOR,"Open Samandarin"
+AUTHOR,"Open Samandarin Authors"
 WEB,"open.samandarin.net"
-COMMENT,"Automatic AI translation"
+COMMENT,"italian (automatic AI translation)"
 
 [DIALOG 100]
 308,201,1,"Opzioni pacchetto esteso"

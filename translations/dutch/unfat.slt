@@ -5,9 +5,9 @@ VERSION,"1,4,0,197"
 
 [TRANSLATION]
 LANGID,1043
-AUTHOR,"Cor van der Smissen, Marco Fung, Patrick Vijgeboom, S.V. (Stephan) Rietveld"
-WEB,"forum.altap.cz/viewtopic.php?f=23&t=7009"
-COMMENT,"Nederlandse versie"
+AUTHOR,"Cor van der Smissen, Marco Fung, Patrick Vijgeboom, S.V. (Stephan) Rietveld, Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"dutch (automatic AI translation)"
 
 [STRINGTABLE 0]
 1000,1,"UnFAT"

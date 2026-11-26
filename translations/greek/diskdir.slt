@@ -5,8 +5,8 @@ VERSION,"1,1,0,197"
 
 [TRANSLATION]
 LANGID,1032
-AUTHOR,"Open Samandarin"
-WEB,"samandarin.net"
+AUTHOR,"Open Samandarin Authors"
+WEB,"open.samandarin.net"
 COMMENT,"greek (automatic AI translation)"
 
 [DIALOG 200]

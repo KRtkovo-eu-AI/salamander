@@ -5,7 +5,7 @@ VERSION,"2,28,0,197"
 
 [TRANSLATION]
 LANGID,1053
-AUTHOR,"Open Samandarin"
+AUTHOR,"Open Samandarin Authors"
 WEB,"open.samandarin.net"
 COMMENT,"swedish (automatic AI translation)"
 
@@ -49,6 +49,16 @@ COMMENT,"swedish (automatic AI translation)"
 2052,7,77,224,12,1,"&Rotera EXIF JPEG-bilder automatiskt (bilder från digitalkamera)"
 2053,7,89,167,12,1,"&Visa meddelanderuta när filen har sparats"
 2054,7,101,261,12,1,"Kom ihåg &sökvägen när skärmbilder, skanningar och inklistrat urklippsinnehåll sparas"
+
+[DIALOG 2044]
+268,150,1,"Prestanda"
+2042,7,7,251,12,1,"&Förinläs nära bilder åt båda håll"
+2043,7,25,251,22,1,"För lokala JPEG-, PNG- och enkelsidiga TIFF-bilder i Anpassa hela eller Helskärm."
+2045,7,51,251,9,1,"&Minnesbudget"
+2046,7,63,251,18,1,""
+2047,7,86,251,29,1,"Nivå %u av 5: %u MiB. Max/riktning: %u.\r\nUngef. totalt: %u vid 12 MP, %u vid 24 MP eller %u vid 48 MP."
+2048,7,115,251,19,1,"Beräkningarna utgår från ogenomskinliga bilder. Den visade bilden räknas inte in."
+2049,7,134,251,12,1,"&Erbjud att stänga av förinläsning om bläsningen saktas"
 
 [DIALOG 2060]
 268,150,1,"Tangentbord && mus"
@@ -775,4 +785,8 @@ COMMENT,"swedish (automatic AI translation)"
 
 [STRINGTABLE 48]
 4418,1,"Innehåller EXIF-information"
+
+[STRINGTABLE 49]
+4432,1,"Förinläsningen kan sakta ned bildbläsningen på denna enhet.\n\nVill du stänga av förinläsningen?"
+4433,1,"Visa inte frågan om förinläsning igen"
 

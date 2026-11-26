@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-26 | Require the Localization issue link and langpack.dll selector path. | Get More Languages and the language list must follow the packed languages. | https://github.com/KRtkovo-eu-AI/salamander/issues/857 | Grok 4.7 |
 # | 2026-11-25 | Keep the exact unconditional langpack installer entry. | The 0.17 contract and the removed AdditionalLanguages task describe the same file. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 # | 2026-11-24 | Require an unconditional installer language pack. | The AdditionalLanguages task was removed, so the contract must match the always-installed langpack.dll entry. | https://github.com/KRtkovo-eu-AI/salamander/pull/865 | Grok 4.7 |
 # | 2026-11-20 | Verify that the installer always ships the language pack. | Match the current installer and require an unconditional file entry. |  | gpt-6.2-sol |
@@ -169,3 +170,37 @@ def test_official_langpack_builder_exists():
     )
     assert "build_official_langpack.ps1" in build
     assert "-BuildRoot $buildRootFull -RemoveEnglishSlg" in build
+
+
+def test_language_selector_opens_localization_form_and_shows_langpack_path():
+    selector = (REPO / "src" / "dialogs2.cpp").read_text(encoding="utf-8", errors="replace")
+    assert (
+        "https://github.com/KRtkovo-eu-AI/salamander/issues/new?template=06-localization.yml"
+        in selector
+    )
+    assert "https://forum.altap.cz/viewforum.php?f=23" not in selector
+    assert ' _snprintf_s(packPath, _TRUNCATE, "lang\\\\%s", SAL_LANGPACK_FILENAME);' in selector
+    assert "Items[i].SourcePath" in selector
+
+    template = (REPO / ".github" / "ISSUE_TEMPLATE" / "06-localization.yml").read_text(encoding="utf-8")
+    assert "name: Localization" in template
+    assert "type: Localization" in template
+    assert "\n  - localization\n" in template
+
+    english = (REPO / "src" / "salamdr2.cpp").read_text(encoding="utf-8", errors="replace")
+    english_meta = english.split("if (SalIsEnglishLanguageName(fileName))", 1)[1].split(
+        "char languageBase", 1
+    )[0]
+    assert 'L"Open Samandarin Authors", "samandarin.net"' in english_meta
+    assert "https://samandarin.net" not in english_meta
+
+    bootstrap = (REPO / "tools" / "localization" / "bootstrap_language_stub.py").read_text(
+        encoding="utf-8"
+    )
+    assert 'AUTHOR,"Open Samandarin Authors"' in bootstrap
+    assert 'WEB,"open.samandarin.net"' in bootstrap
+    assert 'COMMENT,"{language} (automatic AI translation)"' in bootstrap
+
+    translator = (REPO / "src" / "translator" / "trldata.h").read_text(encoding="utf-8", errors="replace")
+    assert 'lstrcpyW(Author, L"Open Samandarin Authors");' in translator
+    assert 'lstrcpyW(Web, L"open.samandarin.net");' in translator

@@ -5,9 +5,9 @@ VERSION,"2,9,0,197"
 
 [TRANSLATION]
 LANGID,1063
-AUTHOR,"Open Salamander"
-WEB,"samandarin.net"
-COMMENT,"English version"
+AUTHOR,"Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"lithuanian (automatic AI translation)"
 
 [DIALOG 100]
 205,64,1,"Įvestis"

@@ -5,9 +5,9 @@ VERSION,"0,16,0,197"
 
 [TRANSLATION]
 LANGID,1041
-AUTHOR,"Open Samandarin"
-WEB,"http://www.jamik.de"
-COMMENT,"Japanese (ja-JP) UI translation"
+AUTHOR,"Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"japanese (automatic AI translation)"
 
 [DIALOG 490]
 205,61,1,"ビューア"

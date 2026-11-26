@@ -5,9 +5,9 @@ VERSION,"1,17,0,197"
 
 [TRANSLATION]
 LANGID,1049
-AUTHOR,"Ален Хайруллин, Vasiliy, Игорь Полякофф, Neutron16"
-WEB,"forum.altap.cz/viewtopic.php?f=23&t=6166"
-COMMENT,"Русская версия"
+AUTHOR,"Ален Хайруллин, Vasiliy, Игорь Полякофф, Neutron16, Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"russian (automatic AI translation)"
 
 [DIALOG 100]
 368,260,1,"Групповое переименование"
@@ -259,8 +259,8 @@ COMMENT,"Русская версия"
 1107,1,"<Ошибка имени: %s>"
 1108,1,"<Invalid value in some input field>"
 1109,1,"<Ошибка рег. выражения: %s>"
-1110,1,"<Ош. Бойера-Мура: %s>"
-1111,1,"<Ошиб.: %s>"
+1110,1,"<Ошибка Boyer-Moore:%s>"
+1111,1,"<Ошибка:%s>"
 1112,1,"Ошибки отсутствуют."
 1113,1,"Недостаточно памяти."
 1114,1,"Регулярное выражение пусто."

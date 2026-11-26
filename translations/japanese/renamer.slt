@@ -5,9 +5,9 @@ VERSION,"1,17,0,197"
 
 [TRANSLATION]
 LANGID,1041
-AUTHOR,"Open Samandarin"
+AUTHOR,"Open Samandarin Authors"
 WEB,"open.samandarin.net"
-COMMENT,"Japanese (ja-JP) UI translation"
+COMMENT,"japanese (automatic AI translation)"
 
 [DIALOG 100]
 368,260,1,"名前の一括変更"
@@ -259,7 +259,7 @@ COMMENT,"Japanese (ja-JP) UI translation"
 1107,1,"<新しい名前のエラー: %s>"
 1108,1,"<Invalid value in some input field>"
 1109,1,"<正規表現のエラー: %s>"
-1110,1,"<Boyer-Mooreのエラー: %s>"
+1110,1,"<Boyer-Moore エラー: %s>"
 1111,1,"<エラー: %s>"
 1112,1,"エラーはありません。"
 1113,1,"メモリが少ない。"

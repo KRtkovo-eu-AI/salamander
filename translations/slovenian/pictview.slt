@@ -5,9 +5,9 @@ VERSION,"2,28,0,197"
 
 [TRANSLATION]
 LANGID,1060
-AUTHOR,"Open Salamander"
-WEB,"samandarin.net"
-COMMENT,"English version"
+AUTHOR,"Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"slovenian (automatic AI translation)"
 
 [DIALOG 2000]
 341,134,1,"O vtičniku"
@@ -49,6 +49,16 @@ COMMENT,"English version"
 2052,7,77,200,12,1,"Avtomatsko &zavrtite slike JPEG EXIF (fotoaparat)"
 2053,7,89,167,12,1,"&Prikaži sporočilo ob uspešnem shranitvi"
 2054,7,101,235,12,1,"Zapomni &pot pri shranjevanju posnetkov, skenovanj in prilepkov"
+
+[DIALOG 2044]
+268,150,1,"Zmogljivost"
+2042,7,7,251,12,1,"&Prednaloži bližnje slike v obe smeri"
+2043,7,25,261,22,1,"Za lokalne slike JPEG, PNG in TIFF z eno stranjo v načinu V celoti ali Cel zaslon."
+2045,7,51,251,9,1,"&Proračun pom."
+2046,7,63,251,18,1,""
+2047,7,86,251,29,1,"Raven %u od 5: %u MiB. Največ na smer: %u.\r\nSkupaj pribl.: %u pri 12 MP, %u pri 24 MP ali %u pri 48 MP."
+2048,7,115,251,19,1,"Ocene predpostavljajo neprosojne slike. Prikazana slika je ločena od proračuna."
+2049,7,134,251,12,1,"&Ponudi izklop prednalaganja, če upočasni brskanje"
 
 [DIALOG 2060]
 268,150,1,"Tipkov. && miška"
@@ -775,4 +785,8 @@ COMMENT,"English version"
 
 [STRINGTABLE 48]
 4418,1,"Vsebuje EXIF"
+
+[STRINGTABLE 49]
+4432,1,"Prednalaganje morda upočasnjuje brskanje po slikah na tem pogonu.\n\nŽeliš izklopiti prednalaganje?"
+4433,1,"Ne ponudi več izklopa prednalaganja"
 

@@ -5,9 +5,9 @@ VERSION,"1,13,0,197"
 
 [TRANSLATION]
 LANGID,1049
-AUTHOR,"Ален Хайруллин, Vasiliy, Игорь Полякофф, Neutron16"
-WEB,"forum.altap.cz/viewtopic.php?f=23&t=6166"
-COMMENT,"Русская версия"
+AUTHOR,"Ален Хайруллин, Vasiliy, Игорь Полякофф, Neutron16, Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"russian (automatic AI translation)"
 
 [DIALOG 101]
 210,102,1,"Настройка модуля"

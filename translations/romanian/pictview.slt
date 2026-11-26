@@ -5,9 +5,9 @@ VERSION,"2,28,0,197"
 
 [TRANSLATION]
 LANGID,1048
-AUTHOR,"Ioan Stefancu, Donca Radu"
-WEB,"forum.altap.cz/viewtopic.php?f=23&t=6165"
-COMMENT,"Versiunea romana"
+AUTHOR,"Ioan Stefancu, Donca Radu, Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"romanian (automatic AI translation)"
 
 [DIALOG 2000]
 341,134,1,"Despre Plugin"
@@ -49,6 +49,16 @@ COMMENT,"Versiunea romana"
 2052,7,77,200,12,1,"Auto&roteste imaginile EXIF JPEG (foto camere digitale)"
 2053,7,89,167,12,1,"Arata me&saj la salvarea cu succes a fisierului"
 2054,7,101,240,12,1,"Retine calea la salvare de ca&pturi de ecran, scanari, clipboard paste"
+
+[DIALOG 2044]
+268,150,1,"Performanță"
+2042,7,7,251,12,1,"&Preîncarcă imaginile din ambele direcții"
+2043,7,25,251,22,1,"Pentru JPEG/PNG/TIFF locale de o pagină, în mod Imagine întreagă sau tot ecranul."
+2045,7,51,251,9,1,"&Buget memorie"
+2046,7,63,251,18,1,""
+2047,7,86,251,29,1,"Nivel %u din 5: %u MiB. Max. pe direcție: %u.\r\nAprox. total: %u la 12 MP, %u la 24 MP sau %u la 48 MP."
+2048,7,115,251,19,1,"Estimările presupun imagini opace. Imaginea afișată este separată de acest buget."
+2049,7,134,251,12,1,"&Oferă oprirea preîncărcării dacă încetinește navigarea"
 
 [DIALOG 2060]
 268,150,1,"Tastatura && Mouse"
@@ -775,4 +785,8 @@ COMMENT,"Versiunea romana"
 
 [STRINGTABLE 48]
 4418,1,"Contine EXIF info"
+
+[STRINGTABLE 49]
+4432,1,"Preîncărcarea poate încetini navigarea imaginilor pe acest disc.\n\nDoriți să o dezactivați?"
+4433,1,"Nu mai oferi dezactivarea preîncărcării"
 

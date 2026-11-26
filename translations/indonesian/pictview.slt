@@ -5,7 +5,7 @@ VERSION,"2,28,0,197"
 
 [TRANSLATION]
 LANGID,1057
-AUTHOR,"Open Samandarin"
+AUTHOR,"Open Samandarin Authors"
 WEB,"open.samandarin.net"
 COMMENT,"indonesian (automatic AI translation)"
 
@@ -49,6 +49,16 @@ COMMENT,"indonesian (automatic AI translation)"
 2052,7,77,200,12,1,"Putar otomatis gambar EXIF JPEG (foto kamera digital)"
 2053,7,89,190,12,1,"&Tampilkan kotak pesan saat berkas berhasil disimpan"
 2054,7,101,261,12,1,"Ingat &jalur saat menyimpan tangkapan layar, hasil pindai, dan tempelan papan klip"
+
+[DIALOG 2044]
+268,150,1,"Kinerja"
+2042,7,7,251,12,1,"&Muat awal gambar di dekatnya ke dua arah"
+2043,7,25,261,22,1,"Untuk JPEG, PNG, dan TIFF satu halaman lokal dalam mode Sesuaikan seluruh gambar atau Layar penuh."
+2045,7,51,261,9,1,"&Anggaran memori"
+2046,7,63,251,18,1,""
+2047,7,86,261,29,1,"Tingkat %u dari 5: %u MiB. Maks. per arah: %u.\r\nPerkiraan total: %u pada 12 MP, %u pada 24 MP, atau %u pada 48 MP."
+2048,7,115,261,19,1,"Perkiraan mengasumsikan gambar buram. Gambar yang ditampilkan terpisah dari anggaran ini."
+2049,7,134,261,12,1,"&Tawarkan mematikan pemuatan awal jika memperlambat penjelajahan"
 
 [DIALOG 2060]
 268,150,1,"Keyboard && Mouse"
@@ -775,4 +785,8 @@ COMMENT,"indonesian (automatic AI translation)"
 
 [STRINGTABLE 48]
 4418,1,"Berisi informasi EXIF"
+
+[STRINGTABLE 49]
+4432,1,"Pemuatan awal mungkin memperlambat penjelajahan gambar pada drive ini.\n\nApakah Anda ingin mematikan pemuatan awal?"
+4433,1,"Jangan tawarkan mematikan pemuatan awal lagi"
 

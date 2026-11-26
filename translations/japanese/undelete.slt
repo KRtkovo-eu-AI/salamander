@@ -5,9 +5,9 @@ VERSION,"1,14,0,197"
 
 [TRANSLATION]
 LANGID,1041
-AUTHOR,"Open Samandarin"
+AUTHOR,"Open Samandarin Authors"
 WEB,"open.samandarin.net"
-COMMENT,"Japanese (ja-JP) UI translation"
+COMMENT,"japanese (automatic AI translation)"
 
 [DIALOG 1000]
 341,77,1,"Undelete"

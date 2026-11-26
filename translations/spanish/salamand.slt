@@ -5,9 +5,9 @@ VERSION,"5,0,0,197"
 
 [TRANSLATION]
 LANGID,3082
-AUTHOR,"Juan Pablo Barrio Lera"
-WEB,"forum.altap.cz/viewtopic.php?f=23&t=6168"
-COMMENT,"Versión en español"
+AUTHOR,"Juan Pablo Barrio Lera, Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"spanish (automatic AI translation)"
 HELPDIR,"ENGLISH"
 SLGINCOMPLETE,""
 
@@ -4447,17 +4447,12 @@ SLGINCOMPLETE,""
 14694,1,"Esta autorización también cubre las carpetas protegidas en:"
 14695,1,"Acceso denegado. ¿Leer como administrador el contenido de los archivos de esta ruta para esta comparación?"
 14696,1,"Se omitió este vínculo de compatibilidad de Windows. Aporta 0 bytes al total."
-
 14697,1,"Acceso denegado. ¿Consultar el espacio en disco asignado a este archivo como administrador?"
 14698,1,"No se pudo confirmar que la operación terminara. Puede quedar una copia de trabajo o un registro. Compruebe el origen, el destino y cualquier copia de seguridad antes de volver a intentarlo."
-
 14699,1,"Acceso denegado. ¿Reemplazar este archivo como administrador conservando los permisos del destino? El archivo de reemplazo no contendrá flujos de datos alternativos."
-
 14700,1,"Se alcanzó el límite de acceso de administrador (%s elementos protegidos). No se buscó en este elemento; los resultados pueden estar incompletos."
 14701,1,"Incompleto (límite admin.)"
-
 14702,1,"Una búsqueda anterior en estos resultados alcanzó el límite de acceso de administrador (%s elementos protegidos). Algunos elementos no se buscaron."
-
 14703,1,"Todavía no se admite mover una carpeta protegida a la Papelera de reciclaje con privilegios de administrador."
 
 [STRINGTABLE 198]
@@ -4467,30 +4462,26 @@ SLGINCOMPLETE,""
 14707,1,"Un subárbol protegido superó el límite de profundidad. Algunos elementos no se buscaron."
 14708,1,"No se buscaron algunos destinos de enlaces."
 14709,1,"El acceso a una parte de un árbol protegido no se aprobó o falló. Algunos elementos no se buscaron."
-
 14710,1,"El visor seleccionado aún no puede abrir de forma segura este resultado verificado. Use el visor interno."
 14711,1,"Este resultado está asociado a una identidad verificada anteriormente. ¿Abrir una instantánea de solo lectura en el visor interno como administrador? La instantánea está limitada a 16 MB."
-
 14712,1,"La identidad verificada de este resultado protegido no está disponible. El archivo no se puede abrir de forma segura; intente repetir la búsqueda."
 14713,1,"View With aún no puede conservar de forma segura la identidad verificada de este resultado protegido. Use F3 en su lugar."
-
 14714,1,"El contenido y las etiquetas de este resultado protegido no se pueden leer de forma segura durante el refinamiento con la identidad verificada anteriormente. Este elemento no se verificó."
 14715,1,"Acceso denegado. ¿Crear esta lista de archivos como administrador?"
-
 14716,1,"No se puede verificar la identidad de algunas carpetas protegidas. No se abrieron; la lista está incompleta. Primera carpeta:"
 14717,1,"Una carpeta protegida contiene más de 4096 elementos. Su lista está incompleta."
-
 14719,1,"Branch View - %I64u archivos; el resultado puede estar incompleto"
-14720,1,"La lista de la carpeta se interrumpió y se reanudó. Los archivos pudieron cambiar; la lista puede estar incompleta. Actualícela para comprobarla."
 
+[STRINGTABLE 199]
+14720,1,"La lista de la carpeta se interrumpió y se reanudó. Los archivos pudieron cambiar; la lista puede estar incompleta. Actualícela para comprobarla."
 14721,1,"Acceso denegado. ¿Copiar este archivo como administrador? Este modo no admite archivos con flujos de datos alternativos."
 14722,1,"El acceso se ha denegado incluso con derechos de administrador. Los permisos del elemento pueden restringir el acceso; los elementos inaccesibles se excluyen del resultado."
 14723,1,"El acceso se ha denegado incluso con derechos de administrador. Los permisos de la carpeta pueden restringir el acceso."
 
-[STRINGTABLE 199]
+[STRINGTABLE 200]
 14991,1,"Leyendo asociaciones del almacenamiento de archivos, espere por favor..."
 
-[STRINGTABLE 200]
+[STRINGTABLE 201]
 14992,1,"Guardando configuración en el almacenamiento de archivos, espere por favor..."
 14993,1,"Eliminando configuración antigua del almacenamiento de archivos, espere por favor..."
 14994,1,"Leyendo asociaciones del almacenamiento de archivos..."

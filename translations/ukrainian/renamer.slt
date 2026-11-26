@@ -5,7 +5,7 @@ VERSION,"1,17,0,197"
 
 [TRANSLATION]
 LANGID,1058
-AUTHOR,"Open Samandarin"
+AUTHOR,"Open Samandarin Authors"
 WEB,"open.samandarin.net"
 COMMENT,"ukrainian (automatic AI translation)"
 
@@ -258,9 +258,9 @@ COMMENT,"ukrainian (automatic AI translation)"
 1106,1,"Очікується символ заповнення (одна літера)."
 1107,1,"<Помилка імені: %s>"
 1108,1,"<Invalid value in some input field>"
-1109,1,"<Помилка регулярного виразу%s>"
-1110,1,"<Помилка Boyer-Moore%s>"
-1111,1,"<Помилка%s>"
+1109,1,"<Помилка регуляр. виразу: %s>"
+1110,1,"<Boyer-Moore помил. %s>"
+1111,1,"<Помил. %s>"
 1112,1,"Помилки немає."
 1113,1,"Недостатньо пам’яті."
 1114,1,"Регулярний вираз порожній."

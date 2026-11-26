@@ -5,9 +5,9 @@ VERSION,"2,28,0,197"
 
 [TRANSLATION]
 LANGID,1031
-AUTHOR,"Dirk Bornhütter, Thomas Kelso, Thomas Pagels, Thomas Wölk, Marko Meister und Mick Weiss"
-WEB,"forum.altap.cz/viewtopic.php?f=23&t=7334"
-COMMENT,"Deutsche Version"
+AUTHOR,"Dirk Bornhütter, Thomas Kelso, Thomas Pagels, Thomas Wölk, Marko Meister und Mick Weiss, Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"german (automatic AI translation)"
 
 [DIALOG 2000]
 341,134,1,"Über PictView"
@@ -49,6 +49,16 @@ COMMENT,"Deutsche Version"
 2052,7,77,213,12,1,"&EXIF JPEG Bilder automatisch drehen (Digitalkamera-Bilder)"
 2053,7,89,218,12,1,"&Bestätigungsmeldung nach erfolgreichen Speichern anzeigen"
 2054,7,101,258,12,1,"&Pfade beim Speichern von Screenshots, Scans, Zwischenablagen merken"
+
+[DIALOG 2044]
+268,150,1,"Leistung"
+2042,7,7,251,12,1,"&Benachbarte Bilder beidseitig vorladen"
+2043,7,25,251,22,1,"Für lokale JPEG-, PNG- und einseitige TIFF-Bilder in Anpassung oder Vollbild."
+2045,7,51,251,9,1,"&Speicherlimit"
+2046,7,63,251,18,1,""
+2047,7,86,251,29,1,"Stufe %u von 5: %u MiB. Max. pro Richtung: %u.\r\nCa.: %u bei 12 MP, %u bei 24 MP oder %u bei 48 MP."
+2048,7,115,251,19,1,"Schätzungen gelten für deckende Bilder. Das angezeigte Bild ist nicht enthalten."
+2049,7,134,251,12,1,"&Anbieten, Vorladen bei langsamem Blättern deaktivieren"
 
 [DIALOG 2060]
 268,150,1,"Tastatur && Maus"
@@ -775,4 +785,8 @@ COMMENT,"Deutsche Version"
 
 [STRINGTABLE 48]
 4418,1,"Enthält EXIF Info"
+
+[STRINGTABLE 49]
+4432,1,"Hier verlangsamt das Vorladen möglicherweise das Blättern.\n\nSoll das Vorladen deaktiviert werden?"
+4433,1,"Vorladen nicht erneut anbieten"
 

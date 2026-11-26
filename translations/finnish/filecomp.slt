@@ -5,9 +5,9 @@ VERSION,"1,23,0,197"
 
 [TRANSLATION]
 LANGID,1035
-AUTHOR,"Open Salamander"
-WEB,"samandarin.net"
-COMMENT,"English version"
+AUTHOR,"Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"finnish (automatic AI translation)"
 
 [DIALOG 100]
 227,93,1,"Vertaa tiedostoja"
@@ -268,7 +268,7 @@ COMMENT,"English version"
 1073,1,"Väärä luku!"
 1074,1,"Ei voi avata '%s'"
 1075,1,"File Comparator - Virhe"
-1076,0,"Invalid arguments. Usage:\n\tfilecomp.exe [options] first second\nOptions are:\n\t-w\tWait until File Comparator closes.\n\t--wait\tWait until File Comparator closes."
+1076,1,"Invalid arguments. Usage:\n\tfilecomp.exe [options] first second\nOptions are:\n\t-w\tWait until File Comparator closes.\n\t--wait\tWait until File Comparator closes."
 1077,1,"Viestiä ei voi lähettää File Comparatoriin."
 1078,1,"Open Samandarin avaus ei onnistu"
 1079,1,"Viestiä ei voi lähettää File Comparatoriin. Tarkista File Comparator -asetuksissa 'Avaa Open Samandarin käynnistyksessä'."
