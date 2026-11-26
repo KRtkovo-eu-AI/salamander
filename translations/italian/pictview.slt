@@ -5,9 +5,9 @@ VERSION,"2,28,0,197"
 
 [TRANSLATION]
 LANGID,1040
-AUTHOR,"Open Samandarin"
+AUTHOR,"Open Samandarin Authors"
 WEB,"open.samandarin.net"
-COMMENT,"Automatic AI translation"
+COMMENT,"italian (automatic AI translation)"
 
 [DIALOG 2000]
 341,134,1,"Informazioni sul plug-in"
@@ -49,6 +49,16 @@ COMMENT,"Automatic AI translation"
 2052,7,77,219,12,1,"Auto&ruota le immagini JPEG EXIF (foto di fotocamera digitale)"
 2053,7,89,218,12,1,"&Mostra una casella di messaggio al salvataggio del file riuscito"
 2054,7,101,261,12,1,"Ricorda il &percorso quando si salvano schermate, scansioni, incolla dalla clipboard"
+
+[DIALOG 2044]
+268,150,1,"Prestazioni"
+2042,7,7,251,12,1,"&Precarica immagini vicine in entrambe"
+2043,7,25,251,22,1,"Per JPEG, PNG e TIFF locali a pagina singola in Adatta tutto o Schermo intero."
+2045,7,51,251,9,1,"&Budget RAM"
+2046,7,63,251,18,1,""
+2047,7,86,251,29,1,"Livello %u di 5: %u MiB. Max. per direzione: %u.\r\nTotale approx.: %u a 12 MP, %u a 24 MP o %u a 48 MP."
+2048,7,115,251,19,1,"Stime per immagini opache. L'immagine mostrata non fa parte di questo budget."
+2049,7,134,251,12,1,"&Proponi di disattivare il precaricamento se rallenta"
 
 [DIALOG 2060]
 268,150,1,"Tastiera e mouse"
@@ -775,4 +785,8 @@ COMMENT,"Automatic AI translation"
 
 [STRINGTABLE 48]
 4418,1,"Contiene informazioni EXIF"
+
+[STRINGTABLE 49]
+4432,1,"Il precaricamento potrebbe rallentare la navigazione su questa unità.\n\nVuoi disattivarlo?"
+4433,1,"Non proporre più di disattivarlo"
 

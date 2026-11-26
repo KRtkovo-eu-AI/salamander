@@ -5,9 +5,9 @@ VERSION,"1,18,0,197"
 
 [TRANSLATION]
 LANGID,1035
-AUTHOR,"Open Salamander"
-WEB,"samandarin.net"
-COMMENT,"English version"
+AUTHOR,"Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"finnish (automatic AI translation)"
 
 [DIALOG 100]
 227,75,1,"Luo avain"
@@ -188,9 +188,9 @@ COMMENT,"English version"
 1062,1,"Rekisteriavaimen arvon kopiointivirhe"
 1063,1,"Rekisteriavaimen arvon siirtovirhe"
 1064,1,"Lähdeavaimen arvoa ei voitu poistaa. "
-1065,0,"Name:\t%ls\n\nError:\tCan't copy a key to itself."
+1065,1,"Name:\t%ls\n\nError:\tCan't copy a key to itself."
 1066,1,"Avainta tai arvoa ei voi siirtää itseensä."
-1067,0,"Name:\t%ls\n\nError:\tCan't move a key to itself."
+1067,1,"Name:\t%ls\n\nError:\tCan't move a key to itself."
 1068,1,"Avaimen luokkanimeä ei voi kopioida kohdeavaimeen.\nHaluatko jatkaa?"
 1069,1,"Varoitus"
 1070,1,"Avainta ei voi nimetä uudelleen. Nimi on jo käytössä."

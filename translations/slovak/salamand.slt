@@ -5,9 +5,9 @@ VERSION,"5,0,0,197"
 
 [TRANSLATION]
 LANGID,1051
-AUTHOR,"Roman Paholík"
-WEB,"forum.altap.cz/viewtopic.php?f=23&t=6167"
-COMMENT,"Slovenská verzia"
+AUTHOR,"Roman Paholík, Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"slovak (automatic AI translation)"
 HELPDIR,"ENGLISH"
 SLGINCOMPLETE,""
 
@@ -4449,17 +4449,12 @@ SLGINCOMPLETE,""
 14694,1,"Súhlas platí aj pre chránené priečinky pod touto cestou:"
 14695,1,"Prístup bol odmietnutý. Čítať pre toto porovnanie obsah súborov pod touto cestou ako správca?"
 14696,1,"Odkaz Windows na zabezpečenie kompatibility bol preskočený. Do súčtu sa započítava 0 bajtov."
-
 14697,1,"Prístup bol odmietnutý. Zistiť miesto obsadené týmto súborom na disku ako správca?"
 14698,1,"Operáciu sa nepodarilo potvrdiť ako dokončenú. Pracovná záloha alebo žurnál mohli zostať zachované. Pred opakovaním skontrolujte zdroj, cieľ a prípadnú zálohu."
-
 14699,1,"Prístup bol odmietnutý. Nahradiť tento súbor ako správca so zachovaním oprávnení cieľa? Náhradný súbor nebude obsahovať alternatívne dátové prúdy."
-
 14700,1,"Bol dosiahnutý limit správcovského prístupu (%s chránených položiek). Táto položka nebola prehľadaná; výsledky môžu byť neúplné."
 14701,1,"Neúplné (limit správcu)"
-
 14702,1,"Predchádzajúce vyhľadávanie v týchto výsledkoch dosiahlo limit prístupu správcu (%s chránených položiek). Niektoré položky neboli prehľadané."
-
 14703,1,"Presun chránenej zložky do Koša s oprávneniami správcu zatiaľ nie je podporovaný."
 
 [STRINGTABLE 198]
@@ -4469,30 +4464,26 @@ SLGINCOMPLETE,""
 14707,1,"Chránený podstrom prekročil limit hĺbky. Niektoré položky neboli prehľadané."
 14708,1,"Niektoré ciele odkazov neboli prehľadané."
 14709,1,"Prístup k časti chráneného stromu nebol schválený alebo zlyhal. Niektoré položky neboli prehľadané."
-
 14710,1,"Zvolený prehliadač zatiaľ nevie bezpečne otvoriť tento overený výsledok. Použite interný prehliadač."
 14711,1,"Tento výsledok je viazaný na skôr overenú identitu. Otvoriť jeho snímku na čítanie v internom prehliadači ako správca? Snímka je obmedzená na 16 MB."
-
 14712,1,"Overená identita tohto chráneného výsledku nie je k dispozícii. Súbor nemožno bezpečne otvoriť; skúste vyhľadávanie zopakovať."
 14713,1,"Voľba View With zatiaľ nevie bezpečne zachovať overenú identitu tohto chráneného výsledku. Použite bežné F3."
-
 14714,1,"Obsah ani štítky chráneného výsledku teraz nemožno pri spresnení bezpečne prečítať s pôvodnou overenou identitou. Táto položka nebola overená."
 14715,1,"Prístup bol odmietnutý. Vytvoriť tento zoznam súborov ako správca?"
-
 14716,1,"Identitu niektorých chránených priečinkov nemožno overiť. Neboli otvorené; výpis je neúplný. Prvý priečinok:"
 14717,1,"Chránený priečinok obsahuje viac ako 4096 položiek. Jeho výpis je neúplný."
-
 14719,1,"Branch View - %I64u súborov; výsledok môže byť neúplný"
-14720,1,"Výpis priečinka bol prerušený a obnovený. Súbory sa medzitým mohli zmeniť, preto môže byť výsledný výpis neúplný. Overte ho obnovením."
 
+[STRINGTABLE 199]
+14720,1,"Výpis priečinka bol prerušený a obnovený. Súbory sa medzitým mohli zmeniť, preto môže byť výsledný výpis neúplný. Overte ho obnovením."
 14721,1,"Prístup bol odmietnutý. Skopírovať tento súbor ako správca? Súbory s alternatívnymi dátovými prúdmi nie sú v tomto režime podporované."
 14722,1,"Prístup bol odmietnutý aj s oprávnením správcu. Oprávnenia tejto položky môžu obmedzovať prístup; neprístupné položky nie sú zahrnuté vo výsledku."
 14723,1,"Prístup bol odmietnutý aj s oprávneniami správcu. Oprávnenia tejto zložky môžu obmedzovať prístup."
 
-[STRINGTABLE 199]
+[STRINGTABLE 200]
 14991,1,"Čítanie priradení súborov zo súborového úložiska, čakajte prosím..."
 
-[STRINGTABLE 200]
+[STRINGTABLE 201]
 14992,1,"Ukladanie konfigurácie do súborového úložiska, čakajte prosím..."
 14993,1,"Odstraňovanie starej konfigurácie zo súborového úložiska, čakajte prosím..."
 14994,1,"Prebieha čítanie priradení súborov zo súborového úložiska..."

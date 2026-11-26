@@ -1,0 +1,30 @@
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-26 | Add the Localization issue form. | Get More Languages should open a request for a missing language. | https://github.com/KRtkovo-eu-AI/salamander/issues/857 | Grok 4.7 |
+name: Localization
+description: "Suggest a language you want Open Salamander: Samandarin to include."
+title: "Localization: "
+type: Localization
+labels:
+  - localization
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form to ask for a language that Open Salamander: Samandarin does not include yet.
+
+        Translations ship with the application. If a language is missing, or an included translation needs a correction, describe it below.
+  - type: input
+    id: language
+    attributes:
+      label: Language
+      description: Name the language you want added or corrected.
+      placeholder: For example, Czech, or a language that is not listed yet
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: Add anything that would help, such as the language name in that language, a region, or examples of incorrect text.
+    validations:
+      required: false

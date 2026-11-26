@@ -5,9 +5,9 @@ VERSION,"1,4,0,197"
 
 [TRANSLATION]
 LANGID,1029
-AUTHOR,"Dupl3xx"
-WEB,"github.com/Dupl3xx/salamander-sftp-plugin"
-COMMENT,"Automatic AI translation"
+AUTHOR,"Dupl3xx, Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"czech (automatic AI translation)"
 
 [DIALOG 490]
 205,61,1,"Prohlížeč"

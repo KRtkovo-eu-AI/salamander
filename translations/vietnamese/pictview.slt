@@ -5,7 +5,7 @@ VERSION,"2,28,0,197"
 
 [TRANSLATION]
 LANGID,1066
-AUTHOR,"Open Samandarin"
+AUTHOR,"Open Samandarin Authors"
 WEB,"open.samandarin.net"
 COMMENT,"vietnamese (automatic AI translation)"
 
@@ -49,6 +49,16 @@ COMMENT,"vietnamese (automatic AI translation)"
 2052,7,77,203,12,1,"Tự động xoay ảnh JPEG EXIF (ảnh máy ảnh kỹ thuật số)"
 2053,7,89,167,12,1,"Hiện hộp thoại khi lưu tệp thành công"
 2054,7,101,240,12,1,"Nhớ đường dẫn khi lưu chụp màn hình, quét, dán từ khay nhớ tạm"
+
+[DIALOG 2044]
+268,150,1,"Hiệu năng"
+2042,7,7,251,12,1,"&Tải trước ảnh lân cận theo hai chiều"
+2043,7,25,251,22,1,"Cho JPEG, PNG và TIFF một trang cục bộ khi Phù hợp toàn bộ hoặc Toàn màn hình."
+2045,7,51,251,9,1,"&Hạn mức RAM"
+2046,7,63,251,18,1,""
+2047,7,86,251,29,1,"Cấp độ %u/5: %u MiB. Tối đa mỗi hướng: %u.\r\nTổng ước tính: %u ở 12 MP, %u ở 24 MP, hoặc %u ở 48 MP."
+2048,7,115,251,19,1,"Các ước tính giả định ảnh đục. Ảnh hiển thị không nằm trong ngân sách này."
+2049,7,134,251,12,1,"&Đề xuất tắt tải trước nếu làm chậm duyệt ảnh"
 
 [DIALOG 2060]
 268,150,1,"Bàn phím && Chuột"
@@ -775,4 +785,8 @@ COMMENT,"vietnamese (automatic AI translation)"
 
 [STRINGTABLE 48]
 4418,1,"Có thông tin EXIF"
+
+[STRINGTABLE 49]
+4432,1,"Tải trước có thể làm chậm duyệt ảnh trên ổ đĩa này.\n\nBạn có muốn tắt tải trước không?"
+4433,1,"Không đề xuất tắt tải trước nữa"
 

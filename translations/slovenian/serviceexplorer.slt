@@ -5,9 +5,9 @@ VERSION,"0,16,0,197"
 
 [TRANSLATION]
 LANGID,1060
-AUTHOR,"ALTAP"
-WEB,"http://www.jamik.de"
-COMMENT,"Original English resources."
+AUTHOR,"ALTAP, Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"slovenian (automatic AI translation)"
 
 [DIALOG 490]
 205,61,1,"Pregled"

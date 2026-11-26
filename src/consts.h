@@ -2243,7 +2243,7 @@ int GetWMCommandFromSalCmd(int salCmd);
 //******************************************************************************
 
 // pocet polozek v poli SalamanderConfigurationRoots
-#define SALCFG_ROOTS_COUNT 99
+#define SALCFG_ROOTS_COUNT 100
 
 void FormatConfigDisplayName(const char* root, const char* version, char* buffer, size_t bufferChars);
 

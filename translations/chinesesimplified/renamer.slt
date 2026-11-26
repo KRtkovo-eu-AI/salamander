@@ -5,9 +5,9 @@ VERSION,"1,17,0,197"
 
 [TRANSLATION]
 LANGID,2052
-AUTHOR,"Michael Lu"
-WEB,"forum.altap.cz/viewtopic.php?f=23&t=6958"
-COMMENT,"简体中文版"
+AUTHOR,"Michael Lu, Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"chinesesimplified (automatic AI translation)"
 
 [DIALOG 100]
 368,260,1,"批量重命名"
@@ -259,7 +259,7 @@ COMMENT,"简体中文版"
 1107,1,"<新名称错误: %s>"
 1108,1,"<Invalid value in some input field>"
 1109,1,"<正则表达式错误: %s>"
-1110,1,"<Boyer-Moore 错误: %s>"
+1110,1,"<Boyer-Moore错误: %s>"
 1111,1,"<错误: %s>"
 1112,1,"没有错误。"
 1113,1,"低内存。"

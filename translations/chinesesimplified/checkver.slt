@@ -5,9 +5,9 @@ VERSION,"1,2,8,197"
 
 [TRANSLATION]
 LANGID,2052
-AUTHOR,"Michael Lu"
-WEB,"forum.altap.cz/viewtopic.php?f=23&t=6958"
-COMMENT,"简体中文版"
+AUTHOR,"Michael Lu, Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"chinesesimplified (automatic AI translation)"
 
 [DIALOG 100]
 338,238,1,"检查新版本"

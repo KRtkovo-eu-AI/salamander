@@ -5,9 +5,9 @@ VERSION,"1,17,0,197"
 
 [TRANSLATION]
 LANGID,1048
-AUTHOR,"Ioan Stefancu, Donca Radu"
-WEB,"forum.altap.cz/viewtopic.php?f=23&t=6165"
-COMMENT,"Versiunea romana"
+AUTHOR,"Ioan Stefancu, Donca Radu, Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"romanian (automatic AI translation)"
 
 [DIALOG 100]
 368,260,1,"Redenumire in grup"
@@ -258,7 +258,7 @@ COMMENT,"Versiunea romana"
 1106,1,"Astept specificatii umplere goluri (o litera)"
 1107,1,"<Eroare nume nou:%s>"
 1108,1,"<Invalid value in some input field>"
-1109,1,"<Eroare expresie regulată: %s>"
+1109,1,"<Eroare expresie regulară: %s>"
 1110,1,"<Eroare Boyer-Moore:%s>"
 1111,1,"<Eroare:%s>"
 1112,1,"Fara eroare."

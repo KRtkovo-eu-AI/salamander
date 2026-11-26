@@ -79,9 +79,9 @@ body:
       label: Network access
       description: Curated capability disclosure. Native plugins still run in-process; this is not a sandbox.
       options:
-        - no
-        - possible
-        - yes
+        - 'no'
+        - 'possible'
+        - 'yes'
     validations:
       required: true
   - type: dropdown
@@ -89,8 +89,8 @@ body:
     attributes:
       label: External processes
       options:
-        - no
-        - yes
+        - 'no'
+        - 'yes'
     validations:
       required: true
   - type: dropdown
@@ -98,8 +98,8 @@ body:
     attributes:
       label: Script execution
       options:
-        - no
-        - yes
+        - 'no'
+        - 'yes'
     validations:
       required: true
   - type: dropdown
@@ -107,8 +107,8 @@ body:
     attributes:
       label: Active web content
       options:
-        - no
-        - yes
+        - 'no'
+        - 'yes'
     validations:
       required: true
   - type: dropdown

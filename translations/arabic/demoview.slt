@@ -5,9 +5,9 @@ VERSION,"1,0,4,197"
 
 [TRANSLATION]
 LANGID,1025
-AUTHOR,"Open Samandarin"
+AUTHOR,"Open Samandarin Authors"
 WEB,"open.samandarin.net"
-COMMENT,"Automatic AI translation"
+COMMENT,"arabic (automatic AI translation)"
 
 [DIALOG 490]
 205,61,1,"عارض"

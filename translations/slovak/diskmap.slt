@@ -5,9 +5,9 @@ VERSION,"1,15,0,197"
 
 [TRANSLATION]
 LANGID,1051
-AUTHOR,"Roman Paholík"
-WEB,"forum.altap.cz/viewtopic.php?f=23&t=6167"
-COMMENT,"Slovenská verzia"
+AUTHOR,"Roman Paholík, Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"slovak (automatic AI translation)"
 
 [MENU 109]
 0,1,"&Súbor"

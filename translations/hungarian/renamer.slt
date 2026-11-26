@@ -5,9 +5,9 @@ VERSION,"1,17,0,197"
 
 [TRANSLATION]
 LANGID,1038
-AUTHOR,"Török József"
-WEB,"forum.altap.cz/viewtopic.php?f=23&t=6164"
-COMMENT,"Magyar változat"
+AUTHOR,"Török József, Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"hungarian (automatic AI translation)"
 
 [DIALOG 100]
 368,260,1,"Kötegelt átnevezés"
@@ -280,7 +280,7 @@ COMMENT,"Magyar változat"
 1127,1,"Verem-túlcsordulás"
 1128,1,"Lefordított kifejezés szükséges."
 1129,1,"Nem indítható új szál."
-1130,1,"<Csere minta hiba: %s>"
+1130,1,"<Csereminta hiba: %s>"
 1131,1,"Lezáró zárójel vagy nagybetű megadás ('kicsi', 'nagy', 'kevert', vagy 'ékezetlevágás') szükséges."
 1132,1,"Lezáró zárójel szükséges."
 1133,1,"Lezáró zárójel vagy ':' karakter után nagybetű megadás szükséges ('kicsi', 'nagy', 'kevert', vagy 'ékezetlevágás')."

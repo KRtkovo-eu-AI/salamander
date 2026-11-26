@@ -5,9 +5,9 @@ VERSION,"0,11,0,197"
 
 [TRANSLATION]
 LANGID,1063
-AUTHOR,"Open Salamander"
-WEB,"https://samandarin.net"
-COMMENT,"English version"
+AUTHOR,"Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"lithuanian (automatic AI translation)"
 
 [STRINGTABLE 0]
 46,1,"Samandarin naujinimų žinutė"
@@ -125,7 +125,7 @@ COMMENT,"English version"
 144,1,"Galima"
 145,1,"Reikalaujama diegiant"
 146,1,"Ne"
-147,0,"This package has higher-risk capabilities:\n\n{0}\n\nInstall or update it anyway?"
+147,1,"This package has higher-risk capabilities:\n\n{0}\n\nInstall or update it anyway?"
 148,1,"Pridedama prie diegimo"
 149,1,"Updates are available for the following plugins or extensions:\n\n{0}"
 150,1,"Įskiepių atnaujinimai"

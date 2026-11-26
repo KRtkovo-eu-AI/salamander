@@ -5,9 +5,9 @@ VERSION,"1,39,0,197"
 
 [TRANSLATION]
 LANGID,1030
-AUTHOR,"Open Salamander"
-WEB,"samandarin.net"
-COMMENT,"English version"
+AUTHOR,"Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"danish (automatic AI translation)"
 
 [DIALOG 500]
 339,218,1,"Generel"
@@ -116,7 +116,7 @@ COMMENT,"English version"
 9,358,142,50,14,1,"Hjælp"
 
 [DIALOG 580]
-596,301,1,"Avanceret"
+328,301,1,"Avanceret"
 3000,7,10,45,8,1,"&Proxyserver:"
 531,84,8,179,89,1,""
 532,270,7,50,14,1,"&Tilføj"
@@ -345,7 +345,7 @@ COMMENT,"English version"
 778,7,81,150,12,1,"Luk &dialogen, når operationen er fuldført"
 
 [DIALOG 779]
-489,64,1,""
+244,64,1,""
 780,10,9,226,8,1,""
 781,10,19,225,130,1,""
 782,292,47,197,12,1,"&Føj kun til kø (behandl ikke i aktiv forbindelse)"
@@ -354,7 +354,7 @@ COMMENT,"English version"
 9,157,42,50,14,1,"Hjælp"
 
 [DIALOG 785]
-549,61,1,"Bekræft sletning"
+331,61,1,"Bekræft sletning"
 1,112,39,50,14,1,"&Ja"
 2,169,39,50,14,1,"&Nej"
 788,8,8,18,20,1,""
@@ -362,7 +362,7 @@ COMMENT,"English version"
 787,352,40,197,12,1,"&Føj kun til kø (behandl ikke i aktiv forbindelse)"
 
 [DIALOG 795]
-522,200,1,"Skift attributter"
+278,200,1,"Skift attributter"
 796,7,10,264,8,1,""
 3000,7,26,84,51,1," Ejer "
 3001,97,26,84,51,1," Gruppe "

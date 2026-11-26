@@ -5,9 +5,9 @@ VERSION,"0,11,0,197"
 
 [TRANSLATION]
 LANGID,1041
-AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net"
-COMMENT,"Japanese (ja-JP) UI translation"
+AUTHOR,"Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"japanese (automatic AI translation)"
 
 [STRINGTABLE 0]
 46,1,"Samandarin 更新通知者"

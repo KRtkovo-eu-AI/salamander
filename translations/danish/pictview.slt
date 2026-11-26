@@ -5,9 +5,9 @@ VERSION,"2,28,0,197"
 
 [TRANSLATION]
 LANGID,1030
-AUTHOR,"Open Salamander"
-WEB,"samandarin.net"
-COMMENT,"English version"
+AUTHOR,"Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"danish (automatic AI translation)"
 
 [DIALOG 2000]
 341,134,1,"Om plugin"
@@ -49,6 +49,16 @@ COMMENT,"English version"
 2052,7,77,200,12,1,"Auto&rotér EXIF JPEG-billeder (digitale kamerabilleder)"
 2053,7,89,167,12,1,"&Vis meddelelsesboks ved vellykket gemning"
 2054,7,101,235,12,1,"Husk &sti ved gemning af skærmbilleder, scanninger og udklip"
+
+[DIALOG 2044]
+268,150,1,"Ydeevne"
+2042,7,7,251,12,1,"&Forudlæs billeder i begge retninger"
+2043,7,25,261,22,1,"For lokale JPEG-, PNG- og TIFF-billeder med én side i tilpas alt eller fuld skærm."
+2045,7,51,251,9,1,"&RAM-budget"
+2046,7,63,251,18,1,""
+2047,7,86,251,29,1,"Niveau %u af 5: %u MiB. Maks./retning: %u.\r\nCa. i alt: %u ved 12 MP, %u ved 24 MP eller %u ved 48 MP."
+2048,7,115,251,19,1,"Estimaterne forudsætter uigennemsigtige billeder. Billedet er uden for budgettet."
+2049,7,134,251,12,1,"&Tilbyd at slå forudlæsning fra ved langsom browsing"
 
 [DIALOG 2060]
 268,150,1,"Tastatur && mus"
@@ -775,4 +785,8 @@ COMMENT,"English version"
 
 [STRINGTABLE 48]
 4418,1,"Har EXIF-info"
+
+[STRINGTABLE 49]
+4432,1,"Forudlæsning sænker muligvis billedgennemgangen på dette drev.\n\nVil du slå forudlæsning fra?"
+4433,1,"Tilbyd ikke at slå forudlæsning fra igen"
 

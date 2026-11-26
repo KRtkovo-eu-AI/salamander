@@ -5,9 +5,9 @@ VERSION,"2,9,0,197"
 
 [TRANSLATION]
 LANGID,1036
-AUTHOR,"Gérard Gréco, Arnaud Dupin de Beyssat, Jérémy Marc, Maxime Abbey"
-WEB,"forum.altap.cz/viewtopic.php?f=23&t=6162"
-COMMENT,"Version française"
+AUTHOR,"Gérard Gréco, Arnaud Dupin de Beyssat, Jérémy Marc, Maxime Abbey, Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"french (automatic AI translation)"
 
 [DIALOG 100]
 205,64,1,"Boîte d'entrée"

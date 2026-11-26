@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Store the language file path and drop the scheme from the English web. | Select Language prefixes http:// and was listing removed .slg files. | https://github.com/KRtkovo-eu-AI/salamander/issues/857 | Grok 4.7 |
 // | 2026-11-12 | Return localized narrow strings as UTF-8. | Keep resource text consistent with UTF-8-aware UI rendering across Windows locales. | | openai/gpt-6-luna-pro |
 // | 2026-11-09 | Preserve plugin viewer registrations while loading legacy settings. | Plugin Connect runs before persisted viewer rows are loaded, so replacing the table could hide first-start associations. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-04 | Initialize English language metadata without a separate english.slg file. | English UI is embedded in host binaries; other languages come from langpack.dll. | | Composer |
@@ -3041,6 +3042,7 @@ CLanguage::CLanguage()
     Web = NULL;
     CommentW = NULL;
     HelpDir = NULL;
+    SourcePath = NULL;
 }
 
 void CLanguage::Free()
@@ -3070,6 +3072,29 @@ void CLanguage::Free()
         free(HelpDir);
         HelpDir = NULL;
     }
+    if (SourcePath != NULL)
+    {
+        free(SourcePath);
+        SourcePath = NULL;
+    }
+}
+
+BOOL CLanguage::SetSourcePath(const char* path)
+{
+    if (SourcePath != NULL)
+    {
+        free(SourcePath);
+        SourcePath = NULL;
+    }
+    if (path == NULL)
+        return TRUE;
+    SourcePath = DupStr(path);
+    if (SourcePath == NULL)
+    {
+        TRACE_E(LOW_MEMORY);
+        return FALSE;
+    }
+    return TRUE;
 }
 
 BOOL CLanguage::Init(const char* fileName, WORD languageID, const WCHAR* authorW,
@@ -3208,7 +3233,7 @@ BOOL CLanguage::Init(const char* fileName, HINSTANCE modul)
     if (SalIsEnglishLanguageName(fileName))
     {
         return Init(fileName, MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US),
-                    L"Open Samandarin Authors", "https://samandarin.net",
+                    L"Open Samandarin Authors", "samandarin.net",
                     L"English version", "ENGLISH");
     }
 

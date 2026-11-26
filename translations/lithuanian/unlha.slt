@@ -5,9 +5,9 @@ VERSION,"1,16,0,197"
 
 [TRANSLATION]
 LANGID,1063
-AUTHOR,"Open Salamander"
-WEB,"samandarin.net"
-COMMENT,"English version"
+AUTHOR,"Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"lithuanian (automatic AI translation)"
 
 [STRINGTABLE 0]
 1,1,"Neteisingas LZH arba nežinomas formatas."

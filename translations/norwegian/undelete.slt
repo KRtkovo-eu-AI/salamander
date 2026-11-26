@@ -5,9 +5,9 @@ VERSION,"1,14,0,197"
 
 [TRANSLATION]
 LANGID,1044
-AUTHOR,"Open Salamander"
-WEB,"samandarin.net"
-COMMENT,"English version"
+AUTHOR,"Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"norwegian (automatic AI translation)"
 
 [DIALOG 1000]
 341,77,1,"Gjenopprett"

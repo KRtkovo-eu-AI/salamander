@@ -5,7 +5,7 @@ VERSION,"2,28,0,197"
 
 [TRANSLATION]
 LANGID,1046
-AUTHOR,"Open Samandarin"
+AUTHOR,"Open Samandarin Authors"
 WEB,"open.samandarin.net"
 COMMENT,"portuguese (automatic AI translation)"
 
@@ -49,6 +49,16 @@ COMMENT,"portuguese (automatic AI translation)"
 2052,7,77,208,12,1,"Auto&rotar imagens EXIF JPEG (imagens da câmera digital)"
 2053,7,89,208,12,1,"&Mostrar caixa de mensagem no arquivo salvo com sucesso"
 2054,7,101,261,12,1,"Lembrar o &caminho ao salvar capturas de tela, digitalizações, pastas da área de transferência"
+
+[DIALOG 2044]
+268,150,1,"Desempenho"
+2042,7,7,251,12,1,"&Pré-carregar imagens em ambas direções"
+2043,7,25,251,22,1,"Para JPEG, PNG e TIFF de página única locais em Ajustar inteiro ou Tela cheia."
+2045,7,51,251,9,1,"&Orç. memória"
+2046,7,63,251,18,1,""
+2047,7,86,251,29,1,"Nível %u de 5: %u MiB. Máx. por direção: %u.\r\nTotal aprox.: %u a 12 MP, %u a 24 MP ou %u a 48 MP."
+2048,7,115,251,19,1,"Estimativas presumem imagens opacas. A imagem exibida é separada do orçamento."
+2049,7,134,251,12,1,"&Oferecer desativar o pré-carregamento se lentificar"
 
 [DIALOG 2060]
 268,150,1,"Teclado/mouse"
@@ -775,4 +785,8 @@ COMMENT,"portuguese (automatic AI translation)"
 
 [STRINGTABLE 48]
 4418,1,"Contém informações EXIF"
+
+[STRINGTABLE 49]
+4432,1,"O pré-carregamento pode lentificar a navegação de imagens neste disco.\n\nDeseja desativá-lo?"
+4433,1,"Não oferecer de novo o pré-carregamento"
 

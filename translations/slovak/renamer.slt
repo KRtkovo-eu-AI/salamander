@@ -5,9 +5,9 @@ VERSION,"1,17,0,197"
 
 [TRANSLATION]
 LANGID,1051
-AUTHOR,"Roman Paholík"
-WEB,"forum.altap.cz/viewtopic.php?f=23&t=6167"
-COMMENT,"Slovenská verzia"
+AUTHOR,"Roman Paholík, Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"slovak (automatic AI translation)"
 
 [DIALOG 100]
 368,260,1,"Hromadné premenovanie"
@@ -280,7 +280,7 @@ COMMENT,"Slovenská verzia"
 1127,1,"Preplnenie zásobníka"
 1128,1,"Požadovaný skompilovaný výraz."
 1129,1,"Nie je možné spustiť nové vlákno."
-1130,1,"<Chyba vzoru náhrady: %s>"
+1130,1,"<Chyba vzoru nahradenia:%s>"
 1131,1,"Očakávaná uzatvárajúca zátvorka alebo zadanie veľkosti písmen ('lower', 'upper', 'mixed', alebo 'stripdia')."
 1132,1,"Očakávaná uzatvárajúca zátvorka."
 1133,1,"Očakávaná uzatvárajúca zátvorka alebo znak ':' nasledovaný zadaním veľkosti písmen ('lower', 'upper', 'mixed', alebo 'stripdia')."

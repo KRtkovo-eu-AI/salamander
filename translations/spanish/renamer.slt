@@ -5,9 +5,9 @@ VERSION,"1,17,0,197"
 
 [TRANSLATION]
 LANGID,3082
-AUTHOR,"Juan Pablo Barrio Lera"
-WEB,"forum.altap.cz/viewtopic.php?f=23&t=6168"
-COMMENT,"Versión en español"
+AUTHOR,"Juan Pablo Barrio Lera, Open Samandarin Authors"
+WEB,"open.samandarin.net"
+COMMENT,"spanish (automatic AI translation)"
 
 [DIALOG 100]
 368,260,1,"Cambio de nombre en lote"
@@ -280,7 +280,7 @@ COMMENT,"Versión en español"
 1127,1,"Rebosamiento de pila"
 1128,1,"Se requiere una expresión compilada."
 1129,1,"Imposible iniciar nuevo hilo."
-1130,1,"<Error de sustitución: %s>"
+1130,1,"<Error patrón de sust.: %s>"
 1131,1,"Se esperan paréntesis cerrados o especificación de tipografía ('lower', 'upper', 'mixed', o 'stripdia')."
 1132,1,"Se esperan paréntesis cerrados."
 1133,1,"Se esperan paréntesis cerrados o caracter ':' seguido de especificación de tipografía ('lower', 'upper', 'mixed', o 'stripdia')."
