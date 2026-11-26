@@ -13,8 +13,8 @@
     return;
   }
 
-  const getLocale = () => window.SamandarinI18n?.getLocale?.() || undefined;
-  const t = (text) => window.SamandarinI18n?.translateText?.(text, getLocale())?.trim() || text;
+  const getLocale = () => window.SamandarinI18n?.getIntlLocale?.() || undefined;
+  const t = (key, fallback) => window.SamandarinI18n?.t(key) || fallback;
 
   const getNumberFormatter = () => new Intl.NumberFormat(getLocale());
   const getSizeFormatter = () => new Intl.NumberFormat(getLocale(), {
@@ -32,9 +32,9 @@
 
   const describeAsset = (name) => {
     const lower = name.toLowerCase();
-    if (lower.endsWith(".exe")) return t("Installer/Extract portable");
-    if (lower.endsWith(".zip")) return t("ZIP archive");
-    return t("Download");
+    if (lower.endsWith(".exe")) return t("download.installer", "Installer/Extract portable");
+    if (lower.endsWith(".zip")) return t("download.zip", "ZIP archive");
+    return t("chrome.download", "Download");
   };
 
   const formatSize = (bytes) => {
@@ -45,7 +45,7 @@
 
   const formatDownloads = (value) => {
     const count = Number(value || 0);
-    return `${getNumberFormatter().format(count)} ${count === 1 ? t("download") : t("downloads")}`;
+    return `${getNumberFormatter().format(count)} ${count === 1 ? t("download.one", "download") : t("download.many", "downloads")}`;
   };
 
   const formatDate = (isoString) => {
@@ -146,7 +146,7 @@
     info.replaceChildren();
 
     const latestLabel = document.createElement("strong");
-    latestLabel.textContent = t("Latest release: ") + " ";
+    latestLabel.textContent = `${t("download.latestRelease", "Latest release:")} `;
 
     const releaseLink = document.createElement("a");
     releaseLink.href = latest.html_url;
@@ -155,19 +155,19 @@
     info.append(latestLabel, releaseLink);
 
     if (published) {
-      info.append(`${t(", published")} ${published}`);
+      info.append(`${t("download.published", ", published")} ${published}`);
     }
 
     info.append(document.createElement("br"));
 
     const allDownloadsLabel = document.createElement("strong");
-    allDownloadsLabel.textContent = t("Total downloads: ") + " ";
-    info.append(allDownloadsLabel, `${formatDownloads(allReleaseDownloads)} ${t("across all releases")}`);
+    allDownloadsLabel.textContent = `${t("download.totalDownloads", "Total downloads:")} `;
+    info.append(allDownloadsLabel, `${formatDownloads(allReleaseDownloads)} ${t("download.acrossAllReleases", "across all releases")}`);
 
     info.append(document.createElement("br"));
 
     const latestDownloadsLabel = document.createElement("strong");
-    latestDownloadsLabel.textContent = t("Latest release downloads: ") + " ";
+    latestDownloadsLabel.textContent = `${t("download.latestReleaseDownloads", "Latest release downloads:")} `;
     info.append(latestDownloadsLabel, formatDownloads(latestReleaseDownloads));
 
     list.replaceChildren();
@@ -194,6 +194,6 @@
 
   loadLatestReleaseDownloads().catch((error) => {
     console.warn("Could not load latest GitHub release downloads:", error);
-    info.textContent = t("Could not load latest GitHub release data. Showing fallback download links.");
+    info.textContent = t("download.failed", "Could not load latest GitHub release data. Showing fallback download links.");
   });
 })();

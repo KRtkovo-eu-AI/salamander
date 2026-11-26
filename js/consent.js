@@ -1,97 +1,18 @@
+/*
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-26 | Read consent copy from the locale catalogs. | The banner had its own per-language object, separate from the page catalogs. | | Grok 4.7 |
+*/
 (() => {
   "use strict";
 
   const STORAGE_KEY = "samandarin-analytics-consent";
   const GA_ID = "G-TEYDRMS9P4";
-  const copy = {
-    en: {
-      title: "Privacy settings",
-      message: "Google Analytics helps us understand how the website is used. You can disable analytics at any time.",
-      accept: "Accept",
-      reject: "Reject",
-      settings: "Privacy settings",
-      privacy: "Read the privacy policy"
-    },
-    cs: {
-      title: "Nastavení soukromí",
-      message: "Google Analytics nám pomáhá pochopit používání webu. Analytiku můžete kdykoli vypnout.",
-      accept: "Přijmout",
-      reject: "Zakázat",
-      settings: "Nastavení soukromí",
-      privacy: "Přečíst zásady ochrany soukromí"
-    },
-    nl: {
-      title: "Privacyinstellingen",
-      message: "Google Analytics helpt ons te begrijpen hoe de website wordt gebruikt. U kunt analytics altijd uitschakelen.",
-      accept: "Behouden",
-      reject: "Uitschakelen",
-      settings: "Privacyinstellingen",
-      privacy: "Privacybeleid lezen"
-    },
-    fr: {
-      title: "Paramètres de confidentialité",
-      message: "Google Analytics nous aide à comprendre l'utilisation du site. Vous pouvez désactiver les statistiques à tout moment.",
-      accept: "Garder",
-      reject: "Désactiver",
-      settings: "Paramètres de confidentialité",
-      privacy: "Lire la politique de confidentialité"
-    },
-    de: {
-      title: "Datenschutzeinstellungen",
-      message: "Google Analytics hilft uns zu verstehen, wie die Website genutzt wird. Sie können die Analyse jederzeit deaktivieren.",
-      accept: "Beibehalten",
-      reject: "Deaktivieren",
-      settings: "Datenschutzeinstellungen",
-      privacy: "Datenschutzerklärung lesen"
-    },
-    hu: {
-      title: "Adatvédelmi beállítások",
-      message: "A Google Analytics segít megérteni a webhely használatát. Az analitika bármikor kikapcsolható.",
-      accept: "Megtartása",
-      reject: "Kikapcsolása",
-      settings: "Adatvédelmi beállítások",
-      privacy: "Adatvédelmi tájékoztató"
-    },
-    zhHans: {
-      title: "隐私设置",
-      message: "Google Analytics 帮助我们了解网站的使用情况。您可以随时停用分析功能。",
-      accept: "保留分析功能",
-      reject: "停用分析功能",
-      settings: "隐私设置",
-      privacy: "阅读隐私政策"
-    },
-    ro: {
-      title: "Setări de confidențialitate",
-      message: "Google Analytics ne ajută să înțelegem modul în care este utilizat site-ul. Puteți dezactiva analiza oricând.",
-      accept: "Păstrează",
-      reject: "Dezactivează",
-      settings: "Setări de confidențialitate",
-      privacy: "Citește politica de confidențialitate"
-    },
-    ru: {
-      title: "Настройки конфиденциальности",
-      message: "Google Analytics помогает понять, как используется сайт. Аналитику можно отключить в любое время.",
-      accept: "Оставить",
-      reject: "Отключить",
-      settings: "Настройки конфиденциальности",
-      privacy: "Читать политику конфиденциальности"
-    },
-    sk: {
-      title: "Nastavenia súkromia",
-      message: "Google Analytics nám pomáha pochopiť používanie webu. Analytiku môžete kedykoľvek vypnúť.",
-      accept: "Ponechať",
-      reject: "Vypnúť",
-      settings: "Nastavenia súkromia",
-      privacy: "Prečítať zásady ochrany súkromia"
-    },
-    es: {
-      title: "Configuración de privacidad",
-      message: "Google Analytics nos ayuda a entender cómo se utiliza el sitio web. Puedes desactivar la analítica en cualquier momento.",
-      accept: "Mantener",
-      reject: "Desactivar",
-      settings: "Configuración de privacidad",
-      privacy: "Leer la política de privacidad"
-    }
+  const FALLBACK = {
+    "consent.title": "Privacy settings",
+    "consent.message": "Google Analytics helps us understand how the website is used. You can disable analytics at any time.",
+    "consent.accept": "Accept",
+    "consent.reject": "Reject",
+    "consent.privacy": "Read the privacy policy"
   };
 
   const getStoredConsent = () => {
@@ -123,22 +44,34 @@
     document.head.appendChild(script);
   };
 
-  const getLocale = () => {
-    const i18nLocale = window.SamandarinI18n?.getLocale?.();
-    if (i18nLocale && copy[i18nLocale]) return i18nLocale;
-    const documentLocale = (document.documentElement.lang || navigator.language || "en").toLowerCase();
-    if (documentLocale.startsWith("cs")) return "cs";
-    if (documentLocale.startsWith("nl")) return "nl";
-    if (documentLocale.startsWith("fr")) return "fr";
-    if (documentLocale.startsWith("de")) return "de";
-    if (documentLocale.startsWith("hu")) return "hu";
-    if (documentLocale.startsWith("zh")) return "zhHans";
-    if (documentLocale.startsWith("ro")) return "ro";
-    if (documentLocale.startsWith("ru")) return "ru";
-    if (documentLocale.startsWith("sk")) return "sk";
-    if (documentLocale.startsWith("es")) return "es";
-    return "en";
+  const localesBase = new URL("../locales/", document.currentScript.src);
+  let standaloneCatalog = null;
+
+  const lookup = (catalog, key) => {
+    if (!catalog || !key) return "";
+    let node = catalog;
+    for (const part of key.split(".")) {
+      if (!node || typeof node !== "object" || !Object.prototype.hasOwnProperty.call(node, part)) return "";
+      node = node[part];
+    }
+    return typeof node === "string" ? node : "";
   };
+
+  const detectStandaloneLocale = () => {
+    const codes = new Set(["ar", "bg", "ca", "hr", "cs", "da", "nl", "fi", "fr", "de", "el", "he", "hu", "zh-CN", "zh-TW", "id", "it", "ja", "ko", "lt", "nb", "pl", "pt", "ro", "ru", "sk", "sl", "es", "sv", "tr", "uk", "vi"]);
+    let stored = null;
+    try { stored = window.localStorage.getItem("samandarin-language"); } catch (_) { stored = null; }
+    if (stored === "zhHans") stored = "zh-CN";
+    if (codes.has(stored)) return stored;
+    const language = (navigator.language || "").toLowerCase();
+    if (language.startsWith("zh")) return language.includes("tw") || language.includes("hk") || language.includes("hant") ? "zh-TW" : "zh-CN";
+    if (language.startsWith("pt")) return "pt";
+    if (language === "no" || language.startsWith("nb") || language.startsWith("nn")) return "nb";
+    const base = language.split("-")[0];
+    return codes.has(base) ? base : "en";
+  };
+
+  const text = (key) => window.SamandarinI18n?.t(key) || lookup(standaloneCatalog, key) || FALLBACK[key] || "";
 
   const updateBackToTopPosition = (banner, settings) => {
     const visibleControl = banner.hidden ? (settings.hidden ? null : settings) : banner;
@@ -172,13 +105,12 @@
     document.body.appendChild(settings);
 
     const render = () => {
-      const text = copy[getLocale()];
-      banner.querySelector("h2").textContent = text.title;
-      banner.querySelector("[data-consent-copy]").textContent = text.message;
-      banner.querySelector('[data-consent="accept"]').textContent = text.accept;
-      banner.querySelector('[data-consent="reject"]').textContent = text.reject;
-      banner.querySelector("[data-consent-privacy]").textContent = text.privacy;
-      settings.textContent = text.settings;
+      banner.querySelector("h2").textContent = text("consent.title");
+      banner.querySelector("[data-consent-copy]").textContent = text("consent.message");
+      banner.querySelector('[data-consent="accept"]').textContent = text("consent.accept");
+      banner.querySelector('[data-consent="reject"]').textContent = text("consent.reject");
+      banner.querySelector("[data-consent-privacy]").textContent = text("consent.privacy");
+      settings.textContent = text("consent.title");
     };
 
     const showBanner = () => {
@@ -209,6 +141,19 @@
     window.addEventListener("resize", () => updateBackToTopPosition(banner, settings));
     window.addEventListener("samandarin:locale-change", render);
     render();
+    if (!window.SamandarinI18n) {
+      const code = detectStandaloneLocale();
+      if (code !== "en") {
+        fetch(new URL(`${code}.json?v=2`, localesBase))
+          .then((response) => response.ok ? response.json() : null)
+          .then((catalog) => {
+            if (!catalog) return;
+            standaloneCatalog = catalog;
+            render();
+          })
+          .catch(() => { /* The English banner stays available. */ });
+      }
+    }
 
     const consent = getStoredConsent();
     if (consent === "granted") {

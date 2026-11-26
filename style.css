@@ -1,6 +1,7 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
 | 2026-11-04 | Rename the website to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+| 2026-11-26 | Mirror a few offsets for right-to-left languages. | Arabic and Hebrew catalogs set dir=rtl on the page. | | Grok 4.7 |
 */
 /* Open Samandarin — retro Altap-inspired dark theme */
 
@@ -136,3 +137,20 @@ a[aria="button"]:hover { color: #000; background: linear-gradient(#ffc773, #eda3
 @media (max-width: 860px) { .category-grid { grid-template-columns: 1fr; } .legacy-feature-links { grid-template-columns: 1fr; } .page-intro { padding: 18px; } .feature-detail { padding-inline: 14px; } }
 
 .latest-release-links { margin: -1rem 0 0 0; font-size: .65rem; text-align: right; }
+
+html[dir="rtl"] .skip-link { left: auto; right: -999px; }
+html[dir="rtl"] .skip-link:focus { left: auto; right: 1rem; }
+html[dir="rtl"] #header-logo { margin-right: 0; margin-left: 10px; }
+html[dir="rtl"] .site-branding #description-text { margin-left: 0; margin-right: 69px; }
+html[dir="rtl"] ul, html[dir="rtl"] ol { padding-left: 0; padding-right: 1.55rem; }
+html[dir="rtl"] .section-nav a { border-right: 0; border-left: 1px solid rgba(103, 62, 0, .22); }
+html[dir="rtl"] .section-nav__item--has-submenu > a::after { margin-left: 0; margin-right: .45em; }
+html[dir="rtl"] .section-nav__submenu { left: auto; right: 0; }
+html[dir="rtl"] h2::before { margin-right: 0; margin-left: .35em; }
+html[dir="rtl"] .back-to-top { right: auto; left: 24px; }
+html[dir="rtl"] .latest-release-links { text-align: left; }
+html[dir="rtl"] table[dir="ltr"] { text-align: left; }
+@media (max-width: 860px) {
+  html[dir="rtl"] .site-branding #description-text { margin: 6px 0 0; }
+  html[dir="rtl"] .section-nav__submenu { right: 50%; left: auto; transform: translateX(50%); }
+}
