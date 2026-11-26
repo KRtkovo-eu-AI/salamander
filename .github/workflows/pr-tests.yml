@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-26 | Remove continue-on-error from the reusable cleanup call. | That key makes the workflow file invalid, so the required tests stay pending and never queue a runner. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 # | 2026-11-25 | Let tests continue when run cleanup fails. | A cancelled cleanup job must not leave the required test check skipped. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 # | 2026-11-04 | Keep test reports on this job and queue only the newest run. | Separate check runs were attached to Source Code Growth for the same commit. | | Grok 4.7 |
 
@@ -21,7 +22,6 @@ concurrency:
 
 jobs:
   keep-latest:
-    continue-on-error: true
     uses: ./.github/workflows/keep-latest-pr-run.yml
     with:
       workflow_file: pr-tests.yml

@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-26 | Reject continue-on-error on the reusable cleanup call. | GitHub treats that key as an invalid workflow and leaves the required checks pending. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 # | 2026-11-25 | Expect gh-based cleanup that cannot skip the real checks. | The pull request showed cancelled and unexpanded skipped jobs after ready for review. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 # | 2026-11-04 | Expect one queued source-growth run on Ubuntu. | The report was occupying Windows runners beside the test workflow. | | Grok 4.7 |
 
@@ -192,6 +193,16 @@ def test_report_compares_to_explicit_pull_request_base_without_release_tags(tmp_
     assert "Baseline: **PR base branch**" in rendered
 
 
+def reusable_keep_latest_job(workflow: str) -> str:
+    start = workflow.index("  keep-latest:\n")
+    job = workflow[start:workflow.index("\n\n", start)]
+    assert "uses: ./.github/workflows/keep-latest-pr-run.yml" in job
+    # continue-on-error is not a supported key on a reusable workflow call.
+    # GitHub rejects the file and the required checks stay pending.
+    assert "continue-on-error:" not in job
+    return job
+
+
 def test_workflow_is_source_only_and_pr_build_calls_codeql_after_success() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
     pr_build = PR_BUILD.read_text(encoding="utf-8")
@@ -238,9 +249,12 @@ def test_workflow_is_source_only_and_pr_build_calls_codeql_after_success() -> No
     assert "workflow_file: pr-tests.yml" in pr_tests
     assert "needs: keep-latest" in pr_tests
     assert "if: always()" in pr_tests
+    studio = (ROOT / ".github" / "workflows" / "pr-salamatrix-studio.yml").read_text(encoding="utf-8")
+    guard = (ROOT / ".github" / "workflows" / "pr-comments-guard.yml").read_text(encoding="utf-8")
+    for caller in (workflow, pr_build, pr_tests, guard, studio):
+        reusable_keep_latest_job(caller)
     assert "use-actions-summary: true" in pr_tests
     assert "use-actions-summary: false" not in pr_tests
-    guard = (ROOT / ".github" / "workflows" / "pr-comments-guard.yml").read_text(encoding="utf-8")
     assert "workflow_file: pr-comments-guard.yml" in guard
     assert "needs.gate.outputs.should_run == 'true' && 'windows-2022' || 'ubuntu-latest'" in guard
 
