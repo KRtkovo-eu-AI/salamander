@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-26 | Exercise the saved source icon color. | Validate that live and closed tabs resolve their assigned colors. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 # | 2026-11-26 | Exercise persistent working-directory sources. | Run the production metadata code against deterministic storage. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 
 """Compile the actual history metadata code with deterministic registry storage."""
@@ -28,10 +29,10 @@ def main() -> int:
     limit = next(line for line in source.splitlines() if "constexpr size_t WorkingDirectoryTabNameLimit =" in line)
     functions = (
         "static std::wstring ShortenWorkingDirectoryTabName(",
-        "static const std::wstring& ResolveWorkingDirectorySourceName(",
+        "static CWorkingDirectorySource ResolveWorkingDirectorySource(",
         "static CWorkingDirectorySource LoadWorkingDirectorySource(",
         "static void SaveWorkingDirectorySource(",
-        "void CPathHistory::RememberSourceTabName(",
+        "void CPathHistory::RememberSourceTab(",
         "void CPathHistory::SaveToRegistry(",
         "void CPathHistory::LoadFromRegistry(",
     )

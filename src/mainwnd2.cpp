@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Persist the working directory history icon color setting. | Restore the display preference from saved configurations. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Save and restore optional persistent tab GUIDs. | Retain working directory history attribution across restarts. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-15 | Explain protected panel startup fallback. | Document how the readable ancestor is selected without consent. | #731 | GPT-6 |
 // | 2026-11-10 | Restore protected saved panel paths to a readable ancestor. | Do not prompt for elevation while starting the application. | #731 | GPT-6.1 Sol |
@@ -1294,6 +1295,7 @@ const char* CONFIG_SORTDIRSBYEXT_REG = "Sort Dirs By Ext";
 const char* CONFIG_SAVEHISTORY_REG = "Save History";
 const char* CONFIG_SAVEWORKDIRS_REG = "Save Working Dirs";
 const char* CONFIG_WORKDIRS_HISTORY_SCOPE_REG = "Working Dirs History Scope";
+const char* CONFIG_WORKDIRS_COLORED_ICONS_REG = "Color Working Directory History Icons";
 const char* CONFIG_ENABLECMDLINEHISTORY_REG = "Enable CmdLine History";
 const char* CONFIG_SAVECMDLINEHISTORY_REG = "Save CmdLine History";
 const char* CONFIG_BACKSPACEACTION_REG = "Backspace Action";
@@ -3550,6 +3552,8 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                 SetValue(actKey, CONFIG_SAVENAVIGATEDDIRS_REG, REG_DWORD, &Configuration.SaveNavigatedDirs, sizeof(DWORD));
                 SetValue(actKey, CONFIG_WORKDIRS_HISTORY_SCOPE_REG, REG_DWORD,
                          &Configuration.WorkDirsHistoryScope, sizeof(DWORD));
+                SetValue(actKey, CONFIG_WORKDIRS_COLORED_ICONS_REG, REG_DWORD,
+                         &Configuration.WorkDirHistoryColoredIcons, sizeof(DWORD));
                 SetValue(actKey, CONFIG_ENABLECMDLINEHISTORY_REG, REG_DWORD,
                          &Configuration.EnableCmdLineHistory, sizeof(DWORD));
                 SetValue(actKey, CONFIG_SAVECMDLINEHISTORY_REG, REG_DWORD,
@@ -5745,6 +5749,10 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             }
             else
                 Configuration.WorkDirsHistoryScope = wdhsShared;
+            DWORD coloredHistoryIcons = TRUE;
+            Configuration.WorkDirHistoryColoredIcons =
+                !GetValue(actKey, CONFIG_WORKDIRS_COLORED_ICONS_REG, REG_DWORD,
+                          &coloredHistoryIcons, sizeof(coloredHistoryIcons)) || coloredHistoryIcons != FALSE;
             GetValue(actKey, CONFIG_ENABLECMDLINEHISTORY_REG, REG_DWORD,
                      &Configuration.EnableCmdLineHistory, sizeof(DWORD));
             GetValue(actKey, CONFIG_SAVECMDLINEHISTORY_REG, REG_DWORD,

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Track the source tab's custom history icon color. | Retain the last color of closed tabs. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Store a durable origin and caption with working directory visits. | Associate provenance with the same item through loading and history copies. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Track the source tab of a working directory visit. | Carry provenance through history items. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // CommentsTranslationProject: TRANSLATED
@@ -142,6 +143,7 @@ struct CWorkingDirectorySource
 {
     GUID Id{};
     std::wstring Name;
+    COLORREF Color = CLR_NONE;
 };
 
 class CPathHistoryItem
@@ -206,7 +208,7 @@ public:
                        HICON hIcon, CPluginFSInterfaceAbstract* pluginFS,
                        CPluginFSInterfaceEncapsulation* curPluginFS, const CWorkingDirectorySource& source);
 
-    void RememberSourceTabName(const GUID& tabId, const std::wstring& name);
+    void RememberSourceTab(const CWorkingDirectorySource& source);
 
     // changes the data (top index and focused name) of the current path only if the given path
     // matches the current path in the history
@@ -240,7 +242,7 @@ public:
     // separator - if the menu contains at least one item, a separator is inserted above it
     // panel enables working directory indicators in the full history popup.
     void FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int maxCount, BOOL separator,
-                              const CFilesWindow* panel = NULL);
+                              const CFilesWindow* panel = NULL, std::vector<HICON>* coloredIcons = NULL);
 
     // called when closing an FS - the history stores FS interfaces that need to be NULLed after closing
     // (so there is no accidental match just because the FS interface was allocated at the same address)

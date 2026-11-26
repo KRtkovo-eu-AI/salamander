@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Expose tinted variants of toolbar SVG icons. | Use source tab colors without changing the shared toolbar images. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-05 | Expose UnpremultiplySVGIconBitmap for HICON creation. | CreateSVGIcon needs straight alpha for the panel icon list. | | Composer |
 // CommentsTranslationProject: TRANSLATED
 
@@ -11,6 +12,17 @@ struct NSVGrasterizer;
 struct NSVGimage;
 void RenderSVGImage(NSVGrasterizer* rast, HDC hDC, int x, int y, const char* svgName, int iconSize, COLORREF bkColor, BOOL enabled);
 BOOL RenderSVGIconBitmap(const char* svgName, int iconSize, BOOL enabled, HBITMAP* hBitmap);
+
+struct CToolbarSVGIconColors
+{
+    const char* FillIdPrefix;
+    COLORREF Fill;
+    COLORREF Stroke = CLR_NONE;
+    float StrokeWidth = 0.0f;
+};
+
+// The caller owns the returned icon. Unmatched shapes retain their SVG colors.
+HICON CreateTintedToolbarSVGIcon(const char* svgName, int iconSize, const CToolbarSVGIconColors& colors);
 // Renders an extension-owned SVG file using the same NanoSVG path
 // as built-in toolbar icons. The caller owns the returned bitmap.
 // Output is premultiplied BGRA suitable for AlphaBlend / toolbar flattening.

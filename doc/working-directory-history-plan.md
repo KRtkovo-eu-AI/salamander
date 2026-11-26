@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-26 | Document optional icon colors in working directory history. | Distinguish live tab colors, closed-tab snapshots, and neutral icons. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 | 2026-11-26 | Document persistent source identities and closed-tab captions. | Describe restart, compatibility, and history-clearing behavior. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 | 2026-11-26 | Document live source labels and remaining persistence work. | Record the implemented session behavior and closed-tab cases. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 | 2026-11-26 | Document the working directory history implementation. | Define the initial popup change and the storage and navigation work that follows. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
@@ -33,6 +34,12 @@
 1. Store a history GUID for each regular and detached tab. Reordering, moving and detaching a tab carry the same GUID. Duplicating a tab starts a new identity and inherited visits keep their original sources. Undo Close Tab restores the identity of the reopened tab. Missing or invalid tab IDs receive fresh identities, and duplicate restored IDs are resolved so a visit has at most one live source.
 2. Keep the existing numbered paths. Store the source GUID and caption as optional metadata associated with their individual working directory entries. Legacy paths and entries with unreadable metadata stay navigable. The existing **Save List of Working Directories** and **Clear History** controls also govern the source metadata.
 3. Resolve a known source against the current tabs when opening the popup. Use the live, undecorated name if it is available. When the source closes, retain its last known name as a snapshot for its recorded visits. Save that snapshot with history so a closed tab can still be named after restart. A restored tab resumes supplying its live name.
+
+## History icon colors
+
+**Configuration → History → Use colored icons in the working directory list** is enabled by default. A Hot Path uses a yellow star. Otherwise, a known source tab uses its custom tab color on the existing other-tab icon. A tab without a custom color uses the neutral other-tab icon. Disabling this option uses the neutral icons for both cases. Icon priority still determines a single icon per row.
+
+Resolve the current custom color of a live source, including a cleared color. When a tab closes, keep its last defined color alongside its caption as optional history metadata. Existing saved rows with no color metadata still resolve the color of their open source or use the neutral icon.
 
 ## Follow-up — History scope
 

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Store the choice to display colored working directory history icons. | Keep the setting independent of history storage. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-14 | Keep user-association ownership on runtime handler rows. | Let file actions select the exact target shown in File Associations ahead of overlapping legacy masks. |  | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-10 | Declare the shared association status resolver. | Keep matrix status text, badge color, and conflict filtering on one provenance calculation. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-10 | Separate Apply's selected pattern key from editor field reads. | Prevent a stale or summary Pattern control from overwriting the matrix selection during Apply. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
@@ -272,8 +273,9 @@ struct CConfiguration
         SaveHistory,            // store histories into the configuration?
         SaveWorkDirs,           // store the List of Working Directories?
         SaveNavigatedDirs,      // store panel Back/Forward navigation history?
-        WorkDirsHistoryScope,   // working directories history mode (shared / per-tab)
-        EnableCmdLineHistory,   // keep history of the command line?
+        WorkDirsHistoryScope;   // working directories history mode (shared / per-tab)
+    BOOL WorkDirHistoryColoredIcons; // show colors in the List of Working Directories
+    int EnableCmdLineHistory,   // keep history of the command line?
         SaveCmdLineHistory,     // store the command line history?
                                 //      LantasticCheck,        // Lantastic 7.0 paranoid check (compare sizes after Copy)
         OnlyOneInstance,        // allow just a single instance

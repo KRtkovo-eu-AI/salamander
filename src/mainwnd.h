@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Identify explicit panel refresh commands. | Prompt for a fresh archive read only on user refresh. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Expose source tab colors with history titles. | Use current colors while capturing closed sources. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Expose persistent tab identity and title lookup. | Carry the history identity through Undo Close Tab. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Expose a live tab name lookup by identity. | Resolve history sources in either panel and in detached tabs. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-15 | Explain protected panel refresh. | Keep background notifications noninteractive. | #731 | GPT-6 |
@@ -335,6 +336,7 @@ public:
 //class CTipOfTheDayDialog;
 class CDetachedFSList;
 class CPathHistory;
+struct CWorkingDirectorySource;
 
 enum CMainWindowsHitTestEnum
 {
@@ -675,9 +677,9 @@ public:
     void RequestPanelRefresh(CFilesWindow* panel, bool rebuildDriveBars,
                              bool postRefreshMessage = false, bool explicitRefresh = false);
     std::wstring GetPanelTabDisplayText(CFilesWindow* panel) const;
-    std::wstring GetPanelTabName(CFilesWindow* panel) const;
-    std::wstring GetPanelTabNameById(const GUID& tabId) const;
-    void RememberWorkingDirectoryTabName(CFilesWindow* panel);
+    CWorkingDirectorySource GetWorkingDirectoryTabSource(CFilesWindow* panel) const;
+    CWorkingDirectorySource GetWorkingDirectoryTabSourceById(const GUID& tabId) const;
+    void RememberWorkingDirectoryTabSource(CFilesWindow* panel);
     void UpdatePanelTabTitle(CFilesWindow* panel);
     void UpdatePanelTabColor(CFilesWindow* panel);
     void RefreshPanelTabLayout();

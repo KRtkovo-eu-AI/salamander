@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Route explicit Refresh to protected archives. | Leave background refresh noninteractive. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Resolve the history source's current custom color. | Keep colored icons in sync with the source tab. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Resolve and preserve history origins by tab GUID. | Capture the title before a tab closes and restore identity on undo. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Reuse undecorated live tab names in working directory history. | Keep tab state indicators separate from source labels. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-25 | Dispatch protected copy tests and generated-report opens together. | The main window keeps both the laboratory F5 gate and UnISO report navigation. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
@@ -680,7 +681,7 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel, bool storeForReopen)
         return;
 
     int originalIndex = index;
-    RememberWorkingDirectoryTabName(panel);
+    RememberWorkingDirectoryTabSource(panel);
 
     TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
     CTabWindow* tabWnd = GetPanelTabWindow(side);
@@ -1013,14 +1014,17 @@ void CMainWindow::RestorePanelTabHistoryId(CFilesWindow* panel, const GUID& tabI
     panel->SetHistoryTabId(tabId);
 }
 
-std::wstring CMainWindow::GetPanelTabName(CFilesWindow* panel) const
+CWorkingDirectorySource CMainWindow::GetWorkingDirectoryTabSource(CFilesWindow* panel) const
 {
-    return panel != NULL ? BuildTabName(panel) : std::wstring();
+    if (panel == NULL)
+        return {};
+    return {panel->GetHistoryTabId(), BuildTabName(panel),
+            panel->HasCustomTabColor() ? panel->GetCustomTabColor() : CLR_NONE};
 }
 
-std::wstring CMainWindow::GetPanelTabNameById(const GUID& tabId) const
+CWorkingDirectorySource CMainWindow::GetWorkingDirectoryTabSourceById(const GUID& tabId) const
 {
-    return GetPanelTabName(FindPanelTabByHistoryId(tabId));
+    return GetWorkingDirectoryTabSource(FindPanelTabByHistoryId(tabId));
 }
 
 void CMainWindow::UpdatePanelTabTitle(CFilesWindow* panel)

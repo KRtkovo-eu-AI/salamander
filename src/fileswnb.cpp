@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Retain colors for the lifetime of the history popup. | Release dynamic icon handles when Alt+F12 closes. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Use the panel toolbar image lists in the working directory popup. | Draw history status icons at the panel DPI. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-25 | Keep protected panel status beside generated-report filtering. | Size scans stay scoped, and report candidates use the originating associations. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 // | 2026-11-20 | Filter generated-report candidates using the originating plug-in associations. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
@@ -1685,8 +1686,11 @@ void CFilesWindow::OpenDirHistory()
 
     menu.SetImageList(MainWindow->GetToolbarImageListForWindow(HWindow, FALSE));
     menu.SetHotImageList(MainWindow->GetToolbarImageListForWindow(HWindow, TRUE));
-    history->FillHistoryPopupMenu(&menu, 1, -1, FALSE, this);
+    std::vector<HICON> coloredIcons;
+    history->FillHistoryPopupMenu(&menu, 1, -1, FALSE, this, &coloredIcons);
     DWORD cmd = menu.Track(MENU_TRACK_RETURNCMD | MENU_TRACK_VERTICAL, r.left, y, HWindow, exludeRect ? &r : NULL);
+    for (HICON icon : coloredIcons)
+        DestroyIcon(icon);
     if (cmd != 0)
         history->Execute(cmd, FALSE, this, TRUE, FALSE);
 

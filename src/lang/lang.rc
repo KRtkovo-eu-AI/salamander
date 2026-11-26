@@ -1,4 +1,5 @@
 ﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Add the working directory history icon color checkbox. | Allow users to change the presentation from the History page. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-13 | Mark modules containing embedded English UI resources. | Distinguish modern binaries from old plug-ins that need lang\\english.slg. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-09 | Keep the Change Drive configuration page at its original height. | Fit the new order selector into the existing page without adding excess vertical space. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
 // | 2026-11-09 | Add a selector for Change Drive block ordering. | Let users choose whether plug-in items or Hot Paths appear first. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
@@ -2001,6 +2002,8 @@ BEGIN
                     "Button",BS_AUTORADIOBUTTON | WS_TABSTOP | WS_GROUP,1,22,180,10
     CONTROL         "Keep history per &panel/tab",IDC_HISTORY_WORKDIRS_PER_TAB,
                     "Button",BS_AUTORADIOBUTTON,1,34,140,10
+    CONTROL         "Use colored &icons in the working directory list",IDC_HISTORY_COLOREDICONS,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP | WS_GROUP,1,48,254,12
     LTEXT           "You can choose whether recently used values (history) will be stored in Registry as a part of configuration of Open Samandarin and plugins.",IDC_STATIC_2,1,64,254,16
     CONTROL         "&Save history",IDC_HISTORY_SAVEHISTORY,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,84,54,12
     CONTROL         "Save List of &Working Directories",IDC_HISTORY_WORKDIRS,

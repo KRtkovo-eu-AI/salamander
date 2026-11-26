@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Color saved-path and source-tab history icons. | Preserve the default icons and use a closed source's last custom color. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Keep popup source data independent of live history rows. | Resolve tab names from stable copies while formatting the menu. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Save working directory source IDs and names with each path. | Restore open and closed tab attribution across sessions. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Prefix cross-tab history paths with the source tab name. | Keep the name visible with Hot Path icons and preserve accelerators. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
@@ -22,6 +23,8 @@
 #include "menu.h"
 #include "common/widepath.h"
 #include "branch_view.h"
+#include "common/winlibdpi.h"
+#include "svg.h"
 
 #include "regwork.h"
 
@@ -1943,27 +1946,34 @@ struct CWorkingDirectoryTabIdLess
     }
 };
 
-using CWorkingDirectoryTabNames = std::map<GUID, std::wstring, CWorkingDirectoryTabIdLess>;
+using CWorkingDirectoryTabs = std::map<GUID, CWorkingDirectorySource, CWorkingDirectoryTabIdLess>;
 
-static const std::wstring& ResolveWorkingDirectorySourceName(CWorkingDirectoryTabNames& names,
+static CWorkingDirectorySource ResolveWorkingDirectorySource(CWorkingDirectoryTabs& tabs,
                                                              const CWorkingDirectorySource& source)
 {
-    const auto [entry, inserted] = names.try_emplace(source.Id);
+    const auto [entry, inserted] = tabs.try_emplace(source.Id);
     if (inserted)
-        entry->second = MainWindow->GetPanelTabNameById(source.Id);
-    return entry->second.empty() ? source.Name : entry->second;
+        entry->second = MainWindow->GetWorkingDirectoryTabSourceById(source.Id);
+    const CWorkingDirectorySource& live = entry->second;
+    if (IsEqualGUID(live.Id, GUID{}))
+        return source;
+    return {source.Id, live.Name.empty() ? source.Name : live.Name, live.Color};
 }
 
-void CPathHistory::RememberSourceTabName(const GUID& tabId, const std::wstring& name)
+void CPathHistory::RememberSourceTab(const CWorkingDirectorySource& source)
 {
-    const std::wstring shortened = ShortenWorkingDirectoryTabName(name);
+    const std::wstring shortened = ShortenWorkingDirectoryTabName(source.Name);
+    auto update = [&](CPathHistoryItem* item) {
+        if (item != NULL && IsEqualGUID(item->Source.Id, source.Id))
+        {
+            if (!shortened.empty())
+                item->Source.Name = shortened;
+            item->Source.Color = source.Color;
+        }
+    };
     for (int i = 0; i < Paths.Count; ++i)
-    {
-        if (IsEqualGUID(Paths[i]->Source.Id, tabId))
-            Paths[i]->Source.Name = shortened;
-    }
-    if (NewItem != NULL && IsEqualGUID(NewItem->Source.Id, tabId))
-        NewItem->Source.Name = shortened;
+        update(Paths[i]);
+    update(NewItem);
 }
 
 static std::string FormatHistoryTabPrefix(const std::wstring& name)
@@ -1983,11 +1993,19 @@ static std::string FormatHistoryTabPrefix(const std::wstring& name)
 }
 
 void CPathHistory::FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int maxCount,
-                                        BOOL separator, const CFilesWindow* panel)
+                                        BOOL separator, const CFilesWindow* panel, std::vector<HICON>* coloredIcons)
 {
+    struct HistoryMenuItem
+    {
+        DWORD Position;
+        int ImageIndex;
+        CWorkingDirectorySource Source;
+    };
+
     char buffer[2 * MAX_PATH];
     std::vector<std::string> hotPaths;
-    std::vector<std::pair<DWORD, CWorkingDirectorySource>> sourcedItems;
+    std::vector<HistoryMenuItem> itemsToDecorate;
+    const bool useColors = panel != NULL && coloredIcons != NULL && Configuration.WorkDirHistoryColoredIcons;
     GUID currentTabId{};
     if (panel != NULL)
     {
@@ -2043,8 +2061,9 @@ void CPathHistory::FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int ma
             mii.HIcon = NULL;
         }
         mii.ID = id++;
-        if (popup->InsertItem(-1, TRUE, &mii) && fromOtherTab)
-            sourcedItems.emplace_back(popup->GetItemCount() - 1, item->Source);
+        if (popup->InsertItem(-1, TRUE, &mii) && (fromOtherTab || (useColors && imageIndex == IDX_TB_HISTORYHOTPATH)))
+            itemsToDecorate.push_back({(DWORD)(popup->GetItemCount() - 1), imageIndex,
+                                       fromOtherTab ? item->Source : CWorkingDirectorySource{}});
         added++;
     }
 
@@ -2052,26 +2071,55 @@ void CPathHistory::FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int ma
         popup->AssignHotKeys();
 
     // Assign the existing path accelerators before inserting source labels.
-    CWorkingDirectoryTabNames tabNames;
-    for (const auto& [position, source] : sourcedItems)
+    CWorkingDirectoryTabs tabs;
+    std::map<std::pair<int, COLORREF>, HICON> variants;
+    const int iconSize = useColors ? WinLibDPIFromLogical(panel->HWindow, 16) : 0;
+    for (const HistoryMenuItem& row : itemsToDecorate)
     {
-        const std::string prefix = FormatHistoryTabPrefix(ResolveWorkingDirectorySourceName(tabNames, source));
+        const bool fromOtherTab = !IsEqualGUID(row.Source.Id, GUID{});
+        const CWorkingDirectorySource source = fromOtherTab ? ResolveWorkingDirectorySource(tabs, row.Source) : row.Source;
+        const bool hotPath = row.ImageIndex == IDX_TB_HISTORYHOTPATH;
+        const COLORREF color = hotPath ? RGB(255, 211, 48) : source.Color;
+        if (useColors && color != CLR_NONE)
+        {
+            const auto [variant, inserted] = variants.try_emplace(std::make_pair(row.ImageIndex, color), nullptr);
+            if (inserted)
+            {
+                HICON icon = hotPath ? CreateTintedToolbarSVGIcon("ExplorerCategoryFavorites", iconSize,
+                                                                 {"", color, RGB(135, 81, 0), 1.4f})
+                                     : CreateTintedToolbarSVGIcon("TabsDuplicate", iconSize,
+                                                                 {"history-tab-fill-", color});
+                variant->second = icon;
+                if (icon != NULL)
+                    coloredIcons->push_back(icon);
+            }
+            if (variant->second != NULL)
+            {
+                MENU_ITEM_INFO iconInfo = {};
+                iconInfo.Mask = MENU_MASK_IMAGEINDEX | MENU_MASK_ICON;
+                iconInfo.ImageIndex = -1;
+                iconInfo.HIcon = variant->second;
+                popup->SetItemInfo(row.Position, TRUE, &iconInfo);
+            }
+        }
+
+        const std::string prefix = FormatHistoryTabPrefix(source.Name);
         if (prefix.empty())
             continue;
 
         MENU_ITEM_INFO textInfo = {};
         textInfo.Mask = MENU_MASK_STRING;
-        if (!popup->GetItemInfo(position, TRUE, &textInfo))
+        if (!popup->GetItemInfo(row.Position, TRUE, &textInfo))
             continue;
 
         std::string label = prefix;
         ++textInfo.StringLen;
         label.resize(prefix.size() + textInfo.StringLen);
         textInfo.String = label.data() + prefix.size();
-        if (popup->GetItemInfo(position, TRUE, &textInfo))
+        if (popup->GetItemInfo(row.Position, TRUE, &textInfo))
         {
             textInfo.String = label.data();
-            popup->SetItemInfo(position, TRUE, &textInfo);
+            popup->SetItemInfo(row.Position, TRUE, &textInfo);
         }
     }
 
@@ -2407,11 +2455,19 @@ static void SaveWorkingDirectorySource(HKEY historyKey, int index, const CWorkin
 
     char key[64];
     sprintf_s(key, "Source Tab ID %d", index);
-    if (SetValue(historyKey, key, REG_BINARY, &source.Id, sizeof(source.Id)) && !source.Name.empty())
+    if (!SetValue(historyKey, key, REG_BINARY, &source.Id, sizeof(source.Id)))
+        return;
+
+    if (!source.Name.empty())
     {
         const std::wstring name = ShortenWorkingDirectoryTabName(source.Name);
         sprintf_s(key, "Source Tab Name %d", index);
         SetValue(historyKey, key, REG_BINARY, name.c_str(), (DWORD)((name.size() + 1) * sizeof(wchar_t)));
+    }
+    if (source.Color != CLR_NONE)
+    {
+        sprintf_s(key, "Source Tab Color %d", index);
+        SetValue(historyKey, key, REG_DWORD, &source.Color, sizeof(source.Color));
     }
 }
 
@@ -2436,6 +2492,12 @@ static CWorkingDirectorySource LoadWorkingDirectorySource(HKEY historyKey, int i
         if (name[length] == L'\0' && wcslen(name) == length)
             source.Name.assign(name, length);
     }
+
+    COLORREF color = CLR_NONE;
+    sprintf_s(key, "Source Tab Color %d", index);
+    if (GetValueAux(NULL, historyKey, key, REG_DWORD, &color, sizeof(color), TRUE) &&
+        GetSize(historyKey, key, REG_DWORD, size) && size == sizeof(color) && color <= RGB(255, 255, 255))
+        source.Color = color;
     return source;
 }
 
@@ -2449,7 +2511,7 @@ void CPathHistory::SaveToRegistry(HKEY hKey, const char* name, BOOL onlyClear, B
             int index = 0;
             char buf[10];
             std::string path;
-            CWorkingDirectoryTabNames tabNames;
+            CWorkingDirectoryTabs tabs;
             int i;
             for (i = 0; i < Paths.Count; i++)
             {
@@ -2484,8 +2546,7 @@ void CPathHistory::SaveToRegistry(HKEY hKey, const char* name, BOOL onlyClear, B
                     break;
                 if (DontChangeForwardIndex && !IsEqualGUID(item->Source.Id, GUID{}))
                 {
-                    CWorkingDirectorySource source = {item->Source.Id,
-                                                      ResolveWorkingDirectorySourceName(tabNames, item->Source)};
+                    const CWorkingDirectorySource source = ResolveWorkingDirectorySource(tabs, item->Source);
                     SaveWorkingDirectorySource(historyKey, index + 1, source);
                 }
                 if (saveNavigationState && item->Type == 0 && item->BranchState != NULL && item->BranchState->Enabled)

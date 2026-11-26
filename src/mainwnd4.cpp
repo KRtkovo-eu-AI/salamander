@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Capture the custom color when a source tab closes. | Preserve the history icon color across restarts. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Use persistent tab IDs and retain the final caption at close. | Keep history attribution after the source panel is gone. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Record the originating tab for working directory visits. | Attribute shared history to the tab where the path was used. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-15 | Explain protected file-list handoff. | Document temporary source ownership and panel validation. | #731 | GPT-6 |
@@ -272,19 +273,15 @@ void CMainWindow::ClearPluginFSFromHistory(CPluginFSInterfaceAbstract* fs)
     UpdateAllDirectoryLineHistoryStates();
 }
 
-void CMainWindow::RememberWorkingDirectoryTabName(CFilesWindow* panel)
+void CMainWindow::RememberWorkingDirectoryTabSource(CFilesWindow* panel)
 {
-    const GUID& tabId = panel->GetHistoryTabId();
-    if (IsEqualGUID(tabId, GUID{}))
-        return;
-
-    const std::wstring name = GetPanelTabName(panel);
-    if (name.empty())
+    const CWorkingDirectorySource source = GetWorkingDirectoryTabSource(panel);
+    if (IsEqualGUID(source.Id, GUID{}))
         return;
 
     auto remember = [&](CPathHistory* history) {
         if (history != NULL)
-            history->RememberSourceTabName(tabId, name);
+            history->RememberSourceTab(source);
     };
     remember(DirHistory);
     for (CPanelSide side : {cpsLeft, cpsRight})
