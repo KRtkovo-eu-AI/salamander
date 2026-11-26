@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Salamatrix Change Drive item offers all extension commands. | Right-clicking the Salamatrix Framework drive shows a submenu with the union of its pluginbar button items and the extension bar items, deduplicated by command id. |  | nvidia/nemotron-3.5-super-vl:free |
 // | 2026-11-07 | Forward Find phrase and flags through Salamatrix viewer invocations. | Webview viewers must prefill Find when opened from the Find window. | https://github.com/KRtkovo-eu-AI/salamander/issues/758 | openai/gpt-5.6-luna-pro |
 // | 2026-11-07 | Use the active Salamatrix window as the owner for host UI. | Extension confirmation dialogs must stay in front of the extension window instead of activating the main window. | https://github.com/KRtkovo-eu-AI/salamander/issues/757 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-05 | Rasterize Salamatrix FS SVG icons at 16/32/48. | Thumbnail/Tiles views requested SALICONSIZE_48 but icons were forced to 16px. | | Composer |
@@ -2593,9 +2594,105 @@ public:
     virtual void WINAPI ExecuteChangeDriveMenuItem(int panel)
     { int failReason = 0; SalamanderGeneral->ChangePanelPathToPluginFS(panel, SalamatrixFSName, "", &failReason); }
     virtual BOOL WINAPI ChangeDriveMenuItemContextMenu(HWND parent, int panel, int x, int y, CPluginFSInterfaceAbstract* pluginFS, const char* pluginFSName, int pluginFSNameIndex, BOOL isDetachedFS, BOOL& refreshMenu, BOOL& closeMenu, int& postCmd, void*& postCmdParam)
-    { UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(panel); UNREFERENCED_PARAMETER(x); UNREFERENCED_PARAMETER(y); UNREFERENCED_PARAMETER(pluginFS); UNREFERENCED_PARAMETER(pluginFSName); UNREFERENCED_PARAMETER(pluginFSNameIndex); UNREFERENCED_PARAMETER(isDetachedFS); UNREFERENCED_PARAMETER(refreshMenu); UNREFERENCED_PARAMETER(closeMenu); UNREFERENCED_PARAMETER(postCmd); UNREFERENCED_PARAMETER(postCmdParam); return FALSE; }
+    {
+        UNREFERENCED_PARAMETER(panel);
+        UNREFERENCED_PARAMETER(pluginFS);
+        UNREFERENCED_PARAMETER(pluginFSName);
+        UNREFERENCED_PARAMETER(pluginFSNameIndex);
+        UNREFERENCED_PARAMETER(isDetachedFS);
+        refreshMenu = FALSE;
+        closeMenu = FALSE;
+        postCmd = 0;
+        postCmdParam = NULL;
+        if (Owner == NULL || SalamanderGUI == NULL || parent == NULL)
+            return FALSE;
+        // Offer the union of the Salamatrix pluginbar (toolbar) button items and
+        // the extension-bar/menu items, deduplicated by command id so an
+        // extension exposed in both places appears only once.
+        struct Entry
+        {
+            int Id;
+            const char* Title;
+            const char* Handler;
+            BOOL Enabled;
+        };
+        std::vector<Entry> entries;
+        for (size_t p = 0; p < Owner->Packages.size(); ++p)
+        {
+            Package* package = Owner->Packages[p];
+            if (package == NULL || !package->RuntimeUsable)
+                continue;
+            for (size_t c = 0; c < package->Manifest.Commands.size(); ++c)
+            {
+                const CExtensionManifestCommand& command = package->Manifest.Commands[c];
+                if (!command.Visible ||
+                    (!command.Toolbar && command.Menu == "none"))
+                    continue;
+                int id = static_cast<int>(package->CommandIds[c]);
+                bool duplicate = false;
+                for (size_t k = 0; k < entries.size(); ++k)
+                {
+                    if (entries[k].Id == id)
+                    {
+                        duplicate = true;
+                        break;
+                    }
+                }
+                if (duplicate || command.Title.empty())
+                    continue;
+                entries.push_back(Entry{id, command.Title.c_str(), command.Handler.c_str(), command.Enabled});
+            }
+        }
+        if (entries.empty())
+            return FALSE;
+        CGUIMenuPopupAbstract* popup = SalamanderGUI->CreateMenuPopup();
+        if (popup == NULL)
+            return FALSE;
+        for (size_t i = 0; i < entries.size(); ++i)
+        {
+            MENU_ITEM_INFO mii = {};
+            mii.Mask = MENU_MASK_TYPE | MENU_MASK_STRING | MENU_MASK_ID;
+            mii.Type = MENU_TYPE_STRING;
+            mii.ID = entries[i].Id;
+            mii.String = const_cast<char*>(entries[i].Title);
+            mii.State = entries[i].Enabled ? 0 : MENU_STATE_GRAYED;
+            mii.SkillLevel = MENU_LEVEL_BEGINNER;
+            popup->InsertItem(static_cast<DWORD>(i), TRUE, &mii);
+        }
+        DWORD selected = popup->Track(MENU_TRACK_RETURNCMD | MENU_TRACK_LEFTALIGN | MENU_TRACK_TOPALIGN, x, y, parent, NULL);
+        SalamanderGUI->DestroyMenuPopup(popup);
+        if (selected != 0)
+        {
+            closeMenu = TRUE;
+            postCmd = static_cast<int>(selected);
+            return TRUE;
+        }
+        return FALSE;
+    }
     virtual void WINAPI ExecuteChangeDrivePostCommand(int panel, int postCmd, void* postCmdParam)
-    { UNREFERENCED_PARAMETER(panel); UNREFERENCED_PARAMETER(postCmd); UNREFERENCED_PARAMETER(postCmdParam); }
+    {
+        UNREFERENCED_PARAMETER(panel);
+        UNREFERENCED_PARAMETER(postCmdParam);
+        if (Owner == NULL)
+            return;
+        for (size_t p = 0; p < Owner->Packages.size(); ++p)
+        {
+            Package* package = Owner->Packages[p];
+            if (package == NULL || !package->RuntimeUsable)
+                continue;
+            for (size_t c = 0; c < package->CommandIds.size(); ++c)
+            {
+                if (package->CommandIds[c] == postCmd && c < package->Manifest.Commands.size())
+                {
+                    const CExtensionManifestCommand& command = package->Manifest.Commands[c];
+                    if (!command.Enabled)
+                        return;
+                    Owner->ExecuteCommand(package, NULL, command.Id.c_str(), command.Handler.c_str(), NULL);
+                    return;
+                }
+            }
+        }
+    }
     virtual void WINAPI ExecuteOnFS(int panel, CPluginFSInterfaceAbstract* pluginFS, const char* pluginFSName, int pluginFSNameIndex, CFileData& file, int isDir)
     {
         UNREFERENCED_PARAMETER(pluginFSNameIndex);
