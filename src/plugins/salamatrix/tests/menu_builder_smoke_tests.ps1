@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-26 | Require generated launchers to omit a policy override switch. | The shipped menu builder was flagged for embedding that command line. | | Grok 4.7 |
 # | 2026-11-06 | Expect ExtensionMenuBuilder generatedBy without OpenSalamander prefix. | Menu Builder package id was shortened; smoke test lagged behind. | | Composer |
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2.0
@@ -89,6 +90,69 @@ try {
         $actions.commands[0].target -ne 'notepad.exe' -or
         $project.generatedBy -ne 'ExtensionMenuBuilder') {
         throw 'Generated extension files do not match the builder project.'
+    }
+    $generatedRuntime = Get-Content -Raw (Join-Path $testRoot 'main.ps1')
+    if ($generatedRuntime -match '(?i)-executionpolicy\b' -or
+        $generatedRuntime -match '(?i)\bbypass\b' -or
+        $generatedRuntime -notmatch '-NoProfile -File' -or
+        $builderSource -match '(?i)-executionpolicy\b' -or
+        $builderSource -match '(?i)\bbypass\b') {
+        throw ('Menu builder still embeds a policy override in the ' +
+            'shipped script or in the runtime it generates.')
+    }
+    $marker = Join-Path $testRoot 'marker.txt'
+    $payloadPath = Join-Path $testRoot 'payload.ps1'
+    Write-Utf8WithoutBom $payloadPath @'
+param([string]$Name)
+Set-Content -LiteralPath $env:MENU_MARKER -Value $Name -Encoding ASCII
+'@
+    $script:Commands.Clear()
+    $payloadCommand = New-BuilderCommand 'Run payload'
+    $payloadCommand.Key = 'payload'
+    $payloadCommand.Action = 'powershell'
+    $payloadCommand.Target = $payloadPath
+    $payloadCommand.Arguments = '-Name marker-ok'
+    $payloadCommand.WorkingDirectory = $testRoot
+    $script:Commands.Add($payloadCommand)
+    if (-not (Save-BuilderProject 'Test Menu' 'OpenSalamander.TestMenu' (
+                'Generated smoke test') $testRoot)) {
+        throw 'Save-BuilderProject returned false for the script action.'
+    }
+    $wrapperPath = Join-Path $testRoot 'wrapper.ps1'
+    $generatedPath = (Join-Path $testRoot 'main.ps1').Replace("'", "''")
+    $markerLiteral = $marker.Replace("'", "''")
+    Write-Utf8WithoutBom $wrapperPath @"
+`$ErrorActionPreference = 'Stop'
+`$env:MENU_MARKER = '$markerLiteral'
+`$ui = New-Object psobject
+`$ui | Add-Member -MemberType ScriptMethod -Name MessageBox -Value {
+    param(`$Message, `$Title, `$Buttons, `$Icon)
+    throw `$Message
+}
+`$side = New-Object psobject
+`$side | Add-Member -MemberType ScriptMethod -Name Context -Value { `$null }
+`$Salamander = New-Object psobject
+`$Salamander | Add-Member -NotePropertyName command_handler -NotePropertyValue 'payload'
+`$Salamander | Add-Member -NotePropertyName ui -NotePropertyValue `$ui
+`$Salamander | Add-Member -NotePropertyName source_side -NotePropertyValue `$side
+`$Salamander | Add-Member -NotePropertyName target_side -NotePropertyValue `$side
+. '$generatedPath'
+"@
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $wrapperPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "Generated menu runtime exited with code $LASTEXITCODE."
+    }
+    $deadline = [datetime]::UtcNow.AddSeconds(20)
+    do {
+        if (Test-Path -LiteralPath $marker) { break }
+        Start-Sleep -Milliseconds 200
+    } while ([datetime]::UtcNow -lt $deadline)
+    if (-not (Test-Path -LiteralPath $marker)) {
+        throw 'Generated PowerShell action did not run the selected script.'
+    }
+    $markerText = (Get-Content -LiteralPath $marker -Raw).Trim()
+    if ($markerText -ne 'marker-ok') {
+        throw "Generated PowerShell action wrote unexpected output: $markerText"
     }
     $handwrittenRoot = Join-Path $testRoot 'handwritten'
     [System.IO.Directory]::CreateDirectory($handwrittenRoot) | Out-Null

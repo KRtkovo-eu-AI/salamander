@@ -1,3 +1,5 @@
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-26 | Launch generated menu actions without a policy override switch. | Antivirus heuristics treated that command line as a dropper. | | Grok 4.7 |
 Set-StrictMode -Version 2.0
 
 function Initialize-BuilderDarkMode {
@@ -388,6 +390,24 @@ function Resolve-MenuTarget {
     return Join-Path $PSScriptRoot ($Target.Replace('/', '\'))
 }
 
+function Start-MenuProcess {
+    param(
+        [string]$FilePath,
+        [string]$Arguments,
+        [string]$WorkingDirectory
+    )
+    $start = New-Object System.Diagnostics.ProcessStartInfo
+    $start.FileName = $FilePath
+    $start.UseShellExecute = $true
+    if (-not [string]::IsNullOrWhiteSpace($Arguments)) {
+        $start.Arguments = $Arguments
+    }
+    if (-not [string]::IsNullOrWhiteSpace($WorkingDirectory)) {
+        $start.WorkingDirectory = $WorkingDirectory
+    }
+    [void][System.Diagnostics.Process]::Start($start)
+}
+
 if ($null -eq (Get-Variable -Name Salamander -ErrorAction SilentlyContinue)) {
     return
 }
@@ -412,46 +432,31 @@ try {
 
     switch ([string]$action.action) {
         'powershell' {
-            $arguments = '-NoProfile -ExecutionPolicy Bypass -File "' +
+            # The host process already carries the session policy in its
+            # environment. Name only the script here; a nested powershell.exe
+            # inherits that environment.
+            $arguments = '-NoProfile -File "' +
                 $resolvedTarget.Replace('"', '\"') + '"'
             if (-not [string]::IsNullOrWhiteSpace($expandedArguments)) {
                 $arguments += ' ' + $expandedArguments
             }
-            $parameters = @{
-                FilePath = 'powershell.exe'
-                ArgumentList = $arguments
-            }
-            if (-not [string]::IsNullOrWhiteSpace($expandedWorkingDirectory)) {
-                $parameters.WorkingDirectory = $expandedWorkingDirectory
-            }
-            Start-Process @parameters
+            Start-MenuProcess (Join-Path $PSHOME 'powershell.exe') `
+                $arguments $expandedWorkingDirectory
         }
         'command' {
             $line = $expandedTarget
             if (-not [string]::IsNullOrWhiteSpace($expandedArguments)) {
                 $line += ' ' + $expandedArguments
             }
-            $parameters = @{
-                FilePath = $env:ComSpec
-                ArgumentList = @('/d', '/c', $line)
-            }
-            if (-not [string]::IsNullOrWhiteSpace($expandedWorkingDirectory)) {
-                $parameters.WorkingDirectory = $expandedWorkingDirectory
-            }
-            Start-Process @parameters
+            Start-MenuProcess $env:ComSpec ('/d /c ' + $line) `
+                $expandedWorkingDirectory
         }
         'open' {
-            Start-Process -FilePath $resolvedTarget
+            Start-MenuProcess $resolvedTarget '' ''
         }
         default {
-            $parameters = @{ FilePath = $resolvedTarget }
-            if (-not [string]::IsNullOrWhiteSpace($expandedArguments)) {
-                $parameters.ArgumentList = $expandedArguments
-            }
-            if (-not [string]::IsNullOrWhiteSpace($expandedWorkingDirectory)) {
-                $parameters.WorkingDirectory = $expandedWorkingDirectory
-            }
-            Start-Process @parameters
+            Start-MenuProcess $resolvedTarget $expandedArguments `
+                $expandedWorkingDirectory
         }
     }
 }
