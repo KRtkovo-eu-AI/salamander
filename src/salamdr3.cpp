@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Keep popup source data independent of live history rows. | Resolve tab names from stable copies while formatting the menu. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Save working directory source IDs and names with each path. | Restore open and closed tab attribution across sessions. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Prefix cross-tab history paths with the source tab name. | Keep the name visible with Hot Path icons and preserve accelerators. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Show Hot Path and other-tab icons in working directory history. | Make path status visible in the full history popup. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
@@ -1986,7 +1987,7 @@ void CPathHistory::FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int ma
 {
     char buffer[2 * MAX_PATH];
     std::vector<std::string> hotPaths;
-    std::vector<std::pair<DWORD, const CWorkingDirectorySource*>> sourcedItems;
+    std::vector<std::pair<DWORD, CWorkingDirectorySource>> sourcedItems;
     GUID currentTabId{};
     if (panel != NULL)
     {
@@ -2043,7 +2044,7 @@ void CPathHistory::FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int ma
         }
         mii.ID = id++;
         if (popup->InsertItem(-1, TRUE, &mii) && fromOtherTab)
-            sourcedItems.emplace_back(popup->GetItemCount() - 1, &item->Source);
+            sourcedItems.emplace_back(popup->GetItemCount() - 1, item->Source);
         added++;
     }
 
@@ -2054,7 +2055,7 @@ void CPathHistory::FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int ma
     CWorkingDirectoryTabNames tabNames;
     for (const auto& [position, source] : sourcedItems)
     {
-        const std::string prefix = FormatHistoryTabPrefix(ResolveWorkingDirectorySourceName(tabNames, *source));
+        const std::string prefix = FormatHistoryTabPrefix(ResolveWorkingDirectorySourceName(tabNames, source));
         if (prefix.empty())
             continue;
 
