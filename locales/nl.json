@@ -372,7 +372,7 @@
     "salamanderSdkRelease": "Uitgave van de Salamander SDK",
     "officialSdkAvailable": "officiële SDK beschikbaar",
     "nonOfficialSdkAvailable": "niet-officiële SDK beschikbaar",
-    "forFullCompatibilityAndCapabilitiesItSRecommended": "voor volledige compatibiliteit en mogelijkheden wordt aanbevolen de broncode van de toepassing te gebruiken in plaats van de SDK",
+    "forFullCompatibilityAndCapabilitiesItSRecommended": "SDK-mogelijkheden uit versies hoger dan 103 zijn niet compatibel tussen forks",
     "visualStudioCodeAddOnDialogBuilderWith": "Visual Studio Code-invoegtoepassing: dialoogbouwer met systeemeigen voorbeeldhost, menubouwer en manifesteditor",
     "configuration": "Configuratie",
     "configurability": "Configureerbaarheid",

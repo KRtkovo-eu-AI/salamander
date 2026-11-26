@@ -372,7 +372,7 @@
     "salamanderSdkRelease": "Salamander SDK-utgivelse",
     "officialSdkAvailable": "offisiell SDK tilgjengelig",
     "nonOfficialSdkAvailable": "uoffisiell SDK tilgjengelig",
-    "forFullCompatibilityAndCapabilitiesItSRecommended": "for full kompatibilitet og alle muligheter anbefales det å bruke kildekoden til programmet i stedet for SDK",
+    "forFullCompatibilityAndCapabilitiesItSRecommended": "SDK-funksjoner fra versjoner høyere enn 103 er ikke kompatible mellom forkene",
     "visualStudioCodeAddOnDialogBuilderWith": "Tillegg for Visual Studio Code: dialogbygger med innebygd forhåndsvisningsvert, menybygger og manifestredigering",
     "configuration": "Konfigurasjon",
     "configurability": "Tilpasningsmuligheter",

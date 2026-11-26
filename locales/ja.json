@@ -372,7 +372,7 @@
     "salamanderSdkRelease": "Salamander SDK のリリース",
     "officialSdkAvailable": "公式 SDK が利用可能",
     "nonOfficialSdkAvailable": "非公式 SDK が利用可能",
-    "forFullCompatibilityAndCapabilitiesItSRecommended": "完全な互換性と機能のためには、SDK ではなくアプリケーションのソースコードを使うことを推奨します",
+    "forFullCompatibilityAndCapabilitiesItSRecommended": "103を超えるバージョンのSDK機能は、フォーク間で互換性がありません",
     "visualStudioCodeAddOnDialogBuilderWith": "Visual Studio Code アドオン：ネイティブプレビューホスト付きダイアログビルダー、メニュービルダー、マニフェストエディター",
     "configuration": "設定",
     "configurability": "設定の柔軟性",

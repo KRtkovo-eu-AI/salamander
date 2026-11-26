@@ -372,7 +372,7 @@
     "salamanderSdkRelease": "Vydání Salamander SDK",
     "officialSdkAvailable": "oficiální SDK k dispozici",
     "nonOfficialSdkAvailable": "neoficiální SDK k dispozici",
-    "forFullCompatibilityAndCapabilitiesItSRecommended": "pro plnou kompatibilitu a schopnosti se doporučuje použít zdrojový kód aplikace místo SDK",
+    "forFullCompatibilityAndCapabilitiesItSRecommended": "Funkce SDK ve verzích vyšších než 103 nejsou mezi forky kompatibilní",
     "visualStudioCodeAddOnDialogBuilderWith": "Doplněk Visual Studio Code: tvůrce dialogů s nativním hostitelem náhledu, tvůrce nabídek a editor manifestu",
     "configuration": "Konfigurace",
     "configurability": "Konfigurovatelnost",

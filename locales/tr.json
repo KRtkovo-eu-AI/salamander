@@ -372,7 +372,7 @@
     "salamanderSdkRelease": "Salamander SDK sürümü",
     "officialSdkAvailable": "resmi SDK mevcut",
     "nonOfficialSdkAvailable": "resmi olmayan SDK mevcut",
-    "forFullCompatibilityAndCapabilitiesItSRecommended": "tam uyumluluk ve yetenekler için SDK yerine uygulama kaynak kodunun kullanılması önerilir",
+    "forFullCompatibilityAndCapabilitiesItSRecommended": "103'ten yüksek sürümlerdeki SDK özellikleri forklar arasında uyumlu değildir",
     "visualStudioCodeAddOnDialogBuilderWith": "Visual Studio Code eklentisi: yerel önizleme ana bilgisayarıyla iletişim kutusu oluşturucu, menü oluşturucu ve bildirim düzenleyici",
     "configuration": "Yapılandırma",
     "configurability": "Yapılandırılabilirlik",

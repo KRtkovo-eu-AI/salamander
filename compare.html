@@ -31,7 +31,7 @@
     #comparison-table th, #comparison-table td { overflow-wrap: anywhere; }
     th, td { border: 1px solid color-mix(in srgb, CanvasText 20%, Canvas); text-align: center; vertical-align: top; }
     th:first-child, td:first-child { width: 46%; text-align: left; }
-    thead th { position: sticky; top: 0; z-index: 1; }
+    thead th { position: static; }
     th { padding: .3em .2em; font-size: 12px; font-weight: 400; vertical-align: middle; }
     td { padding: .3em .2em; font-size: 12px; }
     th:first-of-type { padding-left: .4em; }
@@ -41,6 +41,11 @@
     .section-toggle:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
     .section-toggle__icon { display: inline-grid; place-items: center; width: 1.15em; height: 1.15em; border: 1px solid currentColor; border-radius: .15em; font-size: .9em; line-height: 1; flex: 0 0 auto; }
     .table-legend { font-family: Tahoma, sans-serif; font-size: 10px !important; margin: 0; }
+    .comparison-sticky { position: fixed; z-index: 25; overflow: hidden; pointer-events: none; background: var(--sam-bg-content); box-shadow: 0 4px 10px rgba(0,0,0,.35); }
+    .comparison-sticky[hidden] { display: none; }
+    .comparison-sticky__table { min-width: 0; margin: 0; table-layout: fixed; }
+    .comparison-sticky__table thead th { position: static; top: auto; z-index: auto; }
+    .comparison-sticky .section-toggle { pointer-events: auto; }
     blockquote { display: flex; flex-wrap: wrap; gap: .4em; line-height: 1.8em; margin: .5em 0 0; }
     .version-current { width: max-content; }
     .version-row-break { flex-basis: 100%; height: 0; }
@@ -167,7 +172,7 @@
             <b>⭘</b> <small><i data-i18n="compare.noBinariesAreReleasedButItCanBe">No binaries are released, but it can be built from source.</i></small>
           </td>
           <td class="yes">⬤ / <b>⭘</b> / <b>⭘</b></td><td><b>⭘</b> / – / <b>⭘</b></td><td>⬤ / – / ⬤</td><td>– / – / ⬤</td><td>– / – / ⬤</td>
-         <td>⬤ / ⬤ / ⬤</td><td>⬤ / – / –</td><td>⬤ / – / ⭘<br><small>(x86 source build only)</small></td></tr>
+         <td>⬤ / ⬤ / ⬤</td><td>⬤ / – / –</td><td>⬤ / – / <b>⭘</b></td></tr>
 
         <tr><td data-i18n="compare.guaranteedSystemCompatibilityAndSupport">Guaranteed system compatibility and support</td><td class="yes">Windows 10 (x64),<br>Windows 11 (x64)</td><td data-i18n="compare.unreleased">Unreleased</td><td>Windows 7,<br>Windows 8,<br>Windows 8.1,<br>Windows 10</td><td>Windows 2000,<br>Windows XP,<br>Windows 7,<br>Windows Vista</td><td>Windows 95,<br>Windows 98,<br>Windows ME,<br>Windows NT 4.0,<br>Windows 2000,<br>Windows XP</td><td>Windows 10/11 x64<br><small>(Wine 10+ compatibility)</small></td><td>Windows 11 (x64)</td><td>Windows 10 (1809+) x64</td></tr>
 
@@ -241,7 +246,7 @@
 
         <tr><td><span data-i18n="compare.multimediaViewer">Multimedia viewer:</span><br>
             <b>⬤</b> <small><i data-i18n="compare.audioAndVideoFormats">Audio and Video formats</i></small>&#160;
-            <b>⭘</b> <small><i data-i18n="compare.audioFormatsOnly">Audio formats only</i></small></td><td class="yes">⬤</td><td><b>⭘</b></td><td><b>⭘</b></td><td><b>⭘</b></td><td>–</td><td>⭘</td><td>–</td><td>⭘</td></tr>
+            <b>⭘</b> <small><i data-i18n="compare.audioFormatsOnly">Audio formats only</i></small></td><td class="yes">⬤</td><td><b>⭘</b></td><td><b>⭘</b></td><td><b>⭘</b></td><td>–</td><td><b>⭘</b></td><td>–</td><td><b>⭘</b></td></tr>
 
         <tr><td><span data-i18n="compare.databaseViewerDbfCsv8DatabaseFormats">Database viewer: DBF, CSV, 8 database formats</span><br><small><i><span data-i18n="compare.samandarinProvidesAdditionalSupportFor">Samandarin provides additional support for</span> <b>JSONL</b> <span data-i18n="compare.format">format.</span></i></small></td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
 
@@ -251,7 +256,7 @@
 
         <tr><td data-i18n="compare.internetExplorerViewerHtmlXml">Internet Explorer viewer: HTML, XML</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td><td>–</td><td>⬤</td></tr>
 
-        <tr class="addition"><td data-i18n="compare.webview2RenderViewerHtmlMarkdownSvgWebpAvif">WebView2 Render viewer: HTML, Markdown, SVG, WebP/AVIF/APNG, raster images and PDF</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td><td>⭘<br><small>(HTML/<br>Markdown/<br>XML/SVG/PNG<br>subset)</small></td><td>⭘<br><small>(Markdown/<br>Code viewers<br>only)</small></td><td>–</td></tr>
+        <tr class="addition"><td data-i18n="compare.webview2RenderViewerHtmlMarkdownSvgWebpAvif">WebView2 Render viewer: HTML, Markdown, SVG, WebP/AVIF/APNG, raster images and PDF</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td><td><b>⭘</b><br><small>(HTML/<br>Markdown/<br>XML/SVG/PNG<br>subset)</small></td><td><b>⭘</b><br><small>(Markdown/<br>Code viewers<br>only)</small></td><td>–</td></tr>
 
         <tr><td data-i18n="compare.portableExecutableViewerExeDll">Portable executable viewer: EXE, DLL</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
 
@@ -737,7 +742,7 @@
 
         <tr><td><span data-i18n="compare.salamanderSdkRelease">Salamander SDK release</span><br>
           <small><b>⬤</b> <i data-i18n="compare.officialSdkAvailable">official SDK available</i>&#160;&#160;<b>⭘</b> <i data-i18n="compare.nonOfficialSdkAvailable">non-official SDK available</i><br>
-          <b>*</b> <i data-i18n="compare.forFullCompatibilityAndCapabilitiesItSRecommended">for full compatibility and capabilities, it's recommended to use application source code instead of SDK</i></small></td><td class="yes"><b>⭘ *</b></td><td><b>⭘</b></td><td>⬤</td><td>⬤</td><td>–</td><td><b>⭘</b><br><small>(SDK 109 in source)</small></td><td><b>⭘</b><br><small>(SDK 109 in source)</small></td><td><b>⭘</b><br><small>(SDK 105 in source)</small></td></tr>
+          <b>*</b> <i data-i18n="compare.forFullCompatibilityAndCapabilitiesItSRecommended">SDK capabilities from versions higher than 103 are incompatible between forks</i></small></td><td class="yes"><b>⭘</b><br><small>(SDK 106* in source)</small></td><td><b>⭘</b><br><small>(SDK 103 in source)</small></td><td>⬤</td><td>⬤</td><td>–</td><td><b>⭘</b><br><small>(SDK 109* in source)</small></td><td><b>⭘</b><br><small>(SDK 109* in source)</small></td><td><b>⭘</b><br><small>(SDK 105* in source)</small></td></tr>
 
         <tr class="addition"><td><a data-i18n="viewers.salamatrixStudio.salamatrixStudio" href="salamatrix/studio.html">Salamatrix Studio</a><br><small><i data-i18n="compare.visualStudioCodeAddOnDialogBuilderWith">Visual Studio Code add-on: dialog builder with native preview host, menu builder and manifest editor</i></small></td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
 
@@ -1111,6 +1116,132 @@
     }
     window.addEventListener("samandarin:locale-change", updateAllSectionsLabel);
 
+    var comparisonTable = document.getElementById("comparison-table");
+    var comparisonScroller = comparisonTable.closest(".scroll");
+    var stickyOverlay = document.createElement("div");
+    stickyOverlay.className = "comparison-sticky";
+    stickyOverlay.setAttribute("aria-hidden", "true");
+    stickyOverlay.hidden = true;
+    var stickyTable = document.createElement("table");
+    stickyTable.className = "comparison-table comparison-sticky__table";
+    stickyTable.setAttribute("dir", "ltr");
+    var stickyColumnGroup = comparisonTable.querySelector("colgroup").cloneNode(true);
+    var stickyHead = document.createElement("thead");
+    var stickyBody = document.createElement("tbody");
+    stickyTable.appendChild(stickyColumnGroup);
+    stickyTable.appendChild(stickyHead);
+    stickyTable.appendChild(stickyBody);
+    stickyOverlay.appendChild(stickyTable);
+    document.body.appendChild(stickyOverlay);
+    var activeStickySection = null;
+    var stickyUpdateScheduled = false;
+
+    function syncStickyCellStyle(sourceCell, stickyCell) {
+      var style = window.getComputedStyle(sourceCell);
+      stickyCell.style.backgroundColor = style.backgroundColor;
+      stickyCell.style.backgroundImage = style.backgroundImage;
+      if ((style.backgroundColor === "transparent" || style.backgroundColor === "rgba(0, 0, 0, 0)") && style.backgroundImage === "none") {
+        stickyCell.style.backgroundColor = "var(--sam-bg-content)";
+      }
+      stickyCell.style.color = style.color;
+    }
+
+    function updateComparisonSticky() {
+      var tableRect = comparisonTable.getBoundingClientRect();
+      var scrollerRect = comparisonScroller.getBoundingClientRect();
+      var siteHeader = document.querySelector(".site-header");
+      var stickyTop = siteHeader ? Math.max(0, siteHeader.getBoundingClientRect().bottom) : 0;
+      var sourceHead = comparisonTable.tHead;
+      var headerHeight = sourceHead ? sourceHead.getBoundingClientRect().height : 0;
+      var sectionTop = stickyTop + headerHeight;
+
+      if (!headerHeight || tableRect.top > stickyTop || tableRect.bottom <= sectionTop) {
+        stickyOverlay.hidden = true;
+        activeStickySection = null;
+        return;
+      }
+
+      var viewportLeft = scrollerRect.left + comparisonScroller.clientLeft;
+      stickyOverlay.style.top = stickyTop + "px";
+      stickyOverlay.style.left = viewportLeft + "px";
+      stickyOverlay.style.width = comparisonScroller.clientWidth + "px";
+      stickyTable.style.width = tableRect.width + "px";
+      stickyTable.style.minWidth = "0";
+      stickyTable.style.transform = "translateX(" + (tableRect.left - viewportLeft) + "px)";
+
+      var sourceColumns = comparisonTable.querySelectorAll("colgroup col");
+      sourceColumns.forEach(function (sourceColumn, index) {
+        var stickyColumn = stickyColumnGroup.children[index];
+        stickyColumn.hidden = sourceColumn.hidden;
+        stickyColumn.style.width = sourceColumn.getBoundingClientRect().width + "px";
+      });
+
+      var headClone = sourceHead.cloneNode(true);
+      headClone.querySelectorAll("th").forEach(function (cell, index) {
+        var sourceCell = sourceHead.querySelectorAll("th")[index];
+        if (sourceCell) syncStickyCellStyle(sourceCell, cell);
+      });
+      headClone.querySelectorAll("button").forEach(function (button) { button.tabIndex = -1; });
+      stickyTable.replaceChild(headClone, stickyHead);
+      stickyHead = headClone;
+
+      var currentSection = null;
+      comparisonTable.querySelectorAll("tbody tr.section").forEach(function (section) {
+        if (!section.hidden && section.getBoundingClientRect().top <= sectionTop) currentSection = section;
+      });
+      var sectionHeight = currentSection ? currentSection.getBoundingClientRect().height : 0;
+      var showStickySection = Boolean(currentSection && tableRect.bottom > sectionTop + sectionHeight);
+      stickyBody.replaceChildren();
+
+      if (showStickySection) {
+        var sectionClone = currentSection.cloneNode(true);
+        sectionClone.querySelectorAll("th, td").forEach(function (cell, index) {
+          var sourceCell = currentSection.querySelectorAll("th, td")[index];
+          if (sourceCell) syncStickyCellStyle(sourceCell, cell);
+        });
+        sectionClone.querySelectorAll(".section-toggle").forEach(function (button) { button.tabIndex = -1; });
+        stickyBody.appendChild(sectionClone);
+        activeStickySection = currentSection;
+      } else {
+        activeStickySection = null;
+      }
+
+      stickyOverlay.style.height = (headerHeight + (showStickySection ? sectionHeight : 0)) + "px";
+      stickyOverlay.hidden = false;
+    }
+
+    function scheduleComparisonStickyUpdate() {
+      if (stickyUpdateScheduled) return;
+      stickyUpdateScheduled = true;
+      window.requestAnimationFrame(function () {
+        stickyUpdateScheduled = false;
+        updateComparisonSticky();
+      });
+    }
+
+    stickyOverlay.addEventListener("click", function (event) {
+      var clickedToggle = event.target.closest && event.target.closest(".section-toggle");
+      if (!clickedToggle || !activeStickySection) return;
+      event.preventDefault();
+      var sourceToggle = activeStickySection.querySelector(".section-toggle");
+      if (sourceToggle) sourceToggle.click();
+    });
+    window.addEventListener("scroll", scheduleComparisonStickyUpdate, { passive: true });
+    window.addEventListener("resize", scheduleComparisonStickyUpdate);
+    comparisonScroller.addEventListener("scroll", scheduleComparisonStickyUpdate, { passive: true });
+    window.addEventListener("samandarin:locale-change", scheduleComparisonStickyUpdate);
+    document.querySelectorAll("#comparison-table .section-toggle").forEach(function (toggle) {
+      toggle.addEventListener("click", scheduleComparisonStickyUpdate);
+    });
+    if (allSectionsToggle) allSectionsToggle.addEventListener("click", scheduleComparisonStickyUpdate);
+    if (window.ResizeObserver) {
+      var stickyResizeObserver = new ResizeObserver(scheduleComparisonStickyUpdate);
+      stickyResizeObserver.observe(comparisonTable);
+      stickyResizeObserver.observe(comparisonScroller);
+      var headerToObserve = document.querySelector(".site-header");
+      if (headerToObserve) stickyResizeObserver.observe(headerToObserve);
+    }
+
     function updateComparisonLayout() {
       var visibleVersionCount = document.querySelectorAll(".version-toggle[aria-pressed=\"false\"]").length;
       var otherVersionWidth = visibleVersionCount > 0 ? (42 / visibleVersionCount) + "%" : "0%";
@@ -1123,6 +1254,7 @@
       document.querySelectorAll("#comparison-table .section th").forEach(function (section) {
         section.colSpan = 2 + visibleVersionCount;
       });
+      scheduleComparisonStickyUpdate();
     }
 
     document.querySelectorAll(".version-toggle").forEach(function (toggle) {

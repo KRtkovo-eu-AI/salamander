@@ -372,7 +372,7 @@
     "salamanderSdkRelease": "Salamander SDK kiadás",
     "officialSdkAvailable": "hivatalos SDK elérhető",
     "nonOfficialSdkAvailable": "nem hivatalos SDK elérhető",
-    "forFullCompatibilityAndCapabilitiesItSRecommended": "a teljes kompatibilitáshoz és képességekhez az SDK helyett az alkalmazás forráskódjának használata ajánlott",
+    "forFullCompatibilityAndCapabilitiesItSRecommended": "A 103-as verziónál újabb SDK-verziók képességei nem kompatibilisek a forkok között",
     "visualStudioCodeAddOnDialogBuilderWith": "Visual Studio Code bővítmény: párbeszédszerkesztő natív előnézeti gazdával, menüszerkesztő és jegyzékfájl-szerkesztő",
     "configuration": "Konfiguráció",
     "configurability": "Testreszabhatóság",

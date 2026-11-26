@@ -372,7 +372,7 @@
     "salamanderSdkRelease": "Salamander SDK leidimas",
     "officialSdkAvailable": "prieinamas oficialus SDK",
     "nonOfficialSdkAvailable": "prieinamas neoficialus SDK",
-    "forFullCompatibilityAndCapabilitiesItSRecommended": "visiškam suderinamumui ir visoms galimybėms rekomenduojama naudoti programos šaltinio kodą, o ne SDK",
+    "forFullCompatibilityAndCapabilitiesItSRecommended": "SDK galimybės versijose, aukštesnėse nei 103, yra nesuderinamos tarp forkų",
     "visualStudioCodeAddOnDialogBuilderWith": "Visual Studio Code priedas: dialogų konstruktorius su savuoju peržiūros pagrindu, meniu konstruktorius ir manifestų rengyklė",
     "configuration": "Konfigūracija",
     "configurability": "Konfigūruojamumas",

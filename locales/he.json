@@ -372,7 +372,7 @@
     "salamanderSdkRelease": "הפצת Salamander SDK",
     "officialSdkAvailable": "SDK רשמי זמין",
     "nonOfficialSdkAvailable": "SDK לא רשמי זמין",
-    "forFullCompatibilityAndCapabilitiesItSRecommended": "לתאימות וליכולות מלאות, מומלץ להשתמש בקוד המקור של היישום במקום ב-SDK",
+    "forFullCompatibilityAndCapabilitiesItSRecommended": "יכולות ה-SDK בגרסאות שמעל 103 אינן תואמות בין ה-forks",
     "visualStudioCodeAddOnDialogBuilderWith": "תוספת Visual Studio Code: בונה תיבות דו-שיח עם מארח תצוגה מקדימה מקורי, בונה תפריטים ועורך מניפסט",
     "configuration": "תצורה",
     "configurability": "יכולת הגדרה",

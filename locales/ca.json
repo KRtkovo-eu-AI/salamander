@@ -372,7 +372,7 @@
     "salamanderSdkRelease": "Versió del Salamander SDK",
     "officialSdkAvailable": "SDK oficial disponible",
     "nonOfficialSdkAvailable": "SDK no oficial disponible",
-    "forFullCompatibilityAndCapabilitiesItSRecommended": "per a una compatibilitat i unes capacitats completes, es recomana fer servir el codi font de l'aplicació en lloc de l'SDK",
+    "forFullCompatibilityAndCapabilitiesItSRecommended": "Les capacitats de l'SDK de les versions superiors a la 103 són incompatibles entre els forks",
     "visualStudioCodeAddOnDialogBuilderWith": "Complement de Visual Studio Code: constructor de diàlegs amb amfitrió de previsualització nadiu, constructor de menús i editor de manifests",
     "configuration": "Configuració",
     "configurability": "Configurabilitat",

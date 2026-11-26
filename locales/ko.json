@@ -372,7 +372,7 @@
     "salamanderSdkRelease": "Salamander SDK 릴리스",
     "officialSdkAvailable": "공식 SDK 사용 가능",
     "nonOfficialSdkAvailable": "비공식 SDK 사용 가능",
-    "forFullCompatibilityAndCapabilitiesItSRecommended": "완전한 호환성과 기능을 위해서는 SDK 대신 응용 프로그램 소스 코드를 쓰는 것이 좋습니다",
+    "forFullCompatibilityAndCapabilitiesItSRecommended": "103보다 높은 버전의 SDK 기능은 포크 간에 호환되지 않습니다",
     "visualStudioCodeAddOnDialogBuilderWith": "Visual Studio Code 추가 기능: 네이티브 미리 보기 호스트가 있는 대화 상자 작성기, 메뉴 작성기, 매니페스트 편집기",
     "configuration": "구성",
     "configurability": "구성 가능성",

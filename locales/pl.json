@@ -372,7 +372,7 @@
     "salamanderSdkRelease": "Wydanie Salamander SDK",
     "officialSdkAvailable": "oficjalny SDK dostępny",
     "nonOfficialSdkAvailable": "nieoficjalny SDK dostępny",
-    "forFullCompatibilityAndCapabilitiesItSRecommended": "dla pełnej zgodności i możliwości zaleca się użycie kodu źródłowego aplikacji zamiast SDK",
+    "forFullCompatibilityAndCapabilitiesItSRecommended": "Możliwości SDK z wersji wyższych niż 103 są niezgodne między forkami",
     "visualStudioCodeAddOnDialogBuilderWith": "Dodatek Visual Studio Code: kreator okien dialogowych z natywnym hostem podglądu, kreator menu i edytor manifestu",
     "configuration": "Konfiguracja",
     "configurability": "Konfigurowalność",

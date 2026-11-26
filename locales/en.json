@@ -372,7 +372,7 @@
     "salamanderSdkRelease": "Salamander SDK release",
     "officialSdkAvailable": "official SDK available",
     "nonOfficialSdkAvailable": "non-official SDK available",
-    "forFullCompatibilityAndCapabilitiesItSRecommended": "for full compatibility and capabilities, it's recommended to use application source code instead of SDK",
+    "forFullCompatibilityAndCapabilitiesItSRecommended": "SDK capabilities from versions higher than 103 are incompatible between forks",
     "visualStudioCodeAddOnDialogBuilderWith": "Visual Studio Code add-on: dialog builder with native preview host, menu builder and manifest editor",
     "configuration": "Configuration",
     "configurability": "Configurability",

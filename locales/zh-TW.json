@@ -372,7 +372,7 @@
     "salamanderSdkRelease": "Salamander SDK 發行",
     "officialSdkAvailable": "官方 SDK 可用",
     "nonOfficialSdkAvailable": "非官方 SDK 可用",
-    "forFullCompatibilityAndCapabilitiesItSRecommended": "若要獲得完整相容性與能力，建議使用應用程式原始碼，而不是 SDK",
+    "forFullCompatibilityAndCapabilitiesItSRecommended": "高於 103 的版本所提供的 SDK 功能在各個衍生版本之間不相容",
     "visualStudioCodeAddOnDialogBuilderWith": "Visual Studio Code 附加元件：含原生預覽宿主的對話方塊建置器、功能表建置器與資訊清單編輯器",
     "configuration": "組態",
     "configurability": "可組態程度",

@@ -372,7 +372,7 @@
     "salamanderSdkRelease": "Rilis Salamander SDK",
     "officialSdkAvailable": "SDK resmi tersedia",
     "nonOfficialSdkAvailable": "SDK tidak resmi tersedia",
-    "forFullCompatibilityAndCapabilitiesItSRecommended": "untuk kompatibilitas dan kemampuan penuh, disarankan memakai kode sumber aplikasi alih-alih SDK",
+    "forFullCompatibilityAndCapabilitiesItSRecommended": "Fitur SDK pada versi di atas 103 tidak kompatibel antar-fork",
     "visualStudioCodeAddOnDialogBuilderWith": "Pengaya Visual Studio Code: pembangun dialog dengan host pratinjau asli, pembangun menu, dan editor manifes",
     "configuration": "Konfigurasi",
     "configurability": "Kemampuan konfigurasi",

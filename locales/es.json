@@ -372,7 +372,7 @@
     "salamanderSdkRelease": "Publicación del SDK de Salamander",
     "officialSdkAvailable": "SDK oficial disponible",
     "nonOfficialSdkAvailable": "SDK no oficial disponible",
-    "forFullCompatibilityAndCapabilitiesItSRecommended": "para una compatibilidad y unas capacidades completas, se recomienda usar el código fuente de la aplicación en lugar del SDK",
+    "forFullCompatibilityAndCapabilitiesItSRecommended": "Las capacidades del SDK de las versiones superiores a la 103 son incompatibles entre los forks",
     "visualStudioCodeAddOnDialogBuilderWith": "Complemento de Visual Studio Code: generador de cuadros de diálogo con host de vista previa nativo, generador de menús y editor de manifiestos",
     "configuration": "Configuración",
     "configurability": "Capacidad de configuración",

@@ -372,7 +372,7 @@
     "salamanderSdkRelease": "Phát hành Salamander SDK",
     "officialSdkAvailable": "có SDK chính thức",
     "nonOfficialSdkAvailable": "có SDK không chính thức",
-    "forFullCompatibilityAndCapabilitiesItSRecommended": "để tương thích và đủ khả năng, nên dùng mã nguồn ứng dụng thay cho SDK",
+    "forFullCompatibilityAndCapabilitiesItSRecommended": "Các tính năng SDK trong những phiên bản cao hơn 103 không tương thích giữa các fork",
     "visualStudioCodeAddOnDialogBuilderWith": "Phần bổ trợ Visual Studio Code: trình dựng hộp thoại với máy chủ xem trước gốc, trình dựng menu và trình soạn thảo bản kê",
     "configuration": "Cấu hình",
     "configurability": "Khả năng cấu hình",

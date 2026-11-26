@@ -372,7 +372,7 @@
     "salamanderSdkRelease": "Salamander SDK -julkaisu",
     "officialSdkAvailable": "virallinen SDK saatavilla",
     "nonOfficialSdkAvailable": "epävirallinen SDK saatavilla",
-    "forFullCompatibilityAndCapabilitiesItSRecommended": "täyttä yhteensopivuutta ja kaikkia ominaisuuksia varten on suositeltavaa käyttää sovelluksen lähdekoodia SDK:n sijaan",
+    "forFullCompatibilityAndCapabilitiesItSRecommended": "Yli version 103 julkaistujen SDK-versioiden ominaisuudet eivät ole yhteensopivia forkien välillä",
     "visualStudioCodeAddOnDialogBuilderWith": "Visual Studio Code -lisäosa: valintaikkunoiden rakennin natiivilla esikatseluisännällä, valikoiden rakennin ja luettelotiedoston muokkain",
     "configuration": "Määritys",
     "configurability": "Mukautettavuus",

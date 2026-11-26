@@ -372,7 +372,7 @@
     "salamanderSdkRelease": "Izdanje Salamander SDK",
     "officialSdkAvailable": "službeni SDK dostupan",
     "nonOfficialSdkAvailable": "neslužbeni SDK dostupan",
-    "forFullCompatibilityAndCapabilitiesItSRecommended": "za potpunu kompatibilnost i mogućnosti preporučuje se uporaba izvornog koda aplikacije umjesto SDK-a",
+    "forFullCompatibilityAndCapabilitiesItSRecommended": "Mogućnosti SDK-a u verzijama višima od 103 nisu kompatibilne među forkovima",
     "visualStudioCodeAddOnDialogBuilderWith": "Dodatak za Visual Studio Code: sastavljač dijaloga s izvornim pretpregledom, sastavljač izbornika i uređivač manifesta",
     "configuration": "Konfiguracija",
     "configurability": "Podesivost",

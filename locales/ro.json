@@ -372,7 +372,7 @@
     "salamanderSdkRelease": "Lansarea Salamander SDK",
     "officialSdkAvailable": "SDK oficial disponibil",
     "nonOfficialSdkAvailable": "SDK neoficial disponibil",
-    "forFullCompatibilityAndCapabilitiesItSRecommended": "pentru compatibilitate și capacități complete, se recomandă folosirea codului-sursă al aplicației în locul SDK-ului",
+    "forFullCompatibilityAndCapabilitiesItSRecommended": "Capacitățile SDK din versiunile mai mari de 103 sunt incompatibile între fork-uri",
     "visualStudioCodeAddOnDialogBuilderWith": "Supliment Visual Studio Code: constructor de dialoguri cu gazdă de previzualizare nativă, constructor de meniuri și editor de manifest",
     "configuration": "Configurare",
     "configurability": "Configurabilitate",

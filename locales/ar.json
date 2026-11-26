@@ -372,7 +372,7 @@
     "salamanderSdkRelease": "إصدار Salamander SDK",
     "officialSdkAvailable": "يتوفر SDK رسمي",
     "nonOfficialSdkAvailable": "يتوفر SDK غير رسمي",
-    "forFullCompatibilityAndCapabilitiesItSRecommended": "للتوافق الكامل والقدرات، يُستحسن استخدام الشفرة المصدرية للتطبيق بدل SDK",
+    "forFullCompatibilityAndCapabilitiesItSRecommended": "إمكانات SDK في الإصدارات الأحدث من 103 غير متوافقة بين التفرعات البرمجية",
     "visualStudioCodeAddOnDialogBuilderWith": "إضافة Visual Studio Code: بنّاء مربعات حوار مع مضيف معاينة أصلي وبنّاء قوائم ومحرر بيان",
     "configuration": "التكوين",
     "configurability": "قابلية التكوين",

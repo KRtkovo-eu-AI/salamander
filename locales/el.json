@@ -372,7 +372,7 @@
     "salamanderSdkRelease": "Κυκλοφορία Salamander SDK",
     "officialSdkAvailable": "επίσημο SDK διαθέσιμο",
     "nonOfficialSdkAvailable": "ανεπίσημο SDK διαθέσιμο",
-    "forFullCompatibilityAndCapabilitiesItSRecommended": "για πλήρη συμβατότητα και δυνατότητες συνιστάται η χρήση του πηγαίου κώδικα της εφαρμογής αντί του SDK",
+    "forFullCompatibilityAndCapabilitiesItSRecommended": "Οι δυνατότητες του SDK σε εκδόσεις νεότερες από την 103 δεν είναι συμβατές μεταξύ των forks",
     "visualStudioCodeAddOnDialogBuilderWith": "Πρόσθετο Visual Studio Code: δημιουργός διαλόγων με εγγενή κεντρικό υπολογιστή προεπισκόπησης, δημιουργός μενού και επεξεργαστής δηλώσεων",
     "configuration": "Ρυθμίσεις",
     "configurability": "Παραμετροποιησιμότητα",
