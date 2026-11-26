@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Route explicit Refresh to protected archives. | Leave background refresh noninteractive. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Reuse undecorated live tab names in working directory history. | Keep tab state indicators separate from source labels. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-25 | Dispatch protected copy tests and generated-report opens together. | The main window keeps both the laboratory F5 gate and UnISO report navigation. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 // | 2026-11-20 | Reopen the exact enumerated source image on the plug-in UI thread. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
 // | 2026-11-20 | Admit bundled PictView in Branch View. | Preserve panel image identity and existing viewer restrictions. |  | gpt-6.2-sol |
@@ -894,30 +895,33 @@ static void BuildTabCaption(CFilesWindow* panel, char* buffer, int bufferSize)
     CMainWindow::FormatPanelPathForDisplay(panel, mode, buffer, bufferSize);
 }
 
+static std::wstring BuildTabName(CFilesWindow* panel)
+{
+    CPathBuffer text;
+    BuildTabCaption(panel, text.Data(), text.Capacity());
+    std::wstring caption = Utf8OrAnsiToWide(text.Data());
+    if (!panel->HasCustomTabPrefix())
+        return caption;
+
+    std::wstring name = panel->GetCustomTabPrefix();
+    if (!caption.empty())
+        name += L" " + caption;
+    return name;
+}
+
 static std::wstring BuildTabDisplayText(CFilesWindow* panel, int index)
 {
-    char text[SAL_MAX_PATH];
-    BuildTabCaption(panel, text, _countof(text));
-    std::wstring caption = Utf8OrAnsiToWide(text);
-    std::wstring prefix;
-    if (panel != NULL && panel->HasCustomTabPrefix())
-        prefix = panel->GetCustomTabPrefix();
+    std::wstring name = BuildTabName(panel);
     std::wstring result;
     if (index == 0)
         result = L"\u2691";
-    else if (panel != NULL && panel->IsTabLocked())
+    else if (panel->IsTabLocked())
         result = L"\U0001F512";
-    if (!prefix.empty())
+    if (!name.empty())
     {
         if (!result.empty())
             result += L" ";
-        result += prefix;
-    }
-    if (!caption.empty())
-    {
-        if (!result.empty())
-            result += L" ";
-        result += caption;
+        result += name;
     }
     return result;
 }
@@ -972,6 +976,29 @@ std::wstring CMainWindow::GetPanelTabDisplayText(CFilesWindow* panel) const
     if (panel->IsBranchView())
         text += L" [" + SalMultiByteToWidePath(LoadStr(IDS_BRANCH_VIEW), CP_UTF8) + L"]";
     return text;
+}
+
+std::wstring CMainWindow::GetPanelTabNameById(ULONGLONG tabId) const
+{
+    if (tabId == 0)
+        return {};
+
+    for (CPanelSide side : {cpsLeft, cpsRight})
+    {
+        for (int i = 0; i < GetPanelTabCount(side); ++i)
+        {
+            CFilesWindow* panel = GetPanelTabAt(side, i);
+            if (panel != NULL && panel->GetPanelTabId() == tabId)
+                return BuildTabName(panel);
+        }
+    }
+    for (int i = 0; i < GetDetachedTabCount(); ++i)
+    {
+        CFilesWindow* panel = GetDetachedTabAt(i);
+        if (panel != NULL && panel->GetPanelTabId() == tabId)
+            return BuildTabName(panel);
+    }
+    return {};
 }
 
 void CMainWindow::UpdatePanelTabTitle(CFilesWindow* panel)

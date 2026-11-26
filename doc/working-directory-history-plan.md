@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-26 | Document live source labels and remaining persistence work. | Record the implemented session behavior and closed-tab cases. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 | 2026-11-26 | Document the working directory history implementation. | Define the initial popup change and the storage and navigation work that follows. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 -->
 
@@ -17,14 +18,16 @@
 | Tab identity | `CFilesWindow::GetPanelTabId()` identifies a tab within the running process. Reorder and moves keep the panel object. A new panel gets a new ID, including when undoing a close. A persisted ID needs a separate lifetime because the runtime counter starts over on restart and existing callers use it to identify live panels and async work. |
 | Configuration | **History** already owns the shared/per-tab preference. Switching to per-tab can seed empty lists with copies of shared history. Switching to shared rebuilds from open panels and detached tabs in enumeration order, which can discard older shared entries or misorder visits across tabs. The registry currently saves or clears the shared list according to the selected scope. Showing the same preference under **Tabs** does not on its own fix any of these storage behaviors. |
 
-## Phase 1 — Icons in the working directory popup
+## Phase 1 — Icons and live source tab names in the working directory popup
 
 1. Record the runtime tab ID alongside new working directory entries. Treat zero and entries loaded from legacy or existing configuration as unknown. Keep attribution through duplicate promotion, deferred inserts and copies. Preserve the existing path, icon and plug-in ownership rules in `CPathHistory`.
 2. At popup construction, compare each location to the current Hot Paths. Reuse the existing lexical path comparison for the relevant path type and resolve supported Hot Path variables without displaying expansion errors. Do not open an archive, reconnect a plug-in, probe a network path or resolve a filesystem link merely to draw the menu. A bookmark edit should be reflected the next time the list opens. Hidden Hot Paths still qualify. Plug-in bookmarks match their stored filesystem name and path text, so a plug-in that uses different external and internal names can leave an alias unmarked.
 3. Within this popup, use the Hot Path star first. Otherwise, in the shared view, use the tab icon if the recorded source is known and differs from the panel opening the popup. Keep the current path icon or empty icon slot for other rows. This keeps one icon at most and prevents copied entries in the per-tab view from looking like cross-tab search results.
 4. Use the existing popup, icon column and keyboard handling. Reuse the shipped Favorites star and Duplicate Tab artwork through the panel's DPI-specific toolbar image lists. Both assets already ship in the light and dark toolbar sets. Keep the row's command ID associated with the original history entry.
 
-Phase 1 uses session attribution. A known source can still differ from the active tab after its panel closes. Persisted attribution, source labels, the **Tabs** settings control, lock/project indicators and new navigation actions are follow-up work.
+5. Show the undecorated live tab title as `[Tab name]` before a different tab's path, including rows where the star wins. Escape literal ampersands and apply the prefix after assigning path accelerators. Use an ellipsis for unusually long names to limit menu growth.
+
+Phase 1 uses session attribution. A known source can still differ from the active tab after its panel closes, so its icon remains available, while its name requires the tab to be open. Legacy entries with unknown origin show the path alone. Persisted attribution, names for closed or restored tabs, the **Tabs** settings control, lock/project indicators and new navigation actions are follow-up work.
 
 ## Phase 2 — Persistent attribution, history scope and tab names
 
@@ -32,7 +35,7 @@ Phase 1 uses session attribution. A known source can still differ from the activ
 2. Store provenance as optional metadata so older path-only history is still readable. Apply **Save List of Working Directories**, **Clear History** and configuration import/export rules to the metadata and any stored tab names. Check the shared list, per-tab lists, detached-tab state and both newly created and older configurations. Retain closed-tab visits in the shared list within its existing history size limit.
 3. Preserve chronological shared and per-tab histories when changing the preference. The shared list should have one row per path with the latest source, while each visiting tab should retain its own entry. Keep legacy visits of unknown origin in the shared list. Use the existing destination identity rules for disk paths, archive member paths and plug-in filesystem locations. Avoid implicitly merging lists in panel enumeration order.
 4. Expose the same persisted preference in **Tabs**, keeping the saved value and the shared default. If the **History** control is retained, synchronize both controls when the user moves between pages and apply the scope change once. Keep the independent save control and document the two entry points in Help.
-5. Add `[Tab name]` before the path when a different source is known and its name is available. Keep the label independent of icon priority. `GetPanelTabDisplayText` already accounts for attached and detached tabs, but includes decorations such as lock and default-tab glyphs. Reuse the caption semantics without adding a second status icon in the history text. Decide whether a closed tab keeps a last-known name and whether a live tab's renamed caption updates old rows. Preserve literal ampersands, brackets and Unicode in the prefix and leave the destination and menu accelerator handling intact for long paths.
+5. Decide whether a closed tab keeps a last-known name. For restored tabs, reuse the live title once the persistent identity resolves. Keep source labels independent of icon priority, and preserve the existing path accelerators and Unicode handling.
 
 ## Phase 3 — Navigation status
 

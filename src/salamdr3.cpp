@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Prefix cross-tab history paths with the source tab name. | Keep the name visible with Hot Path icons and preserve accelerators. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Show Hot Path and other-tab icons in working directory history. | Make path status visible in the full history popup. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // CommentsTranslationProject: TRANSLATED
 
@@ -19,6 +20,8 @@
 #include "menu.h"
 #include "common/widepath.h"
 #include "branch_view.h"
+
+#include <unordered_map>
 
 CUserMenuIconBkgndReader UserMenuIconBkgndReader;
 
@@ -1912,11 +1915,39 @@ void CPathHistory::FillBackForwardPopupMenu(CMenuPopup* popup, BOOL forward)
     }
 }
 
+static std::string FormatHistoryTabPrefix(std::wstring name)
+{
+    if (name.empty())
+        return {};
+
+    // A full-path tab caption can be much wider than the history popup.
+    constexpr size_t maxNameLength = 80;
+    if (name.size() > maxNameLength)
+    {
+        size_t cut = maxNameLength - 1;
+        if (IS_HIGH_SURROGATE(name[cut - 1]))
+            --cut;
+        name.resize(cut);
+        name += L'\u2026';
+    }
+
+    std::wstring prefix = L"[";
+    for (wchar_t ch : name)
+    {
+        if (ch == L'&')
+            prefix += L'&';
+        prefix += (ch == L'\t' || ch == L'\r' || ch == L'\n') ? L' ' : ch;
+    }
+    prefix += L"] ";
+    return SalWideToMultiBytePath(prefix.c_str(), CP_ACP);
+}
+
 void CPathHistory::FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int maxCount,
                                         BOOL separator, const CFilesWindow* panel)
 {
     char buffer[2 * MAX_PATH];
     std::vector<std::string> hotPaths;
+    std::vector<std::pair<DWORD, ULONGLONG>> sourcedItems;
     ULONGLONG currentTabId = 0;
     if (panel != NULL)
     {
@@ -1959,8 +1990,9 @@ void CPathHistory::FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int ma
                 break;
             }
         }
-        if (imageIndex == -1 && currentTabId != 0 &&
-            item->SourceTabId != 0 && item->SourceTabId != currentTabId)
+        const bool fromOtherTab = currentTabId != 0 &&
+                                  item->SourceTabId != 0 && item->SourceTabId != currentTabId;
+        if (imageIndex == -1 && fromOtherTab)
             imageIndex = IDX_TB_TABSDUPLICATE;
 
         if (imageIndex != -1)
@@ -1970,12 +2002,40 @@ void CPathHistory::FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int ma
             mii.HIcon = NULL;
         }
         mii.ID = id++;
-        popup->InsertItem(-1, TRUE, &mii);
+        if (popup->InsertItem(-1, TRUE, &mii) && fromOtherTab)
+            sourcedItems.emplace_back(popup->GetItemCount() - 1, item->SourceTabId);
         added++;
     }
 
     if (added > 0)
         popup->AssignHotKeys();
+
+    // Assign the existing path accelerators before inserting source labels.
+    std::unordered_map<ULONGLONG, std::string> tabPrefixes;
+    for (const auto& [position, sourceTabId] : sourcedItems)
+    {
+        const auto [entry, inserted] = tabPrefixes.try_emplace(sourceTabId);
+        if (inserted)
+            entry->second = FormatHistoryTabPrefix(MainWindow->GetPanelTabNameById(sourceTabId));
+        const std::string& prefix = entry->second;
+        if (prefix.empty())
+            continue;
+
+        MENU_ITEM_INFO textInfo = {};
+        textInfo.Mask = MENU_MASK_STRING;
+        if (!popup->GetItemInfo(position, TRUE, &textInfo))
+            continue;
+
+        std::string label = prefix;
+        ++textInfo.StringLen;
+        label.resize(prefix.size() + textInfo.StringLen);
+        textInfo.String = label.data() + prefix.size();
+        if (popup->GetItemInfo(position, TRUE, &textInfo))
+        {
+            textInfo.String = label.data();
+            popup->SetItemInfo(position, TRUE, &textInfo);
+        }
+    }
 
     if (separator && added > 0)
     {
