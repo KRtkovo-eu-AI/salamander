@@ -50,6 +50,16 @@ COMMENT,"dutch (automatic AI translation)"
 2053,7,89,209,12,1,"&Berichtenvenster weergeven bij succesvol opslaan bestand"
 2054,7,101,261,12,1,"&Pad onthouden bij opslaan schermafdrukken, scans en van klembord plakken"
 
+[DIALOG 2044]
+268,150,1,"Prestaties"
+2042,7,7,251,12,1,"&Voorladen afbeeldingen in 2 richtingen"
+2043,7,25,251,22,1,"Voor lokale JPEG, PNG en TIFF (één pagina) in Passend- of Volledig schermmodus."
+2045,7,51,261,9,1,"&Geheugenbudget"
+2046,7,63,251,18,1,""
+2047,7,86,251,29,1,"Niveau %u van 5: %u MiB. Max per richting: %u.\r\nCa. totaal: %u bij 12 MP, %u bij 24 MP of %u bij 48 MP."
+2048,7,115,251,19,1,"Schatting gaat uit van ondoorzichtige afbeeldingen; het getoonde beeld is apart."
+2049,7,134,251,12,1,"&Vragen om voorladen uit te schakelen als het vertraagt"
+
 [DIALOG 2060]
 268,150,1,"Toetsenbord && Muis"
 3000,6,5,256,43,1,"PageUp && PageDown toetsen, muiswiel"
@@ -775,4 +785,8 @@ COMMENT,"dutch (automatic AI translation)"
 
 [STRINGTABLE 48]
 4418,1,"Bevat EXIF informatie"
+
+[STRINGTABLE 49]
+4432,1,"Voorladen vertraagt mogelijk het bladeren op deze schijf.\n\nWilt u het uitschakelen?"
+4433,1,"Niet weer vragen het uit te schakelen"
 

@@ -50,6 +50,16 @@ COMMENT,"slovak (automatic AI translation)"
 2053,7,89,169,12,1,"In&formovať oknom o úspešnom uložení súboru"
 2054,7,101,235,12,1,"&Pamätať si cestu pre ukladanie"
 
+[DIALOG 2044]
+268,150,1,"Výkon"
+2042,7,7,251,12,1,"&Prednačítať blízke obrázky oboma smermi"
+2043,7,25,251,22,1,"Pre miestne JPEG, PNG a jednstranné TIFF: Umiestniť do okna alebo celá obrazovka."
+2045,7,51,251,9,1,"&Limit pamäte"
+2046,7,63,251,18,1,""
+2047,7,86,251,29,1,"Úroveň %u/5: %u MiB. Max. na smer: %u.\r\nPribližný súčet: %u pri 12 MP, %u pri 24 MP alebo %u pri 48 MP."
+2048,7,115,251,19,1,"Odhad predpokladá nepriehľadné obrázky. Zobrazený obrázok je mimo rozpočet."
+2049,7,134,251,12,1,"&Ponúkať vypnutie prednačítania, ak spomalí prezeranie"
+
 [DIALOG 2060]
 268,150,1,"Klávesnica a myš"
 3000,6,5,256,43,1,"Klávesy PageUp a PageDown, koliesko myši"
@@ -775,4 +785,8 @@ COMMENT,"slovak (automatic AI translation)"
 
 [STRINGTABLE 48]
 4418,1,"Obsahuje EXIF informáciu"
+
+[STRINGTABLE 49]
+4432,1,"Prednačítavanie možno spomaľuje prezeranie obrázkov na tomto disku.\n\nChcete ho vypnúť?"
+4433,1,"Už neponúkať vypnutie prednačítavania"
 

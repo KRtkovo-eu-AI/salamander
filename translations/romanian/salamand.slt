@@ -4447,17 +4447,12 @@ SLGINCOMPLETE,""
 14694,1,"Această aprobare se aplică și folderelor protejate din:"
 14695,1,"Acces refuzat. Citiți ca administrator conținutul fișierelor de sub această cale pentru această comparație?"
 14696,1,"Această legătură de compatibilitate Windows a fost omisă. Contribuie cu 0 octeți la total."
-
 14697,1,"Acces refuzat. Se citește spațiul pe disc alocat acestui fișier ca administrator?"
 14698,1,"Finalizarea operației nu a putut fi confirmată. Este posibil să fi rămas o copie de lucru sau un jurnal. Verificați sursa, destinația și orice copie de rezervă înainte de a reîncerca."
-
 14699,1,"Acces refuzat. Înlocuiți acest fișier ca administrator, păstrând permisiunile destinației? Fișierul de înlocuire nu va conține fluxuri de date alternative."
-
 14700,1,"A fost atinsă limita de acces de administrator (%s elemente protejate). Acest element nu a fost căutat; rezultatele pot fi incomplete."
 14701,1,"Incomplet (limită administrator)"
-
 14702,1,"O căutare anterioară în aceste rezultate a atins limita de acces de administrator (%s elemente protejate). Unele elemente nu au fost căutate."
-
 14703,1,"Mutarea unui folder protejat în Coșul de reciclare cu drepturi de administrator nu este încă acceptată."
 
 [STRINGTABLE 198]
@@ -4467,30 +4462,26 @@ SLGINCOMPLETE,""
 14707,1,"Un subarbore protejat a depășit limita de adâncime. Unele elemente nu au fost căutate."
 14708,1,"Unele ținte ale legăturilor nu au fost căutate."
 14709,1,"Accesul la o parte a unui arbore protejat nu a fost aprobat sau a eșuat. Unele elemente nu au fost căutate."
-
 14710,1,"Vizualizatorul selectat nu poate deschide încă în siguranță acest rezultat verificat. Folosiți vizualizatorul intern."
 14711,1,"Acest rezultat este asociat unei identități verificate anterior. Deschideți ca administrator un instantaneu doar pentru citire în vizualizatorul intern? Instantaneul este limitat la 16 MB."
-
 14712,1,"Identitatea verificată a acestui rezultat protejat nu este disponibilă. Fișierul nu poate fi deschis în siguranță; încercați să reluați căutarea."
 14713,1,"View With nu poate păstra încă în siguranță identitatea verificată a acestui rezultat protejat. Folosiți F3 în schimb."
-
 14714,1,"Conținutul și etichetele acestui rezultat protejat nu pot fi citite în siguranță la rafinare folosind identitatea verificată anterior. Acest element nu a fost verificat."
 14715,1,"Accesul a fost refuzat. Creați această listă de fișiere ca administrator?"
-
 14716,1,"Identitatea unor foldere protejate nu poate fi verificată. Acestea nu au fost deschise; lista este incompletă. Primul folder:"
 14717,1,"Un folder protejat conține peste 4096 de elemente. Lista sa este incompletă."
-
 14719,1,"Branch View - %I64u fișiere; rezultatul poate fi incomplet"
-14720,1,"Listarea folderului a fost întreruptă și reluată. Fișierele se pot fi schimbat între timp, deci lista poate fi incompletă. Reîmprospătați pentru verificare."
 
+[STRINGTABLE 199]
+14720,1,"Listarea folderului a fost întreruptă și reluată. Fișierele se pot fi schimbat între timp, deci lista poate fi incompletă. Reîmprospătați pentru verificare."
 14721,1,"Acces refuzat. Copiați acest fișier ca administrator? Fișierele cu fluxuri de date alternative nu sunt acceptate în acest mod."
 14722,1,"Accesul a fost refuzat și cu drepturi de administrator. Permisiunile elementului pot restricționa accesul; elementele inaccesibile sunt excluse din rezultat."
 14723,1,"Accesul a fost refuzat și cu drepturi de administrator. Permisiunile folderului pot restricționa accesul."
 
-[STRINGTABLE 199]
+[STRINGTABLE 200]
 14991,1,"Citesc asocierile din stocarea fișierelor, vă rugăm așteptați..."
 
-[STRINGTABLE 200]
+[STRINGTABLE 201]
 14992,1,"Salvez configurația în stocarea fișierelor, vă rugăm așteptați..."
 14993,1,"Șterg configurația veche din stocarea fișierelor, vă rugăm așteptați..."
 14994,1,"Citesc asocierile din stocarea fișierelor..."

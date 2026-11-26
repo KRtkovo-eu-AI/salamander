@@ -50,6 +50,16 @@ COMMENT,"spanish (automatic AI translation)"
 2053,7,89,173,12,1,"&Ver cuadro de mensaje tras grabación con éxito"
 2054,7,101,250,12,1,"Recordar &ruta al guardar capturas de pantalla, escaneos, portapapeles"
 
+[DIALOG 2044]
+268,150,1,"Rendimiento"
+2042,7,7,251,12,1,"&Precargar imágenes en ambas direcciones"
+2043,7,25,261,22,1,"JPEG, PNG y TIFF locales de una página en modo Ajustar entero o Pantalla completa."
+2045,7,51,251,9,1,"&Tope memoria"
+2046,7,63,251,18,1,""
+2047,7,86,251,29,1,"Nivel %u de 5: %u MiB. Máx. por dirección: %u.\r\nTotal aprox.: %u en 12 MP, %u en 24 MP o %u en 48 MP."
+2048,7,115,251,19,1,"Estimación con imágenes opacas. La imagen mostrada no entra en este presupuesto."
+2049,7,134,251,12,1,"&Ofrecer desactivar precarga si ralentiza navegación"
+
 [DIALOG 2060]
 268,150,1,"Teclado && ratón"
 3000,6,5,256,43,1,"Teclas RePág && AvPág, rueda del ratón"
@@ -775,4 +785,8 @@ COMMENT,"spanish (automatic AI translation)"
 
 [STRINGTABLE 48]
 4418,1,"Contiene información EXIF"
+
+[STRINGTABLE 49]
+4432,1,"La precarga puede ralentizar la navegación de imágenes en esta unidad.\n\n¿Desactivar la precarga?"
+4433,1,"No ofrecer desactivar precarga de nuevo"
 

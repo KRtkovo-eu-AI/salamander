@@ -50,6 +50,16 @@ COMMENT,"catalan (automatic AI translation)"
 2053,7,89,167,12,1,"&Mostra un avís si es desa bé el fitxer"
 2054,7,101,235,12,1,"Recorda el &camí en desar captures, escanejos i porta-retalls"
 
+[DIALOG 2044]
+268,150,1,"Rendiment"
+2042,7,7,251,12,1,"&Precarrega imatges als dos sentits"
+2043,7,25,251,22,1,"Per a JPEG, PNG i TIFF locals d'una pàgina en mode Tot sencer o Pantalla sencera."
+2045,7,51,251,9,1,"&Límit memòria"
+2046,7,63,251,18,1,""
+2047,7,86,251,29,1,"Nivell %u de 5: %u MiB. Màxim per direcció: %u.\r\nTotal aprox.: %u a 12 MP, %u a 24 MP o %u a 48 MP."
+2048,7,115,251,19,1,"Estimacions per a imatges opaques. La imatge mostrada no compta en el pressupost."
+2049,7,134,251,12,1,"&Ofereix desactivar la precàrrega si frena la navegació"
+
 [DIALOG 2060]
 268,150,1,"Teclat && Ratolí"
 3000,6,5,256,43,1,"PageUp && PageDown"
@@ -775,4 +785,8 @@ COMMENT,"catalan (automatic AI translation)"
 
 [STRINGTABLE 48]
 4418,1,"Conté dades EXIF"
+
+[STRINGTABLE 49]
+4432,1,"La precàrrega podria estar alentint la navegació d'imatges en aquest disc.\n\nVols desactivar-la?"
+4433,1,"No ofereixis desactivar-la mai més"
 

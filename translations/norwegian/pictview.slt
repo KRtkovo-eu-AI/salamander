@@ -50,6 +50,16 @@ COMMENT,"norwegian (automatic AI translation)"
 2053,7,89,167,12,1,"&Vis meldingsboks ved vellykket lagring"
 2054,7,101,235,12,1,"Husk &bane ved lagring av skjermbilder, skann og utklippslim"
 
+[DIALOG 2044]
+268,150,1,"Ytelse"
+2042,7,7,251,12,1,"&Last inn nærliggende bilder begge veier"
+2043,7,25,251,22,1,"For lokale JPEG-, PNG- og ensides TIFF-bilder i Vis hele eller Fullskjerm-modus."
+2045,7,51,251,9,1,"&Minnebudsjett"
+2046,7,63,251,18,1,""
+2047,7,86,251,29,1,"Nivå %u av 5: %u MiB. Maks. per retning: %u.\r\nCa. total: %u ved 12 MP, %u ved 24 MP eller %u ved 48 MP."
+2048,7,115,261,19,1,"Estimater gjelder ugjennomsiktige bilder. Vist bilde er ikke en del av budsjettet."
+2049,7,134,251,12,1,"&Tilby å slå av forhåndslasting hvis det bremser blaing"
+
 [DIALOG 2060]
 268,150,1,"Tastatur && mus"
 3000,6,5,256,43,1,"PageUp/PageDown-taster"
@@ -775,4 +785,8 @@ COMMENT,"norwegian (automatic AI translation)"
 
 [STRINGTABLE 48]
 4418,1,"Har EXIF-info"
+
+[STRINGTABLE 49]
+4432,1,"Forhåndslasting bremser kanskje bildeblaing på denne stasjonen.\n\nVil du slå av forhåndslasting?"
+4433,1,"Ikke tilby å slå av forhåndslasting"
 

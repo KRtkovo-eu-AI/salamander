@@ -50,6 +50,16 @@ COMMENT,"hungarian (automatic AI translation)"
 2053,7,89,167,12,1,"Üzenet, &sikeres fájl mentés esetén"
 2054,7,101,250,12,1,"Ké&pernyőmentés, szkennelés, vágólapbeszúráskor elérési út megőrzése"
 
+[DIALOG 2044]
+268,150,1,"Sebesség"
+2042,7,7,251,12,1,"&Közeli képek előtöltése mindkét irányba"
+2043,7,25,251,22,1,"Helyi JPEG, PNG, egyoldalas TIFF képekre, teljes igazításnál és teljes képernyőn."
+2045,7,51,251,9,1,"&Memóriakeret"
+2046,7,63,251,18,1,""
+2047,7,86,251,29,1,"Szint %u/5: %u MiB. Max. irányonként: %u.\r\nKb. összes: %u 12 MP-nél, %u 24 MP-nél vagy %u 48 MP-nél."
+2048,7,115,251,19,1,"A becslés átlátszatlan képeket feltételez. A megjelenített kép külön számít."
+2049,7,134,251,12,1,"&Előtöltés kikapcsolásának felajánlása lassuláskor"
+
 [DIALOG 2060]
 268,150,1,"Billentyűzet és egér"
 3000,6,5,256,43,1,"PageUp és PageDown gombok, egér görgő"
@@ -775,4 +785,8 @@ COMMENT,"hungarian (automatic AI translation)"
 
 [STRINGTABLE 48]
 4418,1,"EXIF infót tartalmaz"
+
+[STRINGTABLE 49]
+4432,1,"Az előtöltés lassíthatja a képböngészést ezen a meghajtón.\n\nSzeretné kikapcsolni az előtöltést?"
+4433,1,"Ne ajánlja fel újra a kikapcsolást"
 

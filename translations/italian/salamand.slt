@@ -4447,17 +4447,12 @@ SLGINCOMPLETE,""
 14694,1,"Questa autorizzazione si applica anche alle cartelle protette in:"
 14695,1,"Accesso negato. Leggere come amministratore il contenuto dei file in questo percorso per questo confronto?"
 14696,1,"Questo collegamento di compatibilità di Windows è stato ignorato. Contribuisce al totale con 0 byte."
-
 14697,1,"Accesso negato. Leggere lo spazio su disco allocato a questo file come amministratore?"
 14698,1,"Non è stato possibile confermare il completamento dell’operazione. Potrebbero rimanere un backup di lavoro o un registro. Controllare la sorgente, la destinazione e gli eventuali backup prima di riprovare."
-
 14699,1,"Accesso negato. Sostituire questo file come amministratore mantenendo le autorizzazioni di destinazione? Il file sostitutivo non conterrà flussi di dati alternativi."
-
 14700,1,"Limite di accesso amministratore raggiunto (%s elementi protetti). Questo elemento non è stato esaminato; i risultati potrebbero essere incompleti."
 14701,1,"Incompleto (limite admin)"
-
 14702,1,"Una ricerca precedente in questi risultati ha raggiunto il limite di accesso amministratore (%s elementi protetti). Alcuni elementi non sono stati esaminati."
-
 14703,1,"Lo spostamento di una cartella protetta nel Cestino con privilegi di amministratore non è ancora supportato."
 
 [STRINGTABLE 198]
@@ -4467,30 +4462,26 @@ SLGINCOMPLETE,""
 14707,1,"Un sottoalbero protetto ha superato il limite di profondità. Alcuni elementi non sono stati esaminati."
 14708,1,"Alcune destinazioni dei collegamenti non sono state esaminate."
 14709,1,"L’accesso a una parte di un albero protetto non è stato approvato o non è riuscito. Alcuni elementi non sono stati esaminati."
-
 14710,1,"Il visualizzatore selezionato non può ancora aprire in sicurezza questo risultato verificato. Usare il visualizzatore interno."
 14711,1,"Questo risultato è associato a un’identità verificata in precedenza. Aprire un’istantanea di sola lettura nel visualizzatore interno come amministratore? L’istantanea è limitata a 16 MB."
-
 14712,1,"L’identità verificata di questo risultato protetto non è disponibile. Il file non può essere aperto in sicurezza; provare a ripetere la ricerca."
 14713,1,"View With non può ancora preservare in sicurezza l’identità verificata di questo risultato protetto. Usare invece F3."
-
 14714,1,"Il contenuto e le etichette di questo risultato protetto non possono essere letti in sicurezza durante il perfezionamento usando l’identità verificata in precedenza. Questo elemento non è stato verificato."
 14715,1,"Accesso negato. Creare questo elenco di file come amministratore?"
-
 14716,1,"Impossibile verificare l’identità di alcune cartelle protette. Non sono state aperte; l’elenco è incompleto. Prima cartella:"
 14717,1,"Una cartella protetta contiene più di 4096 elementi. Il suo elenco è incompleto."
-
 14719,1,"Branch View - %I64u file; il risultato potrebbe essere incompleto"
-14720,1,"L’elenco della cartella è stato interrotto e ripreso. I file potrebbero essere cambiati; l’elenco potrebbe essere incompleto. Aggiornarlo per verificare."
 
+[STRINGTABLE 199]
+14720,1,"L’elenco della cartella è stato interrotto e ripreso. I file potrebbero essere cambiati; l’elenco potrebbe essere incompleto. Aggiornarlo per verificare."
 14721,1,"Accesso negato. Copiare questo file come amministratore? In questa modalità non sono supportati i file con flussi di dati alternativi."
 14722,1,"Accesso negato anche con i diritti di amministratore. Le autorizzazioni dell’elemento potrebbero limitare l’accesso; gli elementi inaccessibili sono esclusi dal risultato."
 14723,1,"Accesso negato anche con i diritti di amministratore. Le autorizzazioni della cartella potrebbero limitare l’accesso."
 
-[STRINGTABLE 199]
+[STRINGTABLE 200]
 14991,1,"Lettura associazioni dall'archiviazione file, attendere..."
 
-[STRINGTABLE 200]
+[STRINGTABLE 201]
 14992,1,"Salvataggio configurazione nell'archiviazione file, attendere..."
 14993,1,"Eliminazione vecchia configurazione dall'archiviazione file, attendere..."
 14994,1,"Lettura associazioni dall'archiviazione file..."

@@ -50,6 +50,16 @@ COMMENT,"french (automatic AI translation)"
 2053,7,89,234,12,1,"&Voir la boîte de message lors d'un enregistrement réussi du fichier"
 2054,7,101,261,12,1,"Se souvenir du &chemin à la sauvegarde de copie écran, scan, collage du presse-papiers"
 
+[DIALOG 2044]
+268,150,1,"Performance"
+2042,7,7,251,12,1,"&Précharger les images voisines (2 sens)"
+2043,7,25,251,22,1,"Pour JPEG, PNG et TIFF monopage locaux en mode Tout remplir ou Plein écran."
+2045,7,51,251,9,1,"&Quota mémoire"
+2046,7,63,251,18,1,""
+2047,7,86,251,29,1,"Niveau %u sur 5 : %u MiB. Max par direction : %u.\r\nTotal approx. : %u à 12 MP, %u à 24 MP ou %u à 48 MP."
+2048,7,115,251,19,1,"Les estimations supposent des images opaques. L'image affichée est hors budget."
+2049,7,134,251,12,1,"&Proposer de désactiver le préchargement si ça ralentit"
+
 [DIALOG 2060]
 268,150,1,"Clavier && Souris"
 3000,6,5,256,43,1,"Touches Page Haut && Page Bas, roulette de souris"
@@ -775,4 +785,8 @@ COMMENT,"french (automatic AI translation)"
 
 [STRINGTABLE 48]
 4418,1,"Contient des infos EXIF"
+
+[STRINGTABLE 49]
+4432,1,"Le préchargement peut ralentir l'affichage des images sur ce lecteur.\n\nVoulez-vous le désactiver ?"
+4433,1,"Ne plus proposer de le désactiver"
 
