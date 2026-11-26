@@ -1,7 +1,7 @@
 # | Date | Summary | Reason | Ticket | Model |
 # | 2026-11-26 | Add the Localization issue form. | Get More Languages should open a request for a missing language. | https://github.com/KRtkovo-eu-AI/salamander/issues/857 | Grok 4.7 |
 name: Localization
-description: Suggest a language you want Open Salamander: Samandarin to include.
+description: "Suggest a language you want Open Salamander: Samandarin to include."
 title: "Localization: "
 type: Localization
 labels:
