@@ -1,5 +1,16 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Use the active code page for the original-tab action. | Match the menu renderer in both UTF-8 and legacy ANSI processes. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+// | 2026-11-26 | Open working directory history paths in their original tabs. | Keep the normal selection behavior and resolve the live source by ID. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+// | 2026-11-26 | Badge favorites from another tab in directory history. | Show the source tab icon and the favorite status in one slot. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+// | 2026-11-26 | Record intentionally empty working directory lists. | Distinguish a saved empty list from legacy per-tab storage. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+// | 2026-11-26 | Color saved-path and source-tab history icons. | Preserve the default icons and use a closed source's last custom color. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+// | 2026-11-26 | Keep popup source data independent of live history rows. | Resolve tab names from stable copies while formatting the menu. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+// | 2026-11-26 | Save working directory source IDs and names with each path. | Restore open and closed tab attribution across sessions. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+// | 2026-11-26 | Prefix cross-tab history paths with the source tab name. | Keep the name visible with Hot Path icons and preserve accelerators. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+// | 2026-11-26 | Show Hot Path and other-tab icons in working directory history. | Make path status visible in the full history popup. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -16,6 +27,13 @@
 #include "menu.h"
 #include "common/widepath.h"
 #include "branch_view.h"
+#include "common/winlibdpi.h"
+#include "svg.h"
+
+#include "regwork.h"
+
+#include <map>
+#include <optional>
 
 CUserMenuIconBkgndReader UserMenuIconBkgndReader;
 
@@ -1383,7 +1401,8 @@ CToolTipWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 CPathHistoryItem::CPathHistoryItem(int type, const char* pathOrArchiveOrFSName,
                                    const char* archivePathOrFSUserPart, HICON hIcon,
-                                   CPluginFSInterfaceAbstract* pluginFS)
+                                   CPluginFSInterfaceAbstract* pluginFS, const CWorkingDirectorySource& source)
+    : Source(source)
 {
     Type = type;
     HIcon = hIcon;
@@ -1515,6 +1534,33 @@ void CPathHistoryItem::GetPath(char* buffer, int bufferSize)
     DuplicateAmpersands(origBuffer, bufferSize);
 }
 
+BOOL CPathHistoryItem::MatchesHotPath(const char* hotPath) const
+{
+    if (PathOrArchiveOrFSName == NULL)
+        return FALSE;
+    if (Type == 0)
+        return ::IsTheSamePath(PathOrArchiveOrFSName, hotPath);
+    if (ArchivePathOrFSUserPart == NULL)
+        return FALSE;
+
+    // Compare the archive or plugin name separately from its case-sensitive path.
+    const int nameLength = (int)strlen(PathOrArchiveOrFSName);
+    if (StrNICmp(hotPath, PathOrArchiveOrFSName, nameLength) != 0)
+        return FALSE;
+
+    if (Type == 1)
+    {
+        if (hotPath[nameLength] == 0)
+            return ArchivePathOrFSUserPart[0] == 0;
+        return hotPath[nameLength] == '\\' &&
+               strcmp(hotPath + nameLength + 1, ArchivePathOrFSUserPart) == 0;
+    }
+
+    // Match literal plugin paths without loading a plugin to resolve aliases.
+    return Type == 2 && hotPath[nameLength] == ':' &&
+           strcmp(hotPath + nameLength + 1, ArchivePathOrFSUserPart) == 0;
+}
+
 HICON
 CPathHistoryItem::GetIcon()
 {
@@ -1598,7 +1644,7 @@ BOOL CPathHistoryItem::Execute(CFilesWindow* panel)
     char errBuf[MAX_PATH + 200];
     if (PathOrArchiveOrFSName != NULL) // data are valid
     {
-        int failReason;
+        int failReason = CHPPFR_CANNOTCLOSEPATH;
         BOOL clear = TRUE;
         if (Type == 0) // drive
         {
@@ -1881,13 +1927,113 @@ void CPathHistory::FillBackForwardPopupMenu(CMenuPopup* popup, BOOL forward)
     }
 }
 
-void CPathHistory::FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int maxCount,
-                                        BOOL separator)
+static constexpr size_t WorkingDirectoryTabNameLimit = 80;
+
+static std::wstring ShortenWorkingDirectoryTabName(std::wstring name)
 {
+    // A full-path tab caption can be much wider than the history popup.
+    if (name.size() > WorkingDirectoryTabNameLimit)
+    {
+        size_t cut = WorkingDirectoryTabNameLimit - 1;
+        if (IS_HIGH_SURROGATE(name[cut - 1]))
+            --cut;
+        name.resize(cut);
+        name += L'\u2026';
+    }
+    return name;
+}
+
+struct CWorkingDirectoryTabIdLess
+{
+    bool operator()(const GUID& left, const GUID& right) const
+    {
+        return memcmp(&left, &right, sizeof(left)) < 0;
+    }
+};
+
+using CWorkingDirectoryTabs = std::map<GUID, CWorkingDirectorySource, CWorkingDirectoryTabIdLess>;
+
+static CWorkingDirectorySource ResolveWorkingDirectorySource(CWorkingDirectoryTabs& tabs,
+                                                             const CWorkingDirectorySource& source)
+{
+    const auto [entry, inserted] = tabs.try_emplace(source.Id);
+    if (inserted)
+        entry->second = MainWindow->GetWorkingDirectoryTabSourceById(source.Id);
+    const CWorkingDirectorySource& live = entry->second;
+    if (IsEqualGUID(live.Id, GUID{}))
+        return source;
+    return {source.Id, live.Name.empty() ? source.Name : live.Name, live.Color};
+}
+
+void CPathHistory::RememberSourceTab(const CWorkingDirectorySource& source)
+{
+    const std::wstring shortened = ShortenWorkingDirectoryTabName(source.Name);
+    auto update = [&](CPathHistoryItem* item) {
+        if (item != NULL && IsEqualGUID(item->Source.Id, source.Id))
+        {
+            if (!shortened.empty())
+                item->Source.Name = shortened;
+            item->Source.Color = source.Color;
+        }
+    };
+    for (int i = 0; i < Paths.Count; ++i)
+        update(Paths[i]);
+    update(NewItem);
+}
+
+static std::string FormatHistoryTabPrefix(const std::wstring& name)
+{
+    if (name.empty())
+        return {};
+
+    std::wstring prefix = L"[";
+    for (wchar_t ch : ShortenWorkingDirectoryTabName(name))
+    {
+        if (ch == L'&')
+            prefix += L'&';
+        prefix += (ch == L'\t' || ch == L'\r' || ch == L'\n') ? L' ' : ch;
+    }
+    prefix += L"] ";
+    return SalWideToMultiBytePath(prefix.c_str(), CP_ACP);
+}
+
+void CPathHistory::FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int maxCount,
+                                        BOOL separator, const CFilesWindow* panel, std::vector<HICON>* popupIcons,
+                                        std::vector<CWorkingDirectoryOriginalTabAction>* originalTabActions)
+{
+    struct HistoryMenuItem
+    {
+        DWORD Position;
+        int ImageIndex;
+        bool FavoriteBadge;
+        CWorkingDirectorySource Source;
+    };
+
     char buffer[2 * MAX_PATH];
+    std::vector<std::string> hotPaths;
+    std::vector<HistoryMenuItem> itemsToDecorate;
+    const bool sharedHistory = panel != NULL && MainWindow->UsingSharedWorkDirHistory();
+    const GUID currentTabId = sharedHistory ? panel->GetHistoryTabId() : GUID{};
+    const bool useColors = panel != NULL && popupIcons != NULL && Configuration.WorkDirHistoryColoredIcons;
+    std::string originalTabLabel;
+    if (sharedHistory && originalTabActions != NULL)
+    {
+        wchar_t label[128] = {};
+        if (LoadStringW(HLanguage, IDS_DIRHISTORY_OPEN_ORIGINAL_TAB, label, _countof(label)) == 0)
+            LoadStringW(HInstance, IDS_DIRHISTORY_OPEN_ORIGINAL_TAB, label, _countof(label));
+        originalTabLabel = SalWideToMultiBytePath(label, CP_ACP);
+    }
+    if (panel != NULL)
+    {
+        CPathBuffer hotPath;
+        for (int index = 0; index < HOT_PATHS_COUNT; index++)
+        {
+            if (MainWindow->GetExpandedHotPath(NULL, index, hotPath.Data(), hotPath.Capacity()))
+                hotPaths.emplace_back(hotPath.Data());
+        }
+    }
 
     MENU_ITEM_INFO mii;
-    mii.Mask = MENU_MASK_TYPE | MENU_MASK_ID | MENU_MASK_STRING | MENU_MASK_ICON;
     mii.Type = MENU_TYPE_STRING;
 
     int firstIndex = popup->GetItemCount();
@@ -1896,21 +2042,141 @@ void CPathHistory::FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int ma
 
     int id = firstID;
     int count = (ForwardIndex == -1) ? Paths.Count : ForwardIndex;
+    DWORD nextOriginalTabCommand = firstID + static_cast<DWORD>(count);
     int i;
     for (i = count - 1; i >= 0; i--)
     {
         if (maxCount != -1 && added >= maxCount)
             break;
-        Paths[i]->GetPath(buffer, 2 * MAX_PATH);
+        CPathHistoryItem* item = Paths[i];
+        item->GetPath(buffer, 2 * MAX_PATH);
+        mii.Mask = MENU_MASK_TYPE | MENU_MASK_ID | MENU_MASK_STRING | MENU_MASK_ICON;
         mii.String = buffer;
-        mii.HIcon = Paths[i]->GetIcon();
+        mii.HIcon = item->GetIcon();
+
+        bool isHotPath = false;
+        for (const std::string& hotPath : hotPaths)
+        {
+            if (item->MatchesHotPath(hotPath.c_str()))
+            {
+                isHotPath = true;
+                break;
+            }
+        }
+        const bool knownSource = !IsEqualGUID(item->Source.Id, GUID{});
+        const bool fromCurrentTab = knownSource && IsEqualGUID(item->Source.Id, currentTabId);
+        const bool fromOtherTab = !IsEqualGUID(currentTabId, GUID{}) && knownSource && !fromCurrentTab;
+        const bool standaloneStar = isHotPath && (!sharedHistory || fromCurrentTab);
+        const int imageIndex = fromOtherTab ? IDX_TB_TABSDUPLICATE : (standaloneStar ? IDX_TB_HISTORYHOTPATH : -1);
+
+        if (imageIndex != -1)
+        {
+            mii.Mask |= MENU_MASK_IMAGEINDEX;
+            mii.ImageIndex = imageIndex;
+            mii.HIcon = NULL;
+        }
         mii.ID = id++;
-        popup->InsertItem(-1, TRUE, &mii);
+        if (!popup->InsertItem(-1, TRUE, &mii))
+        {
+            added++;
+            continue;
+        }
+        if (fromOtherTab || (useColors && standaloneStar))
+            itemsToDecorate.push_back({(DWORD)(popup->GetItemCount() - 1), imageIndex,
+                                       fromOtherTab && isHotPath, fromOtherTab ? item->Source : CWorkingDirectorySource{}});
+        if (fromOtherTab && !originalTabLabel.empty() && item->PathOrArchiveOrFSName != NULL &&
+            MainWindow->FindPanelTabByHistoryId(item->Source.Id) != NULL)
+        {
+            // Snapshot the raw path before tracking. The history can change while a menu is open or a tab activates.
+            // Resolve a plug-in filesystem through the live target when opening the snapshot.
+            auto destination = std::make_unique<CPathHistoryItem>(item->Type, item->PathOrArchiveOrFSName,
+                                                                  item->ArchivePathOrFSUserPart, nullptr, nullptr,
+                                                                  CWorkingDirectorySource{item->Source.Id, {}});
+            if (destination->PathOrArchiveOrFSName != NULL &&
+                (item->ArchivePathOrFSUserPart == NULL || destination->ArchivePathOrFSUserPart != NULL) &&
+                popup->SetSecondaryAction(mii.ID, nextOriginalTabCommand, originalTabLabel.c_str()))
+            {
+                destination->ChangeData(item->TopIndex, item->FocusedName);
+                destination->BranchState = item->BranchState;
+                originalTabActions->push_back({nextOriginalTabCommand++, std::move(destination)});
+            }
+        }
         added++;
     }
 
     if (added > 0)
         popup->AssignHotKeys();
+
+    // Assign the existing path accelerators before inserting source labels.
+    CWorkingDirectoryTabs tabs;
+    std::map<std::pair<int, COLORREF>, HICON> variants;
+    std::optional<HICON> favoriteBadge;
+    const int iconSize = panel != NULL && popupIcons != NULL ? WinLibDPIFromLogical(panel->HWindow, 16) : 0;
+    const COLORREF favoriteColor = RGB(255, 211, 48);
+    for (const HistoryMenuItem& row : itemsToDecorate)
+    {
+        const bool fromOtherTab = !IsEqualGUID(row.Source.Id, GUID{});
+        const CWorkingDirectorySource source = fromOtherTab ? ResolveWorkingDirectorySource(tabs, row.Source) : row.Source;
+        const bool standaloneStar = row.ImageIndex == IDX_TB_HISTORYHOTPATH;
+        const COLORREF color = standaloneStar ? favoriteColor : source.Color;
+        MENU_ITEM_INFO iconInfo = {};
+        if (useColors && color != CLR_NONE)
+        {
+            const auto [variant, inserted] = variants.try_emplace(std::make_pair(row.ImageIndex, color), nullptr);
+            if (inserted)
+            {
+                HICON icon = standaloneStar ? CreateTintedToolbarSVGIcon("ExplorerCategoryFavorites", iconSize,
+                                                                        {"", color, RGB(135, 81, 0), 1.4f})
+                                            : CreateTintedToolbarSVGIcon("TabsDuplicate", iconSize,
+                                                                        {"history-tab-fill-", color});
+                variant->second = icon;
+                if (icon != NULL)
+                    popupIcons->push_back(icon);
+            }
+            if (variant->second != NULL)
+            {
+                iconInfo.Mask = MENU_MASK_IMAGEINDEX | MENU_MASK_ICON;
+                iconInfo.ImageIndex = -1;
+                iconInfo.HIcon = variant->second;
+            }
+        }
+        if (row.FavoriteBadge && popupIcons != NULL)
+        {
+            if (!favoriteBadge)
+            {
+                const COLORREF badgeColor = useColors ? favoriteColor : RGB(236, 236, 236);
+                favoriteBadge = CreateTintedToolbarSVGIcon("WorkingDirectoryFavoriteBadge", iconSize, {"", badgeColor});
+                if (*favoriteBadge != NULL)
+                    popupIcons->push_back(*favoriteBadge);
+            }
+            if (*favoriteBadge != NULL)
+            {
+                iconInfo.Mask |= MENU_MASK_OVERLAY;
+                iconInfo.HOverlay = *favoriteBadge;
+            }
+        }
+        if (iconInfo.Mask != 0)
+            popup->SetItemInfo(row.Position, TRUE, &iconInfo);
+
+        const std::string prefix = FormatHistoryTabPrefix(source.Name);
+        if (prefix.empty())
+            continue;
+
+        MENU_ITEM_INFO textInfo = {};
+        textInfo.Mask = MENU_MASK_STRING;
+        if (!popup->GetItemInfo(row.Position, TRUE, &textInfo))
+            continue;
+
+        std::string label = prefix;
+        ++textInfo.StringLen;
+        label.resize(prefix.size() + textInfo.StringLen);
+        textInfo.String = label.data() + prefix.size();
+        if (popup->GetItemInfo(row.Position, TRUE, &textInfo))
+        {
+            textInfo.String = label.data();
+            popup->SetItemInfo(row.Position, TRUE, &textInfo);
+        }
+    }
 
     if (separator && added > 0)
     {
@@ -1919,6 +2185,45 @@ void CPathHistory::FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int ma
         mii.Type = MENU_TYPE_SEPARATOR;
         popup->InsertItem(firstIndex, TRUE, &mii);
     }
+}
+
+static BOOL ExecuteDirectoryHistoryItem(CPathHistoryItem& item, CFilesWindow* panel)
+{
+    const BOOL oldSuppressChangeDirHistoryErr = SuppressChangeDirHistoryErr;
+    SuppressChangeDirHistoryErr = !Configuration.CnfrmChangeDirHistoryErr;
+    const BOOL changed = item.Execute(panel);
+    SuppressChangeDirHistoryErr = oldSuppressChangeDirHistoryErr;
+    return changed;
+}
+
+void CPathHistory::ExecuteInOriginalTab(CPathHistoryItem& destination)
+{
+    CFilesWindow* panel = MainWindow->ActivatePanelTabByHistoryId(destination.Source.Id);
+    if (panel == NULL)
+        return;
+
+    const char* path = destination.PathOrArchiveOrFSName;
+    const char* part = destination.ArchivePathOrFSUserPart != NULL ? destination.ArchivePathOrFSUserPart : "";
+    if ((destination.Type == 0 && panel->Is(ptDisk) && ::IsTheSamePath(panel->GetPath(), path)) ||
+        (destination.Type == 1 && panel->Is(ptZIPArchive) && StrICmp(panel->GetZIPArchive(), path) == 0 &&
+         strcmp(panel->GetZIPPath(), part) == 0))
+        return; // The tab is already showing this directory.
+    if (destination.Type == 2 && panel->Is(ptPluginFS))
+    {
+        CPluginFSInterfaceEncapsulation* fs = panel->GetPluginFS();
+        if (fs->NotEmpty() && StrICmp(fs->GetPluginFSName(), path) == 0 &&
+            fs->IsCurrentPath(fs->GetPluginFSNameIndex(), fs->GetPluginFSNameIndex(), part))
+            return;
+    }
+
+    // Some plug-in filesystem routes do not ask for confirmation on their own.
+    if (MainWindow->FindPanelTabByHistoryId(destination.Source.Id) != panel ||
+        !panel->ConfirmUnlockTabForPathChange() ||
+        MainWindow->FindPanelTabByHistoryId(destination.Source.Id) != panel)
+        return;
+
+    ExecuteDirectoryHistoryItem(destination, panel);
+    IdleRefreshStates = TRUE;
 }
 
 void CPathHistory::Execute(int index, BOOL forward, CFilesWindow* panel, BOOL allItems, BOOL removeItem)
@@ -1937,10 +2242,7 @@ void CPathHistory::Execute(int index, BOOL forward, CFilesWindow* panel, BOOL al
             {
                 Lock = TRUE;
                 item = Paths[ForwardIndex + index - 1];
-                BOOL oldSuppressChangeDirHistoryErr = SuppressChangeDirHistoryErr;
-                SuppressChangeDirHistoryErr = !Configuration.CnfrmChangeDirHistoryErr;
-                change = item->Execute(panel);
-                SuppressChangeDirHistoryErr = oldSuppressChangeDirHistoryErr;
+                change = ExecuteDirectoryHistoryItem(*item, panel);
                 if (!change)
                     item = NULL; // failed to change the path => keep it in the history
                 Lock = FALSE;
@@ -1963,10 +2265,7 @@ void CPathHistory::Execute(int index, BOOL forward, CFilesWindow* panel, BOOL al
                 {
                     Lock = TRUE;
                     item = Paths[count - index];
-                    BOOL oldSuppressChangeDirHistoryErr = SuppressChangeDirHistoryErr;
-                    SuppressChangeDirHistoryErr = !Configuration.CnfrmChangeDirHistoryErr;
-                    change = item->Execute(panel);
-                    SuppressChangeDirHistoryErr = oldSuppressChangeDirHistoryErr;
+                    change = ExecuteDirectoryHistoryItem(*item, panel);
                     if (!change)
                         item = NULL; // failed to change the path => keep it in the history
                     Lock = FALSE;
@@ -1981,7 +2280,7 @@ void CPathHistory::Execute(int index, BOOL forward, CFilesWindow* panel, BOOL al
     if (NewItem != NULL)
     {
         AddPathUnique(NewItem->Type, NewItem->PathOrArchiveOrFSName, NewItem->ArchivePathOrFSUserPart,
-                      NewItem->HIcon, NewItem->PluginFS, NULL);
+                      NewItem->HIcon, NewItem->PluginFS, NULL, NewItem->Source);
         NewItem->HIcon = NULL; // AddPathUnique now owns the responsibility for destroying the icon
         delete NewItem;
         NewItem = NULL;
@@ -2085,7 +2384,7 @@ void CPathHistory::AppendFrom(const CPathHistory& source)
         }
 
         AddPathUnique(item->Type, item->PathOrArchiveOrFSName, item->ArchivePathOrFSUserPart, hIcon,
-                      item->PluginFS, NULL);
+                      item->PluginFS, NULL, item->Source);
         if (Paths.Count != 0)
         {
             CPathHistoryItem* copy = Paths[Paths.Count - 1];
@@ -2108,13 +2407,14 @@ void CPathHistory::CopyFrom(const CPathHistory& source)
 }
 
 void CPathHistory::AddPath(int type, const char* pathOrArchiveOrFSName, const char* archivePathOrFSUserPart,
-                           CPluginFSInterfaceAbstract* pluginFS, CPluginFSInterfaceEncapsulation* curPluginFS)
+                           CPluginFSInterfaceAbstract* pluginFS, CPluginFSInterfaceEncapsulation* curPluginFS,
+                           const CWorkingDirectorySource& source)
 {
     if (Lock)
         return;
 
     CPathHistoryItem* n = new CPathHistoryItem(type, pathOrArchiveOrFSName, archivePathOrFSUserPart,
-                                               NULL, pluginFS);
+                                               NULL, pluginFS, source);
     if (n == NULL)
     {
         TRACE_E(LOW_MEMORY);
@@ -2163,10 +2463,10 @@ void CPathHistory::AddPath(int type, const char* pathOrArchiveOrFSName, const ch
 
 void CPathHistory::AddPathUnique(int type, const char* pathOrArchiveOrFSName, const char* archivePathOrFSUserPart,
                                  HICON hIcon, CPluginFSInterfaceAbstract* pluginFS,
-                                 CPluginFSInterfaceEncapsulation* curPluginFS)
+                                 CPluginFSInterfaceEncapsulation* curPluginFS, const CWorkingDirectorySource& source)
 {
     CPathHistoryItem* n = new CPathHistoryItem(type, pathOrArchiveOrFSName, archivePathOrFSUserPart,
-                                               hIcon, pluginFS);
+                                               hIcon, pluginFS, source);
     if (Lock)
     {
         if (NewItem != NULL)
@@ -2198,6 +2498,7 @@ void CPathHistory::AddPathUnique(int type, const char* pathOrArchiveOrFSName, co
                 { // FS case: replace pluginFS (so that the path is opened in the last filesystem of this path)
                     item->PluginFS = pluginFS;
                 }
+                item->Source = source;
                 delete n;
                 if (i < Paths.Count - 1)
                 {
@@ -2234,18 +2535,71 @@ void CPathHistory::AddPathUnique(int type, const char* pathOrArchiveOrFSName, co
     }
 }
 
+// Keep the numbered path values readable by versions without source attribution.
+static void SaveWorkingDirectorySource(HKEY historyKey, int index, const CWorkingDirectorySource& source)
+{
+    if (IsEqualGUID(source.Id, GUID{}))
+        return;
+
+    char key[64];
+    sprintf_s(key, "Source Tab ID %d", index);
+    if (!SetValue(historyKey, key, REG_BINARY, &source.Id, sizeof(source.Id)))
+        return;
+
+    if (!source.Name.empty())
+    {
+        const std::wstring name = ShortenWorkingDirectoryTabName(source.Name);
+        sprintf_s(key, "Source Tab Name %d", index);
+        SetValue(historyKey, key, REG_BINARY, name.c_str(), (DWORD)((name.size() + 1) * sizeof(wchar_t)));
+    }
+    if (source.Color != CLR_NONE)
+    {
+        sprintf_s(key, "Source Tab Color %d", index);
+        SetValue(historyKey, key, REG_DWORD, &source.Color, sizeof(source.Color));
+    }
+}
+
+static CWorkingDirectorySource LoadWorkingDirectorySource(HKEY historyKey, int index)
+{
+    CWorkingDirectorySource source;
+    char key[64];
+    DWORD size = 0;
+    sprintf_s(key, "Source Tab ID %d", index);
+    if (!GetValueAux(NULL, historyKey, key, REG_BINARY, &source.Id, sizeof(source.Id), TRUE) ||
+        !GetSize(historyKey, key, REG_BINARY, size) || size != sizeof(source.Id) ||
+        IsEqualGUID(source.Id, GUID{}))
+        return {};
+
+    wchar_t name[WorkingDirectoryTabNameLimit + 1] = {};
+    sprintf_s(key, "Source Tab Name %d", index);
+    if (GetValueAux(NULL, historyKey, key, REG_BINARY, name, sizeof(name), TRUE) &&
+        GetSize(historyKey, key, REG_BINARY, size) &&
+        size >= sizeof(wchar_t) && size <= sizeof(name) && size % sizeof(wchar_t) == 0)
+    {
+        const size_t length = size / sizeof(wchar_t) - 1;
+        if (name[length] == L'\0' && wcslen(name) == length)
+            source.Name.assign(name, length);
+    }
+
+    COLORREF color = CLR_NONE;
+    sprintf_s(key, "Source Tab Color %d", index);
+    if (GetValueAux(NULL, historyKey, key, REG_DWORD, &color, sizeof(color), TRUE) &&
+        GetSize(historyKey, key, REG_DWORD, size) && size == sizeof(color) && color <= RGB(255, 255, 255))
+        source.Color = color;
+    return source;
+}
+
 void CPathHistory::SaveToRegistry(HKEY hKey, const char* name, BOOL onlyClear, BOOL saveNavigationState)
 {
     HKEY historyKey;
     if (CreateKey(hKey, name, historyKey))
     {
-        ClearKey(historyKey);
-
-        if (!onlyClear) // if we are not just clearing the key, store the history values
+        if (ClearKey(historyKey) && !onlyClear) // Store fresh paths and their matching metadata.
         {
             int index = 0;
             char buf[10];
             std::string path;
+            CWorkingDirectoryTabs tabs;
             int i;
             for (i = 0; i < Paths.Count; i++)
             {
@@ -2276,7 +2630,13 @@ void CPathHistory::SaveToRegistry(HKEY hKey, const char* name, BOOL onlyClear, B
                 }
                 }
                 itoa(index + 1, buf, 10);
-                SetValue(historyKey, buf, REG_SZ, path.c_str(), (DWORD)path.size() + 1);
+                if (!SetValue(historyKey, buf, REG_SZ, path.c_str(), (DWORD)path.size() + 1))
+                    break;
+                if (DontChangeForwardIndex && !IsEqualGUID(item->Source.Id, GUID{}))
+                {
+                    const CWorkingDirectorySource source = ResolveWorkingDirectorySource(tabs, item->Source);
+                    SaveWorkingDirectorySource(historyKey, index + 1, source);
+                }
                 if (saveNavigationState && item->Type == 0 && item->BranchState != NULL && item->BranchState->Enabled)
                 {
                     char stateKey[64];
@@ -2292,6 +2652,11 @@ void CPathHistory::SaveToRegistry(HKEY hKey, const char* name, BOOL onlyClear, B
                 }
                 index++;
             }
+            if (DontChangeForwardIndex && Paths.Count == 0)
+            {
+                const DWORD empty = TRUE;
+                SetValue(historyKey, "Empty", REG_DWORD, &empty, sizeof(empty));
+            }
             if (saveNavigationState)
             {
                 DWORD forwardIndex = (DWORD)(ForwardIndex < 0 ? Paths.Count : ForwardIndex);
@@ -2302,7 +2667,7 @@ void CPathHistory::SaveToRegistry(HKEY hKey, const char* name, BOOL onlyClear, B
     }
 }
 
-void CPathHistory::LoadFromRegistry(HKEY hKey, const char* name, BOOL loadNavigationState)
+BOOL CPathHistory::LoadFromRegistry(HKEY hKey, const char* name, BOOL loadNavigationState)
 {
     ClearHistory();
     HKEY historyKey;
@@ -2356,7 +2721,10 @@ void CPathHistory::LoadFromRegistry(HKEY hKey, const char* name, BOOL loadNaviga
                     }
                     if (type != -1)
                     {
-                        AddPath(type, pathOrArchiveOrFSName, archivePathOrFSUserPart, NULL, NULL);
+                        const CWorkingDirectorySource source = DontChangeForwardIndex
+                                                                  ? LoadWorkingDirectorySource(historyKey, i + 1)
+                                                                  : CWorkingDirectorySource{};
+                        AddPath(type, pathOrArchiveOrFSName, archivePathOrFSUserPart, NULL, NULL, source);
                         if (type == 0 && loadNavigationState && Paths.Count != 0)
                         {
                             char stateKey[64];
@@ -2394,8 +2762,14 @@ void CPathHistory::LoadFromRegistry(HKEY hKey, const char* name, BOOL loadNaviga
             if (GetValue(historyKey, "Forward Index", REG_DWORD, &forwardIndex, sizeof(forwardIndex)))
                 ForwardIndex = forwardIndex < (DWORD)Paths.Count ? (int)forwardIndex : -1;
         }
+        DWORD empty = FALSE;
+        const BOOL stored = HasPaths() ||
+                            (DontChangeForwardIndex &&
+                             GetValue(historyKey, "Empty", REG_DWORD, &empty, sizeof(empty)) && empty == TRUE);
         CloseKey(historyKey);
+        return stored;
     }
+    return FALSE;
 }
 
 //

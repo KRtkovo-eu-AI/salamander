@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Enable and expose colored working directory history icons. | Allow users to switch between colored and standard icons. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-09 | Default Change Drive menu to show Plugin items first. | Preserve the current block order unless the user chooses Hot Paths first. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
 // | 2026-11-09 | Add custom viewer/editor pages below File Associations. | Expose saved named handlers as editable configuration targets. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Make extension bar visible by default in new default configuration. | Show the extension bar on clean install/default config so new users see it. | | opencode |
@@ -613,6 +614,7 @@ CConfiguration::CConfiguration()
     SaveWorkDirs = FALSE; // by default save space in the registry, the list is large
     SaveNavigatedDirs = FALSE;
     WorkDirsHistoryScope = wdhsShared;
+    WorkDirHistoryColoredIcons = TRUE;
     EnableCmdLineHistory = TRUE;
     SaveCmdLineHistory = TRUE;
     //  LantasticCheck = FALSE;
@@ -7993,6 +7995,9 @@ void CCfgPageHistory::Transfer(CTransferInfo& ti)
     CWorkDirsHistoryScope oldScope = (CWorkDirsHistoryScope)Configuration.WorkDirsHistoryScope;
     ti.RadioButton(IDC_HISTORY_WORKDIRS_SHARED, wdhsShared, Configuration.WorkDirsHistoryScope);
     ti.RadioButton(IDC_HISTORY_WORKDIRS_PER_TAB, wdhsPerTab, Configuration.WorkDirsHistoryScope);
+    // A previously built language pack may use the earlier dialog template.
+    if (GetDlgItem(HWindow, IDC_HISTORY_COLOREDICONS) != NULL)
+        ti.CheckBox(IDC_HISTORY_COLOREDICONS, Configuration.WorkDirHistoryColoredIcons);
 
     if (ti.Type == ttDataToWindow)
         EnableControls();

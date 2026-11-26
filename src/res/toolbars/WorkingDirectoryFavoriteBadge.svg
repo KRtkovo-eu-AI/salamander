@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-26 | Add a corner star for working directory history. | Keep the tab silhouette visible on favorite paths from other tabs. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <path fill="#ECECEC" stroke="#414141" stroke-width="1" stroke-linejoin="round"
+        d="M11.8 0.9l1.13 2.31 2.55 0.36-1.86 1.79 0.44 2.56-2.26-1.21-2.27 1.21 0.44-2.56-1.86-1.79 2.56-0.36z"/>
+</svg>

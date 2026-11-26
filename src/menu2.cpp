@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Route optional menu row actions through the popup command result. | Keep normal row activation while providing a mouse and keyboard route to the alternate command. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-10 | Convert native menu labels to the active menu text encoding. | Preserve localized shell menu labels when the system code page is not UTF-8. | https://github.com/KRtkovo-eu-AI/salamander/issues/752 | GPT-6 (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
@@ -132,6 +133,41 @@ void CMenuPopup::SetRightTextToolTip(void (*callback)(void*, DWORD, char*), void
     RightTextToolTipContext = context;
 }
 
+BOOL CMenuPopup::SetSecondaryAction(DWORD itemID, DWORD actionID, const char* label)
+{
+    if ((HWindow != NULL && !ModifyMode) || itemID == 0 || actionID == 0 || actionID == itemID ||
+        label == NULL || *label == 0)
+        return FALSE;
+
+    const int index = FindItemPosition(itemID);
+    if (index == -1)
+        return FALSE;
+
+    CMenuItem* item = Items[index];
+    if (!(item->Type & MENU_TYPE_STRING) || item->Type & (MENU_TYPE_SEPARATOR | MENU_TYPE_OWNERDRAW) ||
+        item->SubMenu != NULL)
+        return FALSE;
+
+    item->SecondaryActionText = label;
+    item->SecondaryActionID = actionID;
+    EnableSecondaryActions();
+    return TRUE;
+}
+
+DWORD CMenuPopup::GetSecondaryActionID(int index)
+{
+    if (!SecondaryActionsEnabled || SharedRes == NULL || index < 0 || index >= Items.Count ||
+        (SharedRes->MenuBar != NULL && SharedRes->MenuBar->HelpMode))
+        return 0;
+
+    const CMenuItem* item = Items[index];
+    if (!(SharedRes->SkillLevel & item->SkillLevel) || !(item->Type & MENU_TYPE_STRING) ||
+        (item->Type & (MENU_TYPE_SEPARATOR | MENU_TYPE_OWNERDRAW)) ||
+        (item->State & MENU_STATE_GRAYED) || item->SubMenu != NULL)
+        return 0;
+    return item->SecondaryActionID;
+}
+
 void CMenuPopup::ClearRightTextToolTip()
 {
     if (RightTextToolTipIndex != -1)
@@ -151,9 +187,10 @@ void CMenuPopup::ClearRightTextToolTips()
     }
 }
 
-int CMenuPopup::HitRightTextToolTip(const POINT& screenPoint)
+int CMenuPopup::HitRightTextToolTip(const POINT& screenPoint, bool forSecondaryAction)
 {
-    if (RightTextToolTipCallback == NULL || HWindow == NULL || SharedRes == NULL ||
+    if ((forSecondaryAction ? !SecondaryActionsEnabled : RightTextToolTipCallback == NULL) ||
+        HWindow == NULL || SharedRes == NULL ||
         ModifyMode || Closing || WindowFromPoint(screenPoint) != HWindow)
         return -1;
     POINT point = screenPoint;
@@ -165,6 +202,9 @@ int CMenuPopup::HitRightTextToolTip(const POINT& screenPoint)
     if (!(item->Type & MENU_TYPE_STRING) || (item->Type & (MENU_TYPE_SEPARATOR | MENU_TYPE_OWNERDRAW)) ||
         (item->State & MENU_STATE_GRAYED) || item->ColumnR == NULL ||
         item->ColumnRLen <= 0 || item->ColumnRWidth <= 0)
+        return -1;
+    if (forSecondaryAction && (index != SelectedItemIndex || GetSecondaryActionID(index) == 0 ||
+                               (UpArrowVisible && TopItemY + item->YOffset < UPDOWN_ITEM_HEIGHT)))
         return -1;
     // Keep this rectangle identical to the right-column placement in DrawItem.
     int left = SharedRes->TextItemHeight + 1 + item->ColumnRX;
@@ -402,14 +442,12 @@ BOOL CMenuPopup::EndModifyMode()
                     SelectedItemIndex = -1;
             }
         }
-        // compute menu dimensions
-        LayoutColumns();
-
         // compute window dimensions
         RECT clipRect;
         RECT r;
         GetWindowRect(HWindow, &r);
         MultiMonGetClipRectByRect(&r, &clipRect, NULL);
+        LayoutColumns(max(1L, clipRect.right - r.left - 6));
         int width = Width + 6;
         int height = TotalHeight + 6;
 
@@ -1710,8 +1748,13 @@ void CMenuPopup::OnKeyReturn(BOOL* leaveMenu, DWORD* retValue)
         OnKeyRight(leaveMenu);
         return;
     }
+    FinishCommand(selectedItem->ID, leaveMenu, retValue);
+}
+
+void CMenuPopup::FinishCommand(DWORD command, BOOL* leaveMenu, DWORD* retValue)
+{
     *leaveMenu = TRUE;
-    *retValue = selectedItem->ID;
+    *retValue = command;
     if (SharedRes->MenuBar != NULL)              // we were opened from the menubar
         SharedRes->MenuBar->ExitMenuLoop = TRUE; // so we exit it
 }
@@ -2398,6 +2441,13 @@ void CMenuPopup::DoDispatchMessage(MSG* msg, BOOL* leaveMenu, DWORD* retValue, B
 
         case VK_RETURN:
         {
+            if (popup->SecondaryActionsEnabled && (GetKeyState(VK_CONTROL) & 0x8000) != 0)
+            {
+                const DWORD action = popup->GetSecondaryActionID(popup->SelectedItemIndex);
+                if (action != 0)
+                    popup->FinishCommand(action, leaveMenu, retValue);
+                return;
+            }
             popup->OnKeyReturn(leaveMenu, retValue); // open sub menu or produce a command
             return;                                  // must not let TranslateMessage handle Return
         }
@@ -2443,6 +2493,16 @@ void CMenuPopup::DoDispatchMessage(MSG* msg, BOOL* leaveMenu, DWORD* retValue, B
         // while a mouse button is being used to activate a menu command.
         ClearRightTextToolTips();
 
+        if (popup != NULL && msg->message == WM_LBUTTONUP)
+        {
+            const int actionItem = popup->HitRightTextToolTip(msg->pt, true);
+            if (actionItem != -1)
+            {
+                popup->FinishCommand(popup->Items[actionItem]->SecondaryActionID, leaveMenu, retValue);
+                return;
+            }
+        }
+
         if (popup != NULL && popup->SelectedItemIndex != -1 &&
             ((msg->message == WM_LBUTTONDOWN ||
               msg->message == WM_LBUTTONDBLCLK ||
@@ -2481,12 +2541,7 @@ void CMenuPopup::DoDispatchMessage(MSG* msg, BOOL* leaveMenu, DWORD* retValue, B
                     {
                         // click on an enabled item that is not a submenu (Petr: and in HelpMode a "grayed" item or submenu)
                         if (msg->message == WM_LBUTTONUP || msg->message == WM_RBUTTONUP)
-                        {
-                            *leaveMenu = TRUE;
-                            *retValue = item->ID;
-                            if (SharedRes->MenuBar != NULL)              // we were opened from the menubar
-                                SharedRes->MenuBar->ExitMenuLoop = TRUE; // so we exit it
-                        }
+                            popup->FinishCommand(item->ID, leaveMenu, retValue);
                     }
                 }
             }
@@ -2754,9 +2809,6 @@ BOOL CMenuPopup::CreatePopupWindow(CMenuPopup* firstPopup, int x, int y, int sub
     else
         SelectedItemIndex = -1;
 
-    // compute menu dimensions
-    LayoutColumns();
-
     RECT r;
     if (exclude != NULL)
         r = *exclude;
@@ -2769,6 +2821,7 @@ BOOL CMenuPopup::CreatePopupWindow(CMenuPopup* firstPopup, int x, int y, int sub
     }
     RECT clipRect;
     MultiMonGetClipRectByRect(&r, &clipRect, NULL);
+    LayoutColumns(max(1L, clipRect.right - clipRect.left - 6));
 
     int newX = x;
     int newY = y;
@@ -2839,6 +2892,9 @@ BOOL CMenuPopup::CreatePopupWindow(CMenuPopup* firstPopup, int x, int y, int sub
             }
         }
     }
+
+    if (SecondaryActionsEnabled)
+        newX = max((int)clipRect.left, min(newX, (int)clipRect.right - width));
 
     // handle overflow at the bottom of the screen for menus that do not have MENU_TRACK_VERTICAL (e.g., User Menu)
     if (newY + height > clipRect.bottom && (clipRect.bottom - newY) > 0)

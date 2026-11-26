@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Restore custom tab rendering after a dark-mode refresh. | Keep saved tab colors visible when the theme is reapplied during startup. | | GPT-6 |
 // | 2026-11-07 | Refresh newly created dark-mode child controls without recursive tree reentry. | A same-state root refresh must discover controls created after the initial dialog pass without reapplying the tree once per descendant. | | GPT-5.6 Luna Pro |
 
 #include "precomp.h"
@@ -147,7 +149,11 @@ void ApplyTree(HWND hwnd)
             // as a separate DarkModeApplyTree root.
             ConfigureDarkModelib(dark);
             if (dark)
+            {
                 dmlib::setChildCtrlsSubclassAndTheme(hwnd);
+                // The refresh also installs the library's painter on custom panel tabs.
+                RestoreCustomTabControls(hwnd);
+            }
             else
                 dmlib::setChildCtrlsTheme(hwnd);
             return;

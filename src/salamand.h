@@ -2,6 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Carry original-tab commands out of the history popup. | Keep the selected destination stable while the menu tracks and the source tab activates. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+// | 2026-11-26 | Document ownership of dynamic history popup icons. | Covers both tinted icons and favorite overlays. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+// | 2026-11-26 | Report whether a working directory history was stored. | Distinguish a saved empty list from a missing legacy list. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+// | 2026-11-26 | Track the source tab's custom history icon color. | Retain the last color of closed tabs. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+// | 2026-11-26 | Store a durable origin and caption with working directory visits. | Associate provenance with the same item through loading and history copies. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+// | 2026-11-26 | Track the source tab of a working directory visit. | Carry provenance through history items. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Remember which file contains a language. | Select Language was still showing a per-language .slg path. | https://github.com/KRtkovo-eu-AI/salamander/issues/857 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
@@ -137,6 +143,13 @@ public:
 
 struct CBranchViewRestoreState;
 
+struct CWorkingDirectorySource
+{
+    GUID Id{};
+    std::wstring Name;
+    COLORREF Color = CLR_NONE;
+};
+
 class CPathHistoryItem
 {
 protected:
@@ -149,11 +162,12 @@ protected:
     int TopIndex;      // top index at the time the panel state was saved
     char* FocusedName; // focused item at the time the panel state was saved
     std::shared_ptr<CBranchViewRestoreState> BranchState;
+    CWorkingDirectorySource Source; // working directory origin and last known tab name
 
 public:
     CPathHistoryItem(int type, const char* pathOrArchiveOrFSName,
                      const char* archivePathOrFSUserPart, HICON hIcon,
-                     CPluginFSInterfaceAbstract* pluginFS);
+                     CPluginFSInterfaceAbstract* pluginFS, const CWorkingDirectorySource& source = {});
     ~CPathHistoryItem();
 
     // change of top index and focused name (repeated addition of one path to the history)
@@ -165,7 +179,15 @@ public:
 
     BOOL IsTheSamePath(CPathHistoryItem& item, CPluginFSInterfaceEncapsulation* curPluginFS); // returns TRUE when paths match (each type compares differently)
 
+    BOOL MatchesHotPath(const char* hotPath) const;
+
     friend class CPathHistory;
+};
+
+struct CWorkingDirectoryOriginalTabAction
+{
+    DWORD CommandId;
+    std::unique_ptr<CPathHistoryItem> Destination;
 };
 
 class CPathHistory
@@ -188,12 +210,15 @@ public:
 
     // adds a path to the history
     void AddPath(int type, const char* pathOrArchiveOrFSName, const char* archivePathOrFSUserPart,
-                 CPluginFSInterfaceAbstract* pluginFS, CPluginFSInterfaceEncapsulation* curPluginFS);
+                 CPluginFSInterfaceAbstract* pluginFS, CPluginFSInterfaceEncapsulation* curPluginFS,
+                 const CWorkingDirectorySource& source = {});
 
-    // adds a path to the history only if the path is not already present (see Alt+F12; for FS it overwrites pluginFS with the newest one)
+    // Adds a path or moves an existing entry to the top, updating its origin and FS interface.
     void AddPathUnique(int type, const char* pathOrArchiveOrFSName, const char* archivePathOrFSUserPart,
                        HICON hIcon, CPluginFSInterfaceAbstract* pluginFS,
-                       CPluginFSInterfaceEncapsulation* curPluginFS);
+                       CPluginFSInterfaceEncapsulation* curPluginFS, const CWorkingDirectorySource& source);
+
+    void RememberSourceTab(const CWorkingDirectorySource& source);
 
     // changes the data (top index and focused name) of the current path only if the given path
     // matches the current path in the history
@@ -225,7 +250,11 @@ public:
     // IDs will start from firstID. When calling Execute they need to be offset so that the first has the value 1.
     // maxCount - maximum number of items to add; -1 - all available (separator is not counted)
     // separator - if the menu contains at least one item, a separator is inserted above it
-    void FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int maxCount, BOOL separator);
+    // panel enables working directory indicators in the full history popup.
+    // The caller owns the icons added to popupIcons and releases them after tracking the popup.
+    void FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int maxCount, BOOL separator,
+                              const CFilesWindow* panel = NULL, std::vector<HICON>* popupIcons = NULL,
+                              std::vector<CWorkingDirectoryOriginalTabAction>* originalTabActions = NULL);
 
     // called when closing an FS - the history stores FS interfaces that need to be NULLed after closing
     // (so there is no accidental match just because the FS interface was allocated at the same address)
@@ -233,6 +262,7 @@ public:
 
     // index of the selected item in the forward/backward menu (indexed: forward from one, backward from two)
     void Execute(int index, BOOL forward, CFilesWindow* panel, BOOL allItems = FALSE, BOOL removeItem = FALSE);
+    static void ExecuteInOriginalTab(CPathHistoryItem& destination);
 
     BOOL HasForward() { return ForwardIndex != -1; }
     BOOL HasBackward()
@@ -243,7 +273,8 @@ public:
     BOOL HasPaths() { return Paths.Count > 0; }
 
     void SaveToRegistry(HKEY hKey, const char* name, BOOL onlyClear, BOOL saveNavigationState = FALSE);
-    void LoadFromRegistry(HKEY hKey, const char* name, BOOL loadNavigationState = FALSE);
+    // Returns TRUE when entries or an explicitly saved empty working directory list were loaded.
+    BOOL LoadFromRegistry(HKEY hKey, const char* name, BOOL loadNavigationState = FALSE);
 };
 
 //*****************************************************************************

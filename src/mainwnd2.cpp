@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Save working directory histories in either scope. | Preserve shared visit order and closed-tab entries across a restart in per-tab mode. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+// | 2026-11-26 | Persist the working directory history icon color setting. | Restore the display preference from saved configurations. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+// | 2026-11-26 | Save and restore optional persistent tab GUIDs. | Retain working directory history attribution across restarts. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-15 | Explain protected panel startup fallback. | Document how the readable ancestor is selected without consent. | #731 | GPT-6 |
 // | 2026-11-10 | Restore protected saved panel paths to a readable ancestor. | Do not prompt for elevation while starting the application. | #731 | GPT-6.1 Sol |
 // | 2026-11-09 | Save and load the Change Drive block order. | Keep the chosen Plugin/Hot Paths ordering across restarts. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
@@ -1219,6 +1222,7 @@ const char* PANEL_ACTIVETAB_REG = "Active Tab";
 const char* PANEL_TABCOLOR_REG = "Tab Color";
 const char* PANEL_TABPREFIX_REG = "Tab Prefix";
 const char* PANEL_TABLOCKED_REG = "Tab Locked";
+const char* PANEL_HISTORYTABID_REG = "History Tab ID";
 const char* DETACHED_TAB_PRESENT_REG = "Present";
 const char* DETACHED_TAB_SIDE_REG = "Original Side";
 const char* DETACHED_TAB_INDEX_REG = "Original Index";
@@ -1295,6 +1299,7 @@ const char* CONFIG_SORTDIRSBYEXT_REG = "Sort Dirs By Ext";
 const char* CONFIG_SAVEHISTORY_REG = "Save History";
 const char* CONFIG_SAVEWORKDIRS_REG = "Save Working Dirs";
 const char* CONFIG_WORKDIRS_HISTORY_SCOPE_REG = "Working Dirs History Scope";
+const char* CONFIG_WORKDIRS_COLORED_ICONS_REG = "Color Working Directory History Icons";
 const char* CONFIG_ENABLECMDLINEHISTORY_REG = "Enable CmdLine History";
 const char* CONFIG_SAVECMDLINEHISTORY_REG = "Save CmdLine History";
 const char* CONFIG_BACKSPACEACTION_REG = "Backspace Action";
@@ -2672,6 +2677,12 @@ static void SavePanelSettingsToKey(CFilesWindow* panel, HKEY key, BOOL useGenera
         lstrcpyn(path, panel->GetPath(), _countof(path));
     SetValue(key, PANEL_PATH_REG, REG_SZ, path, -1);
 
+    // The compatibility panel key stores the active tab's layout. Only the
+    // actual attached and detached tab keys store an identity.
+    const GUID& tabId = panel->GetHistoryTabId();
+    if (useGeneralPath && !IsEqualGUID(tabId, GUID{}))
+        SetValue(key, PANEL_HISTORYTABID_REG, REG_BINARY, &tabId, sizeof(tabId));
+
     value = panel->GetViewTemplateIndex();
     SetValue(key, PANEL_VIEW_REG, REG_DWORD, &value, sizeof(DWORD));
     value = panel->SortType;
@@ -3545,6 +3556,8 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                 SetValue(actKey, CONFIG_SAVENAVIGATEDDIRS_REG, REG_DWORD, &Configuration.SaveNavigatedDirs, sizeof(DWORD));
                 SetValue(actKey, CONFIG_WORKDIRS_HISTORY_SCOPE_REG, REG_DWORD,
                          &Configuration.WorkDirsHistoryScope, sizeof(DWORD));
+                SetValue(actKey, CONFIG_WORKDIRS_COLORED_ICONS_REG, REG_DWORD,
+                         &Configuration.WorkDirHistoryColoredIcons, sizeof(DWORD));
                 SetValue(actKey, CONFIG_ENABLECMDLINEHISTORY_REG, REG_DWORD,
                          &Configuration.EnableCmdLineHistory, sizeof(DWORD));
                 SetValue(actKey, CONFIG_SAVECMDLINEHISTORY_REG, REG_DWORD,
@@ -3984,12 +3997,7 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                             TAG_HISTORY_SIZE, !Configuration.SaveHistory);
 
                 if (DirHistory != NULL)
-                {
-                    if (UsingSharedWorkDirHistory())
-                        DirHistory->SaveToRegistry(actKey, CONFIG_WORKDIRSHISTORY_REG, !Configuration.SaveWorkDirs);
-                    else
-                        DirHistory->SaveToRegistry(actKey, CONFIG_WORKDIRSHISTORY_REG, TRUE);
-                }
+                    DirHistory->SaveToRegistry(actKey, CONFIG_WORKDIRSHISTORY_REG, !Configuration.SaveWorkDirs);
 
                 if (GlobalSaveWaitWindow == NULL)
                     analysing.SetProgressPos(++savingProgress); // 6
@@ -4315,6 +4323,15 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
     }
 }
 
+void CMainWindow::LoadPanelTabHistoryId(CFilesWindow* panel, HKEY key)
+{
+    GUID tabId = {};
+    DWORD size = 0;
+    if (GetValueAux(NULL, key, PANEL_HISTORYTABID_REG, REG_BINARY, &tabId, sizeof(tabId), TRUE) &&
+        GetSize(key, PANEL_HISTORYTABID_REG, REG_BINARY, size) && size == sizeof(tabId))
+        RestorePanelTabHistoryId(panel, tabId);
+}
+
 void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalamander, const char* reg)
 {
     if (panelPath != NULL)
@@ -4449,6 +4466,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         HKEY tabKey;
         if (OpenKey(actKey, tabKeyName, tabKey))
         {
+            LoadPanelTabHistoryId(panel, tabKey);
             LoadPanelSettingsFromKey(panel, tabKey, path, _countof(path));
             if (Configuration.SaveHistory && Configuration.SaveNavigatedDirs)
                 panel->PathHistory->LoadFromRegistry(tabKey, CONFIG_NAVIGATEDDIRSHISTORY_REG, TRUE);
@@ -4603,6 +4621,7 @@ void CMainWindow::LoadDetachedTabConfig(HKEY hSalamander)
         }
 
         std::vector<char> path(2 * SAL_MAX_PATH);
+        LoadPanelTabHistoryId(panel, tabKey);
         LoadPanelSettingsFromKey(panel, tabKey, path.data(), (int)path.size());
         if (Configuration.SaveHistory && Configuration.SaveNavigatedDirs)
             panel->PathHistory->LoadFromRegistry(tabKey, CONFIG_NAVIGATEDDIRSHISTORY_REG, TRUE);
@@ -5578,6 +5597,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
 
         DWORD cmdLine = 0, cmdLineFocus = 0;
         DWORD rightPanelFocused = FALSE;
+        BOOL restoreLegacySharedHistory = FALSE;
         if (OpenKey(salamander, SALAMANDER_CONFIG_REG, actKey))
         {
             if (importingOldConfig)
@@ -5729,6 +5749,10 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             }
             else
                 Configuration.WorkDirsHistoryScope = wdhsShared;
+            DWORD coloredHistoryIcons = TRUE;
+            Configuration.WorkDirHistoryColoredIcons =
+                !GetValue(actKey, CONFIG_WORKDIRS_COLORED_ICONS_REG, REG_DWORD,
+                          &coloredHistoryIcons, sizeof(coloredHistoryIcons)) || coloredHistoryIcons != FALSE;
             GetValue(actKey, CONFIG_ENABLECMDLINEHISTORY_REG, REG_DWORD,
                      &Configuration.EnableCmdLineHistory, sizeof(DWORD));
             GetValue(actKey, CONFIG_SAVECMDLINEHISTORY_REG, REG_DWORD,
@@ -6417,12 +6441,14 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             LoadHistory(actKey, CONFIG_TAGHISTORY_REG, Configuration.TagHistory, TAG_HISTORY_SIZE);
             if (DirHistory != NULL)
             {
-                if (UsingSharedWorkDirHistory())
-                    DirHistory->LoadFromRegistry(actKey, CONFIG_WORKDIRSHISTORY_REG);
+                if (Configuration.SaveWorkDirs)
+                {
+                    const BOOL sharedHistoryStored = DirHistory->LoadFromRegistry(actKey, CONFIG_WORKDIRSHISTORY_REG);
+                    restoreLegacySharedHistory = !sharedHistoryStored && !UsingSharedWorkDirHistory();
+                }
                 else
                     DirHistory->ClearHistory();
             }
-            UpdateAllDirectoryLineHistoryStates();
 
             if (OpenKey(actKey, CONFIG_COPYMOVEOPTIONS_REG, actSubKey))
             {
@@ -6552,8 +6578,9 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         LoadPanelConfig(rightPanelPath, cpsRight, salamander, SALAMANDER_RIGHTP_REG);
         LoadDetachedTabConfig(salamander);
         RestoringPanelPaths = FALSE;
-        if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
-            RebuildSharedDirHistoryFromPanels();
+        if (restoreLegacySharedHistory)
+            RestoreLegacySharedDirHistoryFromPanels();
+        UpdateAllDirectoryLineHistoryStates();
 
         CloseKey(salamander);
         salamander = NULL;

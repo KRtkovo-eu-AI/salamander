@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Measure an optional secondary action label in the right column. | Keep command text and its accelerators independent. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -330,6 +333,12 @@ void CMenuItem::DecodeSubTextLenghtsAndWidths(CMenuSharedResources* sharedRes, B
         iterator++;
     }
 
+    if (SecondaryActionID != 0 && SubMenu == NULL)
+    {
+        ColumnR = SecondaryActionText.c_str();
+        ColumnRLen = static_cast<int>(SecondaryActionText.size());
+    }
+
     // calculate text widths
     HFONT hOldFont;
     if (State & MENU_STATE_DEFAULT)
@@ -354,8 +363,9 @@ void CMenuItem::DecodeSubTextLenghtsAndWidths(CMenuSharedResources* sharedRes, B
     if (ColumnR != NULL)
     {
         ZeroMemory(&size, sizeof(size));
+        const UINT prefix = SecondaryActionID != 0 && SubMenu == NULL ? DT_NOPREFIX : 0;
         DrawText(sharedRes->HTempMemDC, ColumnR, ColumnRLen,
-                 &size, DT_NOCLIP | DT_LEFT | DT_SINGLELINE | DT_CALCRECT);
+                 &size, DT_NOCLIP | DT_LEFT | DT_SINGLELINE | DT_CALCRECT | prefix);
         ColumnRWidth = size.right;
     }
     SelectObject(sharedRes->HTempMemDC, hOldFont);

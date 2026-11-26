@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-26 | Guard custom tab rendering during a dark-mode refresh. | Catch a second dark-mode pass taking over the panel tabs at startup. | | GPT-6 |
 # | 2026-11-12 | Keep file panels visible during shell launches and listing replacement. | Guard shell-helper parenting and refresh paint suppression against regression. | | openai/gpt-6-luna-pro |
 # | 2026-11-09 | Track the compact Change Drive configuration layout. | Match the contract with the new ordering selector and reduced dialog height. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | openai/gpt-5.6-luna-pro |
 # | 2026-11-04 | Reject process-wide CLR Stop in the managed bridges. | Stopping the CLR prevents JSON Viewer from opening again in the same process. | | Grok 4.7 |
@@ -45,6 +46,7 @@ def main() -> int:
     darkmodelib_controls = (ROOT / "third_party/darkmodelib/src/DmlibSubclassControl.cpp").read_text(encoding="utf-8")
     darkmodelib = (ROOT / "third_party/darkmodelib/src/Darkmodelib.cpp").read_text(encoding="utf-8")
     darkmode = (ROOT / "darkmode.cpp").read_text(encoding="utf-8")
+    darkmode_backend = (ROOT / "darkmode_backend_darkmodelib.cpp").read_text(encoding="utf-8")
     toolbar3 = (ROOT / "toolbar3.cpp").read_text(encoding="utf-8")
     icon_cache_header = (ROOT / "icncache.h").read_text(encoding="utf-8")
     icon_cache = (ROOT / "icncache.cpp").read_text(encoding="utf-8")
@@ -178,6 +180,18 @@ def main() -> int:
     dark_mode_apply_tree = darkmode[dark_mode_apply_tree_start:dark_mode_apply_tree_end]
     if "EnumChildWindows(hwnd, ApplyTreeCallback" in dark_mode_apply_tree:
         print("dark-mode control trees must not be recursively reapplied per descendant")
+        return 1
+    same_theme_refresh = re.search(
+        r"if \(wasApplied && wasDark == dark\)\s*\{(.*?)\breturn;",
+        darkmode_backend,
+        re.DOTALL,
+    )
+    if same_theme_refresh is None or not re.search(
+        r"dmlib::setChildCtrlsSubclassAndTheme\(hwnd\);.*?RestoreCustomTabControls\(hwnd\);",
+        same_theme_refresh.group(1),
+        re.DOTALL,
+    ):
+        print("repeated dark-mode application must restore the custom tab renderer after subclassing")
         return 1
     if "ScrollFixSubclass" in toolbar3 or "kScrollFixSubclassId" in toolbar3:
         print("Customize toolbar must not use a synchronous scroll repaint workaround")

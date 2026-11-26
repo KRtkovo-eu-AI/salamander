@@ -3,6 +3,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Identify explicit panel refresh commands. | Prompt for a fresh archive read only on user refresh. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Expose live history tab lookup and activation. | Route the original-tab command using the stable history ID. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+// | 2026-11-26 | Limit shared history reconstruction to legacy profiles. | Keep saved shared history authoritative when switching scope. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+// | 2026-11-26 | Expose source tab colors with history titles. | Use current colors while capturing closed sources. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+// | 2026-11-26 | Expose persistent tab identity and title lookup. | Carry the history identity through Undo Close Tab. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+// | 2026-11-26 | Expose a live tab name lookup by identity. | Resolve history sources in either panel and in detached tabs. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-15 | Explain protected panel refresh. | Keep background notifications noninteractive. | #731 | GPT-6 |
 // | 2026-11-07 | Track the temporary Find notice separately from the normal caption. | Preserve custom and detached-window titles. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // CommentsTranslationProject: TRANSLATED
@@ -333,6 +338,7 @@ public:
 //class CTipOfTheDayDialog;
 class CDetachedFSList;
 class CPathHistory;
+struct CWorkingDirectorySource;
 
 enum CMainWindowsHitTestEnum
 {
@@ -423,6 +429,7 @@ public:
     struct SClosedPanelTab
     {
         int InsertIndex;
+        GUID HistoryTabId;
         std::string GeneralPath;
         std::string FallbackPath;
         std::wstring DiskPathW;
@@ -672,6 +679,11 @@ public:
     void RequestPanelRefresh(CFilesWindow* panel, bool rebuildDriveBars,
                              bool postRefreshMessage = false, bool explicitRefresh = false);
     std::wstring GetPanelTabDisplayText(CFilesWindow* panel) const;
+    CWorkingDirectorySource GetWorkingDirectoryTabSource(CFilesWindow* panel) const;
+    CWorkingDirectorySource GetWorkingDirectoryTabSourceById(const GUID& tabId) const;
+    CFilesWindow* FindPanelTabByHistoryId(const GUID& tabId) const;
+    CFilesWindow* ActivatePanelTabByHistoryId(const GUID& tabId);
+    void RememberWorkingDirectoryTabSource(CFilesWindow* panel);
     void UpdatePanelTabTitle(CFilesWindow* panel);
     void UpdatePanelTabColor(CFilesWindow* panel);
     void RefreshPanelTabLayout();
@@ -745,7 +757,7 @@ public:
     void CapturePanelPathsForShutdown(BOOL capture);
     void HandleWorkDirsHistoryScopeChange(CWorkDirsHistoryScope previousScope);
     void HandlePanelTabsEnabledChange(BOOL previouslyEnabled);
-    void RebuildSharedDirHistoryFromPanels();
+    void RestoreLegacySharedDirHistoryFromPanels();
 
     void DirHistoryAddPathUnique(CFilesWindow* panel, int type, const char* pathOrArchiveOrFSName,
                                  const char* archivePathOrFSUserPart, HICON hIcon,
@@ -1083,6 +1095,8 @@ private:
     void RebuildPanelTabs(CPanelSide side);
     void ClearPanelTabDragTargetIndicator();
     CFilesWindow* CreateDuplicatePanelTab(CPanelSide targetSide, CFilesWindow* sourcePanel, int insertIndex);
+    void RestorePanelTabHistoryId(CFilesWindow* panel, const GUID& tabId);
+    void LoadPanelTabHistoryId(CFilesWindow* panel, HKEY key);
 
     int PanelTabMouseWheelAccumulator;
     DWORD PanelTabMouseWheelSwitchTime;

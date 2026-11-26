@@ -1,4 +1,5 @@
 ; | Date | Summary | Reason | Ticket | Model |
+; | 2026-11-26 | Package the favorite badge for working directory history. | Make the corner star available in both themes. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 ; | 2026-11-26 | Show Extension Menu Builder 1.1.3 in the installer. | Keep the setup entry aligned with the extension manifest. | | Grok 4.7 |
 ; | 2026-11-20 | Generate the ownership inventory at installer compile time. | Validate the finished payload for both installer modes. |  | gpt-6.2-sol |
 ; | 2026-11-16 | Always install the language pack without a task checkbox. | Make the additional UI translations available on every installation. | | openrouter/openai/gpt-6-luna-pro |
@@ -2034,6 +2035,7 @@ Source: "{#PayloadDir}\toolbars\View.svg"; DestDir: "{app}\toolbars"; Flags: ign
 Source: "{#PayloadDir}\toolbars\Views.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\WhatIsThis.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\Windows.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
+Source: "{#PayloadDir}\toolbars\WorkingDirectoryFavoriteBadge.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\ExplorerCategoryCommon.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\ExplorerCategoryFavorites.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\ExplorerCategoryFavoritesRed.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion

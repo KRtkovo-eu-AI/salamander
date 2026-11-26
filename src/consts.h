@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Reserve the history Hot Path icon index. | Use the shared menu image lists. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-25 | Keep protected viewer parameters beside Branch View admission. | One declaration serves scoped reads and generated-report navigation. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 // | 2026-11-20 | Declare generated-report dispatch and enumeration identity. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
 // | 2026-11-20 | Admit bundled PictView in Branch View. | Preserve panel image identity and existing viewer restrictions. |  | gpt-6.2-sol |
@@ -2189,7 +2190,9 @@ extern DWORD EnablerRightUnlockTab;       // can a tab in the right panel be unl
 #define IDX_TB_COMMANDPROMPT 87     // Command Prompt
 #define IDX_TB_WINDOWSTERMINAL 88   // Windows Terminal
 
-#define IDX_TB_FD 89 // first "dynamic added" index
+#define IDX_TB_HISTORYHOTPATH 89   // Saved Hot Path in working directory history
+
+#define IDX_TB_FD 90 // first "dynamic added" index
 // nasledujici ikony budou pridany k bitmape dynamicky
 // a nektere budou nacteny z shell32.dll
 

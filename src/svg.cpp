@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Render per-menu color variants of toolbar artwork. | Retain existing shape geometry and alpha blending. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-05 | Supersample SVG icon bitmaps and keep a single premul BGRA pass. | FS-panel SVG icons looked muddy and lost detail after a second premultiply, especially at 16px. | | Composer |
 // CommentsTranslationProject: TRANSLATED
 
@@ -328,7 +329,29 @@ BOOL UnpremultiplySVGIconBitmap(HBITMAP hBitmap)
     return TRUE;
 }
 
-static BOOL RenderSVGIconBitmapText(char* svg, int iconSize, BOOL enabled, HBITMAP* hBitmap)
+static bool ApplyToolbarSVGIconColors(NSVGimage* image, const CToolbarSVGIconColors& colors)
+{
+    bool colored = false;
+    const size_t prefixLength = strlen(colors.FillIdPrefix);
+    for (NSVGshape* shape = image->shapes; shape != NULL; shape = shape->next)
+    {
+        if (shape->fill.type != NSVG_PAINT_COLOR || strncmp(shape->id, colors.FillIdPrefix, prefixLength) != 0)
+            continue;
+        shape->fill.color = ColorRefToARGB(colors.Fill);
+        if (colors.Stroke != CLR_NONE)
+        {
+            shape->stroke.type = NSVG_PAINT_COLOR;
+            shape->stroke.color = ColorRefToARGB(colors.Stroke);
+            shape->strokeWidth = colors.StrokeWidth;
+            shape->strokeLineJoin = NSVG_JOIN_ROUND;
+        }
+        colored = true;
+    }
+    return colored;
+}
+
+static BOOL RenderSVGIconBitmapText(char* svg, int iconSize, BOOL enabled, HBITMAP* hBitmap,
+                                   const CToolbarSVGIconColors* colors = NULL)
 {
     if (hBitmap == NULL)
         return FALSE;
@@ -363,6 +386,11 @@ static BOOL RenderSVGIconBitmapText(char* svg, int iconSize, BOOL enabled, HBITM
         // Parse with the CSS/SVG reference DPI. Callers already pass the target
         // size in device pixels (including system-DPI toolbar sizes).
         NSVGimage* image = nsvgParse(svg, "px", 96.0f);
+        if (image != NULL && colors != NULL && !ApplyToolbarSVGIconColors(image, *colors))
+        {
+            nsvgDelete(image);
+            image = NULL;
+        }
         if (image != NULL)
         {
             if (!enabled)
@@ -435,6 +463,29 @@ BOOL RenderSVGIconBitmap(const char* svgName, int iconSize, BOOL enabled, HBITMA
     BOOL result = RenderSVGIconBitmapText(svg, iconSize, enabled, hBitmap);
     free(svg);
     return result;
+}
+
+HICON CreateTintedToolbarSVGIcon(const char* svgName, int iconSize, const CToolbarSVGIconColors& colors)
+{
+    char* svg = LoadToolbarSVG(svgName);
+    HBITMAP bitmap = NULL;
+    const BOOL rendered = RenderSVGIconBitmapText(svg, iconSize, TRUE, &bitmap, &colors);
+    free(svg);
+    if (!rendered)
+        return NULL;
+
+    // The common control preserves the SVG bitmap's premultiplied alpha.
+    HIMAGELIST converter = ImageList_Create(iconSize, iconSize, ILC_COLOR32, 1, 1);
+    HICON icon = NULL;
+    if (converter != NULL)
+    {
+        const int index = ImageList_Add(converter, bitmap, NULL);
+        if (index >= 0)
+            icon = ImageList_GetIcon(converter, index, ILD_NORMAL);
+        ImageList_Destroy(converter);
+    }
+    HANDLES(DeleteObject(bitmap));
+    return icon;
 }
 
 BOOL RenderSVGIconBitmapFromFile(const char* svgFile, int iconSize, BOOL enabled, HBITMAP* hBitmap)

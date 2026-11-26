@@ -1,5 +1,8 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-26 | Describe the corner star on favorite visits from other tabs. | Explain how tab colors and favorite markings appear together. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+| 2026-11-26 | Describe how working directory history scopes are saved. | Both lists are kept when the scope changes. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+| 2026-11-26 | Describe the working directory history icon color option. | Document the yellow star and source tab colors. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -24,28 +27,29 @@ Open Samandarin and plugins configuration.</p>
 <h4>Dialog Box Options</h4>
 <dl>
 
+<dt><i>Use colored icons in the working directory list</i></dt>
+<dd>Uses yellow stars for Hot Paths and assigned tab colors for visits from other tabs
+in the <a href="navigating_dirhist.htm">List of Working Directories</a>. A Hot Path from
+another tab has a small star on the tab icon. Turn this option off to use neutral colors.</dd>
+
 <dt><i>Save history</i></dt>
 <dd>When checked, recently used values (history) will be stored in the registry as a part of
 Open Samandarin and plugins configuration.</dd>
 
 <dt><i>Save List of Working Directories</i></dt>
-<dd>When checked, the list of working directories (see <a href="navigating_dirhist.htm">List
-of Working Directories</a>) will be stored in the registry as a part of Open Samandarin
-configuration.</dd>
+<dd>When checked, both the shared <a href="navigating_dirhist.htm">List of Working Directories</a>
+and each tab's list are saved in the Open Samandarin configuration.</dd>
 
 <dt><i>Save Navigated Directories</i></dt>
 <dd>When checked, the Back and Forward navigation history of panels and tabs will be stored in the configuration and restored after restarting Open Samandarin. The history is stored separately for each panel/tab or shared according to the selected history scope. Plugin filesystem entries are restored when the corresponding filesystem can be reopened.</dd>
 
 <dt><i>Share history between panels/tabs</i></dt>
-<dd>Stores a single list of working directories that is shared by both panels and
-all of their tabs. Choose this option if you prefer a global history that follows
-you regardless of which tab is active.</dd>
+<dd>Shows a single list of working directories shared by both panels and all of their tabs.
+The shared list can include visits from tabs that are now closed.</dd>
 
 <dt><i>Keep history per panel/tab</i></dt>
-<dd>Maintains a separate list of working directories for every panel tab. This is
-useful when tabbed panels are enabled and you want each tab to remember only the
-locations visited within that tab. The option is available only when the list of
-working directories is being saved.</dd>
+<dd>Shows the working directory list of the active panel tab. Switching between the
+two options preserves the entries and their order in each list.</dd>
 
 <dt><i>Enable Command line history</i></dt>
 <dd>When checked, recently used commands from the <a href="windows_cmdline.htm">Command Line</a>

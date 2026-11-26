@@ -2,6 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Preserve working directory history when switching scope. | Keep the original cross-tab visit order and entries from closed tabs. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+// | 2026-11-26 | Capture the custom color when a source tab closes. | Preserve the history icon color across restarts. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+// | 2026-11-26 | Use persistent tab IDs and retain the final caption at close. | Keep history attribution after the source panel is gone. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+// | 2026-11-26 | Record the originating tab for working directory visits. | Attribute shared history to the tab where the path was used. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-15 | Explain protected file-list handoff. | Document temporary source ownership and panel validation. | #731 | GPT-6 |
 // | 2026-11-14 | Bound file-list error formatting. | Treat localized strings and paths as data. | #731 | GPT-6 |
 // | 2026-11-11 | Bind file-list exclusions with the portable identity type. | Keep panel headers independent of Windows FILE_ID_INFO availability. | #731 | GPT-6.1 Sol |
@@ -160,13 +164,12 @@ void CMainWindow::CapturePanelPathsForShutdown(BOOL capture)
         updatePanel(GetDetachedTabAt(i));
 }
 
-void CMainWindow::RebuildSharedDirHistoryFromPanels()
+void CMainWindow::RestoreLegacySharedDirHistoryFromPanels()
 {
     if (DirHistory == NULL)
         return;
 
-    DirHistory->ClearHistory();
-
+    // Older per-tab profiles saved only the individual lists. Across tabs the original order is unknown.
     TIndirectArray<CFilesWindow>& leftTabs = GetPanelTabs(cpsLeft);
     for (int i = 0; i < leftTabs.Count; i++)
     {
@@ -193,50 +196,8 @@ void CMainWindow::RebuildSharedDirHistoryFromPanels()
 
 void CMainWindow::HandleWorkDirsHistoryScopeChange(CWorkDirsHistoryScope previousScope)
 {
-    CWorkDirsHistoryScope newScope = (CWorkDirsHistoryScope)Configuration.WorkDirsHistoryScope;
-    CWorkDirsHistoryScope prevScope = previousScope;
-    if (newScope == prevScope)
+    if (Configuration.WorkDirsHistoryScope == static_cast<DWORD>(previousScope))
         return;
-
-    if (newScope == wdhsPerTab)
-    {
-        TIndirectArray<CFilesWindow>& leftTabs = GetPanelTabs(cpsLeft);
-        for (int i = 0; i < leftTabs.Count; i++)
-        {
-            CPathHistory* history = leftTabs[i]->GetWorkDirHistory();
-            if (history == NULL)
-                history = leftTabs[i]->EnsureWorkDirHistory();
-            if (history != NULL && (history->HasPaths() || DirHistory == NULL || !DirHistory->HasPaths()))
-                continue;
-            if (history != NULL && DirHistory != NULL)
-                history->CopyFrom(*DirHistory);
-        }
-
-        TIndirectArray<CFilesWindow>& rightTabs = GetPanelTabs(cpsRight);
-        for (int i = 0; i < rightTabs.Count; i++)
-        {
-            CPathHistory* history = rightTabs[i]->GetWorkDirHistory();
-            if (history == NULL)
-                history = rightTabs[i]->EnsureWorkDirHistory();
-            if (history != NULL && (history->HasPaths() || DirHistory == NULL || !DirHistory->HasPaths()))
-                continue;
-            if (history != NULL && DirHistory != NULL)
-                history->CopyFrom(*DirHistory);
-        }
-        for (int i = 0; i < GetDetachedTabCount(); ++i)
-        {
-            CFilesWindow* panel = GetDetachedTabAt(i);
-            if (panel == NULL)
-                continue;
-            CPathHistory* history = panel->GetWorkDirHistory();
-            if (history == NULL)
-                history = panel->EnsureWorkDirHistory();
-            if (history != NULL && !history->HasPaths() && DirHistory != NULL && DirHistory->HasPaths())
-                history->CopyFrom(*DirHistory);
-        }
-    }
-    else
-        RebuildSharedDirHistoryFromPanels();
 
     UpdateAllDirectoryLineHistoryStates();
     RefreshCommandStates();
@@ -270,6 +231,35 @@ void CMainWindow::ClearPluginFSFromHistory(CPluginFSInterfaceAbstract* fs)
     UpdateAllDirectoryLineHistoryStates();
 }
 
+void CMainWindow::RememberWorkingDirectoryTabSource(CFilesWindow* panel)
+{
+    const CWorkingDirectorySource source = GetWorkingDirectoryTabSource(panel);
+    if (IsEqualGUID(source.Id, GUID{}))
+        return;
+
+    auto remember = [&](CPathHistory* history) {
+        if (history != NULL)
+            history->RememberSourceTab(source);
+    };
+    remember(DirHistory);
+    for (CPanelSide side : {cpsLeft, cpsRight})
+    {
+        for (int i = 0; i < GetPanelTabCount(side); ++i)
+            remember(GetPanelTabAt(side, i)->GetWorkDirHistory());
+    }
+    for (int i = 0; i < GetDetachedTabCount(); ++i)
+    {
+        CFilesWindow* detached = GetDetachedTabAt(i);
+        if (detached != NULL)
+            remember(detached->GetWorkDirHistory());
+    }
+    for (const auto& side : ClosedPanelTabs)
+    {
+        for (const auto& closed : side)
+            remember(closed.WorkDirHistory.get());
+    }
+}
+
 void CMainWindow::DirHistoryAddPathUnique(CFilesWindow* panel, int type,
                                           const char* pathOrArchiveOrFSName,
                                           const char* archivePathOrFSUserPart, HICON hIcon,
@@ -285,6 +275,7 @@ void CMainWindow::DirHistoryAddPathUnique(CFilesWindow* panel, int type,
 
     CPathHistory* sharedHistory = DirHistory;
     CPathHistory* panelHistory = (panel != NULL) ? panel->EnsureWorkDirHistory() : NULL;
+    const CWorkingDirectorySource source = {panel != NULL ? panel->GetHistoryTabId() : GUID{}, {}};
 
     CPathHistory* primaryHistory = UsingSharedWorkDirHistory() ? sharedHistory : panelHistory;
     CPathHistory* secondaryHistory = NULL;
@@ -307,14 +298,14 @@ void CMainWindow::DirHistoryAddPathUnique(CFilesWindow* panel, int type,
     if (primaryHistory != NULL)
     {
         primaryHistory->AddPathUnique(type, pathOrArchiveOrFSName, archivePathOrFSUserPart, hIcon,
-                                      pluginFS, curPluginFS);
+                                      pluginFS, curPluginFS, source);
         hIcon = NULL;
     }
 
     if (secondaryHistory != NULL)
     {
         secondaryHistory->AddPathUnique(type, pathOrArchiveOrFSName, archivePathOrFSUserPart, secondaryIcon,
-                                        pluginFS, curPluginFS);
+                                        pluginFS, curPluginFS, source);
         secondaryIcon = NULL;
     }
 

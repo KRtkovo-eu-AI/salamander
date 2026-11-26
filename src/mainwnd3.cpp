@@ -3,6 +3,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Route explicit Refresh to protected archives. | Leave background refresh noninteractive. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Activate the live source of a working directory history entry. | Select the correct tab even across panels and detached windows. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+// | 2026-11-26 | Resolve the history source's current custom color. | Keep colored icons in sync with the source tab. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+// | 2026-11-26 | Resolve and preserve history origins by tab GUID. | Capture the title before a tab closes and restore identity on undo. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+// | 2026-11-26 | Reuse undecorated live tab names in working directory history. | Keep tab state indicators separate from source labels. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-25 | Dispatch protected copy tests and generated-report opens together. | The main window keeps both the laboratory F5 gate and UnISO report navigation. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 // | 2026-11-20 | Reopen the exact enumerated source image on the plug-in UI thread. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
 // | 2026-11-20 | Admit bundled PictView in Branch View. | Preserve panel image identity and existing viewer restrictions. |  | gpt-6.2-sol |
@@ -678,6 +682,7 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel, bool storeForReopen)
         return;
 
     int originalIndex = index;
+    RememberWorkingDirectoryTabSource(panel);
 
     TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
     CTabWindow* tabWnd = GetPanelTabWindow(side);
@@ -767,6 +772,7 @@ void CMainWindow::RememberClosedTab(CPanelSide side, CFilesWindow* panel, int in
 
     SClosedPanelTab info;
     info.InsertIndex = insertIndex;
+    info.HistoryTabId = panel->GetHistoryTabId();
 
     char path[2 * MAX_PATH];
     path[0] = 0;
@@ -894,30 +900,33 @@ static void BuildTabCaption(CFilesWindow* panel, char* buffer, int bufferSize)
     CMainWindow::FormatPanelPathForDisplay(panel, mode, buffer, bufferSize);
 }
 
+static std::wstring BuildTabName(CFilesWindow* panel)
+{
+    CPathBuffer text;
+    BuildTabCaption(panel, text.Data(), text.Capacity());
+    std::wstring caption = Utf8OrAnsiToWide(text.Data());
+    if (!panel->HasCustomTabPrefix())
+        return caption;
+
+    std::wstring name = panel->GetCustomTabPrefix();
+    if (!caption.empty())
+        name += L" " + caption;
+    return name;
+}
+
 static std::wstring BuildTabDisplayText(CFilesWindow* panel, int index)
 {
-    char text[SAL_MAX_PATH];
-    BuildTabCaption(panel, text, _countof(text));
-    std::wstring caption = Utf8OrAnsiToWide(text);
-    std::wstring prefix;
-    if (panel != NULL && panel->HasCustomTabPrefix())
-        prefix = panel->GetCustomTabPrefix();
+    std::wstring name = BuildTabName(panel);
     std::wstring result;
     if (index == 0)
         result = L"\u2691";
-    else if (panel != NULL && panel->IsTabLocked())
+    else if (panel->IsTabLocked())
         result = L"\U0001F512";
-    if (!prefix.empty())
+    if (!name.empty())
     {
         if (!result.empty())
             result += L" ";
-        result += prefix;
-    }
-    if (!caption.empty())
-    {
-        if (!result.empty())
-            result += L" ";
-        result += caption;
+        result += name;
     }
     return result;
 }
@@ -972,6 +981,92 @@ std::wstring CMainWindow::GetPanelTabDisplayText(CFilesWindow* panel) const
     if (panel->IsBranchView())
         text += L" [" + SalMultiByteToWidePath(LoadStr(IDS_BRANCH_VIEW), CP_UTF8) + L"]";
     return text;
+}
+
+CFilesWindow* CMainWindow::FindPanelTabByHistoryId(const GUID& tabId) const
+{
+    if (IsEqualGUID(tabId, GUID{}))
+        return NULL;
+
+    for (CPanelSide side : {cpsLeft, cpsRight})
+    {
+        const int count = GetPanelTabCount(side);
+        for (int i = 0; i < count; ++i)
+        {
+            CFilesWindow* panel = GetPanelTabAt(side, i);
+            if (panel != NULL && IsEqualGUID(panel->GetHistoryTabId(), tabId))
+                return panel;
+        }
+    }
+    for (int i = 0; i < GetDetachedTabCount(); ++i)
+    {
+        CFilesWindow* panel = GetDetachedTabAt(i);
+        if (panel != NULL && IsEqualGUID(panel->GetHistoryTabId(), tabId))
+            return panel;
+    }
+    return NULL;
+}
+
+CFilesWindow* CMainWindow::ActivatePanelTabByHistoryId(const GUID& tabId)
+{
+    CFilesWindow* panel = FindPanelTabByHistoryId(tabId);
+    if (panel == NULL || panel->HWindow == NULL || HasLockedUI())
+        return NULL;
+
+    const HWND host = GetAncestor(panel->HWindow, GA_ROOT);
+    if (host == NULL || !IsWindowEnabled(host))
+        return NULL;
+    if (IsIconic(host))
+        ShowWindow(host, SW_RESTORE);
+    if (GetForegroundWindow() != host)
+        SetForegroundWindow(host);
+
+    panel = FindPanelTabByHistoryId(tabId);
+    if (panel == NULL || panel->HWindow == NULL || GetAncestor(panel->HWindow, GA_ROOT) != host)
+        return NULL;
+
+    if (IsDetachedTabPanel(panel))
+    {
+        if (GetActivePanel() != panel || GetForegroundWindow() != host)
+            return NULL;
+        SetFocus(panel->GetListBoxHWND());
+    }
+    else
+    {
+        if (!DetachedPanels && IsPanelZoomed(panel->GetPanelSide() == cpsRight))
+        {
+            RestoreVisiblePanelRatio(BeforeZoomVisibleLeftRatio);
+            panel = FindPanelTabByHistoryId(tabId);
+            if (panel == NULL)
+                return NULL;
+        }
+        SwitchPanelTab(panel);
+    }
+    // A detached tab's window activates its own panel. Activation can notify plugins,
+    // so resolve the identity again before handing the target to the caller.
+    panel = FindPanelTabByHistoryId(tabId);
+    return panel == GetActivePanel() && GetForegroundWindow() == host ? panel : NULL;
+}
+
+void CMainWindow::RestorePanelTabHistoryId(CFilesWindow* panel, const GUID& tabId)
+{
+    if (IsEqualGUID(tabId, GUID{}) || FindPanelTabByHistoryId(tabId) != NULL)
+        return;
+
+    panel->SetHistoryTabId(tabId);
+}
+
+CWorkingDirectorySource CMainWindow::GetWorkingDirectoryTabSource(CFilesWindow* panel) const
+{
+    if (panel == NULL)
+        return {};
+    return {panel->GetHistoryTabId(), BuildTabName(panel),
+            panel->HasCustomTabColor() ? panel->GetCustomTabColor() : CLR_NONE};
+}
+
+CWorkingDirectorySource CMainWindow::GetWorkingDirectoryTabSourceById(const GUID& tabId) const
+{
+    return GetWorkingDirectoryTabSource(FindPanelTabByHistoryId(tabId));
 }
 
 void CMainWindow::UpdatePanelTabTitle(CFilesWindow* panel)
@@ -2552,6 +2647,8 @@ bool CMainWindow::CommandReopenClosedTab(CPanelSide side)
         ClosedPanelTabs[vectorIndex].push_back(std::move(entry));
         return false;
     }
+
+    RestorePanelTabHistoryId(panel, entry.HistoryTabId);
 
     if (panel->IsViewTemplateValid(entry.ViewTemplateIndex))
         panel->SelectViewTemplate(entry.ViewTemplateIndex, TRUE, FALSE);

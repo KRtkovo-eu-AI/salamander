@@ -2,6 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Dispatch the original-tab history action separately. | Keep clicking the path or pressing Enter on the current-panel route. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+// | 2026-11-26 | Retain history favorite overlays until the popup closes. | Share the existing lifetime for dynamic menu icons. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+// | 2026-11-26 | Retain colors for the lifetime of the history popup. | Release dynamic icon handles when Alt+F12 closes. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+// | 2026-11-26 | Use the panel toolbar image lists in the working directory popup. | Draw history status icons at the panel DPI. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-25 | Keep protected panel status beside generated-report filtering. | Size scans stay scoped, and report candidates use the originating associations. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 // | 2026-11-20 | Filter generated-report candidates using the originating plug-in associations. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
 // | 2026-11-15 | Deliver folder access indicators to the owning panel. | Reject obsolete results before requesting a repaint. | #731 | GPT-6 |
@@ -17,6 +21,8 @@
 #include "viewerpath.h"
 
 #include "common/winlibdpi.h"
+
+#include <algorithm>
 
 #include "cfgdlg.h"
 #include "menu.h"
@@ -1659,6 +1665,9 @@ void CFilesWindow::OpenDirHistory()
     CALL_STACK_MESSAGE1("CFilesWindow::OpenDirHistory()");
     if (!MainWindow->HasDirHistory(this))
         return;
+    CPathHistory* history = MainWindow->GetDirHistory(this, FALSE);
+    if (history == NULL)
+        return;
 
     BeginStopRefresh(); // cmuchal si da pohov
 
@@ -1678,14 +1687,24 @@ void CFilesWindow::OpenDirHistory()
         }
     }
 
-    CPathHistory* history = MainWindow->GetDirHistory(this, FALSE);
-    if (history == NULL)
-        return;
-
-    history->FillHistoryPopupMenu(&menu, 1, -1, FALSE);
+    menu.SetImageList(MainWindow->GetToolbarImageListForWindow(HWindow, FALSE));
+    menu.SetHotImageList(MainWindow->GetToolbarImageListForWindow(HWindow, TRUE));
+    menu.EnableSecondaryActions();
+    std::vector<HICON> popupIcons;
+    std::vector<CWorkingDirectoryOriginalTabAction> originalTabActions;
+    history->FillHistoryPopupMenu(&menu, 1, -1, FALSE, this, &popupIcons, &originalTabActions);
     DWORD cmd = menu.Track(MENU_TRACK_RETURNCMD | MENU_TRACK_VERTICAL, r.left, y, HWindow, exludeRect ? &r : NULL);
+    for (HICON icon : popupIcons)
+        DestroyIcon(icon);
     if (cmd != 0)
-        history->Execute(cmd, FALSE, this, TRUE, FALSE);
+    {
+        const auto originalTabAction = std::find_if(originalTabActions.begin(), originalTabActions.end(),
+                                                    [cmd](const auto& action) { return action.CommandId == cmd; });
+        if (originalTabAction != originalTabActions.end())
+            CPathHistory::ExecuteInOriginalTab(*originalTabAction->Destination);
+        else
+            history->Execute(cmd, FALSE, this, TRUE, FALSE);
+    }
 
     EndStopRefresh(); // ted uz zase cmuchal nastartuje
 }
