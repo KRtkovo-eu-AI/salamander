@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Use the active code page for the original-tab action. | Match the menu renderer in both UTF-8 and legacy ANSI processes. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Open working directory history paths in their original tabs. | Keep the normal selection behavior and resolve the live source by ID. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Badge favorites from another tab in directory history. | Show the source tab icon and the favorite status in one slot. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Record intentionally empty working directory lists. | Distinguish a saved empty list from legacy per-tab storage. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
@@ -2020,7 +2021,7 @@ void CPathHistory::FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int ma
         wchar_t label[128] = {};
         if (LoadStringW(HLanguage, IDS_DIRHISTORY_OPEN_ORIGINAL_TAB, label, _countof(label)) == 0)
             LoadStringW(HInstance, IDS_DIRHISTORY_OPEN_ORIGINAL_TAB, label, _countof(label));
-        originalTabLabel = SalWideToMultiBytePath(label, CP_UTF8);
+        originalTabLabel = SalWideToMultiBytePath(label, CP_ACP);
     }
     if (panel != NULL)
     {
