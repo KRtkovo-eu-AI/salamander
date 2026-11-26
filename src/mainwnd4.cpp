@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Record the originating tab for working directory visits. | Attribute shared history to the tab where the path was used. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-15 | Explain protected file-list handoff. | Document temporary source ownership and panel validation. | #731 | GPT-6 |
 // | 2026-11-14 | Bound file-list error formatting. | Treat localized strings and paths as data. | #731 | GPT-6 |
 // | 2026-11-11 | Bind file-list exclusions with the portable identity type. | Keep panel headers independent of Windows FILE_ID_INFO availability. | #731 | GPT-6.1 Sol |
@@ -285,6 +286,7 @@ void CMainWindow::DirHistoryAddPathUnique(CFilesWindow* panel, int type,
 
     CPathHistory* sharedHistory = DirHistory;
     CPathHistory* panelHistory = (panel != NULL) ? panel->EnsureWorkDirHistory() : NULL;
+    const ULONGLONG sourceTabId = (panel != NULL) ? panel->GetPanelTabId() : 0;
 
     CPathHistory* primaryHistory = UsingSharedWorkDirHistory() ? sharedHistory : panelHistory;
     CPathHistory* secondaryHistory = NULL;
@@ -307,14 +309,14 @@ void CMainWindow::DirHistoryAddPathUnique(CFilesWindow* panel, int type,
     if (primaryHistory != NULL)
     {
         primaryHistory->AddPathUnique(type, pathOrArchiveOrFSName, archivePathOrFSUserPart, hIcon,
-                                      pluginFS, curPluginFS);
+                                      pluginFS, curPluginFS, sourceTabId);
         hIcon = NULL;
     }
 
     if (secondaryHistory != NULL)
     {
         secondaryHistory->AddPathUnique(type, pathOrArchiveOrFSName, archivePathOrFSUserPart, secondaryIcon,
-                                        pluginFS, curPluginFS);
+                                        pluginFS, curPluginFS, sourceTabId);
         secondaryIcon = NULL;
     }
 

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Load the existing star into shared menu image lists. | Reuse the themed favorites artwork in history. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-15 | Keep the bottom toolbar available with incomplete localized labels. | Some language resources have non-ASCII separators or fewer than twelve labels. | | OpenAI GPT-6 Luna Pro |
 // | 2026-11-10 | Enable clipboard copy from plugin FS selections. | Reuse the capability-aware file copy enabler for the toolbar command. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-04 | Offer the middle-toolbar button catalog in panel toolbars. | Panel customize listed only a subset, so Hot Paths and the other shared commands could not be placed next to Change Drive. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7
@@ -383,7 +384,7 @@ DWORD TopToolBarButtons[] =
 
 void GetSVGIconsMainToolbar(CSVGIcon** svgIcons, int* svgIconsCount)
 {
-    static CSVGIcon SVGIcons[TBBE_TERMINATOR + 6];
+    static CSVGIcon SVGIcons[TBBE_TERMINATOR + 7];
     int count = 0;
     for (auto i = 0; i < TBBE_TERMINATOR; i++)
     {
@@ -393,8 +394,7 @@ void GetSVGIconsMainToolbar(CSVGIcon** svgIcons, int* svgIconsCount)
     }
 
     // Extra SVGs are not toolbar buttons; they extend the shared toolbar/menu
-    // image lists so CMenuPopup can draw Command Shell template icons the same
-    // way as Tab button bar context-menu icons.
+    // image lists used by CMenuPopup.
     SVGIcons[count].ImageIndex = IDX_TB_WINDOWSPOWERSHELL;
     SVGIcons[count++].SVGName = "WindowsPowerShell";
     SVGIcons[count].ImageIndex = IDX_TB_POWERSHELL;
@@ -407,6 +407,8 @@ void GetSVGIconsMainToolbar(CSVGIcon** svgIcons, int* svgIconsCount)
     SVGIcons[count++].SVGName = "CommandPrompt";
     SVGIcons[count].ImageIndex = IDX_TB_WINDOWSTERMINAL;
     SVGIcons[count++].SVGName = "WindowsTerminal";
+    SVGIcons[count].ImageIndex = IDX_TB_HISTORYHOTPATH;
+    SVGIcons[count++].SVGName = "ExplorerCategoryFavorites";
 
     *svgIcons = SVGIcons;
     *svgIconsCount = count;

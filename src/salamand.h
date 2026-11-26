@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Track the source tab of a working directory visit. | Carry provenance through history items. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
@@ -146,11 +149,12 @@ protected:
     int TopIndex;      // top index at the time the panel state was saved
     char* FocusedName; // focused item at the time the panel state was saved
     std::shared_ptr<CBranchViewRestoreState> BranchState;
+    ULONGLONG SourceTabId; // process-local origin of a working directory visit, or zero
 
 public:
     CPathHistoryItem(int type, const char* pathOrArchiveOrFSName,
                      const char* archivePathOrFSUserPart, HICON hIcon,
-                     CPluginFSInterfaceAbstract* pluginFS);
+                     CPluginFSInterfaceAbstract* pluginFS, ULONGLONG sourceTabId = 0);
     ~CPathHistoryItem();
 
     // change of top index and focused name (repeated addition of one path to the history)
@@ -161,6 +165,8 @@ public:
     BOOL Execute(CFilesWindow* panel); // returns TRUE if the change succeeded (FALSE - stays in place)
 
     BOOL IsTheSamePath(CPathHistoryItem& item, CPluginFSInterfaceEncapsulation* curPluginFS); // returns TRUE when paths match (each type compares differently)
+
+    BOOL MatchesHotPath(const char* hotPath) const;
 
     friend class CPathHistory;
 };
@@ -187,10 +193,10 @@ public:
     void AddPath(int type, const char* pathOrArchiveOrFSName, const char* archivePathOrFSUserPart,
                  CPluginFSInterfaceAbstract* pluginFS, CPluginFSInterfaceEncapsulation* curPluginFS);
 
-    // adds a path to the history only if the path is not already present (see Alt+F12; for FS it overwrites pluginFS with the newest one)
+    // Adds a path or moves an existing entry to the top, updating its origin and FS interface.
     void AddPathUnique(int type, const char* pathOrArchiveOrFSName, const char* archivePathOrFSUserPart,
                        HICON hIcon, CPluginFSInterfaceAbstract* pluginFS,
-                       CPluginFSInterfaceEncapsulation* curPluginFS);
+                       CPluginFSInterfaceEncapsulation* curPluginFS, ULONGLONG sourceTabId);
 
     // changes the data (top index and focused name) of the current path only if the given path
     // matches the current path in the history
@@ -222,7 +228,9 @@ public:
     // IDs will start from firstID. When calling Execute they need to be offset so that the first has the value 1.
     // maxCount - maximum number of items to add; -1 - all available (separator is not counted)
     // separator - if the menu contains at least one item, a separator is inserted above it
-    void FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int maxCount, BOOL separator);
+    // panel enables working directory indicators in the full history popup.
+    void FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int maxCount, BOOL separator,
+                              const CFilesWindow* panel = NULL);
 
     // called when closing an FS - the history stores FS interfaces that need to be NULLed after closing
     // (so there is no accidental match just because the FS interface was allocated at the same address)

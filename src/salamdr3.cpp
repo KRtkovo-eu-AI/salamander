@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Show Hot Path and other-tab icons in working directory history. | Make path status visible in the full history popup. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -1383,7 +1386,8 @@ CToolTipWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 CPathHistoryItem::CPathHistoryItem(int type, const char* pathOrArchiveOrFSName,
                                    const char* archivePathOrFSUserPart, HICON hIcon,
-                                   CPluginFSInterfaceAbstract* pluginFS)
+                                   CPluginFSInterfaceAbstract* pluginFS, ULONGLONG sourceTabId)
+    : SourceTabId(sourceTabId)
 {
     Type = type;
     HIcon = hIcon;
@@ -1513,6 +1517,33 @@ void CPathHistoryItem::GetPath(char* buffer, int bufferSize)
 
     // we must duplicate every '&', otherwise they will become underlines
     DuplicateAmpersands(origBuffer, bufferSize);
+}
+
+BOOL CPathHistoryItem::MatchesHotPath(const char* hotPath) const
+{
+    if (PathOrArchiveOrFSName == NULL)
+        return FALSE;
+    if (Type == 0)
+        return ::IsTheSamePath(PathOrArchiveOrFSName, hotPath);
+    if (ArchivePathOrFSUserPart == NULL)
+        return FALSE;
+
+    // Compare the archive or plugin name separately from its case-sensitive path.
+    const int nameLength = (int)strlen(PathOrArchiveOrFSName);
+    if (StrNICmp(hotPath, PathOrArchiveOrFSName, nameLength) != 0)
+        return FALSE;
+
+    if (Type == 1)
+    {
+        if (hotPath[nameLength] == 0)
+            return ArchivePathOrFSUserPart[0] == 0;
+        return hotPath[nameLength] == '\\' &&
+               strcmp(hotPath + nameLength + 1, ArchivePathOrFSUserPart) == 0;
+    }
+
+    // Match literal plugin paths without loading a plugin to resolve aliases.
+    return Type == 2 && hotPath[nameLength] == ':' &&
+           strcmp(hotPath + nameLength + 1, ArchivePathOrFSUserPart) == 0;
 }
 
 HICON
@@ -1882,12 +1913,24 @@ void CPathHistory::FillBackForwardPopupMenu(CMenuPopup* popup, BOOL forward)
 }
 
 void CPathHistory::FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int maxCount,
-                                        BOOL separator)
+                                        BOOL separator, const CFilesWindow* panel)
 {
     char buffer[2 * MAX_PATH];
+    std::vector<std::string> hotPaths;
+    ULONGLONG currentTabId = 0;
+    if (panel != NULL)
+    {
+        CPathBuffer hotPath;
+        for (int index = 0; index < HOT_PATHS_COUNT; index++)
+        {
+            if (MainWindow->GetExpandedHotPath(NULL, index, hotPath.Data(), hotPath.Capacity()))
+                hotPaths.emplace_back(hotPath.Data());
+        }
+        if (MainWindow->UsingSharedWorkDirHistory())
+            currentTabId = panel->GetPanelTabId();
+    }
 
     MENU_ITEM_INFO mii;
-    mii.Mask = MENU_MASK_TYPE | MENU_MASK_ID | MENU_MASK_STRING | MENU_MASK_ICON;
     mii.Type = MENU_TYPE_STRING;
 
     int firstIndex = popup->GetItemCount();
@@ -1901,9 +1944,31 @@ void CPathHistory::FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int ma
     {
         if (maxCount != -1 && added >= maxCount)
             break;
-        Paths[i]->GetPath(buffer, 2 * MAX_PATH);
+        CPathHistoryItem* item = Paths[i];
+        item->GetPath(buffer, 2 * MAX_PATH);
+        mii.Mask = MENU_MASK_TYPE | MENU_MASK_ID | MENU_MASK_STRING | MENU_MASK_ICON;
         mii.String = buffer;
-        mii.HIcon = Paths[i]->GetIcon();
+        mii.HIcon = item->GetIcon();
+
+        int imageIndex = -1;
+        for (const std::string& hotPath : hotPaths)
+        {
+            if (item->MatchesHotPath(hotPath.c_str()))
+            {
+                imageIndex = IDX_TB_HISTORYHOTPATH;
+                break;
+            }
+        }
+        if (imageIndex == -1 && currentTabId != 0 &&
+            item->SourceTabId != 0 && item->SourceTabId != currentTabId)
+            imageIndex = IDX_TB_TABSDUPLICATE;
+
+        if (imageIndex != -1)
+        {
+            mii.Mask |= MENU_MASK_IMAGEINDEX;
+            mii.ImageIndex = imageIndex;
+            mii.HIcon = NULL;
+        }
         mii.ID = id++;
         popup->InsertItem(-1, TRUE, &mii);
         added++;
@@ -1981,7 +2046,7 @@ void CPathHistory::Execute(int index, BOOL forward, CFilesWindow* panel, BOOL al
     if (NewItem != NULL)
     {
         AddPathUnique(NewItem->Type, NewItem->PathOrArchiveOrFSName, NewItem->ArchivePathOrFSUserPart,
-                      NewItem->HIcon, NewItem->PluginFS, NULL);
+                      NewItem->HIcon, NewItem->PluginFS, NULL, NewItem->SourceTabId);
         NewItem->HIcon = NULL; // AddPathUnique now owns the responsibility for destroying the icon
         delete NewItem;
         NewItem = NULL;
@@ -2085,7 +2150,7 @@ void CPathHistory::AppendFrom(const CPathHistory& source)
         }
 
         AddPathUnique(item->Type, item->PathOrArchiveOrFSName, item->ArchivePathOrFSUserPart, hIcon,
-                      item->PluginFS, NULL);
+                      item->PluginFS, NULL, item->SourceTabId);
         if (Paths.Count != 0)
         {
             CPathHistoryItem* copy = Paths[Paths.Count - 1];
@@ -2163,10 +2228,10 @@ void CPathHistory::AddPath(int type, const char* pathOrArchiveOrFSName, const ch
 
 void CPathHistory::AddPathUnique(int type, const char* pathOrArchiveOrFSName, const char* archivePathOrFSUserPart,
                                  HICON hIcon, CPluginFSInterfaceAbstract* pluginFS,
-                                 CPluginFSInterfaceEncapsulation* curPluginFS)
+                                 CPluginFSInterfaceEncapsulation* curPluginFS, ULONGLONG sourceTabId)
 {
     CPathHistoryItem* n = new CPathHistoryItem(type, pathOrArchiveOrFSName, archivePathOrFSUserPart,
-                                               hIcon, pluginFS);
+                                               hIcon, pluginFS, sourceTabId);
     if (Lock)
     {
         if (NewItem != NULL)
@@ -2198,6 +2263,7 @@ void CPathHistory::AddPathUnique(int type, const char* pathOrArchiveOrFSName, co
                 { // FS case: replace pluginFS (so that the path is opened in the last filesystem of this path)
                     item->PluginFS = pluginFS;
                 }
+                item->SourceTabId = sourceTabId;
                 delete n;
                 if (i < Paths.Count - 1)
                 {
