@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Open working directory history paths in their original tabs. | Keep the normal selection behavior and resolve the live source by ID. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Badge favorites from another tab in directory history. | Show the source tab icon and the favorite status in one slot. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Record intentionally empty working directory lists. | Distinguish a saved empty list from legacy per-tab storage. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Color saved-path and source-tab history icons. | Preserve the default icons and use a closed source's last custom color. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
@@ -1642,7 +1643,7 @@ BOOL CPathHistoryItem::Execute(CFilesWindow* panel)
     char errBuf[MAX_PATH + 200];
     if (PathOrArchiveOrFSName != NULL) // data are valid
     {
-        int failReason;
+        int failReason = CHPPFR_CANNOTCLOSEPATH;
         BOOL clear = TRUE;
         if (Type == 0) // drive
         {
@@ -1996,7 +1997,8 @@ static std::string FormatHistoryTabPrefix(const std::wstring& name)
 }
 
 void CPathHistory::FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int maxCount,
-                                        BOOL separator, const CFilesWindow* panel, std::vector<HICON>* popupIcons)
+                                        BOOL separator, const CFilesWindow* panel, std::vector<HICON>* popupIcons,
+                                        std::vector<CWorkingDirectoryOriginalTabAction>* originalTabActions)
 {
     struct HistoryMenuItem
     {
@@ -2012,6 +2014,14 @@ void CPathHistory::FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int ma
     const bool sharedHistory = panel != NULL && MainWindow->UsingSharedWorkDirHistory();
     const GUID currentTabId = sharedHistory ? panel->GetHistoryTabId() : GUID{};
     const bool useColors = panel != NULL && popupIcons != NULL && Configuration.WorkDirHistoryColoredIcons;
+    std::string originalTabLabel;
+    if (sharedHistory && originalTabActions != NULL)
+    {
+        wchar_t label[128] = {};
+        if (LoadStringW(HLanguage, IDS_DIRHISTORY_OPEN_ORIGINAL_TAB, label, _countof(label)) == 0)
+            LoadStringW(HInstance, IDS_DIRHISTORY_OPEN_ORIGINAL_TAB, label, _countof(label));
+        originalTabLabel = SalWideToMultiBytePath(label, CP_UTF8);
+    }
     if (panel != NULL)
     {
         CPathBuffer hotPath;
@@ -2031,6 +2041,7 @@ void CPathHistory::FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int ma
 
     int id = firstID;
     int count = (ForwardIndex == -1) ? Paths.Count : ForwardIndex;
+    DWORD nextOriginalTabCommand = firstID + static_cast<DWORD>(count);
     int i;
     for (i = count - 1; i >= 0; i--)
     {
@@ -2064,9 +2075,31 @@ void CPathHistory::FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int ma
             mii.HIcon = NULL;
         }
         mii.ID = id++;
-        if (popup->InsertItem(-1, TRUE, &mii) && (fromOtherTab || (useColors && standaloneStar)))
+        if (!popup->InsertItem(-1, TRUE, &mii))
+        {
+            added++;
+            continue;
+        }
+        if (fromOtherTab || (useColors && standaloneStar))
             itemsToDecorate.push_back({(DWORD)(popup->GetItemCount() - 1), imageIndex,
                                        fromOtherTab && isHotPath, fromOtherTab ? item->Source : CWorkingDirectorySource{}});
+        if (fromOtherTab && !originalTabLabel.empty() && item->PathOrArchiveOrFSName != NULL &&
+            MainWindow->FindPanelTabByHistoryId(item->Source.Id) != NULL)
+        {
+            // Snapshot the raw path before tracking. The history can change while a menu is open or a tab activates.
+            // Resolve a plug-in filesystem through the live target when opening the snapshot.
+            auto destination = std::make_unique<CPathHistoryItem>(item->Type, item->PathOrArchiveOrFSName,
+                                                                  item->ArchivePathOrFSUserPart, nullptr, nullptr,
+                                                                  CWorkingDirectorySource{item->Source.Id, {}});
+            if (destination->PathOrArchiveOrFSName != NULL &&
+                (item->ArchivePathOrFSUserPart == NULL || destination->ArchivePathOrFSUserPart != NULL) &&
+                popup->SetSecondaryAction(mii.ID, nextOriginalTabCommand, originalTabLabel.c_str()))
+            {
+                destination->ChangeData(item->TopIndex, item->FocusedName);
+                destination->BranchState = item->BranchState;
+                originalTabActions->push_back({nextOriginalTabCommand++, std::move(destination)});
+            }
+        }
         added++;
     }
 
@@ -2153,6 +2186,45 @@ void CPathHistory::FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int ma
     }
 }
 
+static BOOL ExecuteDirectoryHistoryItem(CPathHistoryItem& item, CFilesWindow* panel)
+{
+    const BOOL oldSuppressChangeDirHistoryErr = SuppressChangeDirHistoryErr;
+    SuppressChangeDirHistoryErr = !Configuration.CnfrmChangeDirHistoryErr;
+    const BOOL changed = item.Execute(panel);
+    SuppressChangeDirHistoryErr = oldSuppressChangeDirHistoryErr;
+    return changed;
+}
+
+void CPathHistory::ExecuteInOriginalTab(CPathHistoryItem& destination)
+{
+    CFilesWindow* panel = MainWindow->ActivatePanelTabByHistoryId(destination.Source.Id);
+    if (panel == NULL)
+        return;
+
+    const char* path = destination.PathOrArchiveOrFSName;
+    const char* part = destination.ArchivePathOrFSUserPart != NULL ? destination.ArchivePathOrFSUserPart : "";
+    if ((destination.Type == 0 && panel->Is(ptDisk) && ::IsTheSamePath(panel->GetPath(), path)) ||
+        (destination.Type == 1 && panel->Is(ptZIPArchive) && StrICmp(panel->GetZIPArchive(), path) == 0 &&
+         strcmp(panel->GetZIPPath(), part) == 0))
+        return; // The tab is already showing this directory.
+    if (destination.Type == 2 && panel->Is(ptPluginFS))
+    {
+        CPluginFSInterfaceEncapsulation* fs = panel->GetPluginFS();
+        if (fs->NotEmpty() && StrICmp(fs->GetPluginFSName(), path) == 0 &&
+            fs->IsCurrentPath(fs->GetPluginFSNameIndex(), fs->GetPluginFSNameIndex(), part))
+            return;
+    }
+
+    // Some plug-in filesystem routes do not ask for confirmation on their own.
+    if (MainWindow->FindPanelTabByHistoryId(destination.Source.Id) != panel ||
+        !panel->ConfirmUnlockTabForPathChange() ||
+        MainWindow->FindPanelTabByHistoryId(destination.Source.Id) != panel)
+        return;
+
+    ExecuteDirectoryHistoryItem(destination, panel);
+    IdleRefreshStates = TRUE;
+}
+
 void CPathHistory::Execute(int index, BOOL forward, CFilesWindow* panel, BOOL allItems, BOOL removeItem)
 {
     if (Lock)
@@ -2169,10 +2241,7 @@ void CPathHistory::Execute(int index, BOOL forward, CFilesWindow* panel, BOOL al
             {
                 Lock = TRUE;
                 item = Paths[ForwardIndex + index - 1];
-                BOOL oldSuppressChangeDirHistoryErr = SuppressChangeDirHistoryErr;
-                SuppressChangeDirHistoryErr = !Configuration.CnfrmChangeDirHistoryErr;
-                change = item->Execute(panel);
-                SuppressChangeDirHistoryErr = oldSuppressChangeDirHistoryErr;
+                change = ExecuteDirectoryHistoryItem(*item, panel);
                 if (!change)
                     item = NULL; // failed to change the path => keep it in the history
                 Lock = FALSE;
@@ -2195,10 +2264,7 @@ void CPathHistory::Execute(int index, BOOL forward, CFilesWindow* panel, BOOL al
                 {
                     Lock = TRUE;
                     item = Paths[count - index];
-                    BOOL oldSuppressChangeDirHistoryErr = SuppressChangeDirHistoryErr;
-                    SuppressChangeDirHistoryErr = !Configuration.CnfrmChangeDirHistoryErr;
-                    change = item->Execute(panel);
-                    SuppressChangeDirHistoryErr = oldSuppressChangeDirHistoryErr;
+                    change = ExecuteDirectoryHistoryItem(*item, panel);
                     if (!change)
                         item = NULL; // failed to change the path => keep it in the history
                     Lock = FALSE;

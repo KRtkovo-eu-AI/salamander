@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Identify explicit panel refresh commands. | Prompt for a fresh archive read only on user refresh. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Expose live history tab lookup and activation. | Route the original-tab command using the stable history ID. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Limit shared history reconstruction to legacy profiles. | Keep saved shared history authoritative when switching scope. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Expose source tab colors with history titles. | Use current colors while capturing closed sources. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Expose persistent tab identity and title lookup. | Carry the history identity through Undo Close Tab. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
@@ -680,6 +681,8 @@ public:
     std::wstring GetPanelTabDisplayText(CFilesWindow* panel) const;
     CWorkingDirectorySource GetWorkingDirectoryTabSource(CFilesWindow* panel) const;
     CWorkingDirectorySource GetWorkingDirectoryTabSourceById(const GUID& tabId) const;
+    CFilesWindow* FindPanelTabByHistoryId(const GUID& tabId) const;
+    CFilesWindow* ActivatePanelTabByHistoryId(const GUID& tabId);
     void RememberWorkingDirectoryTabSource(CFilesWindow* panel);
     void UpdatePanelTabTitle(CFilesWindow* panel);
     void UpdatePanelTabColor(CFilesWindow* panel);
@@ -1092,7 +1095,6 @@ private:
     void RebuildPanelTabs(CPanelSide side);
     void ClearPanelTabDragTargetIndicator();
     CFilesWindow* CreateDuplicatePanelTab(CPanelSide targetSide, CFilesWindow* sourcePanel, int insertIndex);
-    CFilesWindow* FindPanelTabByHistoryId(const GUID& tabId) const;
     void RestorePanelTabHistoryId(CFilesWindow* panel, const GUID& tabId);
     void LoadPanelTabHistoryId(CFilesWindow* panel, HKEY key);
 

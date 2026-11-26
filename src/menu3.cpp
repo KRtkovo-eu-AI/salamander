@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Paint optional actions on the highlighted menu row. | Reserve the right column without repeating the label and keep it reachable on narrow displays. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -218,7 +221,7 @@ BOOL CMenuSharedResources::Create(HWND hParent, int width, int height)
 // CMenuPopup
 //
 
-void CMenuPopup::LayoutColumns()
+void CMenuPopup::LayoutColumns(int availableWidth)
 {
     CALL_STACK_MESSAGE1("CMenuPopup::LayoutColumns()");
     BOOL threeCol = Style & MENU_POPUP_THREECOLUMNS;
@@ -394,6 +397,10 @@ void CMenuPopup::LayoutColumns()
     if (Width < maxWidth)
         Width = maxWidth;
 
+    TextClipped = SecondaryActionsEnabled && Width > availableWidth;
+    if (TextClipped)
+        Width = availableWidth;
+
     // position column R
     for (i = 0; i < Items.Count; i++)
     {
@@ -403,7 +410,11 @@ void CMenuPopup::LayoutColumns()
         if (!(item->Type & MENU_TYPE_OWNERDRAW) && (item->Type & MENU_TYPE_STRING))
         {
             if (item->ColumnR != NULL)
+            {
+                if (TextClipped)
+                    item->ColumnRWidth = min(item->ColumnRWidth, max(0, Width - 4 * SharedRes->TextItemHeight - 3));
                 item->ColumnRX = Width - SharedRes->TextItemHeight - 1 - item->ColumnRWidth - SharedRes->TextItemHeight;
+            }
         }
     }
 
@@ -979,6 +990,11 @@ void CMenuPopup::DrawItem(HDC hDC, CMenuItem* item, int yOffset, BOOL selected)
             textR.top = yOffset;
             textR.bottom = yOffset + item->Height;
             textR.right = Width;
+            const DWORD columnFlags = DT_LEFT | DT_SINGLELINE | DT_VCENTER |
+                                      (TextClipped ? DT_END_ELLIPSIS : DT_NOCLIP);
+            const int leftColumnsRight = item->ColumnR != NULL
+                                             ? 1 + item->ColumnRX
+                                             : Width - SharedRes->TextItemHeight;
 
             // save the original values
             COLORREF oldTextColor;
@@ -1004,7 +1020,13 @@ void CMenuPopup::DrawItem(HDC hDC, CMenuItem* item, int yOffset, BOOL selected)
             if (item->ColumnL1 != NULL)
             {
                 textR.left = SharedRes->TextItemHeight + 1 + item->ColumnL1X;
-                DWORD dtFlags = DT_NOCLIP | DT_LEFT | DT_SINGLELINE | DT_VCENTER;
+                if (TextClipped)
+                {
+                    textR.right = leftColumnsRight;
+                    if (item->ColumnL2 != NULL)
+                        textR.right = min(textR.right, SharedRes->TextItemHeight + 1 + item->ColumnL2X);
+                }
+                DWORD dtFlags = columnFlags;
                 if (SharedRes->HideAccel)
                     dtFlags |= DT_HIDEPREFIX;
 
@@ -1036,6 +1058,8 @@ void CMenuPopup::DrawItem(HDC hDC, CMenuItem* item, int yOffset, BOOL selected)
             if (item->ColumnL2 != NULL)
             {
                 textR.left = SharedRes->TextItemHeight + 1 + item->ColumnL2X;
+                if (TextClipped)
+                    textR.right = leftColumnsRight;
                 if (item->State & MENU_STATE_GRAYED)
                 {
                     if (DarkModeShouldUseDarkColors())
@@ -1049,25 +1073,27 @@ void CMenuPopup::DrawItem(HDC hDC, CMenuItem* item, int yOffset, BOOL selected)
                         textR2.right++;
                         textR2.bottom++;
                         DrawText(hDC, item->ColumnL2, item->ColumnL2Len,
-                                 &textR2, DT_NOCLIP | DT_LEFT | DT_SINGLELINE | DT_VCENTER);
+                                 &textR2, columnFlags);
                         SetBkMode(hDC, TRANSPARENT);
                         SetTextColor(hDC, SharedRes->GrayTextColor);
                     }
                     else
                         SetTextColor(hDC, SharedRes->NormalBkColor);
                     DrawText(hDC, item->ColumnL2, item->ColumnL2Len,
-                             &textR, DT_NOCLIP | DT_LEFT | DT_SINGLELINE | DT_VCENTER);
+                             &textR, columnFlags);
                     SetBkMode(hDC, OPAQUE);
                 }
                 else
                     DrawText(hDC, item->ColumnL2, item->ColumnL2Len,
-                             &textR, DT_NOCLIP | DT_LEFT | DT_SINGLELINE | DT_VCENTER);
+                             &textR, columnFlags);
             }
 
             if (item->ColumnR != NULL)
             {
                 textR.left = SharedRes->TextItemHeight + 1 + item->ColumnRX;
-                if (item->State & MENU_STATE_GRAYED)
+                textR.right = TextClipped ? textR.left + item->ColumnRWidth : Width;
+                const bool secondaryAction = item->SecondaryActionID != 0 && item->SubMenu == NULL;
+                if ((item->State & MENU_STATE_GRAYED) && !secondaryAction)
                 {
                     if (DarkModeShouldUseDarkColors())
                         SetTextColor(hDC, SharedRes->GrayTextColor);
@@ -1080,18 +1106,19 @@ void CMenuPopup::DrawItem(HDC hDC, CMenuItem* item, int yOffset, BOOL selected)
                         textR2.right++;
                         textR2.bottom++;
                         DrawText(hDC, item->ColumnR, item->ColumnRLen,
-                                 &textR2, DT_NOCLIP | DT_LEFT | DT_SINGLELINE | DT_VCENTER);
+                                 &textR2, columnFlags);
                         SetBkMode(hDC, TRANSPARENT);
                         SetTextColor(hDC, SharedRes->GrayTextColor);
                     }
                     else
                         SetTextColor(hDC, SharedRes->NormalBkColor);
                     DrawText(hDC, item->ColumnR, item->ColumnRLen,
-                             &textR, DT_NOCLIP | DT_LEFT | DT_SINGLELINE | DT_VCENTER);
+                             &textR, columnFlags);
                 }
-                else
+                else if (!secondaryAction || (selected && !(item->State & MENU_STATE_GRAYED) &&
+                                              (SharedRes->MenuBar == NULL || !SharedRes->MenuBar->HelpMode)))
                 {
-                    if (item->State & MENU_STATE_RIGHTTEXT_GRAY)
+                    if (secondaryAction || (item->State & MENU_STATE_RIGHTTEXT_GRAY))
                     {
                         COLORREF rightTextColor = SharedRes->GrayTextColor;
                         if (selected)
@@ -1107,7 +1134,7 @@ void CMenuPopup::DrawItem(HDC hDC, CMenuItem* item, int yOffset, BOOL selected)
                         SetTextColor(hDC, rightTextColor);
                     }
                     DrawText(hDC, item->ColumnR, item->ColumnRLen,
-                             &textR, DT_NOCLIP | DT_LEFT | DT_SINGLELINE | DT_VCENTER);
+                             &textR, columnFlags | (secondaryAction ? DT_NOPREFIX : 0));
                 }
             }
             // restore the original values

@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-26 | Document opening a path in the original tab. | Add a secondary action to highlighted rows with a live source tab. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 | 2026-11-26 | Document favorite badges on icons from other tabs. | Let the icon show both the tab origin and the favorite status. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 | 2026-11-26 | Remove screen-reader support from the Alt+F12 plan. | Keep the current feature scope focused on history and visual indicators. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 | 2026-11-26 | Document independent shared and per-tab histories. | Preserve closed-tab entries and visit order when switching scope or restarting. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
@@ -53,6 +54,12 @@ Each recorded visit updates the shared list and the originating tab's list. Chan
 
 When **Save List of Working Directories** is enabled, save both lists regardless of the selected scope. A legacy per-tab profile without a saved shared list can recover entries from its saved open and detached tabs. Those lists only record order within each tab, so the original cross-tab order is unavailable. An explicitly saved empty shared list skips this recovery.
 
+## Open a path in its original tab
+
+In the shared list, show **Open in original tab** at the right of the highlighted row when it has a different, open source tab. Click the label or press Ctrl+Enter to activate the source and open the recorded location there. Clicking the path or pressing Enter opens the location in the active tab. A closed source still supplies its saved name and color to the row.
+
+Capture the selected destination before the popup tracks input and look up the source again by its stable ID just before opening. The action follows the source across panels, window detachment and restart. Its navigation uses the existing history rules and asks for confirmation before changing the path of a locked source tab.
+
 ## Follow-up — Project boundary icon
 
 - Integrate the project boundary when #853 defines the navigation rule. Use that rule for both the icon and the action. Treat the root and its descendants according to the same path-component semantics as navigation. Cover similarly named siblings, different drives, UNC roots, and reparse points or virtual paths according to the project-tab rules.
@@ -65,6 +72,7 @@ When **Save List of Working Directories** is enabled, save both lists regardless
 | Popup icons | A Hot Path from the current tab gets a standalone star. A Hot Path from another tab gets the tab icon with a small star and keeps its source prefix. A non-favorite visit from another tab gets the tab icon alone. Verify the small star with colors enabled and disabled and on an uncolored source tab. Editing a Hot Path is reflected on the next opening. |
 | Recency and lifecycle | Visit the same destination in two tabs, including when its row is already newest. Verify attribution after using the popup to navigate, reordering or moving a tab, detaching it, closing it, and duplicating or reopening it. Compare the same-tab and other-tab views without changing which panel receives navigation. |
 | Entry points and presentation | Compare Alt+F12, Commands, the toolbar and the directory-line drop-down. Check light and dark schemes, selected and unselected icons, DPI scaling, keyboard accelerators and the separate Change Drive and Back/Forward menus. |
+| Open in original tab | Open the same recorded location with the right-side action and with Enter. Verify the target tab, source title and exact path. Exercise Ctrl+Enter, closed and unknown sources, moves between panels, detached windows and unlock cancellation. |
 | Paths | Check literal and variable-expanded bookmarks, Unicode components, paths exceeding `MAX_PATH` in UTF-8 or UTF-16, case/trailing separators, an unavailable UNC destination, archive members and plug-in filesystem entries. Opening the popup should make no filesystem or plug-in call just to determine an icon. |
 | Persistence | Save visits from regular and detached tabs, restart, and confirm their source identities resolve to the restored tabs. Rename a source after recording a visit, then close it and confirm the last known name survives both close and restart. Check Unicode, path-only legacy records, invalid metadata, saving disabled and Clear History. |
 | Switching scopes | Interleave visits across tabs and visit the same destination in two tabs. Close a source tab, switch to per-tab history, and return to shared history. Confirm the closed tab's visit remains in place and the duplicate keeps its newest source. Repeat after a restart in per-tab mode with history saving enabled. |

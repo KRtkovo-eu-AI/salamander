@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Route explicit Refresh to protected archives. | Leave background refresh noninteractive. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Activate the live source of a working directory history entry. | Select the correct tab even across panels and detached windows. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Resolve the history source's current custom color. | Keep colored icons in sync with the source tab. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Resolve and preserve history origins by tab GUID. | Capture the title before a tab closes and restore identity on undo. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Reuse undecorated live tab names in working directory history. | Keep tab state indicators separate from source labels. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
@@ -1004,6 +1005,47 @@ CFilesWindow* CMainWindow::FindPanelTabByHistoryId(const GUID& tabId) const
             return panel;
     }
     return NULL;
+}
+
+CFilesWindow* CMainWindow::ActivatePanelTabByHistoryId(const GUID& tabId)
+{
+    CFilesWindow* panel = FindPanelTabByHistoryId(tabId);
+    if (panel == NULL || panel->HWindow == NULL || HasLockedUI())
+        return NULL;
+
+    const HWND host = GetAncestor(panel->HWindow, GA_ROOT);
+    if (host == NULL || !IsWindowEnabled(host))
+        return NULL;
+    if (IsIconic(host))
+        ShowWindow(host, SW_RESTORE);
+    if (GetForegroundWindow() != host)
+        SetForegroundWindow(host);
+
+    panel = FindPanelTabByHistoryId(tabId);
+    if (panel == NULL || panel->HWindow == NULL || GetAncestor(panel->HWindow, GA_ROOT) != host)
+        return NULL;
+
+    if (IsDetachedTabPanel(panel))
+    {
+        if (GetActivePanel() != panel || GetForegroundWindow() != host)
+            return NULL;
+        SetFocus(panel->GetListBoxHWND());
+    }
+    else
+    {
+        if (!DetachedPanels && IsPanelZoomed(panel->GetPanelSide() == cpsRight))
+        {
+            RestoreVisiblePanelRatio(BeforeZoomVisibleLeftRatio);
+            panel = FindPanelTabByHistoryId(tabId);
+            if (panel == NULL)
+                return NULL;
+        }
+        SwitchPanelTab(panel);
+    }
+    // A detached tab's window activates its own panel. Activation can notify plugins,
+    // so resolve the identity again before handing the target to the caller.
+    panel = FindPanelTabByHistoryId(tabId);
+    return panel == GetActivePanel() && GetForegroundWindow() == host ? panel : NULL;
 }
 
 void CMainWindow::RestorePanelTabHistoryId(CFilesWindow* panel, const GUID& tabId)

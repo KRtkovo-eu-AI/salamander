@@ -1,7 +1,12 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Add optional internal popup secondary actions. | Reuse menu rows for an alternate command without extending the plug-in API. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 
 #pragma once
+
+#include <string>
 
 extern const char* WC_POPUPMENU;
 
@@ -151,6 +156,8 @@ protected:
     HBITMAP HBmpUnchecked;
     HBITMAP HBmpItem;
     char* String;
+    std::string SecondaryActionText;
+    DWORD SecondaryActionID = 0;
     int ImageIndex;
     HICON HIcon;
     HICON HOverlay;
@@ -272,6 +279,8 @@ protected:
     void (*RightTextToolTipCallback)(void* context, DWORD itemID, char* buffer);
     void* RightTextToolTipContext;
     int RightTextToolTipIndex;
+    bool SecondaryActionsEnabled = false;
+    bool TextClipped = false;
     int TrackDepth;       // Track/TrackInternal frames still using this object
     BOOL DestroyPending;  // DestroyMenuPopup arrived while a track frame was active
     BOOL OwnerDetached;   // parent item was destroyed and must not delete this object
@@ -286,6 +295,10 @@ public:
     // Internal opt-in only; no plug-in SDK/vtable change. The callback fills a
     // TOOLTIP_TEXT_MAX UTF-8 buffer and is scoped to the next Track invocation.
     void SetRightTextToolTip(void (*callback)(void*, DWORD, char*), void* context);
+    // Internal opt-in. Ctrl+Enter is consumed even on rows without an action.
+    void EnableSecondaryActions() { SecondaryActionsEnabled = true; }
+    // Assign before tracking or in modify mode. The right column uses the copied label.
+    BOOL SetSecondaryAction(DWORD itemID, DWORD actionID, const char* label);
     BOOL LoadFromTemplate2(HINSTANCE hInstance, const MENU_TEMPLATE_ITEM* menuTemplate, DWORD* enablersOffset, HIMAGELIST hImageList, HIMAGELIST hHotImageList, int* addedRows);
 
     //
@@ -418,7 +431,7 @@ public:
 protected:
     void Cleanup(); // inicializuje objekt
     BOOL LoadFromHandle();
-    void LayoutColumns(); // probehne polozky a podle jejich rozmeru nastavi hodnoty
+    void LayoutColumns(int availableWidth); // probehne polozky a podle jejich rozmeru nastavi hodnoty
     DWORD GetOwnerDrawItemState(const CMenuItem* item, BOOL selected);
     void DrawCheckBitmapVista(HDC hDC, CMenuItem* item, int yOffset, BOOL selected); // veze s alpha blendem
     void DrawCheckBitmap(HDC hDC, CMenuItem* item, int yOffset, BOOL selected);      // check marky dodane uzivatelem (HBmpChecked a HBmpUnchecked)
@@ -427,10 +440,12 @@ protected:
     void DrawItem(HDC hDC, CMenuItem* item, int yOffset, BOOL selected);             // vykresli jednu polozku
     void DrawUpDownItem(HDC hDC, BOOL up);                                           // vykresli polozku obsahujici sipku nahoru nebo dolu
     CMenuPopupHittestEnum HitTest(const POINT* point, int* userData);
-    int HitRightTextToolTip(const POINT& screenPoint);
+    int HitRightTextToolTip(const POINT& screenPoint, bool forSecondaryAction = false);
     void UpdateRightTextToolTip(const POINT& screenPoint, BOOL rearm = FALSE);
     void ClearRightTextToolTip();
     void ClearRightTextToolTips();
+    DWORD GetSecondaryActionID(int index);
+    void FinishCommand(DWORD command, BOOL* leaveMenu, DWORD* retValue);
 
     BOOL FindNextItemIndex(int fromIndex, BOOL topToDown, int* index);
     inline CMenuPopup* FindActivePopup();       // najde posledni otevreny popup; vrati ukazatel na objekt

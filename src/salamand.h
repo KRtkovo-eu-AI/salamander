@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Carry original-tab commands out of the history popup. | Keep the selected destination stable while the menu tracks and the source tab activates. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Document ownership of dynamic history popup icons. | Covers both tinted icons and favorite overlays. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Report whether a working directory history was stored. | Distinguish a saved empty list from a missing legacy list. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Track the source tab's custom history icon color. | Retain the last color of closed tabs. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
@@ -182,6 +183,12 @@ public:
     friend class CPathHistory;
 };
 
+struct CWorkingDirectoryOriginalTabAction
+{
+    DWORD CommandId;
+    std::unique_ptr<CPathHistoryItem> Destination;
+};
+
 class CPathHistory
 {
 protected:
@@ -245,7 +252,8 @@ public:
     // panel enables working directory indicators in the full history popup.
     // The caller owns the icons added to popupIcons and releases them after tracking the popup.
     void FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int maxCount, BOOL separator,
-                              const CFilesWindow* panel = NULL, std::vector<HICON>* popupIcons = NULL);
+                              const CFilesWindow* panel = NULL, std::vector<HICON>* popupIcons = NULL,
+                              std::vector<CWorkingDirectoryOriginalTabAction>* originalTabActions = NULL);
 
     // called when closing an FS - the history stores FS interfaces that need to be NULLed after closing
     // (so there is no accidental match just because the FS interface was allocated at the same address)
@@ -253,6 +261,7 @@ public:
 
     // index of the selected item in the forward/backward menu (indexed: forward from one, backward from two)
     void Execute(int index, BOOL forward, CFilesWindow* panel, BOOL allItems = FALSE, BOOL removeItem = FALSE);
+    static void ExecuteInOriginalTab(CPathHistoryItem& destination);
 
     BOOL HasForward() { return ForwardIndex != -1; }
     BOOL HasBackward()
