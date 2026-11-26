@@ -22,6 +22,13 @@
     .compare-hero { grid-template-columns: 1fr; }
     .scroll { overflow-x: auto; border: 1px solid color-mix(in srgb, CanvasText 25%, Canvas); }
     table { width: 100%; min-width: 54rem; border-collapse: collapse; font-family: Tahoma, sans-serif; }
+    #comparison-table { table-layout: fixed; }
+    #comparison-table col:first-child { width: 44%; }
+    #comparison-table col:nth-child(2) { width: 14%; }
+    #comparison-table col[data-column] { width: 6%; }
+    #comparison-table th:first-child, #comparison-table td:first-child { width: 44%; }
+    #comparison-table .section th { width: auto; }
+    #comparison-table th, #comparison-table td { overflow-wrap: anywhere; }
     th, td { border: 1px solid color-mix(in srgb, CanvasText 20%, Canvas); text-align: center; vertical-align: top; }
     th:first-child, td:first-child { width: 46%; text-align: left; }
     thead th { position: sticky; top: 0; z-index: 1; }
@@ -115,14 +122,20 @@
   <main id="content">
     <section class="hero-panel compare-hero" aria-labelledby="compare-title">
       <div class="hero-panel__copy">
-        <p class="eyebrow"><span data-i18n="compare.comparisonBetweenOlderVersions">Comparison between older versions:</span><br>
+        <p class="eyebrow"><span data-i18n="compare.comparisonBetweenOtherVersions">Comparison between other versions:</span><br>
           </p><blockquote>
+            <b data-i18n="compare.ourVersion">Our version:</b>
+            <span class="version-row-break" aria-hidden="true"></span>
             <div data-i18n-skip="" class="version-current"><img src="images/samandarin.png">&#160;Open Samandarin 0.16</div>
+            <span class="version-row-break" aria-hidden="true"></span>
+            <b data-i18n="compare.historicalVersions">Historical versions:</b>
             <span class="version-row-break" aria-hidden="true"></span>
             <button data-i18n-skip="" class="version-toggle" type="button" data-column="2" aria-controls="comparison-table" aria-pressed="false"><img src="images/altap_salamander.png">&#160;Open Salamander 5.0</button>
             <button data-i18n-skip="" class="version-toggle" type="button" data-column="3" aria-controls="comparison-table" aria-pressed="false"><img src="images/altap_salamander.png">&#160;Altap Salamander 4.0</button>
             <button data-i18n-skip="" class="version-toggle" type="button" data-column="4" aria-controls="comparison-table" aria-pressed="true"><img src="images/altap_salamander.png">&#160;Altap Salamander 2.54</button>
             <button data-i18n-skip="" class="version-toggle" type="button" data-column="5" aria-controls="comparison-table" aria-pressed="true"><img src="images/servant_salamander.png">&#160;Servant Salamander 1.52</button>
+            <span class="version-row-break" aria-hidden="true"></span>
+            <b data-i18n="compare.otherForks">Other forks:</b>
             <span class="version-row-break" aria-hidden="true"></span>
             <button data-i18n-skip="" class="version-toggle" type="button" data-column="6" aria-controls="comparison-table" aria-pressed="false"><img src="https://get-sally.app/images/sally-icon.png?v=4454b22e68">&#160;Sally 1.0.50</button>
             <button data-i18n-skip="" class="version-toggle" type="button" data-column="7" aria-controls="comparison-table" aria-pressed="false"><img src="https://tandemcommander.org/assets/tandem-commander-icon.svg">&#160;Tandem Commander 0.4.0</button>
@@ -140,7 +153,8 @@
       <p class="note"><a data-i18n="compare.collapseAll" href="#" id="toggle-all-sections" class="section-toggle" data-target="comparison-table">Collapse all sections</a></p>
     <div class="scroll">
     <table dir="ltr" id="comparison-table" class="comparison-table">
-       <thead><tr><th><b data-i18n="chrome.features">Features</b></th><th data-i18n-skip=""><b>Open<br>Samandarin 0.16</b></th><th data-i18n-skip="" width="125px"><b>Open<br>Salamander 5.0</b></th><th data-i18n-skip="" width="125px"><b>Altap<br>Salamander 4.0</b></th><th data-i18n-skip="" width="125px"><b>Altap<br>Salamander 2.54</b></th><th data-i18n-skip="" width="125px"><b>Servant<br>Salamander 1.52</b></th><th data-i18n-skip="" width="125px"><b>Sally<br>1.0.50</b></th><th data-i18n-skip="" width="125px"><b>Tandem<br>Commander<br>0.4.0</b></th><th data-i18n-skip="" width="125px"><b>Taskscape<br>FileManager<br>6.0.179</b></th></tr></thead>
+       <colgroup><col><col><col data-column="2"><col data-column="3"><col data-column="4"><col data-column="5"><col data-column="6"><col data-column="7"><col data-column="8"></colgroup>
+       <thead><tr><th><b data-i18n="chrome.features">Features</b></th><th data-i18n-skip=""><b>Open<br>Samandarin 0.16</b></th><th data-i18n-skip=""><b>Open<br>Salamander 5.0</b></th><th data-i18n-skip=""><b>Altap<br>Salamander 4.0</b></th><th data-i18n-skip=""><b>Altap<br>Salamander 2.54</b></th><th data-i18n-skip=""><b>Servant<br>Salamander 1.52</b></th><th data-i18n-skip=""><b>Sally<br>1.0.50</b></th><th data-i18n-skip=""><b>Tandem<br>Commander<br>0.4.0</b></th><th data-i18n-skip=""><b>Taskscape<br>FileManager<br>6.0.179</b></th></tr></thead>
       <tbody>
         <tr class="section"><th colspan="9"><button class="section-toggle" type="button" aria-expanded="true"><span class="section-toggle__icon" aria-hidden="true">−</span><b data-i18n="compare.releaseInformation">Release Information</b></button></th></tr>
         <tr><td data-i18n="compare.released">Released</td><td data-i18n="compare.november2026" class="yes">November 2026</td><td data-i18n="compare.unreleased">Unreleased</td><td data-i18n="compare.june2019">June 2019</td><td data-i18n="compare.september2010">September 2010</td><td data-i18n="compare.may1998">May 1998</td><td>November 2026</td><td>November 2026</td><td>November 2026</td></tr>
@@ -243,7 +257,7 @@
 
 
         <tr class="section"><th colspan="9"><button class="section-toggle" type="button" aria-expanded="true"><span class="section-toggle__icon" aria-hidden="true">−</span><b data-i18n="compare.archivesSupport">Archives Support:</b> <span data-i18n="compare.unpackPackInternalExternalRequiresThirdPartySoftware">Unpack / Pack, Internal / External (requires third party software)</span></button></th></tr>
-        <tr><td>ZIP</td><td data-i18n="compare.uiPi" class="yes">UI / PI</td><td data-i18n="compare.uiPi">UI / PI</td><td data-i18n="compare.uiPi">UI / PI</td><td data-i18n="compare.uiPi">UI / PI</td><td>–</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>ZIP</td><td data-i18n="compare.uiPi" class="yes">UI / PI</td><td data-i18n="compare.uiPi">UI / PI</td><td data-i18n="compare.uiPi">UI / PI</td><td data-i18n="compare.uiPi">UI / PI</td><td>–</td><td>UI / PI</td><td>UI / PI</td><td>UI / PI</td></tr>
 
         <tr><td>RAR<br>
           <small><b>⭘</b> <i data-i18n="compare.pluginSourceCodeAvailableNotCompiledAsUnrar">Plugin source code available, not compiled as unrar library is missing.</i></small></td><td data-i18n="compare.uiPe" class="yes">UI / PE</td><td>⭘</td><td data-i18n="compare.uiPe">UI / PE</td><td data-i18n="compare.uiPe">UI / PE</td><td>–</td><td>UI / PE</td><td>UI / PE</td><td>UI / PE</td></tr>
@@ -259,9 +273,9 @@
 
         <tr><td>LZH, LHA, LZS</td><td data-i18n="compare.uiPe" class="yes">UI / PE</td><td data-i18n="compare.uiPe">UI / PE</td><td data-i18n="compare.uiPe">UI / PE</td><td data-i18n="compare.uiPe">UI / PE</td><td>–</td><td>UI / PE</td><td>–</td><td>UI / PE</td></tr>
 
-        <tr><td data-i18n="compare.jarArchives">JAR archives</td><td data-i18n="compare.uePe" class="yes">UE / PE</td><td data-i18n="compare.uePe">UE / PE</td><td data-i18n="compare.uePe">UE / PE</td><td data-i18n="compare.uePe">UE / PE</td><td>–</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td data-i18n="compare.jarArchives">JAR archives</td><td data-i18n="compare.uePe" class="yes">UE / PE</td><td data-i18n="compare.uePe">UE / PE</td><td data-i18n="compare.uePe">UE / PE</td><td data-i18n="compare.uePe">UE / PE</td><td>–</td><td>UI / PI</td><td>UI / PI</td><td>UI / PI</td></tr>
 
-        <tr><td>UC2</td><td data-i18n="compare.uePe" class="yes">UE / PE</td><td data-i18n="compare.uePe">UE / PE</td><td data-i18n="compare.uePe">UE / PE</td><td data-i18n="compare.uePe">UE / PE</td><td>–</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>UC2</td><td data-i18n="compare.uePe" class="yes">UE / PE</td><td data-i18n="compare.uePe">UE / PE</td><td data-i18n="compare.uePe">UE / PE</td><td data-i18n="compare.uePe">UE / PE</td><td>–</td><td>UI / PI</td><td>UI / PI</td><td>UI / PI</td></tr>
 
         <tr><td>TAR, TGZ, GZ</td><td class="yes">UI</td><td>UI</td><td>UI</td><td>UI</td><td>–</td><td>UI</td><td>UI</td><td>UI</td></tr>
 
@@ -271,13 +285,13 @@
 
         <tr><td>ISO, NRG, BIN, IMG, PDI, CDI, CIF, NCD, C2D (CD/DVD images)</td><td class="yes">UI</td><td>UI</td><td>UI</td><td>UI</td><td>–</td><td>UI</td><td>UI</td><td>UI</td></tr>
 
-        <tr><td data-i18n="compare.n7z7ZipArchives">7Z (7-Zip archives)</td><td data-i18n="compare.uiPi" class="yes">UI / PI</td><td data-i18n="compare.uiPi">UI / PI</td><td data-i18n="compare.uiPi">UI / PI</td><td data-i18n="compare.uiPi">UI / PI</td><td>–</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td data-i18n="compare.n7z7ZipArchives">7Z (7-Zip archives)</td><td data-i18n="compare.uiPi" class="yes">UI / PI</td><td data-i18n="compare.uiPi">UI / PI</td><td data-i18n="compare.uiPi">UI / PI</td><td data-i18n="compare.uiPi">UI / PI</td><td>–</td><td>UI / PI</td><td>UI / PI</td><td>UI / PI</td></tr>
 
-        <tr><td data-i18n="compare.n7z7ZipArchives922Beta">7Z (7-Zip archives) 9.22 Beta</td><td class="yes">–</td><td data-i18n="compare.uiPi">UI / PI</td><td data-i18n="compare.uiPi">UI / PI</td><td>–</td><td>–</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td data-i18n="compare.n7z7ZipArchives922Beta">7Z (7-Zip archives) 9.22 Beta</td><td class="yes">–</td><td data-i18n="compare.uiPi">UI / PI</td><td data-i18n="compare.uiPi">UI / PI</td><td>–</td><td>–</td><td>UI / PI</td><td>UI / PI</td><td>UI / PI</td></tr>
 
-        <tr class="addition"><td data-i18n="compare.n7z7ZipArchives2602UpdatedEngine">7Z (7-Zip archives) 26.02: updated engine with additional formats support</td><td data-i18n="compare.uiPi" class="yes">UI / PI</td><td>–</td><td>–</td><td>–</td><td>–</td><td>⬤<br><small>(26.04)</small></td><td>⬤<br><small>(26.03)</small></td><td>⬤<br><small>(26.02)</small></td></tr>
+        <tr class="addition"><td data-i18n="compare.n7z7ZipArchives2602UpdatedEngine">7Z (7-Zip archives) 26.x: updated engine with additional formats support</td><td data-i18n="compare.uiPi" class="yes">UI / PI<br><small>(26.02)</small></td><td>–</td><td>–</td><td>–</td><td>–</td><td>UI / PI<br><small>(26.04)</small></td><td>UI / PI<br><small>(26.03)</small></td><td>UI / PI<br><small>(26.02)</small></td></tr>
 
-        <tr><td data-i18n="compare.imaFatDiskImages">IMA (FAT disk images)</td><td class="yes">UI</td><td>UI</td><td>UI</td><td>UI</td><td>–</td><td>⬤</td><td>–</td><td>⬤</td></tr>
+        <tr><td data-i18n="compare.imaFatDiskImages">IMA (FAT disk images)</td><td class="yes">UI</td><td>UI</td><td>UI</td><td>UI</td><td>–</td><td>UI</td><td>–</td><td>UI</td></tr>
 
         <tr><td data-i18n="compare.createSelfExtractArchives">Create Self-Extract archives</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
 
@@ -400,7 +414,7 @@
 
         <tr class="addition"><td data-i18n="compare.windowsServiceExplorer">Windows Service Explorer</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
 
-        <tr class="addition"><td data-i18n="compare.windowsPortableDevices">Windows Portable Devices</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr class="addition"><td data-i18n="compare.windowsPortableDevices">Windows Portable Devices<br><small>⬤ <i data-i18n="compare.pluginFullyWorking">plugin fully working</i> <b>⭘</b> <i data-i18n="compare.fileOperationsInPluginAreNotCompleted">file operations in plugin are not completed</i></small></td><td class="yes">⬤</td><td>⭘</td><td>–</td><td>–</td><td>–</td><td>⭘</td><td>⭘</td><td>⭘</td></tr>
 
         <tr class="addition"><td data-i18n="compare.diskdirCreateCatalogsInTotalCommanderCompatibleFormat">DiskDir - Create catalogs in Total Commander compatible format (includes recursive listing for Make File List capability)</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
 
@@ -440,9 +454,9 @@
 
         <tr class="addition"><td data-i18n="compare.folderThumbnailsWithFirstAndLastImageContent">Folder thumbnails with first and last image content preview</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
 
-        <tr><td data-i18n="compare.simpleIconsOptionForHigherSpeed">Simple icons option for higher speed</td><td data-i18n="compare.selective" class="yes">Selective</td><td data-i18n="compare.selective">Selective</td><td data-i18n="compare.selective">Selective</td><td data-i18n="compare.selective">Selective</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td data-i18n="compare.simpleIconsOptionForHigherSpeed">Simple icons option for higher speed</td><td data-i18n="compare.selective" class="yes">Selective</td><td data-i18n="compare.selective">Selective</td><td data-i18n="compare.selective">Selective</td><td data-i18n="compare.selective">Selective</td><td>Selective</td><td>Selective</td><td>Selective</td><td>Selective</td></tr>
 
-        <tr><td data-i18n="compare.supportedIconSizeInPixels">Supported icon size (in pixels)</td><td class="yes">16x16, 32x32, 48x48</td><td>16x16, 32x32, 48x48</td><td>16x16, 32x32, 48x48</td><td>16x16, 32x32, 48x48</td><td>16x16</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td data-i18n="compare.supportedIconSizeInPixels">Supported icon size (in pixels)</td><td class="yes">16x16, 32x32, 48x48</td><td>16x16, 32x32, 48x48</td><td>16x16, 32x32, 48x48</td><td>16x16, 32x32, 48x48</td><td>16x16</td><td>16x16, 32x32, 48x48</td><td>16x16, 32x32, 48x48</td><td>16x16, 32x32, 48x48</td></tr>
 
         
         <tr class="section"><th colspan="9"><button class="section-toggle" type="button" aria-expanded="true"><span class="section-toggle__icon" aria-hidden="true">−</span><b data-i18n="compare.operations">Operations</b></button></th></tr>
@@ -708,7 +722,7 @@
 
         <tr><td><span data-i18n="compare.ftpAndWinscpClientsCanStorePasswordSafely">FTP and WinSCP* clients can store password safely</span><br>
             <b>*</b> <small><i data-i18n="compare.winscpIsNotAvailableInVersion50">WinSCP is not available in version 5.0</i></small>
-          </td><td class="yes"><b>⬤ *</b></td><td><b>⬤ *</b></td><td>⬤</td><td>⬤</td><td>–</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+          </td><td class="yes"><b>⬤</b></td><td><b>⬤</b></td><td>⬤</td><td>⬤</td><td>–</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
 
         <tr><td data-i18n="compare.supportForTlsFtpFtpsOrFtpesWith">Support for TLS FTP (FTPS or FTPES with AUTH TLS)</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>⭘<br><small>(external OpenSSL DLLs required)</small></td><td>⭘<br><small>(external OpenSSL DLLs required)</small></td><td>⬤</td></tr>
 
@@ -812,7 +826,7 @@
         <tr class="addition"><td data-i18n="compare.vietnamese">Vietnamese</td><td class="yes"><b>⬤</b></td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
 
         <tr><td><span data-i18n="compare.manualTranslation">Manual translation</span><br>
-            <b>⭘</b> <small><i data-i18n="compare.onlyCorrectionsAreMadeManuallyForSamandarin">Only corrections are made manually for Samandarin.</i></small></td><td class="yes"><b>⭘</b></td><td data-i18n="compare.unreleased">Unreleased</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td><td>–</td></tr>
+            <b>⭘</b> <small><i data-i18n="compare.onlyCorrectionsAreMadeManuallyForSamandarin">Only corrections are made manually for Samandarin.</i></small></td><td class="yes"><b>⭘</b></td><td data-i18n="compare.unreleased">Unreleased</td><td>⬤</td><td>⬤</td><td>⬤</td><td>?</td><td>?</td><td>?</td></tr>
 
         <tr class="addition"><td data-i18n="compare.aiAssistedTranslationWorkflow">AI-assisted translation workflow</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
 
@@ -1097,8 +1111,15 @@
     }
     window.addEventListener("samandarin:locale-change", updateAllSectionsLabel);
 
-    function updateComparisonColumnSpans() {
+    function updateComparisonLayout() {
       var visibleVersionCount = document.querySelectorAll(".version-toggle[aria-pressed=\"false\"]").length;
+      var otherVersionWidth = visibleVersionCount > 0 ? (42 / visibleVersionCount) + "%" : "0%";
+      document.querySelectorAll("#comparison-table col[data-column]").forEach(function (column) {
+        var toggle = document.querySelector(".version-toggle[data-column=\"" + column.dataset.column + "\"]");
+        var hidden = !toggle || toggle.getAttribute("aria-pressed") === "true";
+        column.hidden = hidden;
+        column.style.width = hidden ? "0%" : otherVersionWidth;
+      });
       document.querySelectorAll("#comparison-table .section th").forEach(function (section) {
         section.colSpan = 2 + visibleVersionCount;
       });
@@ -1119,10 +1140,10 @@
           var cell = row.children[column];
           if (cell) cell.hidden = !hidden;
         });
-        updateComparisonColumnSpans();
+        updateComparisonLayout();
       });
     });
-    updateComparisonColumnSpans();
+    updateComparisonLayout();
   </script>
 
 </body>
