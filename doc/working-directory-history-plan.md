@@ -1,5 +1,9 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-26 | Document independent shared and per-tab histories. | Preserve closed-tab entries and visit order when switching scope or restarting. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+| 2026-11-26 | Allow history rows without an icon. | Keep the icon column focused on paths with an existing icon or a distinct status. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+| 2026-11-26 | Drop the per-row lock icon from the current scope. | The active tab already indicates its lock state. Repeating it would obscure the destination icons. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+| 2026-11-26 | Keep the history scope setting on the History page. | The existing control already selects the list opened by Alt+F12. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 | 2026-11-26 | Document optional icon colors in working directory history. | Distinguish live tab colors, closed-tab snapshots, and neutral icons. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 | 2026-11-26 | Document persistent source identities and closed-tab captions. | Describe restart, compatibility, and history-clearing behavior. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 | 2026-11-26 | Document live source labels and remaining persistence work. | Record the implemented session behavior and closed-tab cases. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
@@ -15,10 +19,10 @@
 | Area | Existing behavior and implications |
 |---|---|
 | Recording | `CMainWindow::DirHistoryAddPathUnique` records in both the shared and the originating panel's lists. Keep the existing conditions that decide when a location was worked in, including the disk, archive and plug-in filesystem callers. Refresh, fallback navigation and startup can take different paths through the recording code. |
-| Deduplication | `CPathHistory::AddPathUnique` promotes an existing path to the most recent position. It can defer an insertion while `Execute` is navigating. Provenance must travel through both ordinary and deferred insertion, and a revisit must update the winning source even if the row is already first. Copies used for tab lifecycle and scope changes must carry any available provenance. |
+| Deduplication | `CPathHistory::AddPathUnique` promotes an existing path to the most recent position. It can defer an insertion while `Execute` is navigating. Provenance must travel through both ordinary and deferred insertion, and a revisit must update the winning source even if the row is already first. Copies used for tab lifecycle and legacy recovery must carry any available provenance. |
 | Popup routing | The keyboard shortcut, Commands menu, toolbar command and directory-line drop-down converge on `CFilesWindow::OpenDirHistory`. Change Drive also calls `FillHistoryPopupMenu` for its separate, capped recent-locations section. Back/Forward use `CPathHistory` as well. Keep their existing rendering and navigation behavior. |
 | Tab identity | The runtime tab ID identifies live panels and asynchronous work. The history GUID identifies the same logical tab across a restart and is stored with each regular or detached tab. |
-| Configuration | **History** already owns the shared/per-tab preference. Switching to per-tab can seed empty lists with copies of shared history. Switching to shared rebuilds from open panels and detached tabs in enumeration order, which can discard older shared entries or misorder visits across tabs. The registry currently saves or clears the shared list according to the selected scope. Showing the same preference under **Tabs** does not on its own fix any of these storage behaviors. |
+| Configuration | **History** already selects the scope for Alt+F12. **Share history between panels/tabs** uses one list across both panels and their tabs. **Keep history per panel/tab** uses the active tab's list. The scope and the option to save the working directory list are separate settings. |
 
 ## Phase 1 — Icons and live source tab names in the working directory popup
 
@@ -41,16 +45,16 @@
 
 Resolve the current custom color of a live source, including a cleared color. When a tab closes, keep its last defined color alongside its caption as optional history metadata. Existing saved rows with no color metadata still resolve the color of their open source or use the neutral icon.
 
-## Follow-up — History scope
+## Preserving history when switching scopes
 
-1. Preserve chronological shared and per-tab histories when changing the preference. The shared list should have one row per path with the latest source, while each visiting tab should retain its own entry. Keep legacy visits of unknown origin in the shared list. Use the existing destination identity rules for disk paths, archive member paths and plug-in filesystem locations. Preserve visit order across both panels and detached tabs.
-2. Expose the same persisted preference in **Tabs**, keeping the saved value and the shared default. If the **History** control is retained, synchronize both controls when the user moves between pages and apply the scope change once. Keep the independent save control and document the two entry points in Help.
+Each recorded visit updates the shared list and the originating tab's list. Changing the scope selects which list Alt+F12 opens and refreshes the directory-line and command states. The shared list preserves visits from closed tabs and keeps one row per destination, using its latest visit for both its position and source. An empty per-tab list stays empty on a scope change.
 
-## Follow-up — Navigation status
+When **Save List of Working Directories** is enabled, save both lists regardless of the selected scope. A legacy per-tab profile without a saved shared list can recover entries from its saved open and detached tabs. Those lists only record order within each tab, so the original cross-tab order is unavailable. An explicitly saved empty shared list skips this recovery.
 
-- Add the lock icon using the same decision as the active panel's unlock confirmation. Include disk, archive and plug-in navigation, canceled confirmation, and any same-path or refresh cases that bypass the prompt. Menu construction must not show a dialog or change the tab state.
+## Follow-up — Icon priority and accessibility
+
 - Integrate the project boundary when #853 defines the navigation rule. Use that rule for both the icon and the action. Treat the root and its descendants according to the same path-component semantics as navigation. Cover similarly named siblings, different drives, UNC roots, and reparse points or virtual paths according to the project-tab rules.
-- Use the final priority order of project boundary, lock, Hot Path, different tab and ordinary path icon. Make the chosen status available to assistive technology without relying on color. Opening a row continues to target the panel that opened the popup. Opening a history destination in a new tab remains a separate proposal.
+- Use the priority order of project boundary once available, Hot Path, different tab, and the existing path icon if available. Leave the icon slot empty when none applies. Make the chosen status available to assistive technology without relying on color. Opening a row continues to target the panel that opened the popup. Opening a history destination in a new tab remains a separate proposal.
 
 ## Verification
 
@@ -61,6 +65,7 @@ Resolve the current custom color of a live source, including a cleared color. Wh
 | Entry points and presentation | Compare Alt+F12, Commands, the toolbar and the directory-line drop-down. Check light and dark schemes, selected and unselected icons, DPI scaling, keyboard accelerators and the separate Change Drive and Back/Forward menus. |
 | Paths | Check literal and variable-expanded bookmarks, Unicode components, paths exceeding `MAX_PATH` in UTF-8 or UTF-16, case/trailing separators, an unavailable UNC destination, archive members and plug-in filesystem entries. Opening the popup should make no filesystem or plug-in call just to determine an icon. |
 | Persistence | Save visits from regular and detached tabs, restart, and confirm their source identities resolve to the restored tabs. Rename a source after recording a visit, then close it and confirm the last known name survives both close and restart. Check Unicode, path-only legacy records, invalid metadata, saving disabled and Clear History. |
-| Later UI | Check switching scopes in both directions. Verify a name prefix remains visible with a higher-priority icon, and check confirmation, cancellation and project-root handling once the navigation indicators are implemented. |
+| Switching scopes | Interleave visits across tabs and visit the same destination in two tabs. Close a source tab, switch to per-tab history, and return to shared history. Confirm the closed tab's visit remains in place and the duplicate keeps its newest source. Repeat after a restart in per-tab mode with history saving enabled. |
+| Later UI | Confirm that assistive technology can read each icon status. When project tabs are available, check project-root handling and verify that the name prefix remains visible with the project boundary icon. |
 
 Use the existing Windows build and noninteractive tests first. Record manual UI checks separately from build and automated results.

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Identify explicit panel refresh commands. | Prompt for a fresh archive read only on user refresh. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Limit shared history reconstruction to legacy profiles. | Keep saved shared history authoritative when switching scope. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Expose source tab colors with history titles. | Use current colors while capturing closed sources. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Expose persistent tab identity and title lookup. | Carry the history identity through Undo Close Tab. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Expose a live tab name lookup by identity. | Resolve history sources in either panel and in detached tabs. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
@@ -753,7 +754,7 @@ public:
     void CapturePanelPathsForShutdown(BOOL capture);
     void HandleWorkDirsHistoryScopeChange(CWorkDirsHistoryScope previousScope);
     void HandlePanelTabsEnabledChange(BOOL previouslyEnabled);
-    void RebuildSharedDirHistoryFromPanels();
+    void RestoreLegacySharedDirHistoryFromPanels();
 
     void DirHistoryAddPathUnique(CFilesWindow* panel, int type, const char* pathOrArchiveOrFSName,
                                  const char* archivePathOrFSUserPart, HICON hIcon,

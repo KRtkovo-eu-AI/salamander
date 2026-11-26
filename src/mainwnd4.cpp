@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Preserve working directory history when switching scope. | Keep the original cross-tab visit order and entries from closed tabs. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Capture the custom color when a source tab closes. | Preserve the history icon color across restarts. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Use persistent tab IDs and retain the final caption at close. | Keep history attribution after the source panel is gone. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Record the originating tab for working directory visits. | Attribute shared history to the tab where the path was used. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
@@ -163,13 +164,12 @@ void CMainWindow::CapturePanelPathsForShutdown(BOOL capture)
         updatePanel(GetDetachedTabAt(i));
 }
 
-void CMainWindow::RebuildSharedDirHistoryFromPanels()
+void CMainWindow::RestoreLegacySharedDirHistoryFromPanels()
 {
     if (DirHistory == NULL)
         return;
 
-    DirHistory->ClearHistory();
-
+    // Older per-tab profiles saved only the individual lists. Across tabs the original order is unknown.
     TIndirectArray<CFilesWindow>& leftTabs = GetPanelTabs(cpsLeft);
     for (int i = 0; i < leftTabs.Count; i++)
     {
@@ -196,50 +196,8 @@ void CMainWindow::RebuildSharedDirHistoryFromPanels()
 
 void CMainWindow::HandleWorkDirsHistoryScopeChange(CWorkDirsHistoryScope previousScope)
 {
-    CWorkDirsHistoryScope newScope = (CWorkDirsHistoryScope)Configuration.WorkDirsHistoryScope;
-    CWorkDirsHistoryScope prevScope = previousScope;
-    if (newScope == prevScope)
+    if (Configuration.WorkDirsHistoryScope == static_cast<DWORD>(previousScope))
         return;
-
-    if (newScope == wdhsPerTab)
-    {
-        TIndirectArray<CFilesWindow>& leftTabs = GetPanelTabs(cpsLeft);
-        for (int i = 0; i < leftTabs.Count; i++)
-        {
-            CPathHistory* history = leftTabs[i]->GetWorkDirHistory();
-            if (history == NULL)
-                history = leftTabs[i]->EnsureWorkDirHistory();
-            if (history != NULL && (history->HasPaths() || DirHistory == NULL || !DirHistory->HasPaths()))
-                continue;
-            if (history != NULL && DirHistory != NULL)
-                history->CopyFrom(*DirHistory);
-        }
-
-        TIndirectArray<CFilesWindow>& rightTabs = GetPanelTabs(cpsRight);
-        for (int i = 0; i < rightTabs.Count; i++)
-        {
-            CPathHistory* history = rightTabs[i]->GetWorkDirHistory();
-            if (history == NULL)
-                history = rightTabs[i]->EnsureWorkDirHistory();
-            if (history != NULL && (history->HasPaths() || DirHistory == NULL || !DirHistory->HasPaths()))
-                continue;
-            if (history != NULL && DirHistory != NULL)
-                history->CopyFrom(*DirHistory);
-        }
-        for (int i = 0; i < GetDetachedTabCount(); ++i)
-        {
-            CFilesWindow* panel = GetDetachedTabAt(i);
-            if (panel == NULL)
-                continue;
-            CPathHistory* history = panel->GetWorkDirHistory();
-            if (history == NULL)
-                history = panel->EnsureWorkDirHistory();
-            if (history != NULL && !history->HasPaths() && DirHistory != NULL && DirHistory->HasPaths())
-                history->CopyFrom(*DirHistory);
-        }
-    }
-    else
-        RebuildSharedDirHistoryFromPanels();
 
     UpdateAllDirectoryLineHistoryStates();
     RefreshCommandStates();

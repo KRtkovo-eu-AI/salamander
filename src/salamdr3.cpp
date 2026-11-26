@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Record intentionally empty working directory lists. | Distinguish a saved empty list from legacy per-tab storage. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Color saved-path and source-tab history icons. | Preserve the default icons and use a closed source's last custom color. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Keep popup source data independent of live history rows. | Resolve tab names from stable copies while formatting the menu. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Save working directory source IDs and names with each path. | Restore open and closed tab attribution across sessions. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
@@ -2564,6 +2565,11 @@ void CPathHistory::SaveToRegistry(HKEY hKey, const char* name, BOOL onlyClear, B
                 }
                 index++;
             }
+            if (DontChangeForwardIndex && Paths.Count == 0)
+            {
+                const DWORD empty = TRUE;
+                SetValue(historyKey, "Empty", REG_DWORD, &empty, sizeof(empty));
+            }
             if (saveNavigationState)
             {
                 DWORD forwardIndex = (DWORD)(ForwardIndex < 0 ? Paths.Count : ForwardIndex);
@@ -2574,7 +2580,7 @@ void CPathHistory::SaveToRegistry(HKEY hKey, const char* name, BOOL onlyClear, B
     }
 }
 
-void CPathHistory::LoadFromRegistry(HKEY hKey, const char* name, BOOL loadNavigationState)
+BOOL CPathHistory::LoadFromRegistry(HKEY hKey, const char* name, BOOL loadNavigationState)
 {
     ClearHistory();
     HKEY historyKey;
@@ -2669,8 +2675,14 @@ void CPathHistory::LoadFromRegistry(HKEY hKey, const char* name, BOOL loadNaviga
             if (GetValue(historyKey, "Forward Index", REG_DWORD, &forwardIndex, sizeof(forwardIndex)))
                 ForwardIndex = forwardIndex < (DWORD)Paths.Count ? (int)forwardIndex : -1;
         }
+        DWORD empty = FALSE;
+        const BOOL stored = HasPaths() ||
+                            (DontChangeForwardIndex &&
+                             GetValue(historyKey, "Empty", REG_DWORD, &empty, sizeof(empty)) && empty == TRUE);
         CloseKey(historyKey);
+        return stored;
     }
+    return FALSE;
 }
 
 //

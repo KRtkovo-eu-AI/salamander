@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Report whether a working directory history was stored. | Distinguish a saved empty list from a missing legacy list. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Track the source tab's custom history icon color. | Retain the last color of closed tabs. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Store a durable origin and caption with working directory visits. | Associate provenance with the same item through loading and history copies. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Track the source tab of a working directory visit. | Carry provenance through history items. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
@@ -260,7 +261,8 @@ public:
     BOOL HasPaths() { return Paths.Count > 0; }
 
     void SaveToRegistry(HKEY hKey, const char* name, BOOL onlyClear, BOOL saveNavigationState = FALSE);
-    void LoadFromRegistry(HKEY hKey, const char* name, BOOL loadNavigationState = FALSE);
+    // Returns TRUE when entries or an explicitly saved empty working directory list were loaded.
+    BOOL LoadFromRegistry(HKEY hKey, const char* name, BOOL loadNavigationState = FALSE);
 };
 
 //*****************************************************************************

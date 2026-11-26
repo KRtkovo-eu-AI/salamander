@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Exercise working directory history in both scopes across restart. | Check that duplicate visits and closed tab sources retain their recorded order. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Verify persistent source colors in directory history. | Cover black, missing, invalid and cleared colors. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Cover working-directory source metadata in a native test. | Check restart, legacy data, malformed values and live name resolution. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 
@@ -123,7 +124,9 @@ struct TabNames
 TabNames* MainWindow;
 
 #define TRACE_E(message) ((void)0)
+#define HANDLES(operation) (operation)
 constexpr int SAL_MAX_PATH = 32768;
+constexpr int PATH_HISTORY_SIZE = 30;
 
 struct CBranchViewRestoreState
 {
@@ -131,6 +134,9 @@ struct CBranchViewRestoreState
     int PathColumnWidth = 0;
     std::wstring Focus;
 };
+
+struct CPluginFSInterfaceAbstract;
+struct CPluginFSInterfaceEncapsulation;
 
 struct CPathHistoryItem
 {
@@ -141,11 +147,24 @@ struct CPathHistoryItem
     {
     }
 
+    CPathHistoryItem(int type, const char* path, const char* part, HICON,
+                     CPluginFSInterfaceAbstract* pluginFS, const CWorkingDirectorySource& source)
+        : CPathHistoryItem(type, path, part, source)
+    {
+        PluginFS = pluginFS;
+    }
+
+    bool IsTheSamePath(const CPathHistoryItem& other, CPluginFSInterfaceEncapsulation*) const
+    {
+        return Type == other.Type && Path == other.Path && Part == other.Part;
+    }
+
     int Type;
     std::string Path;
     std::string Part;
     const char* PathOrArchiveOrFSName;
     const char* ArchivePathOrFSUserPart;
+    CPluginFSInterfaceAbstract* PluginFS = nullptr;
     std::shared_ptr<CBranchViewRestoreState> BranchState;
     CWorkingDirectorySource Source;
 };
@@ -156,6 +175,27 @@ struct HistoryRows
     int Count = 0;
 
     CPathHistoryItem* operator[](int index) { return Items.at(index).get(); }
+
+    BOOL IsGood() const { return TRUE; }
+    void ResetState() {}
+
+    void Add(CPathHistoryItem* item)
+    {
+        Items.emplace_back(item);
+        ++Count;
+    }
+
+    void Delete(int index)
+    {
+        Items.erase(Items.begin() + index);
+        --Count;
+    }
+
+    void Detach(int index)
+    {
+        Items.at(index).release();
+        Delete(index);
+    }
 };
 
 struct CPathHistory
@@ -164,8 +204,7 @@ struct CPathHistory
 
     void AddPath(int type, const char* path, const char* part, void*, void*, const CWorkingDirectorySource& source = {})
     {
-        Paths.Items.push_back(std::make_unique<CPathHistoryItem>(type, path, part, source));
-        ++Paths.Count;
+        Paths.Add(new CPathHistoryItem(type, path, part, source));
     }
 
     void ClearHistory()
@@ -174,14 +213,57 @@ struct CPathHistory
         ForwardIndex = -1;
     }
 
+    BOOL HasPaths() const { return Paths.Count > 0; }
+
     void RememberSourceTab(const CWorkingDirectorySource& source);
+    void AddPathUnique(int type, const char* path, const char* part, HICON icon, CPluginFSInterfaceAbstract* pluginFS,
+                       CPluginFSInterfaceEncapsulation* curPluginFS, const CWorkingDirectorySource& source);
     void SaveToRegistry(HKEY key, const char* name, BOOL onlyClear, BOOL saveNavigationState = FALSE);
-    void LoadFromRegistry(HKEY key, const char* name, BOOL loadNavigationState = FALSE);
+    BOOL LoadFromRegistry(HKEY key, const char* name, BOOL loadNavigationState = FALSE);
 
     HistoryRows Paths;
     CPathHistoryItem* NewItem = nullptr;
     int ForwardIndex = -1;
     BOOL DontChangeForwardIndex;
+    BOOL Lock = FALSE;
+};
+
+enum CWorkDirsHistoryScope { wdhsShared, wdhsPerTab };
+
+struct HistoryConfiguration
+{
+    DWORD WorkDirsHistoryScope = wdhsShared;
+};
+
+HistoryConfiguration Configuration;
+
+struct CFilesWindow
+{
+    explicit CFilesWindow(const GUID& id) : Id(id) {}
+
+    CPathHistory* EnsureWorkDirHistory() { return &History; }
+    CPathHistory* GetWorkDirHistory() { return &History; }
+    const GUID& GetHistoryTabId() const { return Id; }
+
+    GUID Id;
+    CPathHistory History{TRUE};
+};
+
+struct CMainWindow
+{
+    explicit CMainWindow(CPathHistory& shared) : DirHistory(&shared) {}
+
+    CPathHistory* GetDirHistory(CFilesWindow* panel, BOOL createIfNeeded);
+    BOOL UsingSharedWorkDirHistory() const;
+    void HandleWorkDirsHistoryScopeChange(CWorkDirsHistoryScope previousScope);
+    void DirHistoryAddPathUnique(CFilesWindow* panel, int type, const char* path, const char* part, HICON icon,
+                                 CPluginFSInterfaceAbstract* pluginFS, CPluginFSInterfaceEncapsulation* curPluginFS);
+    void UpdateAllDirectoryLineHistoryStates() {}
+    void UpdateDirectoryLineHistoryState(CFilesWindow*) {}
+    void RefreshCommandStates() {}
+
+    CPathHistory* DirHistory;
+    BOOL CanAddToDirHistory = TRUE;
 };
 
 BOOL IsPluginFSPath(const char*, char*, const char**)
@@ -200,6 +282,85 @@ static void Check(bool passed, const char* description)
         ++failures;
         std::fprintf(stderr, "FAIL: %s\n", description);
     }
+}
+
+static void CheckHistoryScopes(const GUID& firstId, const GUID& secondId, const GUID& closedId)
+{
+    Registry registry;
+    const HKEY key = reinterpret_cast<HKEY>(&registry);
+    const char sharedKey[] = "Working Directories";
+    CPathHistory shared(TRUE);
+    CMainWindow window(shared);
+    CFilesWindow first(firstId);
+    CFilesWindow second(secondId);
+    CFilesWindow empty(GUID{});
+    const auto visit = [&window](CFilesWindow& tab, const char* path) {
+        window.DirHistoryAddPathUnique(&tab, 0, path, nullptr, nullptr, nullptr, nullptr);
+    };
+    const auto switchScope = [&window](CWorkDirsHistoryScope next) {
+        const auto previous = static_cast<CWorkDirsHistoryScope>(Configuration.WorkDirsHistoryScope);
+        Configuration.WorkDirsHistoryScope = next;
+        window.HandleWorkDirsHistoryScopeChange(previous);
+    };
+    const auto checkSharedVisits = [&](HistoryRows& rows) {
+        Check(rows.Count == 4 && rows[0]->Path == "D:\\Closed tab only" && rows[1]->Path == "C:\\Both tabs" &&
+                  rows[2]->Path == "D:\\Second tab only" && rows[3]->Path == "C:\\First tab only",
+              "the shared list retains unique destinations in visit order");
+        Check(rows.Count == 4 && IsEqualGUID(rows[0]->Source.Id, closedId) && rows[0]->Source.Name == L"Closed tab" &&
+                  IsEqualGUID(rows[1]->Source.Id, firstId),
+              "the shared list retains a closed tab and the latest source of a duplicate destination");
+    };
+
+    {
+        CFilesWindow closed(closedId);
+        visit(closed, "D:\\Closed tab only");
+        shared.RememberSourceTab({closedId, L"Closed tab"});
+    }
+    visit(second, "C:\\Both tabs");
+    visit(first, "C:\\Both tabs");
+
+    Check(window.GetDirHistory(&first, FALSE) == &shared, "shared mode displays the common history");
+    switchScope(wdhsPerTab);
+    Check(window.GetDirHistory(&empty, FALSE)->Paths.Count == 0, "switching scopes keeps an unused tab empty");
+    Check(window.GetDirHistory(&first, FALSE)->Paths.Count == 1 &&
+              window.GetDirHistory(&second, FALSE)->Paths.Count == 1 &&
+              first.History.Paths[0]->Path == "C:\\Both tabs" && second.History.Paths[0]->Path == "C:\\Both tabs" &&
+              IsEqualGUID(first.History.Paths[0]->Source.Id, firstId) &&
+              IsEqualGUID(second.History.Paths[0]->Source.Id, secondId),
+          "the shared destination remains in both per-tab lists with their own sources");
+
+    visit(second, "D:\\Second tab only");
+    visit(first, "C:\\First tab only");
+    switchScope(wdhsShared);
+    checkSharedVisits(window.GetDirHistory(&first, FALSE)->Paths);
+    switchScope(wdhsPerTab);
+    shared.SaveToRegistry(key, sharedKey, FALSE);
+    first.History.SaveToRegistry(key, "First tab", FALSE);
+    second.History.SaveToRegistry(key, "Second tab", FALSE);
+
+    CPathHistory restartedShared(TRUE);
+    CMainWindow restarted(restartedShared);
+    CFilesWindow restartedFirst(firstId);
+    CFilesWindow restartedSecond(secondId);
+    Check(restartedShared.LoadFromRegistry(key, sharedKey), "a saved shared history is restored in per-tab mode");
+    restartedFirst.History.LoadFromRegistry(key, "First tab");
+    restartedSecond.History.LoadFromRegistry(key, "Second tab");
+    Check(restarted.GetDirHistory(&restartedFirst, FALSE) == &restartedFirst.History &&
+              restartedFirst.History.Paths.Count == 2 && restartedSecond.History.Paths.Count == 2,
+          "restarting in per-tab mode restores separate lists");
+
+    Configuration.WorkDirsHistoryScope = wdhsShared;
+    restarted.HandleWorkDirsHistoryScopeChange(wdhsPerTab);
+    checkSharedVisits(restarted.GetDirHistory(&restartedFirst, FALSE)->Paths);
+
+    CPathHistory emptySnapshot(TRUE);
+    Check(!emptySnapshot.LoadFromRegistry(key, "Legacy absent snapshot"), "a missing legacy snapshot allows migration");
+    emptySnapshot.SaveToRegistry(key, sharedKey, FALSE);
+    Check(!registry.Keys.at(sharedKey).Values.count("1") && restartedShared.LoadFromRegistry(key, sharedKey) &&
+              restartedShared.Paths.Count == 0,
+          "an explicitly saved empty shared history is restored without migration");
+    emptySnapshot.SaveToRegistry(key, sharedKey, TRUE);
+    Check(!restartedShared.LoadFromRegistry(key, sharedKey), "disabling history saving removes the empty snapshot marker");
 }
 
 int main()
@@ -323,6 +484,9 @@ int main()
           "disabling or clearing persisted history removes paths and source metadata");
     reopened.LoadFromRegistry(key, "Working Directories");
     Check(reopened.Paths.Count == 0, "cleared history restores without stale entries");
+
+    const GUID secondId{0x3fb9, 0x9e15, 0x4491, {0x82, 0x14, 0x92, 0x74, 0x96, 0x32, 0x64, 0x55}};
+    CheckHistoryScopes(liveId, secondId, closedId);
 
     if (failures == 0)
         std::puts("Working directory history source tests passed.");

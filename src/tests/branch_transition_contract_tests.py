@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-26 | Keep the Branch history assertion on the updated loader. | The loader now reports whether a history was saved. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 # | 2026-11-25 | Keep protected Branch lifetime checks beside PictView admission. | Transition gates still cover deletion identity and bundled viewers. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 # | 2026-11-20 | Admit bundled PictView in Branch View. | Preserve panel image identity and existing viewer restrictions. |  | gpt-6.2-sol |
 # | 2026-11-11 | Check the current Branch View path and generation guards. | Cover exact deletion and reject a stale row after consent. | #731 | GPT-6.1 Sol |
@@ -121,7 +122,7 @@ class BranchTransitionContracts(unittest.TestCase):
   self.assertIn('::IsTheSamePath(PathOrArchiveOrFSName, item.PathOrArchiveOrFSName)',same)
   self.assertNotIn('MAX_PATH',same)
   save=function('salamdr3.cpp','void CPathHistory::SaveToRegistry(')
-  load=function('salamdr3.cpp','void CPathHistory::LoadFromRegistry(')
+  load=function('salamdr3.cpp','BOOL CPathHistory::LoadFromRegistry(')
   self.assertIn('saveNavigationState && item->Type == 0',save)
   self.assertIn('type == 0 && loadNavigationState',load)
   self.assertIn('width >= 40 && width <= 10000',load)
