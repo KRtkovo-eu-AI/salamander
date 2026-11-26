@@ -1,0 +1,129 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Verify shared Hidden/System delete decisions through actual production code. | Keep Skip, Skip All, All and Cancel ahead of any deletion or UAC request. | #731 | GPT-6.1 Sol |
+#include <windows.h>
+#include <cstdio>
+#include <initializer_list>
+
+static int Checks = 0, Failures = 0;
+static void Check(bool value, const char* name)
+{
+    ++Checks;
+    if (!value) { ++Failures; std::printf("FAIL: %s\n", name); }
+}
+
+static int Prompts = 0, Waits = 0, Answer = IDYES;
+static BOOL WorkerCancelled = FALSE;
+static char Name[] = "C:\\fixture-東\\protected-日.txt";
+static char Title[] = "existing hidden/system confirmation";
+static char Text[] = "existing hidden/system deletion text";
+constexpr int IDS_CONFIRMSHFILEDELETE = 101, IDS_DELETESHFILE = 102;
+constexpr int IDB_ALL = 200, IDB_SKIPALL = 201, IDB_SKIP = 202;
+constexpr UINT WM_USER_DIALOG = WM_USER + 42;
+struct CProgressDlgData
+{
+    BOOL DeleteHiddenAll = FALSE;
+    BOOL CnfrmSHFileDel = TRUE;
+    BOOL SkipAllSystemOrHidden = FALSE;
+    HANDLE WorkerNotSuspended = nullptr;
+    BOOL* CancelWorker = &WorkerCancelled;
+};
+
+static char* LoadStr(int id)
+{
+    Check(id == IDS_CONFIRMSHFILEDELETE || id == IDS_DELETESHFILE, "reuse existing localized confirmation strings");
+    return id == IDS_CONFIRMSHFILEDELETE ? Title : Text;
+}
+
+static DWORD WaitForTestWorker(HANDLE, DWORD timeout)
+{
+    ++Waits;
+    Check(timeout == INFINITE, "honor ordinary worker suspension before confirmation");
+    return WAIT_OBJECT_0;
+}
+
+static LRESULT SendTestMessage(HWND owner, UINT message, WPARAM kind, LPARAM value)
+{
+    ++Prompts;
+    Check(owner == nullptr && message == WM_USER_DIALOG && kind == 2, "reuse the native Hidden/System dialog");
+    auto data = reinterpret_cast<char**>(value);
+    Check(data[1] == Title && data[2] == Name && data[3] == Text, "retain exact item and existing confirmation text");
+    *reinterpret_cast<int*>(data[0]) = Answer;
+    return 0;
+}
+
+@@DECISION@@
+#undef SendMessage
+#define SendMessage SendTestMessage
+#define WaitForSingleObject WaitForTestWorker
+@@CONFIRM@@
+#undef WaitForSingleObject
+#undef SendMessage
+
+static void Reset()
+{
+    Prompts = Waits = 0;
+    Answer = IDYES;
+    WorkerCancelled = FALSE;
+}
+
+int main()
+{
+    using Decision = FileDeleteDecision;
+    for (DWORD attributes : {DWORD(FILE_ATTRIBUTE_NORMAL), DWORD(FILE_ATTRIBUTE_ARCHIVE),
+                             DWORD(FILE_ATTRIBUTE_READONLY), DWORD(FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_ARCHIVE)})
+    {
+        Reset(); CProgressDlgData state;
+        Check(ConfirmDeleteFileAttributes(nullptr, Name, attributes, state) == Decision::Proceed &&
+                  Prompts == 0 && Waits == 0, "ordinary and ReadOnly-only files need no new confirmation");
+    }
+    for (DWORD attributes : {DWORD(FILE_ATTRIBUTE_HIDDEN), DWORD(FILE_ATTRIBUTE_SYSTEM),
+                             DWORD(FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_READONLY)})
+    {
+        Reset(); CProgressDlgData state;
+        Check(ConfirmDeleteFileAttributes(nullptr, Name, attributes, state) == Decision::Proceed &&
+                  Prompts == 1 && Waits == 1 && !state.DeleteHiddenAll && !state.SkipAllSystemOrHidden,
+              "Yes authorizes this Hidden/System item only");
+    }
+
+    Reset(); CProgressDlgData all; Answer = IDB_ALL;
+    Check(ConfirmDeleteFileAttributes(nullptr, Name, FILE_ATTRIBUTE_HIDDEN, all) == Decision::Proceed &&
+              all.DeleteHiddenAll && Prompts == 1, "All retains the worker-wide Hidden/System approval");
+    Answer = IDCANCEL;
+    Check(ConfirmDeleteFileAttributes(nullptr, Name, FILE_ATTRIBUTE_SYSTEM, all) == Decision::Proceed &&
+              Prompts == 1, "the next Hidden/System item reuses All without another confirmation");
+
+    Reset(); CProgressDlgData skip; Answer = IDB_SKIP;
+    Check(ConfirmDeleteFileAttributes(nullptr, Name, FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_READONLY, skip) == Decision::Skip &&
+              Prompts == 1 && !skip.DeleteHiddenAll && !skip.SkipAllSystemOrHidden,
+          "Skip excludes only this ReadOnly Hidden item before mutation");
+    Answer = IDYES;
+    Check(ConfirmDeleteFileAttributes(nullptr, Name, FILE_ATTRIBUTE_SYSTEM, skip) == Decision::Proceed &&
+              Prompts == 2, "the next item still asks after Skip");
+
+    Reset(); CProgressDlgData skipAll; Answer = IDB_SKIPALL;
+    Check(ConfirmDeleteFileAttributes(nullptr, Name, FILE_ATTRIBUTE_HIDDEN, skipAll) == Decision::Skip &&
+              skipAll.SkipAllSystemOrHidden && !skipAll.DeleteHiddenAll && Prompts == 1,
+          "Skip All remembers the ordinary Hidden/System exclusion");
+    Answer = IDYES;
+    Check(ConfirmDeleteFileAttributes(nullptr, Name, FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_READONLY, skipAll) == Decision::Skip &&
+              Prompts == 1, "Skip All suppresses later Hidden/System confirmations and deletes");
+    Check(ConfirmDeleteFileAttributes(nullptr, Name, FILE_ATTRIBUTE_ARCHIVE, skipAll) == Decision::Proceed &&
+              Prompts == 1, "Skip All does not exclude ordinary files");
+
+    Reset(); CProgressDlgData cancel; Answer = IDCANCEL;
+    Check(ConfirmDeleteFileAttributes(nullptr, Name, FILE_ATTRIBUTE_HIDDEN, cancel) == Decision::Cancel &&
+              Prompts == 1 && !cancel.DeleteHiddenAll && !cancel.SkipAllSystemOrHidden,
+          "Cancel stops the item without accepting deletion");
+    Reset(); WorkerCancelled = TRUE;
+    Check(ConfirmDeleteFileAttributes(nullptr, Name, FILE_ATTRIBUTE_SYSTEM, cancel) == Decision::Cancel &&
+              Prompts == 0 && Waits == 1, "worker cancellation stops before opening the confirmation");
+
+    Reset(); CProgressDlgData disabled; disabled.CnfrmSHFileDel = FALSE;
+    Check(ConfirmDeleteFileAttributes(nullptr, Name, FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM, disabled) == Decision::Proceed &&
+              Prompts == 0 && Waits == 0, "disabled Hidden/System confirmation retains ordinary behavior");
+
+    std::printf("%d checks, %d failures\n", Checks, Failures);
+    return Failures ? 1 : 0;
+}

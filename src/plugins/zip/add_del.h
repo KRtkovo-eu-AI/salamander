@@ -1,5 +1,9 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Explain protected ZIP staging state. | Distinguish an unpublished copy from normal archive edits. | #731 | GPT-6 |
+// | 2026-11-08 | Distinguish edits of an unpublished ZIP copy. | Keep ordinary ZIP commands and their options unchanged. | | GPT-6.1 Sol (Codex) |
 
 #pragma once
 
@@ -96,7 +100,9 @@ public:
     __UINT32 Crc;
     bool Move;
     bool Pack; //flag indicating pack operation
-    bool NothingToDo;
+    bool NothingToDo = false;
+    // Staged edits must not move sources or publish an incomplete archive.
+    const bool StagedEdit;
     __UINT32 Keys[3]; //decryption keys
     //bool                NoFreeDirs;
     CExtendedOptions Options;
@@ -116,8 +122,8 @@ public:
     //delete from archive
 
     CZipPack(const char* zipName, const char* zipRoot,
-             CSalamanderForOperationsAbstract* salamander) : CZipCommon(zipName, zipRoot, salamander, NULL), DelFiles(256),
-                                                             AddFiles(256)
+             CSalamanderForOperationsAbstract* salamander, bool stagedEdit = false)
+        : CZipCommon(zipName, zipRoot, salamander, NULL), DelFiles(256), AddFiles(256), StagedEdit(stagedEdit)
     {
         RecoverOK = true;
         DiskNum = 0;

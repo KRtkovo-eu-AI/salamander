@@ -1,0 +1,115 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Exercise executable-derived trusted locations. | Verify ancestor validation without a fixed installation path. | #731 | GPT-6 |
+// | 2026-11-13 | Test known-folder allocation ownership. | Release the returned COM buffer on success, failure and allocation exceptions. | #731 | GPT-6 |
+#include <windows.h>
+#include <algorithm>
+#include <cstdio>
+#include <string>
+#include <vector>
+
+static std::wstring imagePath;
+static UINT driveType = DRIVE_FIXED;
+static int directoryCalls = 0, failDirectoryAt = 0;
+static std::vector<std::wstring> opened;
+static std::vector<bool> namespaceOnlyFlags;
+constexpr wchar_t appImage[] = L"salamand.exe";
+constexpr wchar_t brokerImage[] = L"uacbroker.exe";
+constexpr wchar_t probeImage[] = L"uacbrokerprobe.exe";
+
+static DWORD WINAPI FakeModuleFileName(HMODULE, LPWSTR output, DWORD capacity)
+{
+    if (imagePath.size() >= capacity) return capacity;
+    std::copy(imagePath.begin(), imagePath.end(), output);
+    output[imagePath.size()] = 0;
+    return static_cast<DWORD>(imagePath.size());
+}
+static UINT WINAPI FakeDriveType(LPCWSTR) { return driveType; }
+[[maybe_unused]] static DWORD WINAPI FakeEnvironmentVariable(LPCWSTR, LPWSTR, DWORD) { return 0; }
+struct FakeHandle
+{
+    bool valid = false;
+    explicit operator bool() const { return valid; }
+    bool operator!=(std::nullptr_t) const { return valid; }
+    HANDLE get() const { return valid ? GetCurrentProcess() : nullptr; }
+};
+[[maybe_unused]] static FakeHandle Adopt(HANDLE value) { return {value != nullptr && value != INVALID_HANDLE_VALUE}; }
+
+#define GetModuleFileNameW FakeModuleFileName
+#define GetDriveTypeW FakeDriveType
+#define GetEnvironmentVariableW FakeEnvironmentVariable
+class InstallLocationFixture
+{
+    std::wstring path;
+    FakeHandle root, directory;
+    std::vector<FakeHandle> ancestors;
+#ifdef SAM_UAC_THIN_COPY_TEST
+    bool thinTestLocation = false;
+#endif
+    static FakeHandle OpenDirectory(const std::wstring& name, bool namespaceOnly = false)
+    {
+        opened.push_back(name);
+        namespaceOnlyFlags.push_back(namespaceOnly);
+        ++directoryCalls;
+        return {directoryCalls != failDirectoryAt};
+    }
+public:
+@@OPEN_METHOD@@
+@@IMAGE_PATH_METHOD@@
+    const std::wstring& Path() const { return path; }
+};
+#undef GetEnvironmentVariableW
+#undef GetDriveTypeW
+#undef GetModuleFileNameW
+
+static void Reset(const wchar_t* path)
+{
+    imagePath = path; driveType = DRIVE_FIXED; directoryCalls = failDirectoryAt = 0;
+    opened.clear(); namespaceOnlyFlags.clear();
+}
+static void Check(bool value, const char* label, int& failures)
+{
+    std::printf("%s %s\n", value ? "PASS" : "FAIL", label);
+    if (!value) ++failures;
+}
+int main()
+{
+    int failures = 0;
+    for (const wchar_t* name : {L"salamand.exe", L"uacbroker.exe", L"uacbrokerprobe.exe"})
+    {
+        Reset((std::wstring(L"D:\\Důvěryhodné\\東\\") + name).c_str());
+        InstallLocationFixture test;
+        Check(test.Open() && test.Path() == L"D:\\Důvěryhodné\\東" && directoryCalls == 3 &&
+              opened[0] == L"D:\\" && namespaceOnlyFlags[0] && !namespaceOnlyFlags[1] && !namespaceOnlyFlags[2],
+              "host or broker uses its own fixed-volume path and checks every ancestor", failures);
+    }
+    {
+        Reset(L"\\\\?\\C:\\Protected\\salamand.exe"); InstallLocationFixture test;
+        Check(test.Open() && test.Path() == L"C:\\Protected" && directoryCalls == 2,
+              "extended-length local path is normalized", failures);
+    }
+    {
+        Reset(L"C:\\salamand.exe"); InstallLocationFixture test;
+        Check(test.Open() && test.Path() == L"C:\\" && test.ImagePath(appImage) == L"C:\\salamand.exe" &&
+              directoryCalls == 1 && namespaceOnlyFlags[0],
+              "volume root is checked as a namespace", failures);
+    }
+    for (int failure = 1; failure <= 3; ++failure)
+    {
+        Reset(L"C:\\Parent\\Child\\salamand.exe"); failDirectoryAt = failure;
+        InstallLocationFixture test;
+        Check(!test.Open() && directoryCalls == failure, "untrusted root or ancestor is rejected", failures);
+    }
+    for (const wchar_t* path : {L"relative\\salamand.exe", L"\\\\server\\share\\salamand.exe",
+                                L"C:\\Parent\\unexpected.exe", L""})
+    {
+        Reset(path); InstallLocationFixture test;
+        Check(!test.Open() && directoryCalls == 0, "invalid path or image name is rejected", failures);
+    }
+    {
+        Reset(L"C:\\Parent\\salamand.exe"); driveType = DRIVE_REMOTE; InstallLocationFixture test;
+        Check(!test.Open() && directoryCalls == 0, "non-fixed volume is rejected", failures);
+    }
+    return failures ? 1 : 0;
+}

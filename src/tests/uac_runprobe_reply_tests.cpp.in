@@ -1,0 +1,173 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Exercise the first host RunProbe reply and cancellation. | Check actual job handoff and read-only uncertainty over a native pipe. | #731 | GPT-6.1 Terra |
+// Generated test translation unit replaces only installed-image/launch and
+// elevation gates. The peer is a same-process fake; this does not test real
+// elevation, image trust, UAC UI, or the production broker dispatcher.
+
+#define SAM_UAC_F7_HOST
+#include <thread>
+#include "uac_runprobe_fixture.cpp"
+
+namespace
+{
+enum class Scenario { Success, Failure, DropStatus, ShortStatus, DropReply, ShortReply,
+                      BadVersion, BadSource, InvalidFailure, CancelAfterStatus };
+Scenario currentScenario = Scenario::Success;
+std::thread peerThread;
+HANDLE statusSent = nullptr;
+DWORD fakeError = ERROR_GEN_FAILURE;
+bool gotRequest = false, gotAccept = false;
+int launches = 0;
+
+HANDLE StartRunProbeFakePeer(const std::wstring& pipeName)
+{
+    ++launches;
+    HANDLE process = nullptr;
+    if (!DuplicateHandle(GetCurrentProcess(), GetCurrentProcess(), GetCurrentProcess(), &process, 0, FALSE,
+                         DUPLICATE_SAME_ACCESS)) return nullptr;
+    peerThread = std::thread([pipeName] {
+        auto pipe = Adopt(CreateFileW(pipeName.c_str(), pipeAccess, 0, nullptr, OPEN_EXISTING,
+                                      FILE_FLAG_OVERLAPPED | SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION,
+                                      nullptr));
+        if (!pipe) { fakeError = GetLastError(); return; }
+        auto deadline = GetTickCount64() + 5000;
+        Frame hello{protocolVersion, appCapabilities, Phase::Hello};
+        fakeError = Exchange(pipe.get(), hello, true, deadline);
+        Frame accept{};
+        if (!fakeError) fakeError = Exchange(pipe.get(), accept, false, deadline, true);
+        gotAccept = !fakeError && Matches(accept, Phase::AcceptTransferJob, appCapabilities);
+        RequestHeader request{};
+        std::wstring payload(7, L'\0');
+        if (!fakeError) fakeError = TransferRequest(pipe.get(), &request, sizeof(request), false, deadline);
+        if (!fakeError) fakeError = TransferRequest(pipe.get(), payload.data(),
+            static_cast<DWORD>(payload.size() * sizeof(wchar_t)), false, deadline);
+        gotRequest = !fakeError && request.operation == Operation::ProbeOverwrite && payload == L"fixture";
+        if (fakeError || currentScenario == Scenario::DropStatus) return;
+        DWORD status = currentScenario == Scenario::Failure || currentScenario == Scenario::InvalidFailure
+                           ? ERROR_ACCESS_DENIED : ERROR_SUCCESS;
+        const DWORD statusSize = currentScenario == Scenario::ShortStatus ? 2 : sizeof(status);
+        fakeError = TransferRequest(pipe.get(), &status, statusSize, true, deadline);
+        if (statusSent) SetEvent(statusSent);
+        if (fakeError || currentScenario == Scenario::ShortStatus || currentScenario == Scenario::DropReply) return;
+        if (currentScenario == Scenario::CancelAfterStatus)
+        {
+            BYTE discarded{};
+            (void)TransferRequest(pipe.get(), &discarded, sizeof(discarded), false, deadline);
+            return;
+        }
+        UacF7::OverwriteProbeReply reply{};
+        if (!status || currentScenario == Scenario::InvalidFailure)
+        {
+            reply.present = 1; reply.nonce.Data1 = 77;
+            reply.sourceParentSerial = request.serial; reply.targetParentSerial = request.targetSerial;
+            CopyMemory(reply.sourceParentId, request.parentId.Identifier, 16);
+            CopyMemory(reply.targetParentId, request.targetParentId.Identifier, 16);
+            reply.source.serial = request.serial;
+            CopyMemory(reply.source.fileId, request.sourceId.Identifier, 16);
+            reply.source.size = static_cast<LONGLONG>(request.copySize);
+            reply.source.attributes = FILE_ATTRIBUTE_ARCHIVE;
+            reply.target.serial = request.targetSerial; reply.target.fileId[0] = 8;
+            reply.target.size = 9; reply.target.attributes = FILE_ATTRIBUTE_ARCHIVE;
+        }
+        if (currentScenario == Scenario::BadVersion) ++reply.version;
+        if (currentScenario == Scenario::BadSource) reply.source.fileId[15] ^= 1;
+        const DWORD bytes = currentScenario == Scenario::ShortReply ? sizeof(DWORD) : sizeof(reply);
+        fakeError = TransferRequest(pipe.get(), &reply, bytes, true, deadline);
+        if (!fakeError)
+        {
+            // Hold the peer until the host either hands off or closes its end.
+            BYTE ignored{};
+            (void)TransferRequest(pipe.get(), &ignored, sizeof(ignored), false, deadline);
+        }
+    });
+    return process;
+}
+
+bool Run(Scenario scenario, bool withCancel = true)
+{
+    currentScenario = scenario; fakeError = ERROR_GEN_FAILURE; gotRequest = gotAccept = false;
+    const auto cancel = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    const auto sent = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    if (!cancel || !sent) return false;
+    statusSent = sent.get();
+    std::thread stopper;
+    if (scenario == Scenario::CancelAfterStatus)
+        stopper = std::thread([&] {
+            if (WaitForSingleObject(sent.get(), 4000) == WAIT_OBJECT_0) SetEvent(cancel.get());
+        });
+
+    InstallLocation unused;
+    RequestHeader request{};
+    request.operation = Operation::ProbeOverwrite;
+    request.serial = 7; request.targetSerial = 9; request.copySize = 3;
+    request.parentId.Identifier[0] = 1; request.sourceId.Identifier[0] = 2; request.targetParentId.Identifier[0] = 3;
+    std::wstring payload = L"fixture";
+    UacF7::Result result{}; result.error = ERROR_GEN_FAILURE; result.unknown = true;
+    UacF7::OverwriteProbeReply reply{};
+    HANDLE job = nullptr;
+    const int run = RunProbe(unused, false, false, nullptr, &request, &payload, nullptr, &result,
+                             nullptr, withCancel ? cancel.get() : nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, &job,
+                             nullptr, nullptr, nullptr, nullptr, &reply);
+    const bool handedOff = job != nullptr;
+    if (job) CloseHandle(job);
+    if (stopper.joinable()) stopper.join();
+    if (peerThread.joinable()) peerThread.join();
+    statusSent = nullptr;
+    if (!gotAccept || !gotRequest || fakeError) return false;
+    if (scenario == Scenario::Success)
+        return run == Ok && !result.error && !result.unknown && handedOff && reply.present == 1;
+    if (scenario == Scenario::Failure)
+        return run == Ok && result.error == ERROR_ACCESS_DENIED && !result.unknown && !handedOff && !reply.present;
+    if (scenario == Scenario::CancelAfterStatus)
+        return run != Ok && result.error == ERROR_CANCELLED && !result.unknown && !handedOff && !reply.present;
+    if (!withCancel && (scenario == Scenario::ShortReply || scenario == Scenario::BadVersion))
+        return run != Ok && result.error == ERROR_INVALID_DATA && !result.unknown && !handedOff && !reply.present;
+    return run != Ok && result.error != ERROR_SUCCESS && !result.unknown && !handedOff && !reply.present;
+}
+
+bool Precancel()
+{
+    const auto cancel = Adopt(CreateEventW(nullptr, TRUE, TRUE, nullptr));
+    if (!cancel) return false;
+    const int before = launches;
+    InstallLocation unused;
+    RequestHeader request{}; request.operation = Operation::ProbeOverwrite;
+    std::wstring payload = L"fixture";
+    UacF7::Result result{}; UacF7::OverwriteProbeReply reply{}; HANDLE job = nullptr;
+    const int run = RunProbe(unused, false, false, nullptr, &request, &payload, nullptr, &result,
+                             nullptr, cancel.get(), nullptr, nullptr, nullptr, nullptr, nullptr, &job,
+                             nullptr, nullptr, nullptr, nullptr, &reply);
+    return run == Cancelled && result.error == ERROR_CANCELLED && !result.unknown && !job && launches == before;
+}
+}
+
+int main()
+{
+    const ComApartment com;
+    if (FAILED(com.result)) return 2;
+    int failures = 0, checks = 0;
+    for (Scenario scenario : {Scenario::Success, Scenario::Failure, Scenario::DropStatus, Scenario::ShortStatus,
+                              Scenario::DropReply, Scenario::ShortReply, Scenario::BadVersion, Scenario::BadSource,
+                              Scenario::InvalidFailure, Scenario::CancelAfterStatus})
+    {
+        ++checks;
+        const bool ok = Run(scenario);
+        std::printf("%s RunProbe scenario %d\n", ok ? "PASS" : "FAIL", static_cast<int>(scenario));
+        failures += !ok;
+    }
+    for (Scenario scenario : {Scenario::ShortReply, Scenario::BadVersion})
+    {
+        ++checks;
+        const bool ok = Run(scenario, false);
+        std::printf("%s RunProbe exact transport error without cancel, scenario %d\n", ok ? "PASS" : "FAIL", static_cast<int>(scenario));
+        failures += !ok;
+    }
+    ++checks;
+    const bool cancelled = Precancel();
+    std::printf("%s pre-cancelled RunProbe starts no peer\n", cancelled ? "PASS" : "FAIL");
+    failures += !cancelled;
+    std::printf("RunProbe test seam: %d checks, %d failures\n", checks, failures);
+    return failures ? 1 : 0;
+}

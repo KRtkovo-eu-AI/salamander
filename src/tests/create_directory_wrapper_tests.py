@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Compile actual host/SDK create-directory wrappers and exercise their wide I/O."""
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-07 | Compile the F7 command with its real Windows wrappers. | Verify or preserve the F7 local creation contract. | | GPT-6.1 Sol (Codex) |
+"""Exercise the actual F7 command and host/SDK create-directory wrappers."""
 import argparse
 from pathlib import Path
 import shutil
@@ -17,6 +19,22 @@ def main():
     generated = read("src/tests/create_directory_wrapper_tests.cpp.in")
     generated = generated.replace("@@WORKER_PATH_HEADER@@", (Path(__file__).resolve().parents[1] / "workerpath.h").as_posix())
     generated = generated.replace("@@HOST_WRAPPER@@", host).replace("@@SDK_WRAPPER@@", sdk)
+    panel = read("src/fileswn5.cpp")
+    wide = read("src/common/widepath.cpp")
+    pieces = {
+        "WIDE_WRAPPER": "\n".join((
+            block(wide, "BOOL SalIsExtendedLengthPathW("),
+            block(wide, "std::wstring SalPathAddExtendedPrefixW("),
+            block(read("src/salamdr3.cpp"), "BOOL SalCreateDirectoryExW("),
+        )),
+        "F7_COMMAND": "\n".join((
+            block(panel, "BOOL FileNameInvalidForManualCreate("),
+            block(panel, "struct LocalDirectoryCreateResult", ";"),
+            block(panel, "static LocalDirectoryCreateResult CreateLocalDirectoryLeaf("),
+        )),
+    }
+    for name, source in pieces.items():
+        generated = generated.replace("@@" + name + "@@", source)
     if "@@" in generated:
         raise AssertionError("unexpanded production fixture")
     env = compiler_environment()
@@ -29,9 +47,9 @@ def main():
         exe = directory / "test.exe"
         for configuration in configurations:
             flags = ["/MDd", "/D_DEBUG", "/Od"] if configuration == "Debug" else ["/MD", "/DNDEBUG", "/O2"]
-            print("Actual host + SDK create-directory wrappers:", configuration, flush=True)
+            print("Actual F7, host and SDK create-directory commands:", configuration, flush=True)
             for command in ([compiler, "/nologo", "/std:c++17", "/EHsc", "/utf-8", "/W4", "/WX",
-                             *flags, str(source), "/Fe:" + str(exe)], [str(exe)]):
+                             *flags, str(source), "/Fe:" + str(exe), "advapi32.lib"], [str(exe)]):
                 result = run(command, cwd=directory, env=env, timeout=35)
                 if result.returncode:
                     return result.returncode

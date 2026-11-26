@@ -1,4 +1,6 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-26 | Remove continue-on-error from the reusable cleanup call. | That key makes the workflow file invalid, so the required report stays pending and never queues a runner. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
+# | 2026-11-25 | Let the growth report continue when run cleanup fails. | A cancelled cleanup job must not leave the report check skipped. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 # | 2026-11-04 | Run source growth on Ubuntu and keep only the newest pull request run. | This report was taking a Windows runner and its check suite collected test results. | | Grok 4.7 |
 
 name: Source Code Growth
@@ -33,6 +35,7 @@ jobs:
   report:
     name: Source growth against latest release and PR base
     needs: keep-latest
+    if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
 

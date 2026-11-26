@@ -2,7 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-25 | Use one wide item record for the background Paste menu. | The merged shell and Paste paths were declaring two mi variables in the same scope. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
+// | 2026-11-25 | Keep Shell menu labels valid for protected and background menus. | Unicode shell entries stay intact for both administrator and Paste menus. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 // | 2026-11-20 | Build the background Paste menu with wide labels. | Keep shell and host menu entries valid after the Unicode conversion. |  | gpt-6.2-sol |
+// | 2026-11-16 | Keep distinct buffers for Shell and application menu labels. | Preserve Unicode shell entries while compiling the existing ANSI menu commands. | #731 | GPT-6 |
 // | 2026-11-15 | Preserve Unicode labels from the Shell background menu. | Avoid truncating localized menu text during ANSI conversion. | | openai/gpt-6-luna-pro |
 // | 2026-11-10 | Fix signedness in the archive clipboard buffer bounds check. | Keep the Win32 warning-as-error build passing. | https://github.com/KRtkovo-eu-AI/salamander/pull/844 | GPT-6 |
 // | 2026-11-10 | Stage archive and plugin FS selections as real clipboard files. | Enable ordinary Ctrl+C/Ctrl+V independent of the shell extension fake-directory handoff. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
@@ -2707,15 +2710,15 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                             int miCount = GetMenuItemCount(h);
                             // Keep Windows-localized labels in UTF-16 while copying the shell commands.
                             MENUITEMINFOW shellMi;
-                            WCHAR itemName[500];
+                            WCHAR shellItemName[500];
                             int i;
                             for (i = 0; i < miCount; i++)
                             {
                                 memset(&shellMi, 0, sizeof(shellMi)); // necessary here
                                 shellMi.cbSize = sizeof(shellMi);
                                 shellMi.fMask = MIIM_STATE | MIIM_TYPE | MIIM_ID | MIIM_SUBMENU;
-                                shellMi.dwTypeData = itemName;
-                                shellMi.cch = _countof(itemName);
+                                shellMi.dwTypeData = shellItemName;
+                                shellMi.cch = _countof(shellItemName);
                                 if (GetMenuItemInfoW(h, i, TRUE, &shellMi))
                                 {
                                     if (shellMi.hSubMenu == NULL && (shellMi.fType & MFT_SEPARATOR) == 0) // not a submenu nor a separator

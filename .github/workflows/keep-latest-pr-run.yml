@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-25 | Cancel older runs with gh instead of a downloaded action. | A timed-out action download cancelled the caller and left skipped checks on the pull request. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 # | 2026-11-04 | Cancel older queued runs of the calling workflow. | A new pull request push should replace runs already waiting for a runner. | | Grok 4.7 |
 
 name: Keep latest pull request run
@@ -35,72 +36,60 @@ jobs:
   keep-latest:
     name: Cancel older queued runs
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 10
     steps:
       - name: Cancel older runs of this workflow
-        uses: actions/github-script@v7
         env:
+          GH_TOKEN: ${{ github.token }}
           KEEP_WORKFLOW_FILE: ${{ inputs.workflow_file }}
           KEEP_CURRENT_RUN_ID: ${{ inputs.current_run_id }}
           KEEP_EVENT_NAME: ${{ inputs.event_name }}
           KEEP_HEAD_BRANCH: ${{ inputs.head_branch }}
           KEEP_HEAD_REPOSITORY: ${{ inputs.head_repository }}
-        with:
-          script: |
-            const workflowFile = process.env.KEEP_WORKFLOW_FILE || '';
-            const currentRunId = Number(process.env.KEEP_CURRENT_RUN_ID);
-            const eventName = process.env.KEEP_EVENT_NAME || '';
-            const headBranch = process.env.KEEP_HEAD_BRANCH || '';
-            const headRepository = process.env.KEEP_HEAD_REPOSITORY || '';
+        shell: bash
+        run: |
+          set -u
+          if [ -z "${KEEP_WORKFLOW_FILE}" ] || [ -z "${KEEP_CURRENT_RUN_ID}" ] || [ -z "${KEEP_EVENT_NAME}" ] || [ -z "${KEEP_HEAD_BRANCH}" ]; then
+            echo "keep-latest-pr-run requires workflow_file, current_run_id, event_name, and head_branch." >&2
+            exit 1
+          fi
 
-            if (!workflowFile || !Number.isInteger(currentRunId) || currentRunId <= 0 || !eventName || !headBranch) {
-              core.setFailed('keep-latest-pr-run requires workflow_file, current_run_id, event_name, and head_branch.');
-              return;
-            }
+          cancelled=0
+          for status in queued in_progress waiting requested pending; do
+            if ! runs=$(gh api --paginate \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/${GITHUB_REPOSITORY}/actions/workflows/${KEEP_WORKFLOW_FILE}/runs" \
+              -f status="${status}" \
+              -f branch="${KEEP_HEAD_BRANCH}" \
+              -f per_page=100 \
+              --jq '.workflow_runs[] | [.id, .event, .head_branch, (.head_repository.full_name // ""), .html_url] | @tsv'); then
+              echo "::warning::Could not list ${status} runs of ${KEEP_WORKFLOW_FILE}."
+              continue
+            fi
 
-            const statuses = ['queued', 'in_progress', 'waiting', 'requested', 'pending'];
-            let cancelled = 0;
+            while IFS=$'\t' read -r id event branch repository url; do
+              if [ -z "${id}" ]; then
+                continue
+              fi
+              if [ "${id}" -ge "${KEEP_CURRENT_RUN_ID}" ]; then
+                continue
+              fi
+              if [ "${event}" != "${KEEP_EVENT_NAME}" ]; then
+                continue
+              fi
+              if [ -n "${repository}" ] && [ -n "${KEEP_HEAD_REPOSITORY}" ] && [ "${repository}" != "${KEEP_HEAD_REPOSITORY}" ]; then
+                continue
+              fi
+              if [ -n "${branch}" ] && [ "${branch}" != "${KEEP_HEAD_BRANCH}" ]; then
+                continue
+              fi
+              if gh api --method POST "/repos/${GITHUB_REPOSITORY}/actions/runs/${id}/cancel" >/dev/null; then
+                cancelled=$((cancelled + 1))
+                echo "Cancelled older ${status} run ${id} (${url})."
+              else
+                echo "::warning::Could not cancel run ${id}. This token may not be allowed to cancel workflow runs."
+              fi
+            done < <(printf '%s\n' "${runs}")
+          done
 
-            for (const status of statuses) {
-              let runs;
-              try {
-                runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  workflow_id: workflowFile,
-                  status,
-                  branch: headBranch,
-                  per_page: 100,
-                });
-              } catch (error) {
-                core.warning(`Could not list ${status} runs of ${workflowFile}: ${error.message}`);
-                continue;
-              }
-
-              for (const run of runs) {
-                if (run.id >= currentRunId) continue;
-                if (run.event !== eventName) continue;
-                const runRepository = run.head_repository && run.head_repository.full_name;
-                if (runRepository && headRepository && runRepository !== headRepository) continue;
-                if (run.head_branch && run.head_branch !== headBranch) continue;
-
-                try {
-                  await github.rest.actions.cancelWorkflowRun({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    run_id: run.id,
-                  });
-                  cancelled += 1;
-                  core.info(`Cancelled older ${status} run ${run.id} (${run.html_url}).`);
-                } catch (error) {
-                  const statusCode = error.status || (error.response && error.response.status);
-                  if (statusCode === 401 || statusCode === 403) {
-                    core.warning(`Cannot cancel run ${run.id}. This token cannot cancel workflow runs.`);
-                    return;
-                  }
-                  core.warning(`Could not cancel run ${run.id}: ${error.message}`);
-                }
-              }
-            }
-
-            core.info(`Cancelled ${cancelled} older ${workflowFile} run(s) for ${headRepository}@${headBranch}.`);
+          echo "Cancelled ${cancelled} older ${KEEP_WORKFLOW_FILE} run(s) for ${KEEP_HEAD_REPOSITORY}@${KEEP_HEAD_BRANCH}."

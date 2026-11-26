@@ -1,5 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Samandarin Contributors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Test the exact denied suffix and original target mask. | Keep the Windows parser and ordinary creation in the regression fixture. | #731 | GPT-6.1 Sol |
 // Actual shared split/create flow, real owned NTFS directories; explicit UI/notification doubles.
 #define WIN32_LEAN_AND_MEAN
 #define _CRT_SECURE_NO_WARNINGS
@@ -36,8 +38,24 @@ struct NotificationSink {std::vector<std::string> Paths;std::vector<BOOL> Recurs
 static NotificationSink Notifications;
 static NotificationSink* MainWindow=&Notifications;
 @@WIDE@@
+static std::wstring DeniedDirectory;
+static DWORD DirectoryError = ERROR_ACCESS_DENIED;
+static BOOL CreateDirectoryForSplit(LPCWSTR path, LPSECURITY_ATTRIBUTES attrs)
+{
+    if (DeniedDirectory == path)
+    {
+        SetLastError(DirectoryError);
+        return FALSE;
+    }
+    return CreateDirectoryW(path, attrs);
+}
+#define CreateDirectoryW CreateDirectoryForSplit
 @@UTILS@@
+#undef CreateDirectoryW
 BOOL SalSplitGeneralPath(HWND,const char*,const char*,int,char*,char*,char*,BOOL,BOOL,const char*,const char*,char*&,char*,SGP_IsTheSamePathF,int,int);
+using SalDeferredDirectory = bool (*)(void*, const char*, size_t);
+BOOL SalSplitWindowsPath(HWND,const char*,const char*,int,char*,char*,BOOL,BOOL,const char*,const char*,char*&,int,
+                         SalDeferredDirectory = nullptr,void* = nullptr);
 @@SPLIT@@
 static int Checks=0,Failures=0;
 static void Check(bool ok,const char*label){++Checks;if(!ok){++Failures;printf("FAIL: %s\n",label);}}
@@ -52,6 +70,75 @@ static bool OwnsMask(const std::vector<char>& buffer,const char* mask,int capaci
     const UINT_PTR begin=(UINT_PTR)buffer.data(),address=(UINT_PTR)mask;
     return mask!=nullptr&&address>=begin&&address-begin<(size_t)capacity;
 }
+static void CheckDeferredTarget(const std::filesystem::path& root)
+{
+    const auto base = root / L"deferred-\u6771";
+    std::filesystem::create_directories(Full(base));
+    const auto denied = base / L"first-\u672c" / L"denied-\u65e5";
+    const auto final = denied / L"deep-\u6771";
+    DeniedDirectory = denied.wstring();
+    const std::string prefix = Utf8(base.wstring()) + "\\";
+    const std::string directory = Utf8(final.wstring());
+    const std::string firstPart = Utf8(denied.parent_path().wstring()) + "\\";
+    struct Capture
+    {
+        std::string path;
+        size_t parentLength = 0;
+        int calls = 0;
+    };
+    const auto defer = [](void* context, const char* path, size_t parentLength) {
+        auto& capture = *static_cast<Capture*>(context);
+        capture.path = path;
+        capture.parentLength = parentLength;
+        ++capture.calls;
+        return true;
+    };
+    const auto run = [&](const char* destinationMask, int selected, Capture& capture) {
+        std::vector<char> buffer(SAL_MAX_PATH+16,'Z');
+        const std::string input = directory + "\\" + destinationMask;
+        memcpy(buffer.data(),input.c_str(),input.size()+1);
+        char* mask = nullptr;
+        const BOOL ok = SalSplitWindowsPath(nullptr,"Copy","Copy error",selected,buffer.data(),
+            buffer.data()+prefix.size(),TRUE,FALSE,nullptr,nullptr,mask,SAL_MAX_PATH,defer,&capture);
+        return ok && Redzone(buffer) && std::string(buffer.data())==directory &&
+            OwnsMask(buffer,mask,SAL_MAX_PATH) && std::string(mask)==destinationMask;
+    };
+    Capture canceled;
+    Reset(IDNO);
+    Check(!run("*.*",2,canceled) && canceled.calls==0 && !std::filesystem::exists(Full(denied.parent_path())),
+          "refusing ordinary path creation invokes no elevated fallback");
+
+    Capture accepted;
+    Reset();
+    Check(run("*.*",2,accepted) && accepted.calls==1 && accepted.path==directory &&
+              accepted.parentLength==firstPart.size() && std::filesystem::is_directory(Full(denied.parent_path())) &&
+              !std::filesystem::exists(Full(denied)) && Prompts==1 && Messages==0 &&
+              Notifications.Paths==std::vector<std::string>{prefix},
+          "defer only the remaining Unicode path after an ordinary ancestor was created");
+
+    std::filesystem::remove(Full(denied.parent_path()));
+    DeniedDirectory = denied.parent_path().wstring();
+    Capture noPartial;
+    Reset();
+    Check(run("*.*",2,noPartial) && noPartial.calls==1 && noPartial.parentLength==prefix.size() &&
+              !std::filesystem::exists(Full(denied.parent_path())) && Notifications.Paths.empty(),
+          "deferral at the first component produces no ordinary directory mutation or refresh");
+
+    Capture collisionMask;
+    Reset();
+    Check(!run("one-*.txt",2,collisionMask) && collisionMask.calls==0 && Messages==1 &&
+              !std::filesystem::exists(Full(denied.parent_path())),
+          "multiple renamed outputs keep the existing error route");
+
+    Capture otherFailure;
+    Reset();
+    DirectoryError = ERROR_SHARING_VIOLATION;
+    Check(!run("*.*",2,otherFailure) && otherFailure.calls==0 && Messages==1,
+          "only access denial can defer a target directory");
+    DirectoryError = ERROR_ACCESS_DENIED;
+    DeniedDirectory.clear();
+}
+
 int wmain(int argc,wchar_t**argv)
 {
     if(argc!=2)return 2;
@@ -59,6 +146,7 @@ int wmain(int argc,wchar_t**argv)
     auto root=std::filesystem::absolute(argv[1]);root.make_preferred();
     if(root.filename()!=L"owned-fixtures"||std::filesystem::exists(Full(root)))return 3;
     std::filesystem::create_directories(Full(root));
+    CheckDeferredTarget(root);
     const std::vector<std::filesystem::path> shapes={L"ascii",L"unicode-name",L"rodič-東京",std::filesystem::path(L"první-🙂")/L"druhý-東京",std::wstring(140,L'東'),std::filesystem::path(std::wstring(100,L'日'))/std::wstring(100,L'本')/std::wstring(100,L'東')};
     for(size_t i=0;i<shapes.size();++i)
     {

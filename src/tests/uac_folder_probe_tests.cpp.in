@@ -1,0 +1,550 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <windows.h>
+#include <aclapi.h>
+#include <sddl.h>
+#include <algorithm>
+#include <atomic>
+#include <cstdio>
+#include <iterator>
+#include <limits>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <thread>
+#include <unordered_map>
+#include <vector>
+
+constexpr UINT uacFolderProbeMessage = WM_APP + 431;
+constexpr UINT uacFolderProbeContinueMessage = WM_APP + 432;
+constexpr int ptDisk = 1;
+struct CFileData { const char* Name; DWORD Attr; bool IsLink; std::wstring Path; };
+struct CFilesArray { int Count = 0; std::vector<CFileData> data; CFileData& At(int i) { return data.at(i); } };
+struct FakeListing { bool open = false; bool IsOpen() const { return open; } bool Contains(const std::wstring&) const { return open; } };
+@@STATE@@
+struct CFilesWindow {
+    HWND HWindow = reinterpret_cast<HWND>(0x100);
+    CFilesArray rows;
+    CFilesArray fileRows;
+    CFilesArray* Dirs = &rows;
+    CFilesArray* Files = &fileRows;
+    std::shared_ptr<CUacFolderProbeState> UacFolderProbe;
+    std::unordered_map<std::wstring, unsigned> UacDeniedItems;
+    ULONG_PTR UacFolderProbeRun = 0;
+    ULONGLONG UacFolderProbeGeneration = 0;
+    size_t UacFolderProbeNext = 0;
+    std::wstring UacFolderProbeRoot;
+    std::unique_ptr<FakeListing> ProtectedListing;
+    ULONGLONG listingGeneration = 1;
+    std::wstring root = L"C:\\root";
+    bool disk = true;
+    bool Is(int) { return disk; }
+    DWORD GetPathDriveType() { return DRIVE_FIXED; }
+    const wchar_t* GetPathW() const { return root.c_str(); }
+    ULONGLONG GetListingIdentityGeneration() const { return listingGeneration; }
+    std::wstring GetItemFullPathW(const CFileData& file) const { return file.Path; }
+    HWND GetListBoxHWND() { return HWindow; }
+    void StartUacFolderProbe();
+    void StopUacFolderProbe();
+    void UacFolderProbeContinue(WPARAM);
+    void UacFolderProbeReady(WPARAM, LPARAM);
+    bool HasUacDeniedItem(const CFileData*) const;
+};
+struct Message { UINT id; WPARAM w; LPARAM l; };
+std::vector<Message> messages;
+LPTHREAD_START_ROUTINE queued = nullptr;
+void* queuedArgument = nullptr;
+int opens = 0, repaints = 0;
+bool correctFlags = true;
+bool allowElevation = true;
+bool useRealFilesystem = false;
+CFilesWindow* cancelPanel = nullptr;
+bool forceReadControlFailure = false;
+std::atomic<ULONG_PTR> nextUacFolderProbeRun{1};
+
+namespace UacF7 { bool CanOfferElevation() { return allowElevation; } }
+std::wstring SalPathAddExtendedPrefixW(const wchar_t* path) { return path; }
+std::wstring SalPathRemoveExtendedPrefixW(const wchar_t* path) {
+    std::wstring result(path);
+    if (result.compare(0, 4, L"\\\\?\\") == 0) result.erase(0, 4);
+    return result;
+}
+UINT WINAPI FakeDrive(LPCWSTR path) { return useRealFilesystem ? ::GetDriveTypeW(path) : DRIVE_FIXED; }
+BOOL WINAPI FakeVolume(LPCWSTR path, LPWSTR volume, DWORD volumeSize, LPDWORD serial, LPDWORD maxName,
+                       LPDWORD flags, LPWSTR fs, DWORD size) {
+    if (useRealFilesystem) return ::GetVolumeInformationW(path, volume, volumeSize, serial, maxName, flags, fs, size);
+    if (size < 5) return FALSE;
+    wcscpy_s(fs, size, L"NTFS");
+    return TRUE;
+}
+DWORD WINAPI FakeAttributes(LPCWSTR path) {
+    if (useRealFilesystem) return ::GetFileAttributesW(path);
+    const std::wstring name(path);
+    if (name.find(L"redirected") != std::wstring::npos) return FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT;
+    return FILE_ATTRIBUTE_DIRECTORY;
+}
+HANDLE WINAPI FakeCreate(LPCWSTR path, DWORD access, DWORD share, LPSECURITY_ATTRIBUTES security,
+                         DWORD creation, DWORD flags, HANDLE templateFile) {
+    ++opens;
+    correctFlags &= share == (FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE) && creation == OPEN_EXISTING &&
+                    (flags & FILE_FLAG_OPEN_REPARSE_POINT) &&
+                    (flags & ~(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT)) == 0;
+    if (forceReadControlFailure && access == READ_CONTROL) {
+        SetLastError(ERROR_ACCESS_DENIED); return INVALID_HANDLE_VALUE;
+    }
+    if (useRealFilesystem) return ::CreateFileW(path, access, share, security, creation, flags, templateFile);
+    if (cancelPanel) { cancelPanel->StopUacFolderProbe(); cancelPanel = nullptr; }
+    const std::wstring name(path);
+    if (name.find(L"readonly") != std::wstring::npos && access == GENERIC_WRITE) {
+        SetLastError(ERROR_ACCESS_DENIED); return INVALID_HANDLE_VALUE;
+    }
+    if ((name.find(L"read-denied") != std::wstring::npos && access == GENERIC_READ) ||
+        (name.find(L"write-denied") != std::wstring::npos && access == GENERIC_WRITE) ||
+        (name.find(L"attrs-denied") != std::wstring::npos && access == FILE_WRITE_ATTRIBUTES) ||
+        (name.find(L"delete-denied") != std::wstring::npos && access == DELETE) ||
+        (name.find(L"blocked-parent") != std::wstring::npos &&
+         (access == FILE_DELETE_CHILD || access == FILE_ADD_FILE)) ||
+        (name.find(L"denied") != std::wstring::npos && (flags & FILE_FLAG_BACKUP_SEMANTICS) &&
+         access == FILE_LIST_DIRECTORY)) { SetLastError(ERROR_ACCESS_DENIED); return INVALID_HANDLE_VALUE; }
+    if (name.find(L"unknown") != std::wstring::npos) { SetLastError(ERROR_SHARING_VIOLATION); return INVALID_HANDLE_VALUE; }
+    return reinterpret_cast<HANDLE>(0x201);
+}
+BOOL WINAPI FakeClose(HANDLE handle) { return useRealFilesystem ? ::CloseHandle(handle) : TRUE; }
+BOOL WINAPI FakePost(HWND, UINT id, WPARAM w, LPARAM l) { messages.push_back({id, w, l}); return TRUE; }
+BOOL WINAPI FakeInvalidate(HWND, const RECT*, BOOL) { ++repaints; return TRUE; }
+BOOL WINAPI FakeQueue(LPTHREAD_START_ROUTINE callback, PVOID arg, ULONG) { queued = callback; queuedArgument = arg; return TRUE; }
+HANDLE OpenAclHandle(const wchar_t* path) { return ::CreateFileW(path, READ_CONTROL | WRITE_DAC,
+    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr); }
+void CloseRealHandle(HANDLE handle) { ::CloseHandle(handle); }
+bool CreateRealFile(const wchar_t* path) {
+    const HANDLE file = ::CreateFileW(path, GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return false;
+    const char expected = 'x'; DWORD written = 0;
+    const bool ok = ::WriteFile(file, &expected, 1, &written, nullptr) && written == 1;
+    ::CloseHandle(file);
+    return ok;
+}
+bool ReadRealFile(const wchar_t* path) {
+    const HANDLE file = ::CreateFileW(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        nullptr, OPEN_EXISTING, 0, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return false;
+    char actual = 0; DWORD read = 0; LARGE_INTEGER size{};
+    const bool ok = ::GetFileSizeEx(file, &size) && size.QuadPart == 1 &&
+                    ::ReadFile(file, &actual, 1, &read, nullptr) && read == 1 && actual == 'x';
+    ::CloseHandle(file);
+    return ok;
+}
+bool QueryRealAclWrite(const wchar_t* path, bool& allowed, bool& explicitWriteDeny, DWORD desired = FILE_WRITE_DATA) {
+    allowed = false;
+    explicitWriteDeny = false;
+    HANDLE file = ::CreateFileW(path, READ_CONTROL, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return false;
+    PSECURITY_DESCRIPTOR descriptor = nullptr;
+    DWORD error = GetSecurityInfo(file, SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION |
+                                  DACL_SECURITY_INFORMATION, nullptr, nullptr, nullptr, nullptr, &descriptor);
+    ::CloseHandle(file);
+    if (error || !descriptor) return false;
+    BOOL present = FALSE, defaulted = FALSE; PACL dacl = nullptr;
+    if (GetSecurityDescriptorDacl(descriptor, &present, &dacl, &defaulted) && present && dacl) {
+        for (DWORD i = 0; i < dacl->AceCount; ++i) {
+            void* ace = nullptr;
+            if (GetAce(dacl, i, &ace) && static_cast<ACE_HEADER*>(ace)->AceType == ACCESS_DENIED_ACE_TYPE &&
+                (static_cast<ACCESS_DENIED_ACE*>(ace)->Mask & desired)) explicitWriteDeny = true;
+        }
+    }
+    HANDLE primary = nullptr, token = nullptr;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY | TOKEN_DUPLICATE, &primary) ||
+        !DuplicateToken(primary, SecurityImpersonation, &token)) {
+        if (primary) ::CloseHandle(primary);
+        LocalFree(descriptor);
+        return false;
+    }
+    GENERIC_MAPPING mapping{FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_GENERIC_EXECUTE, FILE_ALL_ACCESS};
+    PRIVILEGE_SET privileges{}; DWORD privilegeBytes = sizeof(privileges), granted = 0; BOOL access = FALSE;
+    const BOOL ok = AccessCheck(descriptor, token, desired, &mapping, &privileges, &privilegeBytes, &granted, &access);
+    allowed = access != FALSE;
+    ::CloseHandle(token); ::CloseHandle(primary); LocalFree(descriptor);
+    return ok != FALSE;
+}
+struct RealFileAcl {
+    HANDLE handle = INVALID_HANDLE_VALUE;
+    PSECURITY_DESCRIPTOR original = nullptr;
+    PACL oldDacl = nullptr;
+    SECURITY_DESCRIPTOR_CONTROL control{};
+    DWORD revision = 0;
+    bool changed = false;
+    bool Deny(const wchar_t* path, const wchar_t* descriptor) {
+        handle = OpenAclHandle(path);
+        if (handle == INVALID_HANDLE_VALUE ||
+            GetSecurityInfo(handle, SE_FILE_OBJECT, DACL_SECURITY_INFORMATION, nullptr, nullptr, &oldDacl, nullptr, &original) ||
+            !GetSecurityDescriptorControl(original, &control, &revision)) return false;
+        PSECURITY_DESCRIPTOR replacement = nullptr;
+        if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(descriptor, SDDL_REVISION_1, &replacement, nullptr)) return false;
+        PACL dacl = nullptr; BOOL present = FALSE, defaulted = FALSE;
+        const bool valid = GetSecurityDescriptorDacl(replacement, &present, &dacl, &defaulted) && present;
+        changed = valid && !SetSecurityInfo(handle, SE_FILE_OBJECT, DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+                                            nullptr, nullptr, dacl, nullptr);
+        LocalFree(replacement);
+        return changed;
+    }
+    bool Restore() {
+        if (!changed) return true;
+        const auto protection = (control & SE_DACL_PROTECTED) ? PROTECTED_DACL_SECURITY_INFORMATION : UNPROTECTED_DACL_SECURITY_INFORMATION;
+        if (SetSecurityInfo(handle, SE_FILE_OBJECT, DACL_SECURITY_INFORMATION | protection, nullptr, nullptr, oldDacl, nullptr)) return false;
+        changed = false;
+        return true;
+    }
+    ~RealFileAcl() { Restore(); if (handle != INVALID_HANDLE_VALUE) CloseRealHandle(handle); if (original) LocalFree(original); }
+};
+#undef PostMessage
+#define PostMessage FakePost
+#define GetDriveTypeW FakeDrive
+#define GetVolumeInformationW FakeVolume
+#define GetFileAttributesW FakeAttributes
+#define CreateFileW FakeCreate
+#define CloseHandle FakeClose
+#define InvalidateRect FakeInvalidate
+#define QueueUserWorkItem FakeQueue
+
+@@NEW_RUN@@
+@@LOCAL_PARENT@@
+@@READONLY_ACL@@
+@@WORKER@@
+@@STOP@@
+@@START@@
+@@CONTINUE@@
+@@READY@@
+@@HAS@@
+
+int checks = 0, failures = 0;
+void Check(bool value, const char* name) { ++checks; if (!value) { ++failures; std::printf("FAIL: %s\n", name); } }
+void RunQueued() { auto callback = queued; auto argument = queuedArgument; queued = nullptr; queuedArgument = nullptr; if (callback) callback(argument); }
+void Add(CFilesWindow& panel, const char* name, const wchar_t* path, DWORD attrs = FILE_ATTRIBUTE_DIRECTORY, bool link = false) {
+    panel.rows.data.push_back({name, attrs, link, path});
+    panel.rows.Count = static_cast<int>(panel.rows.data.size());
+}
+void AddFile(CFilesWindow& panel, const char* name, const wchar_t* path, DWORD attrs = FILE_ATTRIBUTE_NORMAL, bool link = false) {
+    panel.fileRows.data.push_back({name, attrs, link, path});
+    panel.fileRows.Count = static_cast<int>(panel.fileRows.data.size());
+}
+int main() {
+    CFilesWindow panel;
+    Add(panel, "..", L"C:\\root\\..");
+    Add(panel, "normal", L"C:\\root\\normal");
+    Add(panel, "denied", L"\\\\?\\C:\\root\\denied");
+    Add(panel, "link", L"C:\\root\\link", FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT);
+    Add(panel, "offline", L"C:\\root\\offline", FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_OFFLINE);
+    Add(panel, "redirect", L"C:\\root\\redirect", FILE_ATTRIBUTE_DIRECTORY, true);
+    Add(panel, "unknown", L"C:\\root\\unknown");
+    panel.StartUacFolderProbe();
+    const auto initialRun = panel.UacFolderProbeRun;
+    Check(initialRun && opens == 0 && !queued, "listing schedules no filesystem work on UI thread");
+    panel.listingGeneration = 2;
+    panel.UacFolderProbeContinue(initialRun);
+    Check(panel.UacFolderProbeGeneration == 2 && queued, "deferred start captures published listing generation");
+    RunQueued();
+    Check(opens == 3 && correctFlags, "only ordinary folders are opened with listing access");
+    Check(!messages.empty() && messages.back().id == uacFolderProbeMessage, "worker sends a result notice");
+    HANDLE held = CreateEventW(nullptr, TRUE, FALSE, nullptr), release = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    std::thread locker([&] {
+        std::lock_guard<std::mutex> lock(panel.UacFolderProbe->mutex);
+        SetEvent(held);
+        WaitForSingleObject(release, 5000);
+    });
+    const bool locked = WaitForSingleObject(held, 5000) == WAIT_OBJECT_0;
+    const size_t previousMessages = messages.size();
+    panel.UacFolderProbeReady(initialRun, static_cast<LPARAM>(panel.listingGeneration));
+    Check(locked && messages.size() == previousMessages + 1 && messages.back().id == uacFolderProbeMessage,
+          "UI lock collision queues a retry instead of losing the repaint");
+    SetEvent(release);
+    locker.join();
+    CloseRealHandle(held); CloseRealHandle(release);
+    panel.UacFolderProbeReady(initialRun, static_cast<LPARAM>(panel.listingGeneration));
+    Check(panel.HasUacDeniedItem(&panel.rows.At(2)), "denied extended-length row receives shield");
+    Check(!panel.HasUacDeniedItem(&panel.rows.At(1)) && !panel.HasUacDeniedItem(&panel.rows.At(6)), "success and unrelated errors stay unmarked");
+    Check(!panel.HasUacDeniedItem(&panel.rows.At(3)) && !panel.HasUacDeniedItem(&panel.rows.At(5)), "redirected folders stay unmarked");
+    panel.ProtectedListing = std::make_unique<FakeListing>(); panel.ProtectedListing->open = true;
+    Check(!panel.HasUacDeniedItem(&panel.rows.At(2)), "live approved panel suppresses another-prompt indicator");
+    panel.ProtectedListing.reset();
+    ++panel.listingGeneration;
+    Check(!panel.HasUacDeniedItem(&panel.rows.At(2)), "listing generation invalidates prior results");
+    panel.StopUacFolderProbe();
+    const int oldRepaints = repaints;
+    panel.UacFolderProbeReady(initialRun, 2);
+    Check(repaints == oldRepaints, "late notification after stop is ignored");
+    CFilesWindow replacement;
+    Add(replacement, "denied", L"C:\\root\\denied");
+    replacement.StartUacFolderProbe();
+    replacement.UacFolderProbeReady(initialRun, 2);
+    Check(repaints == oldRepaints, "old message is ignored for another panel using the same HWND");
+    replacement.UacFolderProbeContinue(replacement.UacFolderProbeRun);
+    cancelPanel = &replacement;
+    RunQueued();
+    Check(!replacement.HasUacDeniedItem(&replacement.rows.At(0)), "a stopped probe cannot publish a late result");
+    CFilesWindow many;
+    for (int i = 0; i < 130; ++i) Add(many, "ordinary", L"C:\\root\\normal");
+    many.StartUacFolderProbe();
+    auto beforeSort = many.UacFolderProbeRun;
+    many.UacFolderProbeContinue(beforeSort);
+    Check(many.UacFolderProbeNext == 64, "snapshot is limited to one short UI batch");
+    many.StartUacFolderProbe();
+    auto afterSort = many.UacFolderProbeRun;
+    many.UacFolderProbeContinue(beforeSort);
+    Check(afterSort != beforeSort && many.UacFolderProbeNext == 0, "sort restart rejects stale collection messages");
+    many.UacFolderProbeContinue(afterSort); many.UacFolderProbeContinue(afterSort); many.UacFolderProbeContinue(afterSort);
+    Check(many.UacFolderProbeNext == 130, "all rows are covered without a fixed item limit");
+    RunQueued();
+    CFilesWindow truncated;
+    for (int i = 0; i < 70; ++i) Add(truncated, "ordinary", L"C:\\root\\normal");
+    truncated.StartUacFolderProbe(); truncated.UacFolderProbeContinue(truncated.UacFolderProbeRun);
+    truncated.rows.Count = 20;
+    truncated.UacFolderProbeContinue(truncated.UacFolderProbeRun);
+    Check(!truncated.UacFolderProbeRun, "an inconsistent row count cancels the old snapshot");
+    RunQueued();
+    CFilesWindow missing;
+    Add(missing, "ordinary", L"C:\\root\\normal");
+    missing.StartUacFolderProbe();
+    missing.Dirs = nullptr;
+    missing.UacFolderProbeContinue(missing.UacFolderProbeRun);
+    Check(!missing.UacFolderProbeRun, "a missing listing cancels the old snapshot");
+    CFilesWindow redirected;
+    Add(redirected, "denied", L"C:\\root\\redirected\\denied");
+    redirected.StartUacFolderProbe(); redirected.UacFolderProbeContinue(redirected.UacFolderProbeRun);
+    const int beforeRedirect = opens;
+    RunQueued();
+    Check(opens == beforeRedirect, "a reparse ancestor is not followed");
+    CFilesWindow extended;
+    const auto longPath = std::wstring(L"\\\\?\\C:\\root\\") + std::wstring(120, L'東') + L"\\" +
+                          std::wstring(120, L'日') + L"\\denied";
+    Add(extended, "denied", longPath.c_str());
+    extended.StartUacFolderProbe(); extended.UacFolderProbeContinue(extended.UacFolderProbeRun);
+    RunQueued();
+    extended.UacFolderProbeReady(extended.UacFolderProbeRun, static_cast<LPARAM>(extended.listingGeneration));
+    Check(extended.HasUacDeniedItem(&extended.rows.At(0)), "long Unicode extended paths retain the indicator");
+    CFilesWindow unavailable;
+    Add(unavailable, "denied", L"C:\\root\\denied");
+    allowElevation = false;
+    unavailable.StartUacFolderProbe(); unavailable.UacFolderProbeContinue(unavailable.UacFolderProbeRun);
+    const int beforeUnavailable = opens;
+    RunQueued();
+    Check(opens == beforeUnavailable && !unavailable.HasUacDeniedItem(&unavailable.rows.At(0)),
+          "unavailable UAC does not trigger a probe or shield");
+    allowElevation = true;
+    CFilesWindow filePanel;
+    AddFile(filePanel, "ordinary", L"C:\\root\\ordinary.txt");
+    AddFile(filePanel, "read-denied", L"C:\\root\\read-denied.txt");
+    AddFile(filePanel, "write-denied", L"C:\\root\\write-denied.txt");
+    AddFile(filePanel, "attrs-denied", L"C:\\root\\attrs-denied.txt");
+    AddFile(filePanel, "delete-denied", L"C:\\root\\delete-denied.txt");
+    AddFile(filePanel, "rename-denied", L"C:\\blocked-parent\\rename.txt");
+    AddFile(filePanel, "delete-blocked", L"C:\\blocked-parent\\delete-denied.txt");
+    AddFile(filePanel, "readonly", L"C:\\root\\readonly.txt", FILE_ATTRIBUTE_READONLY);
+    AddFile(filePanel, "unknown", L"C:\\root\\unknown.txt");
+    AddFile(filePanel, "encrypted", L"C:\\root\\read-denied-encrypted.txt", FILE_ATTRIBUTE_ENCRYPTED);
+    AddFile(filePanel, "recall", L"C:\\root\\read-denied-recall.txt", FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS);
+    AddFile(filePanel, "shortcut", L"C:\\root\\read-denied.lnk", FILE_ATTRIBUTE_NORMAL, true);
+    AddFile(filePanel, "reparse", L"C:\\root\\read-denied-reparse.txt", FILE_ATTRIBUTE_REPARSE_POINT);
+    filePanel.StartUacFolderProbe();
+    filePanel.UacFolderProbeContinue(filePanel.UacFolderProbeRun);
+    RunQueued();
+    filePanel.UacFolderProbeReady(filePanel.UacFolderProbeRun, static_cast<LPARAM>(filePanel.listingGeneration));
+    Check(!filePanel.HasUacDeniedItem(&filePanel.fileRows.At(0)) &&
+          filePanel.HasUacDeniedItem(&filePanel.fileRows.At(1)) &&
+          filePanel.HasUacDeniedItem(&filePanel.fileRows.At(2)) &&
+          filePanel.HasUacDeniedItem(&filePanel.fileRows.At(3)),
+          "file read, write and attribute denials are distinguished from accessible files");
+    Check(!filePanel.HasUacDeniedItem(&filePanel.fileRows.At(4)) &&
+          filePanel.HasUacDeniedItem(&filePanel.fileRows.At(5)) &&
+          filePanel.HasUacDeniedItem(&filePanel.fileRows.At(6)),
+          "delete-child alternative and parent add permission determine delete and rename indicators");
+    Check(!filePanel.HasUacDeniedItem(&filePanel.fileRows.At(7)) &&
+          !filePanel.HasUacDeniedItem(&filePanel.fileRows.At(8)) &&
+          !filePanel.HasUacDeniedItem(&filePanel.fileRows.At(9)) &&
+          !filePanel.HasUacDeniedItem(&filePanel.fileRows.At(10)),
+          "read-only, sharing, EFS and recall do not imply administrator access");
+    Check(filePanel.HasUacDeniedItem(&filePanel.fileRows.At(11)) &&
+          !filePanel.HasUacDeniedItem(&filePanel.fileRows.At(12)),
+          "ordinary shortcut files are probed while actual reparse points are skipped");
+    filePanel.ProtectedListing = std::make_unique<FakeListing>(); filePanel.ProtectedListing->open = true;
+    Check(!filePanel.HasUacDeniedItem(&filePanel.fileRows.At(1)) &&
+          filePanel.HasUacDeniedItem(&filePanel.fileRows.At(2)),
+          "the live panel session covers read but does not grant write access");
+    filePanel.ProtectedListing->open = false;
+    Check(filePanel.HasUacDeniedItem(&filePanel.fileRows.At(1)),
+          "losing the panel session exposes the previously observed read denial");
+    filePanel.StopUacFolderProbe();
+    CFilesWindow livePanel;
+    livePanel.ProtectedListing = std::make_unique<FakeListing>(); livePanel.ProtectedListing->open = true;
+    AddFile(livePanel, "read-denied", L"C:\\root\\read-denied.txt");
+    AddFile(livePanel, "write-denied", L"C:\\root\\write-denied.txt");
+    livePanel.StartUacFolderProbe();
+    livePanel.UacFolderProbeContinue(livePanel.UacFolderProbeRun);
+    RunQueued();
+    livePanel.UacFolderProbeReady(livePanel.UacFolderProbeRun, static_cast<LPARAM>(livePanel.listingGeneration));
+    Check(livePanel.UacFolderProbeRun && !livePanel.HasUacDeniedItem(&livePanel.fileRows.At(0)) &&
+          livePanel.HasUacDeniedItem(&livePanel.fileRows.At(1)),
+          "an already approved panel still scans file mutation access without repeating its read indication");
+    livePanel.ProtectedListing->open = false;
+    Check(livePanel.HasUacDeniedItem(&livePanel.fileRows.At(0)),
+          "a panel session lost after the scan cannot suppress a read denial");
+    livePanel.StopUacFolderProbe();
+    Check(correctFlags, "every file probe opens existing items without restricting sharing or mutating flags");
+    CFilesWindow encryptedDirectory;
+    Add(encryptedDirectory, "denied", L"C:\\root\\denied", FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_ENCRYPTED);
+    encryptedDirectory.StartUacFolderProbe();
+    encryptedDirectory.UacFolderProbeContinue(encryptedDirectory.UacFolderProbeRun);
+    RunQueued();
+    encryptedDirectory.UacFolderProbeReady(encryptedDirectory.UacFolderProbeRun,
+                                           static_cast<LPARAM>(encryptedDirectory.listingGeneration));
+    Check(encryptedDirectory.HasUacDeniedItem(&encryptedDirectory.rows.At(0)),
+          "the existing folder indicator does not exclude encrypted directory attributes");
+    encryptedDirectory.StopUacFolderProbe();
+    std::vector<wchar_t> tempPath(32768), tempName(32768);
+    bool prepared = GetTempPathW(static_cast<DWORD>(tempPath.size()), tempPath.data()) != 0 &&
+                    GetTempFileNameW(tempPath.data(), L"uac", 0, tempName.data()) != 0;
+    std::wstring isolated = prepared ? tempName.data() : L"";
+    prepared = prepared && DeleteFileW(isolated.c_str()) && CreateDirectoryW(isolated.c_str(), nullptr);
+    const auto ordinary = isolated + L"\\ordinary";
+    const auto denied = isolated + L"\\denied";
+    prepared = prepared && CreateDirectoryW(ordinary.c_str(), nullptr) && CreateDirectoryW(denied.c_str(), nullptr);
+    HANDLE aclHandle = prepared ? OpenAclHandle(denied.c_str()) : INVALID_HANDLE_VALUE;
+    PSECURITY_DESCRIPTOR oldDescriptor = nullptr, newDescriptor = nullptr;
+    PACL oldDacl = nullptr, newDacl = nullptr;
+    BOOL present = FALSE, defaulted = FALSE;
+    SECURITY_DESCRIPTOR_CONTROL control{};
+    DWORD revision = 0;
+    prepared = prepared && aclHandle != INVALID_HANDLE_VALUE &&
+        !GetSecurityInfo(aclHandle, SE_FILE_OBJECT, DACL_SECURITY_INFORMATION, nullptr, nullptr, &oldDacl, nullptr, &oldDescriptor) &&
+        GetSecurityDescriptorControl(oldDescriptor, &control, &revision) &&
+        ConvertStringSecurityDescriptorToSecurityDescriptorW(L"D:P(D;;0x00000001;;;WD)(A;;FA;;;WD)", SDDL_REVISION_1, &newDescriptor, nullptr) &&
+        GetSecurityDescriptorDacl(newDescriptor, &present, &newDacl, &defaulted) && present &&
+        !SetSecurityInfo(aclHandle, SE_FILE_OBJECT, DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+                         nullptr, nullptr, newDacl, nullptr);
+    Check(prepared, "prepare isolated NTFS ACL fixture");
+    if (prepared) {
+        useRealFilesystem = true;
+        CFilesWindow actual;
+        actual.root = isolated;
+        Add(actual, "ordinary", ordinary.c_str());
+        Add(actual, "denied", denied.c_str());
+        actual.StartUacFolderProbe();
+        actual.UacFolderProbeContinue(actual.UacFolderProbeRun);
+        RunQueued();
+        actual.UacFolderProbeReady(actual.UacFolderProbeRun, static_cast<LPARAM>(actual.listingGeneration));
+        Check(actual.HasUacDeniedItem(&actual.rows.At(1)) && !actual.HasUacDeniedItem(&actual.rows.At(0)),
+              "real NTFS denial is marked and accessible sibling is not");
+        actual.StopUacFolderProbe();
+        useRealFilesystem = false;
+    }
+    const auto normalFile = ordinary + L"\\ordinary.txt";
+    const auto readFile = ordinary + L"\\read-denied.txt";
+    const auto writeFile = ordinary + L"\\write-denied.txt";
+    const auto readonlyFile = ordinary + L"\\readonly.txt";
+    const auto readonlyDeniedFile = ordinary + L"\\readonly-denied.txt";
+    const auto readonlyAppendFile = ordinary + L"\\readonly-append-denied.txt";
+    const auto readonlyEaFile = ordinary + L"\\readonly-ea-denied.txt";
+    bool filesPrepared = prepared && CreateRealFile(normalFile.c_str()) && CreateRealFile(readFile.c_str()) &&
+                         CreateRealFile(writeFile.c_str()) && CreateRealFile(readonlyFile.c_str()) &&
+                         CreateRealFile(readonlyDeniedFile.c_str()) && CreateRealFile(readonlyAppendFile.c_str()) &&
+                         CreateRealFile(readonlyEaFile.c_str());
+    {
+        RealFileAcl readAcl, writeAcl, readonlyDenyAcl, readonlyAppendAcl, readonlyEaAcl;
+        filesPrepared = filesPrepared && readAcl.Deny(readFile.c_str(), L"D:P(D;;0x00000001;;;WD)(A;;FA;;;WD)") &&
+                        writeAcl.Deny(writeFile.c_str(), L"D:P(D;;0x00000002;;;WD)(A;;FA;;;WD)") &&
+                        readonlyDenyAcl.Deny(readonlyDeniedFile.c_str(), L"D:P(D;;0x00000002;;;WD)(A;;FA;;;WD)") &&
+                        readonlyAppendAcl.Deny(readonlyAppendFile.c_str(), L"D:P(D;;0x00000004;;;WD)(A;;FA;;;WD)") &&
+                        readonlyEaAcl.Deny(readonlyEaFile.c_str(), L"D:P(D;;0x00000010;;;WD)(A;;FA;;;WD)") &&
+                        SetFileAttributesW(readonlyFile.c_str(), FILE_ATTRIBUTE_READONLY) &&
+                        SetFileAttributesW(readonlyDeniedFile.c_str(), FILE_ATTRIBUTE_READONLY) &&
+                        SetFileAttributesW(readonlyAppendFile.c_str(), FILE_ATTRIBUTE_READONLY) &&
+                        SetFileAttributesW(readonlyEaFile.c_str(), FILE_ATTRIBUTE_READONLY);
+        Check(filesPrepared, "prepare independent NTFS file access fixtures");
+        if (filesPrepared) {
+            useRealFilesystem = true;
+            CFilesWindow actualFiles; actualFiles.root = ordinary;
+            AddFile(actualFiles, "ordinary", normalFile.c_str());
+            AddFile(actualFiles, "read-denied", readFile.c_str());
+            AddFile(actualFiles, "write-denied", writeFile.c_str());
+            AddFile(actualFiles, "readonly", readonlyFile.c_str(), FILE_ATTRIBUTE_READONLY);
+            AddFile(actualFiles, "readonly-denied", readonlyDeniedFile.c_str(), FILE_ATTRIBUTE_READONLY);
+            AddFile(actualFiles, "readonly-append-denied", readonlyAppendFile.c_str(), FILE_ATTRIBUTE_READONLY);
+            AddFile(actualFiles, "readonly-ea-denied", readonlyEaFile.c_str(), FILE_ATTRIBUTE_READONLY);
+            actualFiles.StartUacFolderProbe();
+            actualFiles.UacFolderProbeContinue(actualFiles.UacFolderProbeRun);
+            RunQueued();
+            actualFiles.UacFolderProbeReady(actualFiles.UacFolderProbeRun, static_cast<LPARAM>(actualFiles.listingGeneration));
+            Check(!actualFiles.HasUacDeniedItem(&actualFiles.fileRows.At(0)) &&
+                  actualFiles.HasUacDeniedItem(&actualFiles.fileRows.At(1)) &&
+                  actualFiles.HasUacDeniedItem(&actualFiles.fileRows.At(2)) &&
+                  !actualFiles.HasUacDeniedItem(&actualFiles.fileRows.At(3)) &&
+                  actualFiles.HasUacDeniedItem(&actualFiles.fileRows.At(4)) &&
+                  actualFiles.HasUacDeniedItem(&actualFiles.fileRows.At(5)) &&
+                  actualFiles.HasUacDeniedItem(&actualFiles.fileRows.At(6)),
+                  "real NTFS distinguishes allowed and denied write ACL on read-only files");
+            forceReadControlFailure = true;
+            Check(!IsReadonlyFileWriteDenied(readonlyFile),
+                  "unreadable security descriptor leaves write access unknown");
+            forceReadControlFailure = false;
+            actualFiles.ProtectedListing = std::make_unique<FakeListing>(); actualFiles.ProtectedListing->open = true;
+            Check(!actualFiles.HasUacDeniedItem(&actualFiles.fileRows.At(1)) &&
+                  actualFiles.HasUacDeniedItem(&actualFiles.fileRows.At(2)) &&
+                  actualFiles.HasUacDeniedItem(&actualFiles.fileRows.At(4)),
+                  "approved read coverage does not erase a real write denial");
+            actualFiles.StopUacFolderProbe();
+            useRealFilesystem = false;
+            bool ordinaryAllowed = false, deniedAllowed = true, ordinaryDeny = false, explicitDeny = false;
+            const bool checked = QueryRealAclWrite(readonlyFile.c_str(), ordinaryAllowed, ordinaryDeny) &&
+                                 QueryRealAclWrite(readonlyDeniedFile.c_str(), deniedAllowed, explicitDeny);
+            Check(checked && ordinaryAllowed && !deniedAllowed && explicitDeny,
+                  "AccessCheck distinguishes allowed and denied write ACL on read-only files");
+            bool dataAllowed1 = false, dataAllowed2 = false, appendAllowed = true, eaAllowed = true;
+            bool dataDenied1 = false, dataDenied2 = false, appendDeny = false, eaDeny = false;
+            Check(QueryRealAclWrite(readonlyAppendFile.c_str(), dataAllowed1, dataDenied1) &&
+                  QueryRealAclWrite(readonlyEaFile.c_str(), dataAllowed2, dataDenied2) &&
+                  QueryRealAclWrite(readonlyAppendFile.c_str(), appendAllowed, appendDeny, FILE_APPEND_DATA) &&
+                  QueryRealAclWrite(readonlyEaFile.c_str(), eaAllowed, eaDeny, FILE_WRITE_EA) &&
+                  dataAllowed1 && dataAllowed2 && !dataDenied1 && !dataDenied2 &&
+                  !appendAllowed && !eaAllowed && appendDeny && eaDeny,
+                  "append and EA ACL fixtures deny only the targeted write right");
+        }
+        Check(readAcl.Restore() && writeAcl.Restore() && readonlyDenyAcl.Restore() &&
+              readonlyAppendAcl.Restore() && readonlyEaAcl.Restore(), "restore isolated file ACLs");
+    }
+    if (filesPrepared) {
+        Check(ReadRealFile(normalFile.c_str()) && ReadRealFile(readFile.c_str()) &&
+              ReadRealFile(writeFile.c_str()) && ReadRealFile(readonlyFile.c_str()) && ReadRealFile(readonlyDeniedFile.c_str()) &&
+              ReadRealFile(readonlyAppendFile.c_str()) && ReadRealFile(readonlyEaFile.c_str()),
+              "access checks leave every file's content and length unchanged");
+    }
+    if (GetFileAttributesW(readonlyFile.c_str()) != INVALID_FILE_ATTRIBUTES)
+        SetFileAttributesW(readonlyFile.c_str(), FILE_ATTRIBUTE_NORMAL);
+    if (GetFileAttributesW(readonlyDeniedFile.c_str()) != INVALID_FILE_ATTRIBUTES)
+        SetFileAttributesW(readonlyDeniedFile.c_str(), FILE_ATTRIBUTE_NORMAL);
+    if (GetFileAttributesW(readonlyAppendFile.c_str()) != INVALID_FILE_ATTRIBUTES)
+        SetFileAttributesW(readonlyAppendFile.c_str(), FILE_ATTRIBUTE_NORMAL);
+    if (GetFileAttributesW(readonlyEaFile.c_str()) != INVALID_FILE_ATTRIBUTES)
+        SetFileAttributesW(readonlyEaFile.c_str(), FILE_ATTRIBUTE_NORMAL);
+    if (GetFileAttributesW(normalFile.c_str()) != INVALID_FILE_ATTRIBUTES) DeleteFileW(normalFile.c_str());
+    if (GetFileAttributesW(readFile.c_str()) != INVALID_FILE_ATTRIBUTES) DeleteFileW(readFile.c_str());
+    if (GetFileAttributesW(writeFile.c_str()) != INVALID_FILE_ATTRIBUTES) DeleteFileW(writeFile.c_str());
+    if (GetFileAttributesW(readonlyFile.c_str()) != INVALID_FILE_ATTRIBUTES) DeleteFileW(readonlyFile.c_str());
+    if (GetFileAttributesW(readonlyDeniedFile.c_str()) != INVALID_FILE_ATTRIBUTES) DeleteFileW(readonlyDeniedFile.c_str());
+    if (GetFileAttributesW(readonlyAppendFile.c_str()) != INVALID_FILE_ATTRIBUTES) DeleteFileW(readonlyAppendFile.c_str());
+    if (GetFileAttributesW(readonlyEaFile.c_str()) != INVALID_FILE_ATTRIBUTES) DeleteFileW(readonlyEaFile.c_str());
+    if (aclHandle != INVALID_HANDLE_VALUE && oldDescriptor) {
+        const auto protection = (control & SE_DACL_PROTECTED) ? PROTECTED_DACL_SECURITY_INFORMATION : UNPROTECTED_DACL_SECURITY_INFORMATION;
+        Check(!SetSecurityInfo(aclHandle, SE_FILE_OBJECT, DACL_SECURITY_INFORMATION | protection, nullptr, nullptr, oldDacl, nullptr),
+              "restore isolated directory ACL");
+    }
+    if (aclHandle != INVALID_HANDLE_VALUE) CloseRealHandle(aclHandle);
+    if (newDescriptor) LocalFree(newDescriptor);
+    if (oldDescriptor) LocalFree(oldDescriptor);
+    if (!isolated.empty()) {
+        Check(RemoveDirectoryW(ordinary.c_str()) && RemoveDirectoryW(denied.c_str()) && RemoveDirectoryW(isolated.c_str()),
+              "remove isolated NTFS fixture");
+    }
+    std::printf("Folder access indicator: %d checks, %d failures\n", checks, failures);
+    return failures ? 1 : 0;
+}

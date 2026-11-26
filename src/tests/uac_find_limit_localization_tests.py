@@ -1,0 +1,119 @@
+# SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+# SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-15 | Check all UAC catalog format strings. | Keep translated administrator messages complete across supported languages. | #731 | GPT-6 |
+# | 2026-11-15 | Validate all 26 shipped language catalogs. | Keep Find omission translations complete. | #731 | GPT-6 |
+# | 2026-11-11 | Check all typed Find omission messages. | Preserve every locale, resource block and format contract. | #731 | GPT-6.1 Terra |
+# | 2026-11-11 | Check protected Find limit translations. | Keep every locale and the format argument consistent. | #731 | GPT-6.1 Terra |
+"""Validate exact IDs, the protected-item placeholder and all shipped SLT locales."""
+import re
+import unittest
+from collections import Counter, defaultdict
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+LOCALES = {"arabic", "bulgarian", "chinesesimplified", "chinesetraditional", "croatian",
+           "czech", "dutch", "french", "german", "greek", "hebrew", "hungarian",
+           "indonesian", "italian", "japanese", "korean", "polish", "portuguese",
+           "romanian", "russian", "slovak", "spanish", "swedish", "turkish", "ukrainian", "vietnamese"}
+FALLBACKS = {"catalan", "danish", "finnish", "lithuanian", "norwegian", "slovenian"}
+IDS = {"IDS_UAC_FIND_SCOPE_LIMIT": 14700, "IDS_FIND_ACTIVITY_INCOMPLETE": 14701,
+       "IDS_UAC_FIND_SCOPE_LIMIT_CARRIED": 14702,
+       "IDS_FIND_ACTIVITY_INCOMPLETE_OTHER": 14704,
+       "IDS_FIND_INCOMPLETE_DIRECTORY_CAPACITY": 14705,
+       "IDS_FIND_INCOMPLETE_SCAN_BUDGET": 14706,
+       "IDS_FIND_INCOMPLETE_DEPTH": 14707,
+       "IDS_FIND_INCOMPLETE_REPARSE": 14708,
+       "IDS_FIND_INCOMPLETE_PROTECTED_FAILURE": 14709}
+
+
+class FindLimitLocalizationTests(unittest.TestCase):
+    def test_find_consent_describes_listed_locations(self):
+        resources = (ROOT / "src/lang/texts.rc2").read_text(encoding="utf-8-sig")
+        czech = (ROOT / "translations/czech/salamand.slt").read_text(encoding="utf-8-sig")
+        for name in ("IDS_UAC_FIND_CONFIRM", "IDS_UAC_FIND_CONTENT_CONFIRM"):
+            text = re.findall(r'^\s*' + name + r',\s*"([^"\r\n]*)"\s*$', resources, re.M)
+            self.assertEqual(len(text), 1, name)
+            self.assertIn("the listed locations", text[0])
+        for number in (14660, 14683):
+            text = re.findall(r'^' + str(number) + r',1,"([^"\r\n]*)"\s*$', czech, re.M)
+            self.assertEqual(len(text), 1, number)
+            self.assertIn("uvedených umístěních", text[0])
+        self.assertIn("Read the listed file", resources)
+        self.assertIn("Přečíst uvedený soubor", czech)
+
+    def test_all_uac_messages_are_translated_with_matching_formats(self):
+        header = (ROOT / "src/texts.rh2").read_text(encoding="utf-8-sig")
+        resources = (ROOT / "src/lang/texts.rc2").read_text(encoding="utf-8-sig")
+        ids = {int(number): name for name, number in re.findall(
+            r'^#define\s+(IDS_(?:UAC|FIND_INCOMPLETE|FIND_ACTIVITY_INCOMPLETE)[A-Z0-9_]*)\s+(\d+)', header, re.M)}
+        ids.update({14005: 'IDS_AS_ADMIN_TITLE', 14716: 'IDS_BRANCH_IDENTITY_UNAVAILABLE',
+                    14717: 'IDS_BRANCH_LIST_LIMIT', 14719: 'IDS_BRANCH_MERGE_UNCERTAIN',
+                    14720: 'IDS_BRANCH_MERGE_UNCERTAIN_DETAIL'})
+        english = dict(re.findall(r'^\s*(IDS_[A-Z0-9_]+),\s*"(.*)"\s*$', resources, re.M))
+        format_token = re.compile(r'%(?:%|(?:\d+\$)?[-+#0 ]*(?:\d+|\*)?(?:\.(?:\d+|\*))?(?:I64|ll|l|h|z|t|j)?[diuoxXfFeEgGaAcCsSpn])')
+        self.assertTrue(ids)
+        for path in (ROOT / 'translations').glob('*/salamand.slt'):
+            rows = defaultdict(list)
+            for number, state, text in re.findall(r'^(\d+),([01]),"(.*)"\s*$', path.read_text(encoding='utf-8-sig'), re.M):
+                if int(number) in ids:
+                    rows[int(number)].append((state, text))
+            for number, name in ids.items():
+                with self.subTest(locale=path.parent.name, number=number):
+                    self.assertIn(name, english)
+                    self.assertEqual(len(rows[number]), 1)
+                    fallback = path.parent.name in FALLBACKS and number != 14005
+                    expected_state = '0' if fallback else '1'
+                    self.assertEqual(rows[number][0][0], expected_state)
+                    self.assertTrue(rows[number][0][1].strip())
+                    if fallback:
+                        self.assertEqual(rows[number][0][1], english[name])
+                    self.assertEqual(Counter(format_token.findall(rows[number][0][1])), Counter(format_token.findall(english[name])))
+
+    def test_resource_ids_and_english(self):
+        header = (ROOT / "src/texts.rh2").read_text(encoding="utf-8-sig")
+        resources = (ROOT / "src/lang/texts.rc2").read_text(encoding="utf-8-sig")
+        for name, number in IDS.items():
+            self.assertEqual(re.findall(r"^#define\s+(\w+)\s+" + str(number) + r"\s*$", header, re.M), [name])
+            matches = re.findall(r"^\s*" + name + r',\s*"([^"\r\n]*)"\s*$', resources, re.M)
+            self.assertEqual(len(matches), 1, name)
+            if name == "IDS_FIND_ACTIVITY_INCOMPLETE":
+                self.assertEqual(matches[0], "Incomplete (admin limit)")
+            self.assertEqual(matches[0].count("%"), name in ("IDS_UAC_FIND_SCOPE_LIMIT", "IDS_UAC_FIND_SCOPE_LIMIT_CARRIED"), name)
+            if name in ("IDS_UAC_FIND_SCOPE_LIMIT", "IDS_UAC_FIND_SCOPE_LIMIT_CARRIED"):
+                self.assertEqual(matches[0].count("%s"), 1)
+
+    def test_all_locales_and_placeholder(self):
+        translations = ROOT / "translations"
+        paths = {path.parent.name: path for path in translations.glob("*/salamand.slt")}
+        self.assertEqual(set(paths), LOCALES | FALLBACKS)
+        resources = (ROOT / "src/lang/texts.rc2").read_text(encoding="utf-8-sig")
+        english = dict(re.findall(r'^\s*(IDS_[A-Z0-9_]+),\s*"(.*)"\s*$', resources, re.M))
+        for locale, path in paths.items():
+            with self.subTest(locale=locale):
+                raw = path.read_bytes()
+                self.assertTrue(raw.startswith(b"\xef\xbb\xbf[EXPORTINFO]"))
+                self.assertEqual(raw.count(b"\n"), raw.count(b"\r\n"))
+                text = raw.decode("utf-8-sig")
+                section = text.split("[STRINGTABLE 197]", 1)[1].split("[STRINGTABLE 198]", 1)[0]
+                typed_section = text.split("[STRINGTABLE 198]", 1)[1].split("[STRINGTABLE 199]", 1)[0]
+                headers = [int(n) for n in re.findall(r"^\[STRINGTABLE (\d+)\]$", text, re.M)]
+                self.assertEqual(headers, list(range(len(headers))))
+                for name, number in IDS.items():
+                    state = '0' if locale in FALLBACKS else '1'
+                    pattern = r'^' + str(number) + ',' + state + r',"([^"\r\n]+)"\s*$'
+                    rows = re.findall(pattern, text, re.M)
+                    self.assertEqual(len(rows), 1, (locale, number))
+                    if locale == "czech" and number == 14701:
+                        self.assertEqual(rows[0], "Neúplné (limit správce)")
+                    expected_section = typed_section if number >= 14704 else section
+                    self.assertEqual(len(re.findall(pattern, expected_section, re.M)), 1, (locale, number))
+                    if locale in FALLBACKS:
+                        self.assertEqual(rows[0], english[name], (locale, number))
+                    self.assertEqual(rows[0].count("%"), number in (14700, 14702), (locale, number))
+                    if number in (14700, 14702):
+                        self.assertEqual(rows[0].count("%s"), 1, locale)
+
+
+if __name__ == "__main__":
+    unittest.main()

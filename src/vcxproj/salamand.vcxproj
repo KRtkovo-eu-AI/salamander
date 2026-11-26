@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- | Date | Summary | Reason | Ticket | Model |
+| 2026-11-25 | Stage host runtime files without waiting for plug-in binaries. | Keep the TargetDir fix and skip installer inventory during the host build. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
+| 2026-11-16 | Make runtime-only staging explicit for host validation builds. | Avoid requiring the complete installer payload when building individual projects. | #731 | GPT-6 |
+| 2026-11-11 | Compile the file-list workspace without the host PCH. | Keep native Windows identity types scoped to one translation unit. | #731 | GPT-6.1 Sol |
+| 2026-11-07 | Build the F7 broker host transport. | Share the verified one-shot handshake with the application. | | GPT-6.1 Sol (Codex) | -->
 <!--
 | Date | Summary | Reason | Ticket | Model |
 | 2026-11-20 | Stage runtime files when the host builds. | The installer validates plugin outputs after the complete build. |  | gpt-6.2-sol |
@@ -537,6 +542,15 @@
     <ClCompile Include="..\fileswn3.cpp">
     </ClCompile>
     <ClCompile Include="..\fileswn4.cpp">
+    </ClCompile>
+    <ClCompile Include="..\uacbroker\uacbroker.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>SAM_UAC_F7_HOST;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExceptionHandling>Sync</ExceptionHandling>
+    </ClCompile>
+    <ClCompile Include="..\uacfilelist.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ExceptionHandling>Sync</ExceptionHandling>
     </ClCompile>
     <ClCompile Include="..\fileswn5.cpp">
     </ClCompile>
@@ -1338,7 +1352,8 @@
 
   <Target Name="StageSalamanderRuntimeFiles" AfterTargets="Build">
     <PropertyGroup>
-      <OpenSalamanderStagingOutDir>$([System.String]::Copy('$(OutDir)').TrimEnd('\'))</OpenSalamanderStagingOutDir>
+      <!-- TargetDir resolves a relative OutDir before the staging process changes its working directory. -->
+      <OpenSalamanderStagingOutDir>$([System.String]::Copy('$(TargetDir)').TrimEnd('\'))</OpenSalamanderStagingOutDir>
     </PropertyGroup>
     <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(ProjectDir)..\..\tools\stage_inno_payload.ps1&quot; -RepositoryRoot &quot;$(ProjectDir)..\..&quot; -DestinationRoot &quot;$(OpenSalamanderStagingOutDir)&quot; -RuntimeOnly"
           WorkingDirectory="$(ProjectDir)..\.."
@@ -1349,7 +1364,7 @@
           AfterTargets="Build"
           Condition="'$(Platform)' == 'x64'">
     <PropertyGroup>
-      <OpenSalamanderStagingOutDir>$([System.String]::Copy('$(OutDir)').TrimEnd('\'))</OpenSalamanderStagingOutDir>
+      <OpenSalamanderStagingOutDir>$([System.String]::Copy('$(TargetDir)').TrimEnd('\'))</OpenSalamanderStagingOutDir>
     </PropertyGroup>
     <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(ProjectDir)..\..\tools\stage_vcpkg_payload_dlls.ps1&quot; -RepositoryRoot &quot;$(ProjectDir)..\..&quot; -DestinationRoot &quot;$(OpenSalamanderStagingOutDir)&quot;"
           WorkingDirectory="$(ProjectDir)..\.."

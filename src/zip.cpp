@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-25 | Pass the report plug-in after the protected viewer arguments. | OpenViewer keeps optional snapshots and the generated-report source. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 // | 2026-11-20 | Bind generated reports to the plug-in which handed them to the viewer. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
 // | 2026-11-04 | Resolve the plug-in DLL via Plugins.GetPluginData before FreeLibrary. | CSalamanderGeneral::Plugin is CPluginInterfaceAbstract*, which has no GetPluginDLL. | | Composer |
 // | 2026-11-04 | Do not FreeLibrary English language modules that are the plug-in .spl itself. | English UI is embedded in the host PE. | | Composer |
@@ -3521,7 +3522,7 @@ BOOL ViewFileInPluginViewer(const char* pluginSPL,
                        place.rcNormalPosition.top,
                        place.rcNormalPosition.right - place.rcNormalPosition.left,
                        place.rcNormalPosition.bottom - place.rcNormalPosition.top,
-                       place.showCmd, useCache, &lock, &lockOwner, pluginData, -1, -1, reportPluginID))
+                       place.showCmd, useCache, &lock, &lockOwner, pluginData, -1, -1, {}, {}, reportPluginID))
         {
             if (useCache && lock != NULL)
             {

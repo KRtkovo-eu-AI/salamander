@@ -1,0 +1,168 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Exercise nested termination of actual conflict UI methods. | Check names and deferred payload survive a freed script. | #731 | GPT-6.1 Terra |
+#include <windows.h>
+#include <algorithm>
+#include <cstdio>
+#include <cstring>
+#include <string>
+#include <vector>
+
+constexpr int CMCM_SCAN_AHEAD = 1, IDT_UPDATESTATUS = 3;
+constexpr int IDC_PROGRESS_SOLVE = 20, IDC_PROGRESS_SKIP = 21, IDC_PROGRESS_OVERWRITE_ALL = 22, IDC_PROGRESS_SKIP_ALL = 23;
+constexpr int IDB_ALL = 30, IDB_SKIP = 31, IDB_SKIPALL = 32, LVNI_SELECTED = 1;
+constexpr UINT WM_USER_DIALOG = WM_USER + 4;
+enum CCopyMoveConflictType { cmctNone, cmctFileExists, cmctDirectoryExists };
+enum CCopyMoveConflictDecision { cmcdNone, cmcdOverwrite, cmcdSkip };
+struct CCopyMoveConflictSnapshot { CCopyMoveConflictType Type = cmctFileExists; };
+struct CCopyMoveConflictDecisionSnapshot { CCopyMoveConflictSnapshot Conflict{}; };
+struct CParallelProgressData { int DisplayCount = 1, ActiveCount = 1; };
+constexpr int COPYMOVE_MAX_PARALLEL_STREAMS = 4;
+enum CDeferredProgressKind { dpkNone, dpkParallel, dpkRegular };
+static int Checks = 0, Failures = 0, Resolutions = 0, Messages = 0, Freed = 0, WindowCalls = 0;
+static bool WindowAlive = true, CancelSignalled = false;
+static std::vector<char> TargetStore, SourceStore;
+static const char* ExpectedTarget = "C:\\fixture-target-with-a-long-name-東.txt";
+static const char* ExpectedSource = "C:\\fixture-source-with-a-long-name-日.txt";
+static void Check(bool ok, const char* message) { ++Checks; if (!ok) { ++Failures; std::printf("FAIL: %s\n", message); } }
+struct COperation {
+    char* TargetName = nullptr; char* SourceName = nullptr;
+    bool TargetNameWValid = true, SourceNameWValid = true;
+    std::wstring TargetNameW = L"C:\\fixture-target-東.txt", SourceNameW = L"C:\\fixture-source-日.txt";
+};
+class COperations {
+public:
+    int CopyMoveConflictMode = CMCM_SCAN_AHEAD;
+    COperation operation{}; bool ResolveAnswer = true, CurrentConflict = true;
+    COperations() {
+        TargetStore.assign(ExpectedTarget, ExpectedTarget + std::strlen(ExpectedTarget) + 1);
+        SourceStore.assign(ExpectedSource, ExpectedSource + std::strlen(ExpectedSource) + 1);
+        operation.TargetName = TargetStore.data(); operation.SourceName = SourceStore.data();
+    }
+    ~COperations() { std::fill(TargetStore.begin(), TargetStore.end() - 1, '#'); std::fill(SourceStore.begin(), SourceStore.end() - 1, '#'); }
+    BOOL GetNextConflictPromptItem(int& index, int) { index = 0; return TRUE; }
+    BOOL GetConflictDecisionSnapshot(int, CCopyMoveConflictDecisionSnapshot&) { return TRUE; }
+    BOOL GetConflictSnapshot(int, CCopyMoveConflictSnapshot&) { return CurrentConflict; }
+    COperation& At(int) { return operation; }
+    BOOL ResolveConflictSnapshot(const CCopyMoveConflictDecisionSnapshot&, CCopyMoveConflictDecision, BOOL) { ++Resolutions; return ResolveAnswer; }
+};
+class CProgressDialog;
+static CProgressDialog* ActiveDialog = nullptr;
+static int Action = 0, Answer = IDYES;
+class COverwriteDlg {
+    const char* Target; const char* Source;
+public:
+    COverwriteDlg(HWND, const char* target, const char*, const char* source, const char*, BOOL, BOOL) : Target(target), Source(source) {}
+    INT_PTR Execute();
+};
+class CProgressDialog {
+public:
+    COperations* Script = nullptr; HWND HWindow = reinterpret_cast<HWND>(1), HConflictOperations = reinterpret_cast<HWND>(2);
+    HANDLE CancelWorkerEvent = nullptr; BOOL CancelWorker = FALSE;
+    BOOL ConflictPromptActive = FALSE, ConflictAutomaticPromptConsumed = FALSE, ConflictRefreshDeferred = FALSE;
+    BOOL ParallelProgressActive = FALSE, ConflictPanelExpanded = FALSE;
+    int ConflictPromptIndex = -1, ConflictSelectionRowAfterRemoval = -1, ActiveParallelProgressStreams = 0;
+    CDeferredProgressKind DeferredProgressKind = dpkNone; CParallelProgressData* DeferredParallelProgress = nullptr;
+    void BeginConflictPromptPresentation();
+    void EndConflictPromptPresentation();
+    void PromptNextConflict();
+    BOOL Manual(int command);
+    int GetConflictActionIndex() const { return 0; }
+    int GetSelectedConflictIndex() const { return -1; }
+    void RefreshConflictOperations(BOOL = TRUE, BOOL = TRUE) { ++WindowCalls; }
+    void SetParallelProgress(CParallelProgressData*, BOOL, BOOL) { ++WindowCalls; }
+    void FlushCachedData() { ++WindowCalls; }
+    void SetConflictPanelExpanded(BOOL, BOOL, BOOL) { ++WindowCalls; }
+    void LayoutActiveProgressStreams(int, BOOL) { ++WindowCalls; }
+};
+static void FreeParallelProgressMessage(CParallelProgressData* data) { ++Freed; delete data; }
+static void SetParallelProgressRowVisible(HWND, int, BOOL) { ++WindowCalls; }
+static BOOL FakeIsWindow(HWND) { return WindowAlive; }
+static BOOL FakeShowWindow(HWND, int) { ++WindowCalls; return TRUE; }
+static HWND FakeGetDlgItem(HWND, int) { ++WindowCalls; return nullptr; }
+static BOOL FakeRedrawWindow(HWND, const RECT*, HRGN, UINT) { ++WindowCalls; return TRUE; }
+static BOOL FakePostMessage(HWND, UINT, WPARAM, LPARAM) { ++Messages; return TRUE; }
+static DWORD FakeWaitForSingleObject(HANDLE, DWORD) { return CancelSignalled ? WAIT_OBJECT_0 : WAIT_TIMEOUT; }
+static int ListView_GetNextItem(HWND, int, UINT) { return -1; }
+static bool IsValidPathUtf8Text(const char*) { return true; }
+static std::wstring SalMultiByteToWidePath(const char*, UINT) { return L"C:\\fallback"; }
+static std::wstring SalPathAddExtendedPrefixW(const wchar_t* value) { return value; }
+static HANDLE FakeOpen(const wchar_t*, DWORD, DWORD, void*, DWORD, DWORD, HANDLE) { return INVALID_HANDLE_VALUE; }
+static void GetFileOverwriteInfo(char* output, int length, HANDLE, const char*, void*, BOOL*) { strcpy_s(output, length, "fixture metadata"); }
+#define IsWindow FakeIsWindow
+#define ShowWindow FakeShowWindow
+#define GetDlgItem FakeGetDlgItem
+#define RedrawWindow FakeRedrawWindow
+#undef PostMessage
+#define PostMessage FakePostMessage
+#define WaitForSingleObject FakeWaitForSingleObject
+#define CreateFileW FakeOpen
+#define HANDLES_Q(value) (value)
+#define HANDLES(value) (value)
+@@GUARD@@
+@@BEGIN@@
+@@END@@
+@@PROMPT@@
+BOOL CProgressDialog::Manual(int command) { @@MANUAL@@ return FALSE; }
+INT_PTR COverwriteDlg::Execute() {
+    Check(std::strcmp(Target, ExpectedTarget) == 0 && std::strcmp(Source, ExpectedSource) == 0, "dialog gets the original names");
+    if (Action == 1) {
+        COperations* doomed = ActiveDialog->Script;
+        ActiveDialog->Script = nullptr;
+        WindowAlive = false;
+        delete doomed;
+        Check(std::strcmp(Target, ExpectedTarget) == 0 && std::strcmp(Source, ExpectedSource) == 0, "dialog owns names after script was freed");
+    } else if (Action == 2) ActiveDialog->CancelWorker = TRUE;
+    else if (Action == 3) CancelSignalled = true;
+    return Answer;
+}
+static void Reset() { Resolutions = Messages = Freed = WindowCalls = 0; WindowAlive = true; CancelSignalled = false; Action = 0; Answer = IDYES; }
+int main() {
+    {
+        Reset(); CProgressDialog dialog; ActiveDialog = &dialog; dialog.Script = new COperations;
+        dialog.DeferredProgressKind = dpkParallel; dialog.DeferredParallelProgress = new CParallelProgressData;
+        Action = 1; dialog.PromptNextConflict();
+        Check(dialog.Script == nullptr && Resolutions == 0 && Messages == 0, "automatic prompt does not dereference freed script");
+        Check(Freed == 1 && dialog.DeferredParallelProgress == nullptr && WindowCalls == 0, "guard frees deferred payload without touching destroyed window");
+    }
+    {
+        Reset(); CProgressDialog dialog; ActiveDialog = &dialog; dialog.Script = new COperations;
+        dialog.DeferredProgressKind = dpkParallel; dialog.DeferredParallelProgress = new CParallelProgressData;
+        Action = 1; Check(dialog.Manual(IDC_PROGRESS_SOLVE), "manual Solve returns after destruction");
+        Check(dialog.Script == nullptr && Resolutions == 0 && Messages == 0, "manual prompt does not dereference freed script");
+        Check(Freed == 1 && WindowCalls == 0, "manual guard releases deferred payload after destroyed window");
+    }
+    {
+        Reset(); CProgressDialog dialog; ActiveDialog = &dialog; dialog.Script = new COperations;
+        Action = 2; dialog.PromptNextConflict();
+        Check(Resolutions == 0 && Messages == 0, "worker cancellation prevents accepting Yes");
+        delete dialog.Script;
+    }
+    {
+        Reset(); CProgressDialog dialog; ActiveDialog = &dialog; dialog.Script = new COperations;
+        dialog.CancelWorkerEvent = reinterpret_cast<HANDLE>(1); Action = 3; dialog.PromptNextConflict();
+        Check(Resolutions == 0 && Messages == 0 && !dialog.CancelWorker, "signalled cancel event prevents accepting Yes before cancel flag");
+        delete dialog.Script;
+    }
+    {
+        Reset(); CProgressDialog dialog; ActiveDialog = &dialog; dialog.Script = new COperations; Answer = IDCANCEL;
+        dialog.PromptNextConflict();
+        Check(Resolutions == 0 && dialog.ConflictPromptIndex == 0 && dialog.ConflictAutomaticPromptConsumed, "Cancel retains pending conflict without retry");
+        delete dialog.Script;
+    }
+    {
+        Reset(); CProgressDialog dialog; ActiveDialog = &dialog; dialog.Script = new COperations;
+        dialog.Script->ResolveAnswer = false; Answer = IDB_ALL; dialog.PromptNextConflict();
+        Check(Resolutions == 1 && Messages == 1 && !dialog.ConflictAutomaticPromptConsumed, "stale All is rejected and schedules a fresh decision");
+        delete dialog.Script;
+    }
+    {
+        Reset(); CProgressDialog dialog; ActiveDialog = &dialog; dialog.Script = new COperations;
+        dialog.Manual(IDC_PROGRESS_SKIP);
+        Check(Resolutions == 1, "manual Skip uses the captured decision snapshot");
+        delete dialog.Script;
+    }
+    std::printf("%d checks, %d failures\n", Checks, Failures);
+    return Failures ? 1 : 0;
+}

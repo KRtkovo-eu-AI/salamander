@@ -205,7 +205,7 @@ def main() -> int:
     fileswnd_h = FILESWND_H.read_text(encoding="utf-8")
     require(
         re.search(
-            r"BOOL ChangePathToArchive\([^;]*CPluginData\*\s*forcedPlugin\s*=\s*NULL\s*\)",
+            r"BOOL ChangePathToArchive\([^;]*CPluginData\*\s*forcedPlugin\s*=\s*NULL\s*[,)]",
             fileswnd_h,
             re.DOTALL,
         )

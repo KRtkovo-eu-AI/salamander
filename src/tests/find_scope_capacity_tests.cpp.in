@@ -1,0 +1,595 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-15 | Test Find with more than 32 protected requests. | Verify shared consent, cancellation and refined results beyond the former limit. | #731 | GPT-6 |
+// | 2026-11-15 | Restrict nonrecursive Find consent. | Keep the broker inside the user-requested search depth. | #731 | GPT-6 |
+// | 2026-11-15 | Reuse saved Find identities in refinement. | Preserve exact protected-file authorization on repeat searches. | #731 | GPT-6 |
+// | 2026-11-15 | Share approved size and Find read scopes. | Reuse one consent while preserving selected object identities. | #731 | GPT-6 |
+// | 2026-11-14 | Share scoped Find authorization. | Reuse approved reads without widening content rights. | #731 | GPT-6 |
+// | 2026-11-14 | Check refusal across queued Find scopes. | Avoid repeated UAC prompts after a declined search. | #731 | GPT-6 |
+// | 2026-11-11 | Preserve typed incomplete Find reasons across searches. | Keep different omissions distinct without changing current reports. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Exercise the real protected Find queue and limit report. | Preserve Stop and deduplication at capacity. | #731 | GPT-6.1 Terra |
+#include <windows.h>
+#include <algorithm>
+#include <array>
+#include <atomic>
+#include <cstdio>
+#include <map>
+#include <memory>
+#include <string>
+#include <vector>
+#include "@@LOCALIZED_HEADER@@"
+
+@@INCOMPLETE_REASONS@@
+@@ACTIVITY@@
+@@FINAL_ACTIVITY@@
+@@QUEUE_RESULT@@
+constexpr size_t legacyFindProtectedScopes = 32;
+constexpr DWORD FLI_ERROR = 1;
+constexpr int IDS_UAC_FIND_SCOPE_LIMIT = 1;
+constexpr int IDS_UAC_FIND_SCOPE_LIMIT_CARRIED = 2;
+constexpr int IDS_FIND_ACTIVITY_INCOMPLETE = 3, IDS_FIND_NO_DUPS_FOUND = 4, IDS_FIND_NO_FILES_FOUND = 5;
+constexpr int IDS_FIND_ACTIVITY_INCOMPLETE_OTHER = 6, IDS_FIND_INCOMPLETE_DIRECTORY_CAPACITY = 7,
+              IDS_FIND_INCOMPLETE_SCAN_BUDGET = 8, IDS_FIND_INCOMPLETE_DEPTH = 9,
+              IDS_FIND_INCOMPLETE_REPARSE = 10, IDS_FIND_INCOMPLETE_PROTECTED_FAILURE = 11,
+              IDS_FINDLOG_ERROR = 12, IDS_ERRORTITLE = 13;
+constexpr int SB_SETTEXT = 1, SBT_NOBORDERS = 2;
+constexpr WORD CM_FIND_APPEND = 100, CM_FIND_INTERSECT = 101, CM_FIND_SUBTRACT = 102;
+struct CMaskGroup {};
+struct CFindIgnore {};
+struct CDuplicateCandidates {};
+struct Root { std::wstring path; };
+struct FakeRoot { std::string Dir = "C:\\"; BOOL IncludeSubDirs = TRUE; };
+struct FakeRoots {
+    int Count = 1; std::vector<FakeRoot> roots{FakeRoot{}};
+    FakeRoot* At(int index) { return &roots.at(static_cast<size_t>(index)); }
+};
+struct FakeCriteria { bool HasTags() const { return false; } };
+struct FakeRefineList;
+struct CGrepData {
+    std::atomic_bool StopSearch{false};
+    unsigned IncompleteReasons = FindIncompleteNone;
+    bool FindDuplicates = false;
+    bool Grep = false;
+    FakeCriteria Criteria;
+    FakeRoots roots;
+    FakeRoots* Data = &roots;
+    FakeRefineList* FoundFilesListView = nullptr;
+    bool failLog = false;
+    int Refine = 0;
+    std::shared_ptr<Root> ProtectedRoot;
+    std::vector<std::string> logs;
+};
+const char* LoadStr(int id) {
+    if (id == IDS_FIND_ACTIVITY_INCOMPLETE) return "Incomplete (admin limit)";
+    if (id == IDS_FIND_ACTIVITY_INCOMPLETE_OTHER) return "Incomplete (see log)";
+    if (id == IDS_FIND_INCOMPLETE_DIRECTORY_CAPACITY) return "Directory capacity";
+    if (id == IDS_FIND_INCOMPLETE_SCAN_BUDGET) return "Scan budget";
+    if (id == IDS_FIND_INCOMPLETE_DEPTH) return "Depth";
+    if (id == IDS_FIND_INCOMPLETE_REPARSE) return "Reparse";
+    if (id == IDS_FIND_INCOMPLETE_PROTECTED_FAILURE) return "Protected failure";
+    if (id == IDS_FINDLOG_ERROR) return "Error";
+    if (id == IDS_FIND_NO_DUPS_FOUND) return "No duplicates";
+    if (id == IDS_FIND_NO_FILES_FOUND) return "No files";
+    return id == IDS_UAC_FIND_SCOPE_LIMIT_CARRIED ? "Earlier limit %s; items were not searched." :
+                                                   "Limit %s; this search is incomplete.";
+}
+const char* GetErrorText(DWORD) { return "error"; }
+void AddFindLog(CGrepData* data, DWORD, const char* text, const char* path) {
+    if (!data->failLog) data->logs.emplace_back(std::string(text) + "|" + path);
+}
+@@LIMIT_TEST@@
+@@LIMIT_TEXT@@
+@@STATUS_ID@@
+@@REASON_ID@@
+@@REASON_TEXT@@
+@@REPORT@@
+@@RETAIN_INCOMPLETE@@
+struct CFindLogItem {};
+struct FakeLog {
+    std::vector<std::string> rows, paths;
+    void Clean() { rows.clear(); paths.clear(); }
+    void Add(DWORD, const char* text, const char* path) { rows.emplace_back(text); paths.emplace_back(path ? path : ""); }
+    int GetErrorCount() const { return static_cast<int>(rows.size()); }
+    int GetInfoCount() const { return 0; }
+    int GetCount() const { return static_cast<int>(rows.size()); }
+    const CFindLogItem* Get(int) const { static CFindLogItem item; return &item; }
+    bool CopySnapshotTo(FakeLog& target) const { target.rows = rows; target.paths = paths; return true; }
+};
+struct FakeHeader { int errors = 0; void SetErrorsInfosCount(int value, int) { errors = value; } };
+struct FakeLvi { int iItem = 0, iSubItem = 0, iImage = 0; };
+static std::vector<std::string> summaryRows;
+#define ListView_InsertItem(hwnd, item) 0
+#define ListView_SetItemText(hwnd, index, column, text) do { if ((column) == 1) summaryRows.emplace_back(text); } while (0)
+using CFindLog = FakeLog;
+static int selectedLogRow = -1, executedDialogs = 0;
+static unsigned dialogReasons = 0;
+static int dialogLogRows = -1;
+#define CALL_STACK_MESSAGE1(message) do {} while (0)
+#define LVNI_SELECTED 0
+#define ListView_GetNextItem(hwnd, start, flags) selectedLogRow
+struct CFindLogDialog {
+    FakeLog* Log = nullptr;
+    HWND HListView = nullptr;
+    CFindLogDialog() = default;
+    CFindLogDialog(HWND, FakeLog* log, unsigned reasons) : Log(log), shownReasons(reasons) {}
+    unsigned shownReasons = 0;
+    void Execute() { ++executedDialogs; dialogReasons = shownReasons; dialogLogRows = Log->GetCount(); }
+    const CFindLogItem* GetSelectedItem();
+};
+const CFindLogItem*
+@@SELECT_LOG_ITEM@@
+#define SalMessageBox(hwnd, text, title, flags) 0
+struct CFindDialog {
+    FakeLog Log;
+    HANDLE GrepThread = nullptr;
+    CGrepData GrepData;
+    HWND HWindow = nullptr;
+    void OnShowLog();
+};
+@@SHOW_LOG@@
+struct FakeSummary {
+    unsigned IncompleteReasons = 0;
+    void Draw(int existing) {
+        int i = existing;
+        FakeLvi lvi; char buff[4000];
+@@SUMMARY_ROWS@@
+    }
+};
+struct FakeList { DWORD count = 0; DWORD GetCount() const { return count; } };
+static std::string statusText;
+#undef SendMessage
+#define SendMessage(hwnd, msg, wparam, lparam) (statusText = reinterpret_cast<const char*>(lparam), 0)
+struct FakeDialog {
+    CGrepData GrepData;
+    FakeLog Log;
+    FakeHeader header;
+    FakeList list;
+    FakeList* FoundFilesListView = &list;
+    HWND HStatusBar = nullptr;
+    BOOL UpdateStatusBar = FALSE;
+    void SetResultStatus() {
+@@FINISH_ITEMS@@
+    }
+    FakeHeader* TBHeader = &header;
+    bool StartState(WORD command, bool timerStarted, bool threadStarted) {
+@@START_STATE@@
+        if (!timerStarted) return false;
+@@BEFORE_THREAD@@
+        if (!threadStarted) {
+@@THREAD_FAILURE@@
+            return false;
+        }
+        return true;
+    }
+};
+static std::atomic_bool* stopDuringScopePreparation;
+static int preparedScopeCount;
+namespace UacF7 {
+struct PreparedLeaf { bool PrepareView(const std::wstring&) { return true; } };
+struct ListingSession {
+    bool covers = false, open = true;
+    std::wstring path;
+    std::vector<std::wstring> selected;
+    bool IsOpen() const { return open; }
+    bool Contains(const std::wstring&) const { return covers; }
+    bool PrepareFindRoot(const Root& root, bool, bool) { path = root.path; return true; }
+    bool PrepareFind(const std::wstring& root, bool, bool) {
+        path = root; ++preparedScopeCount;
+        if (stopDuringScopePreparation) *stopDuringScopePreparation = true;
+        return root != L"C:\\bad";
+    }
+    bool PrepareFile(const std::wstring& file) { path = file; return true; }
+    bool PrepareFileFromView(const std::wstring& file, const PreparedLeaf&) {
+        path = file; ++preparedScopeCount;
+        if (stopDuringScopePreparation) *stopDuringScopePreparation = true;
+        return true;
+    }
+    bool PrepareReadSelection(std::vector<std::unique_ptr<ListingSession>>&& scopes) {
+        for (const auto& scope : scopes) selected.push_back(scope->path);
+        return !scopes.empty();
+    }
+};
+}
+@@SESSIONS_TYPE@@
+struct FixtureSize { DWORD LoDWord = 0, HiDWord = 0; };
+struct CFoundFilesData {
+    DWORD Attr = 0; FixtureSize Size; FILETIME LastWrite{};
+    std::shared_ptr<const UacF7::PreparedLeaf> FoundView;
+    bool IsDir = false, ProtectedOrigin = false;
+    std::wstring path = L"C:\\file";
+    std::wstring GetFullNameW() const { return path; }
+};
+struct FakeRefineList {
+    std::vector<CFoundFilesData> rows;
+    int GetDataForRefineCount() const { return static_cast<int>(rows.size()); }
+    CFoundFilesData* GetDataForRefine(int i) { return &rows.at(static_cast<size_t>(i)); }
+};
+static bool FindDuplicateContent(const CGrepData&) { return false; }
+static bool IsValidPathUtf8Text(const char*) { return true; }
+static std::wstring SalMultiByteToWidePath(const char* path, UINT) {
+    std::wstring result; while (*path) result.push_back(static_cast<unsigned char>(*path++)); return result;
+}
+static bool failPrepare, stopAfterPrepare, failStart, failAllocation;
+static DWORD finishError;
+static int starts, preparations, finishes, omitted, reused;
+static std::vector<size_t> preparedScopes;
+static UacF7::ListingSession* reusedSession;
+static UacF7::ListingSession* lastStartedSession;
+static bool mismatchedSession;
+static bool preparedKnownIdentity;
+struct FindProtectedRequest {
+    std::wstring path;
+    CMaskGroup* masks = nullptr;
+    bool singleFile = false;
+    DWORD attributes = 0;
+    UacF7::ListingSession session;
+    UacF7::ListingSession* borrowed = nullptr;
+    bool Prepare(CGrepData* data, std::wstring name, CMaskGroup* mask, BOOL, int,
+                 const std::shared_ptr<CFindIgnore>&, size_t scope, const WIN32_FIND_DATAW* file, const std::wstring&,
+                 std::shared_ptr<const UacF7::PreparedLeaf> known, bool) {
+        if (failAllocation) throw std::bad_alloc();
+        preparedScopes.push_back(scope);
+        preparedKnownIdentity = known != nullptr;
+        ++preparations; path = std::move(name); masks = mask; singleFile = file != nullptr;
+        attributes = file ? file->dwFileAttributes : 0;
+        if (stopAfterPrepare) data->StopSearch = true;
+        return !failPrepare;
+    }
+    bool Matches(const std::wstring& name, const CMaskGroup* mask, bool file) const {
+        return path == name && masks == mask && singleFile == file;
+    }
+    bool MergeRefinedRow(const WIN32_FIND_DATAW& file) const { return attributes == file.dwFileAttributes; }
+    bool Start(UacF7::ListingSession* selection) { borrowed = lastStartedSession = selection; ++starts; return !failStart; }
+    UacF7::ListingSession* Finish(CDuplicateCandidates*) { ++finishes; return nullptr; }
+    UacF7::ListingSession& ActiveSession() { return borrowed ? *borrowed : session; }
+    UacF7::ListingSession* FinishWithSession(UacF7::ListingSession& approved, CDuplicateCandidates*) {
+        if (reusedSession && reusedSession != &approved) mismatchedSession = true;
+        reusedSession = &approved; ++finishes; ++reused; return nullptr;
+    }
+    DWORD BatchFailure() { return finishError; }
+    void OmitAfterFailure(DWORD) { ++omitted; }
+};
+std::wstring SalPathRemoveExtendedPrefixW(const wchar_t* path) { return path; }
+@@QUEUE@@
+static int digestAuthorizations;
+static DWORD digestAuthorizationResult;
+static bool usedPreparedDigestSelection;
+static UacF7::ListingSession* authorizedDigestSession;
+DWORD AuthorizeFindFile(CGrepData*, const std::wstring&, UacF7::ListingSession& session, bool, bool prepared) {
+    usedPreparedDigestSelection = prepared; authorizedDigestSession = &session;
+    ++digestAuthorizations; if (!digestAuthorizationResult) { session.open = true; session.covers = true; } return digestAuthorizationResult;
+}
+std::wstring FindSearchRootForFile(CGrepData*, const std::wstring&, bool& recursive) { recursive = false; return L"C:\\"; }
+static DWORD DigestDenied(CGrepData* data, CFoundFilesData* file, size_t& remainingFileConsents,
+                          UacF7::ListingSession* approved = nullptr, UacF7::ListingSession* existingDigest = nullptr,
+                          bool preparedSelection = false)
+{
+    DWORD error = ERROR_ACCESS_DENIED;
+    bool scoped = false;
+    const std::wstring fullPath = L"C:\\file";
+    UacF7::ListingSession localSession;
+    localSession.open = false;
+    auto& digestSession = existingDigest ? *existingDigest : localSession;
+    UacF7::PreparedLeaf deniedFile;
+    bool verifyDeniedFile = false;
+    UacF7::ListingSession* protectedSession = approved;
+@@DIGEST_DENIED@@
+    if (scoped && !protectedSession) return ERROR_INVALID_DATA;
+    return error;
+}
+struct FIND_LOG_ITEM { DWORD Flags; const char* Text; const char* Path; };
+std::string SalWideToMultiBytePath(const wchar_t* path, UINT) {
+    std::string result; while (*path) result.push_back(static_cast<char>(*path++)); return result;
+}
+@@REFINE_HELPER@@
+static int RefineDenied(CGrepData* data, FindProtectedQueue& protectedQueue, CFoundFilesData* refineData,
+                        CMaskGroup* masksGroup, const std::wstring& fullPath)
+{
+    int published = 0;
+    const bool openDenied = true, ok = false;
+    for (int i = 0; i < 1; ++i)
+    {
+@@REFINE_DENIED@@
+        if (!data->StopSearch && IncludeRefinedFindResult(data->Refine, ok))
+            ++published;
+    }
+    return published;
+}
+
+static int checks, failures;
+void Check(bool value, const char* text) {
+    ++checks; if (!value) { ++failures; std::printf("FAIL: %s\n", text); }
+}
+int main() {
+    CGrepData data;
+    CMaskGroup mask;
+    FindProtectedQueue queue;
+    queue.PrepareSearchSelection(&data);
+    {
+        CGrepData stopped; stopped.roots.roots = {{"C:\\one", TRUE}, {"D:\\two", TRUE}};
+        stopped.roots.Count = 2; FindProtectedQueue pending;
+        preparedScopeCount = 0; stopDuringScopePreparation = &stopped.StopSearch;
+        pending.PrepareSearchSelection(&stopped); stopDuringScopePreparation = nullptr;
+        Check(preparedScopeCount == 1 && !pending.PreparedSelection(),
+              "Stop during root preparation stops before the next root and creates no partial selection");
+    }
+    {
+        CGrepData stopped; FakeRefineList rows; stopped.FoundFilesListView = &rows;
+        CFoundFilesData item; item.ProtectedOrigin = true; item.FoundView = std::make_shared<UacF7::PreparedLeaf>();
+        rows.rows = {item, item}; FindProtectedQueue pending;
+        preparedScopeCount = 0; stopDuringScopePreparation = &stopped.StopSearch;
+        pending.PrepareRefineSelection(&stopped); stopDuringScopePreparation = nullptr;
+        Check(preparedScopeCount == 1 && !pending.PreparedSelection(),
+              "Stop during Refine preparation stops before the next file and creates no partial selection");
+    }
+    {
+        CGrepData search; search.roots.roots = {{"C:\\first", TRUE}, {"D:\\second", FALSE}, {"C:\\bad", TRUE}};
+        search.roots.Count = static_cast<int>(search.roots.roots.size());
+        FindProtectedQueue selected; selected.PrepareSearchSelection(&search);
+        const auto* manifest = selected.PreparedSelection();
+        Check(manifest && manifest->selected == std::vector<std::wstring>{L"C:\\first", L"D:\\second"},
+              "the manifest captures every preparable independent search root without widening it");
+        Check(selected.Add(&search, L"C:\\bad\\child", &mask, TRUE, 0, {}, nullptr, L"C:\\bad") == FindQueueResult::Failed &&
+              (search.IncompleteReasons & FindIncompleteProtectedFailure),
+              "a denied subtree of an unprepared root is incomplete rather than silently skipped");
+        Check(selected.Add(&search, L"D:\\second\\child", &mask, FALSE, 0, {}, nullptr, L"D:\\second", false) == FindQueueResult::Added,
+              "an unprepared root does not stop a separate prepared root");
+        Check(lastStartedSession == manifest, "the first consent launches the complete prepared selection");
+    }
+    starts = preparations = 0; preparedScopes.clear();
+    {
+        CGrepData refine; FakeRefineList rows; refine.FoundFilesListView = &rows;
+        CFoundFilesData first; first.path = L"C:\\first\\one"; first.ProtectedOrigin = true;
+        first.FoundView = std::make_shared<UacF7::PreparedLeaf>();
+        CFoundFilesData second = first; second.path = L"D:\\second\\two";
+        CFoundFilesData missing = first; missing.path = L"C:\\first\\missing"; missing.FoundView.reset();
+        rows.rows = {first, second, missing};
+        FindProtectedQueue selected; selected.PrepareRefineSelection(&refine);
+        const auto* manifest = selected.PreparedSelection();
+        Check(manifest && manifest->selected == std::vector<std::wstring>{first.path, second.path},
+              "Refine prepares exact protected files with identities rather than their common parent");
+        Check(selected.AddRefined(&refine, missing.path, &mask, missing) == FindQueueResult::Failed &&
+              (refine.IncompleteReasons & FindIncompleteProtectedFailure),
+              "Refine marks a protected file without retained identity incomplete");
+        const int previousStarts = starts;
+        Check(selected.AddRefined(&refine, first.path, &mask, first) == FindQueueResult::Added &&
+              selected.AddRefined(&refine, second.path, &mask, second) == FindQueueResult::Added &&
+              starts == previousStarts + 1 && lastStartedSession == manifest,
+              "different protected Refine files share one selection and one consent");
+    }
+    starts = preparations = 0; preparedScopes.clear();
+    for (int i = 0; i < 120; ++i)
+        Check(queue.Add(&data, L"C:\\scope\\" + std::to_wstring(i), &mask, TRUE, 0, {}) == FindQueueResult::Added,
+              "distinct protected scopes are admitted beyond the previous 32-item limit");
+    Check(starts == 1, "only the first prompt starts while ordinary traversal continues");
+    const int beforeDuplicate = preparations;
+    Check(queue.Add(&data, L"C:\\scope\\0", &mask, TRUE, 0, {}) == FindQueueResult::Added,
+          "duplicate request is accepted without consuming a new scope");
+    Check(preparations == beforeDuplicate, "duplicate request is not prepared twice");
+    data.StopSearch = true;
+    Check(queue.Add(&data, L"C:\\scope\\121", &mask, TRUE, 0, {}) == FindQueueResult::Stopped,
+          "Stop takes precedence after many queued requests");
+    ReportFindScopeLimit(&data, "C:\\scope\\33");
+    Check(data.logs.empty(), "a stopped search emits no later limit log");
+    {
+        CGrepData search; FindProtectedQueue approved;
+        approved.PrepareSearchSelection(&search);
+        const int previousStarts = starts;
+        preparedScopes.clear();
+        for (int i = 0; i < 80; ++i)
+            Check(approved.Add(&search, L"C:\\root\\" + std::to_wstring(i), &mask, TRUE, 0, {}) == FindQueueResult::Added,
+                  "protected sibling is admitted beyond the former limit");
+        Check(preparedScopes.size() == 80 && preparedScopes.front() == 1 && preparedScopes.back() == 80,
+              "one-based request identities are retained beyond six-bit storage");
+        finishError = ERROR_SUCCESS; finishes = reused = 0; reusedSession = nullptr; mismatchedSession = false;
+        approved.Finish(nullptr);
+        Check(starts == previousStarts + 1 && finishes == 80 && reused == 79 && !mismatchedSession,
+              "one Find consent reuses the same approved session for every protected sibling");
+    }
+    {
+        CGrepData search; FindProtectedQueue denied;
+        denied.PrepareSearchSelection(&search);
+        const int previousStarts = starts;
+        for (int i = 0; i < 80; ++i)
+            Check(denied.Add(&search, L"C:\\denied\\" + std::to_wstring(i), &mask, TRUE, 0, {}) == FindQueueResult::Added,
+                  "denied siblings queue while ordinary search continues");
+        finishError = ERROR_CANCELLED; finishes = omitted = 0;
+        denied.Finish(nullptr);
+        Check(starts == previousStarts + 1 && finishes == 1 && omitted == 79,
+              "declining Find consent omits all later siblings without another prompt");
+        finishError = ERROR_SUCCESS;
+    }
+    {
+        CGrepData search; FindProtectedQueue disconnected;
+        disconnected.PrepareSearchSelection(&search);
+        const int previousStarts = starts;
+        Check(disconnected.Add(&search, L"C:\\root\\one", &mask, TRUE, 0, {}) == FindQueueResult::Added &&
+              disconnected.Add(&search, L"C:\\root\\two", &mask, TRUE, 0, {}) == FindQueueResult::Added,
+              "two denied paths are queued before the session fails");
+        finishError = ERROR_BROKEN_PIPE; finishes = omitted = 0;
+        disconnected.Finish(nullptr);
+        Check(starts == previousStarts + 1 && finishes == 1 && omitted == 1,
+              "a broken Find session does not automatically start another consent");
+        finishError = ERROR_SUCCESS;
+    }
+    Check(FindFinalActivity(true, true) == CFindActivity::Stopped &&
+          FindFinalActivity(false, true) == CFindActivity::Incomplete &&
+          FindFinalActivity(false, false) == CFindActivity::Finished,
+          "explicit Stop wins over incomplete and a later normal search completes");
+    Check(RetainFindIncomplete(CM_FIND_APPEND, true) && RetainFindIncomplete(CM_FIND_INTERSECT, true) &&
+          RetainFindIncomplete(CM_FIND_SUBTRACT, true) && !RetainFindIncomplete(IDOK, true) &&
+          !RetainFindIncomplete(CM_FIND_APPEND, false),
+          "append and both refine modes retain incompleteness only when prior results need it");
+    { CGrepData noLog; noLog.failLog = true;
+      ReportFindScopeLimit(&noLog, "C:\\scope\\33");
+      Check(noLog.IncompleteReasons && noLog.logs.empty() &&
+            FindFinalActivity(false, noLog.IncompleteReasons) == CFindActivity::Incomplete,
+            "a full or unavailable log still leaves the precise incomplete status visible"); }
+    { FakeDialog dialog; dialog.GrepData.IncompleteReasons = true; dialog.SetResultStatus();
+      Check(statusText == "Incomplete (admin limit)", "zero unverified results do not claim no files found");
+      dialog.GrepData.IncompleteReasons = false; dialog.SetResultStatus();
+      Check(statusText == "No files", "a complete empty search keeps the normal no files status");
+      dialog.GrepData.FindDuplicates = true; dialog.SetResultStatus();
+      Check(statusText == "No duplicates", "a complete empty duplicate search keeps its own status");
+      dialog.list.count = 1; dialog.SetResultStatus();
+      Check(dialog.UpdateStatusBar == TRUE, "nonempty results retain the usual count status"); }
+    char carriedText[1024]; FindProtectedScopeLimitText(true, carriedText, sizeof(carriedText));
+    Check(std::string(carriedText).find("Earlier limit 32") != std::string::npos,
+          "carried limit reason identifies an earlier search without attributing a current path");
+    for (const WORD command : {CM_FIND_APPEND, CM_FIND_INTERSECT, CM_FIND_SUBTRACT}) {
+        FakeDialog dialog; dialog.GrepData.IncompleteReasons = true;
+        Check(dialog.StartState(command, true, true) && dialog.GrepData.IncompleteReasons &&
+              dialog.Log.rows.size() == 1 && dialog.Log.rows[0].find("Earlier limit 32") != std::string::npos &&
+              dialog.Log.paths[0].empty(), "actual startup carries the prior reason without a misleading current path");
+    }
+    {
+        FakeDialog dialog; dialog.GrepData.IncompleteReasons = true;
+        Check(dialog.StartState(IDOK, true, true) && !dialog.GrepData.IncompleteReasons && dialog.Log.rows.empty(),
+              "a successfully started replacing search clears the prior limit reason");
+    }
+    for (const bool timerStarted : {false, true}) {
+        FakeDialog dialog; dialog.GrepData.IncompleteReasons = true;
+        Check(!dialog.StartState(IDOK, timerStarted, false) && dialog.GrepData.IncompleteReasons &&
+              dialog.Log.rows.size() == 1 && dialog.Log.rows[0].find("Earlier limit 32") != std::string::npos &&
+              dialog.Log.paths[0].empty(), "a timer or worker startup failure preserves prior incomplete reason");
+    }
+    // Synthetic future flags test storage only; production emits only scope capacity until localized reporting exists.
+    constexpr unsigned mixed = FindIncompleteScopeCapacity | FindIncompleteScanDepth | FindIncompleteReparse;
+    for (const WORD command : {CM_FIND_APPEND, CM_FIND_INTERSECT, CM_FIND_SUBTRACT}) {
+        FakeDialog dialog; dialog.GrepData.IncompleteReasons = mixed;
+        Check(dialog.StartState(command, true, true) && dialog.GrepData.IncompleteReasons == mixed,
+              "actual append and refine startup preserve each incomplete reason");
+    }
+    for (const bool timerStarted : {false, true}) {
+        FakeDialog dialog; dialog.GrepData.IncompleteReasons = mixed;
+        Check(!dialog.StartState(IDOK, timerStarted, false) && dialog.GrepData.IncompleteReasons == mixed,
+              "timer and worker startup failure preserve each previous reason");
+    }
+    { FakeDialog dialog; dialog.GrepData.IncompleteReasons = mixed;
+      Check(dialog.StartState(IDOK, true, true) && dialog.GrepData.IncompleteReasons == FindIncompleteNone,
+            "successful replacing search resets all previous reasons"); }
+    { CGrepData accumulated; accumulated.IncompleteReasons = FindIncompleteScanBudget;
+      ReportFindScopeLimit(&accumulated, "C:\\scope\\33");
+      Check(accumulated.IncompleteReasons == (FindIncompleteScanBudget | FindIncompleteScopeCapacity),
+            "reporting scope capacity accumulates rather than replacing another reason"); }
+    for (unsigned reasons = 1; reasons < 64; ++reasons) {
+        const int status = FindIncompleteStatusStringID(reasons);
+        Check(status == (reasons == FindIncompleteScopeCapacity ? IDS_FIND_ACTIVITY_INCOMPLETE : IDS_FIND_ACTIVITY_INCOMPLETE_OTHER),
+              "each reason combination has truthful compact status");
+        FakeSummary summary; summary.IncompleteReasons = reasons;
+        for (int existing : {0, 301}) {
+            summaryRows.clear(); summary.Draw(existing);
+            const char* expectedTexts[] = {"Earlier limit 32; items were not searched.", "Directory capacity",
+                                           "Scan budget", "Depth", "Reparse", "Protected failure"};
+            std::vector<std::string> expected;
+            for (unsigned bit = 0; bit < 6; ++bit) if (reasons & (1u << bit)) expected.emplace_back(expectedTexts[bit]);
+            Check(summaryRows == expected, "actual summary rows preserve every reason independently of log capacity");
+        }
+        FakeDialog dialog; dialog.GrepData.IncompleteReasons = reasons;
+        Check(dialog.StartState(CM_FIND_APPEND, true, true) && dialog.GrepData.IncompleteReasons == reasons &&
+              (!!(reasons & FindIncompleteScopeCapacity) == !dialog.Log.rows.empty()),
+              "actual carry does not invent the scope limit for unrelated reasons");
+    }
+    { CFindDialog dialog; dialog.GrepData.IncompleteReasons = FindIncompleteScanDepth;
+      executedDialogs = 0; dialog.OnShowLog();
+      Check(executedDialogs == 1 && dialogReasons == FindIncompleteScanDepth && dialogLogRows == 0,
+            "actual log command opens summary even without a stored log entry");
+      dialog.GrepThread = reinterpret_cast<HANDLE>(1); dialog.OnShowLog();
+      Check(executedDialogs == 1, "actual log command does not read reasons or open empty summary while worker runs");
+      dialog.GrepThread = nullptr; dialog.Log.rows.resize(301); dialog.OnShowLog();
+      Check(executedDialogs == 2 && dialogReasons == FindIncompleteScanDepth && dialogLogRows == 301,
+            "actual log command preserves bounded records and passes separate summary"); }
+    { FakeLog log; log.rows.resize(301); CFindLogDialog logDialog; logDialog.Log = &log;
+      selectedLogRow = 300; Check(logDialog.GetSelectedItem() != nullptr, "real log row still maps to original entry");
+      selectedLogRow = 301; Check(logDialog.GetSelectedItem() == nullptr, "summary row cannot invoke Focus or Ignore");
+      log.rows.clear(); selectedLogRow = 0;
+      Check(logDialog.GetSelectedItem() == nullptr, "summary without log records cannot invoke a path action"); }
+    { FakeDialog dialog; dialog.GrepData.IncompleteReasons = FindIncompleteScanDepth; dialog.SetResultStatus();
+      Check(statusText == "Incomplete (see log)", "depth alone does not claim a 32-scope limit"); }
+    Check(FindFileConsentLimit(ERROR_ACCESS_DENIED, 0, 0) &&
+          !FindFileConsentLimit(ERROR_ACCESS_DENIED, 0, 1) &&
+          !FindFileConsentLimit(ERROR_ACCESS_DENIED, FILE_ATTRIBUTE_ENCRYPTED, 0) &&
+          !FindFileConsentLimit(ERROR_ACCESS_DENIED, FILE_ATTRIBUTE_REPARSE_POINT, 0) &&
+          !FindFileConsentLimit(ERROR_BROKEN_PIPE, 0, 0),
+          "duplicate-content limit is used only for otherwise eligible denied files");
+    {
+        CGrepData digest; CFoundFilesData row; size_t remaining = 1; UacF7::ListingSession session; session.open = false;
+        digestAuthorizations = 0; digestAuthorizationResult = ERROR_SUCCESS;
+        usedPreparedDigestSelection = false; authorizedDigestSession = nullptr;
+        Check(DigestDenied(&digest, &row, remaining, nullptr, &session, true) == ERROR_SUCCESS &&
+                  DigestDenied(&digest, &row, remaining, nullptr, &session, true) == ERROR_SUCCESS && digestAuthorizations == 1 &&
+                  usedPreparedDigestSelection && authorizedDigestSession == &session,
+              "duplicate digest shares the prepared selection and one authorization across files");
+    }
+    {
+        CGrepData digest; CFoundFilesData row; size_t remaining = 0; UacF7::ListingSession approved; approved.covers = true;
+        digestAuthorizations = 0;
+        Check(DigestDenied(&digest, &row, remaining, &approved) == ERROR_SUCCESS && digestAuthorizations == 0 && !digest.IncompleteReasons,
+              "ordinary duplicate candidate reuses an approved covering session without another prompt");
+    }
+    {
+        CGrepData digest; CFoundFilesData row; size_t remaining = 0;
+        digestAuthorizations = 0; digestAuthorizationResult = ERROR_SUCCESS;
+        Check(DigestDenied(&digest, &row, remaining) == ERROR_ACCESS_DENIED && digest.IncompleteReasons &&
+              digestAuthorizations == 0,
+              "the actual denied digest branch reports exhausted consent without starting a broker");
+        digest.IncompleteReasons = false; digest.logs.clear(); row.Attr = FILE_ATTRIBUTE_ENCRYPTED;
+        Check(DigestDenied(&digest, &row, remaining) == ERROR_ACCESS_DENIED && !digest.IncompleteReasons &&
+              digest.logs.empty() && digestAuthorizations == 0,
+              "an unsupported encrypted digest is not misreported as the scope limit");
+        row.Attr = 0; remaining = 1;
+        Check(DigestDenied(&digest, &row, remaining) == ERROR_SUCCESS && remaining == 0 &&
+              digestAuthorizations == 1 && !digest.IncompleteReasons,
+              "an available file consent is consumed and authorized normally");
+    }
+    {
+        CGrepData refine; refine.Refine = 1; FindProtectedQueue items; CFoundFilesData row;
+        items.PrepareSearchSelection(&refine);
+        row.FoundView = std::make_shared<UacF7::PreparedLeaf>(); preparedKnownIdentity = false;
+        Check(items.AddRefined(&refine, L"C:\\identity-file", &mask, row) == FindQueueResult::Added && preparedKnownIdentity,
+              "refine forwards the captured identity to its protected request");
+    }
+    {
+        CGrepData refine; refine.Refine = 1; FindProtectedQueue items; CFoundFilesData row;
+        items.PrepareSearchSelection(&refine);
+        for (int i = 0; i < 120; ++i)
+            Check(items.AddRefined(&refine, L"C:\\file" + std::to_wstring(i), &mask, row) == FindQueueResult::Added,
+                  "refined protected candidates are admitted beyond the former limit");
+        Check(items.AddRefined(&refine, L"C:\\file0", &mask, row) == FindQueueResult::Added,
+              "the same refined row can merge after many requests");
+        row.Attr = FILE_ATTRIBUTE_HIDDEN;
+        Check(items.AddRefined(&refine, L"C:\\file0", &mask, row) == FindQueueResult::Added,
+              "a changed refined row is prepared separately without reusing old metadata");
+        row.Attr = 0;
+        Check(RefineDenied(&refine, items, &row, &mask, L"C:\\other") == 0 && !refine.IncompleteReasons &&
+              refine.logs.empty(), "intersection can queue another protected row without a false limit");
+        refine.Refine = 2;
+        Check(RefineDenied(&refine, items, &row, &mask, L"C:\\different") == 0 && !refine.IncompleteReasons &&
+              refine.logs.empty(), "subtraction can queue another protected row without a false limit");
+        refine.IncompleteReasons = false; refine.logs.clear(); refine.StopSearch = true;
+        Check(RefineDenied(&refine, items, &row, &mask, L"C:\\other") == 0 && !refine.IncompleteReasons &&
+              refine.logs.empty(), "Stop prevents a new refine result or false capacity report");
+    }
+    {
+        CGrepData request; FindProtectedQueue pending; failPrepare = true;
+        pending.PrepareSearchSelection(&request);
+        Check(pending.Add(&request, L"C:\\denied", &mask, TRUE, 0, {}) == FindQueueResult::Failed,
+              "unavailable preparation is not misreported as capacity");
+        failPrepare = false; stopAfterPrepare = true;
+        Check(pending.Add(&request, L"C:\\stopped", &mask, TRUE, 0, {}) == FindQueueResult::Stopped,
+              "Stop during preparation prevents starting consent");
+        stopAfterPrepare = false; request.StopSearch = false; failStart = true;
+        Check(pending.Add(&request, L"C:\\failed-start", &mask, TRUE, 0, {}) == FindQueueResult::Failed,
+              "a consent launch failure remains a distinct ordinary failure");
+        failStart = false; request.IncompleteReasons = FindIncompleteNone; failAllocation = true;
+        Check(pending.Add(&request, L"C:\\out-of-memory", &mask, TRUE, 0, {}) == FindQueueResult::OutOfMemory &&
+                  (request.IncompleteReasons & FindIncompleteProtectedFailure),
+              "allocation failure marks results incomplete without inventing a scope limit");
+        failAllocation = false;
+        Check(pending.Add(&request, L"C:\\after-oom", &mask, TRUE, 0, {}) == FindQueueResult::Added,
+              "a failed allocation does not corrupt the queue or block a later request");
+    }
+    std::printf("Actual protected Find queue: %d checks, %d failures\n", checks, failures);
+    return failures ? 1 : 0;
+}

@@ -1,0 +1,765 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Exercise overwrite probe framing on the real dispatcher. | Check fail-closed scopes and message boundaries on NTFS. | #731 | GPT-6.1 Terra |
+// Appended to the existing dispatcher fixture by the runner. The seam bypasses
+// installed-image authentication and interactive UAC, not the actual pipe,
+// transfer-job dispatcher, parser, NTFS identity checks or probe implementation.
+
+namespace
+{
+static HANDLE probeReached = nullptr, probeResume = nullptr;
+static unsigned probeStopPhase = 0;
+void OverwriteProbeFaultCheckpoint(unsigned phase)
+{
+    if (phase == probeStopPhase && probeReached && probeResume && SetEvent(probeReached))
+        WaitForSingleObject(probeResume, 5000);
+}
+}
+
+namespace ProbeWireTests
+{
+struct Payload
+{
+    RequestHeader header{};
+    std::wstring body;
+};
+
+Payload Make(const Directory& source, const Directory& target,
+             std::wstring_view sourceLeaf, std::wstring_view targetLeaf,
+             Operation operation = Operation::ProbeOverwrite)
+{
+    Payload request;
+    const auto file = Adopt(CreateFileW(source.File(sourceLeaf).c_str(), FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+        FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    FILE_ID_INFO identity{};
+    if (!file || !GetFileInformationByHandleEx(file.get(), FileIdInfo, &identity, sizeof(identity)))
+        return request;
+    auto& header = request.header;
+    header.operation = operation;
+    header.serial = source.identity.file.VolumeSerialNumber;
+    header.parentId = source.identity.file.FileId;
+    header.sourceId = identity.FileId;
+    header.relativeLength = static_cast<DWORD>(source.relative.size());
+    header.leafLength = static_cast<DWORD>(sourceLeaf.size());
+    header.targetSerial = target.identity.file.VolumeSerialNumber;
+    header.targetParentId = target.identity.file.FileId;
+    header.targetRelativeLength = static_cast<DWORD>(target.relative.size());
+    header.targetLeafLength = static_cast<DWORD>(targetLeaf.size());
+    header.copySize = 1;
+    request.body = source.identity.volume + source.relative + std::wstring(sourceLeaf) +
+                   target.identity.volume + target.relative + std::wstring(targetLeaf);
+    return request;
+}
+
+bool WriteFrame(JobPipe& pipe, const void* data, DWORD size)
+{
+    return TransferRequest(pipe.server.get(), const_cast<void*>(data), size, true,
+                           GetTickCount64() + 5000) == ERROR_SUCCESS;
+}
+
+bool ReadFrame(JobPipe& pipe, void* data, DWORD size)
+{
+    return TransferRequest(pipe.server.get(), data, size, false,
+                           GetTickCount64() + 5000) == ERROR_SUCCESS;
+}
+
+bool Send(JobPipe& pipe, const Payload& request, DWORD& status, UacF7::OverwriteProbeReply& reply)
+{
+    return WriteFrame(pipe, &request.header, sizeof(request.header)) &&
+           WriteFrame(pipe, request.body.data(), static_cast<DWORD>(request.body.size() * sizeof(wchar_t))) &&
+           ReadFrame(pipe, &status, sizeof(status)) && ReadFrame(pipe, &reply, sizeof(reply));
+}
+
+bool Commit(JobPipe& pipe, const Payload& request, const UacF7::ArchiveRevision& target,
+            const GUID& nonce, DWORD& status, bool sendNonce = true,
+            UacF7::OverwriteProbeReply* changed = nullptr)
+{
+    if (!WriteFrame(pipe, &request.header, sizeof(request.header)) ||
+        !WriteFrame(pipe, request.body.data(), static_cast<DWORD>(request.body.size() * sizeof(wchar_t))) ||
+        !WriteFrame(pipe, &target, sizeof(target))) return false;
+    if (!sendNonce) return true;
+    UacF7::OverwriteProbeReply discarded{};
+    return WriteFrame(pipe, &nonce, sizeof(nonce)) && ReadFrame(pipe, &status, sizeof(status)) &&
+           ReadFrame(pipe, changed ? changed : &discarded, sizeof(discarded));
+}
+
+bool Skip(JobPipe& pipe, const GUID& nonce)
+{
+    RequestHeader abort{};
+    abort.operation = Operation::AbortOverwriteProbe;
+    DWORD status = MAXDWORD;
+    return WriteFrame(pipe, &abort, sizeof(abort)) && WriteFrame(pipe, &nonce, sizeof(nonce)) &&
+           ReadFrame(pipe, &status, sizeof(status)) && status == ERROR_SUCCESS;
+}
+
+bool RewriteByte(const std::wstring& path, BYTE value, const UacF7::ArchiveRevision& old)
+{
+    const auto file = Adopt(CreateFileW(path.c_str(), FILE_WRITE_DATA | FILE_WRITE_ATTRIBUTES | FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+        FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    DWORD written = 0;
+    if (!file || !WriteFile(file.get(), &value, 1, &written, nullptr) || written != 1 || !FlushFileBuffers(file.get()))
+        return false;
+    FILETIME when{};
+    const ULONGLONG ticks = static_cast<ULONGLONG>(old.modified) + 100000000ULL;
+    when.dwLowDateTime = static_cast<DWORD>(ticks);
+    when.dwHighDateTime = static_cast<DWORD>(ticks >> 32);
+    return SetFileTime(file.get(), nullptr, nullptr, &when) != FALSE;
+}
+
+bool NoTemporaryEntries(const Directory& directory)
+{
+    WIN32_FIND_DATAW info{};
+    HANDLE find = FindFirstFileW(directory.File(L".samandarin-*").c_str(), &info);
+    if (find == INVALID_HANDLE_VALUE)
+        return GetLastError() == ERROR_FILE_NOT_FOUND;
+    FindClose(find);
+    return false;
+}
+
+#ifdef SAM_UAC_FAULT_RECOVERY_1006
+// This one scenario replaces the recovery call itself with a forced 1006 in a
+// generated test translation unit; it does not claim a real recovery outcome.
+void ForcedRecovery(const Directory& source, const Directory& target)
+{
+    const wchar_t* sourceName = L"forced-recovery-source";
+    const wchar_t* targetName = L"forced-recovery-target";
+    const std::wstring journalName = DiskOverwriteJournalName(target.identity);
+    if (!WriteByte(source.File(sourceName), 121) || !WriteByte(target.File(targetName), 122) ||
+        !WriteByte(journalName, 123))
+    { Check(false, "prepare forced recovery result fixture"); return; }
+    auto before = Adopt(CreateFileW(journalName.c_str(), FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+    FILE_ID_INFO beforeId{};
+    if (!before || !GetFileInformationByHandleEx(before.get(), FileIdInfo, &beforeId, sizeof(beforeId)))
+    { Check(false, "capture forced recovery journal identity"); return; }
+    // The exclusive journal open in production cannot coexist with this
+    // inspection handle, so release it before sending the commit.
+    before.reset();
+    Payload request = Make(source, target, sourceName, targetName);
+    JobPipe job;
+    UacF7::OverwriteProbeReply initial{}, updated{};
+    DWORD status = MAXDWORD;
+    const bool prepared = job.Open() && Send(job, request, status, initial) && !status && initial.present;
+    request.header.operation = Operation::CopyOverwrite;
+    status = MAXDWORD;
+    const bool received = prepared && Commit(job, request, initial.target, initial.nonce, status, true, &updated);
+    job.Finish();
+    const auto journal = Adopt(CreateFileW(journalName.c_str(), GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+    FILE_ID_INFO afterId{}; LARGE_INTEGER length{}; BYTE byte = 0; DWORD read = 0;
+    Check(received && status == ERROR_FILE_INVALID && !updated.present && journal &&
+          GetFileInformationByHandleEx(journal.get(), FileIdInfo, &afterId, sizeof(afterId)) &&
+          beforeId.VolumeSerialNumber == afterId.VolumeSerialNumber &&
+          !std::memcmp(beforeId.FileId.Identifier, afterId.FileId.Identifier, 16) &&
+          GetFileSizeEx(journal.get(), &length) && length.QuadPart == 1 &&
+          ReadFile(journal.get(), &byte, 1, &read, nullptr) && read == 1 && byte == 123 &&
+          HasByte(source.File(sourceName), 121) && HasByte(target.File(targetName), 122) && NoTemporaryEntries(target),
+          "injected recovery 1006 produces no target proposal and preserves journal and files");
+}
+#endif
+
+void Run(const Directory& source, const Directory& target, const Directory& outside)
+{
+    const wchar_t* sourceLeaf = L"probe-source-\u6771.txt";
+    const wchar_t* targetLeaf = L"probe-target-\u65e5.txt";
+    if (!WriteByte(source.File(sourceLeaf), 11) || !WriteByte(target.File(targetLeaf), 22))
+    {
+        Check(false, "prepare actual probe fixtures");
+        return;
+    }
+    const Payload request = Make(source, target, sourceLeaf, targetLeaf);
+    DWORD status = MAXDWORD;
+    UacF7::OverwriteProbeReply reply{};
+    JobPipe success;
+    const bool got = success.Open() && Send(success, request, status, reply);
+    Check(got && status == ERROR_SUCCESS && reply.size == sizeof(reply) && reply.version == 1 &&
+          !reply.reserved && reply.present == 1 && !IsEqualGUID(reply.nonce, GUID_NULL) &&
+          reply.source.size == 1 && reply.target.size == 1 &&
+          reply.sourceParentSerial == source.identity.file.VolumeSerialNumber &&
+          reply.targetParentSerial == target.identity.file.VolumeSerialNumber &&
+          !std::memcmp(reply.sourceParentId, source.identity.file.FileId.Identifier, 16) &&
+          !std::memcmp(reply.targetParentId, target.identity.file.FileId.Identifier, 16),
+          "real pipe returns distinct status and complete identity-bound probe reply");
+    Check(HasByte(source.File(sourceLeaf), 11) && HasByte(target.File(targetLeaf), 22),
+          "read-only probe leaves source and target intact");
+    RequestHeader unrelated{};
+    unrelated.operation = Operation::Copy;
+    Check(WriteFrame(success, &unrelated, sizeof(unrelated)) && success.Finish() == ERROR_ACCESS_DENIED &&
+          HasByte(target.File(targetLeaf), 22), "pending probe rejects unrelated mutation before payload");
+
+    JobPipe cancel;
+    status = MAXDWORD; reply = {};
+    Check(cancel.Open() && Send(cancel, request, status, reply) && !status && reply.present &&
+          cancel.CancelIdle() == ERROR_SUCCESS && HasByte(target.File(targetLeaf), 22),
+          "adjacent cancel consumes no later frame and leaves target intact");
+
+    JobPipe skip;
+    status = MAXDWORD; reply = {};
+    if (skip.Open() && Send(skip, request, status, reply) && !status && reply.present)
+    {
+        const GUID firstNonce = reply.nonce;
+        RequestHeader abort{}; abort.operation = Operation::AbortOverwriteProbe;
+        DWORD abortStatus = MAXDWORD;
+        const bool skipped = WriteFrame(skip, &abort, sizeof(abort)) &&
+            WriteFrame(skip, &firstNonce, sizeof(firstNonce)) && ReadFrame(skip, &abortStatus, sizeof(abortStatus));
+        UacF7::OverwriteProbeReply second{}; status = MAXDWORD;
+        Check(skipped && !abortStatus && Send(skip, request, status, second) && !status && second.present &&
+              !IsEqualGUID(firstNonce, second.nonce) && skip.CancelIdle() == ERROR_SUCCESS &&
+              HasByte(target.File(targetLeaf), 22), "Skip consumes pending and allows another probe on same pipe");
+    }
+    else Check(false, "prepare Skip and repeat-probe fixture");
+
+    for (int kind = 0; kind < 3; ++kind)
+    {
+        JobPipe abortJob;
+        status = MAXDWORD; reply = {};
+        if (!abortJob.Open() || !Send(abortJob, request, status, reply) || status || !reply.present)
+        { Check(false, "prepare invalid abort fixture"); continue; }
+        RequestHeader abort{}; abort.operation = Operation::AbortOverwriteProbe;
+        if (kind == 2) abort.serial = 1;
+        GUID nonce = reply.nonce;
+        if (kind == 0) nonce.Data4[7] ^= 1;
+        const bool headerSent = WriteFrame(abortJob, &abort, sizeof(abort));
+        if (kind != 2) (void)WriteFrame(abortJob, &nonce, kind == 1 ? sizeof(nonce) - 1 : sizeof(nonce));
+        const DWORD stopped = abortJob.Finish();
+        Check(headerSent && stopped != ERROR_SUCCESS && HasByte(target.File(targetLeaf), 22),
+              "invalid nonce, short nonce or nonzero abort field ends job without mutation");
+    }
+
+    const wchar_t* prior = L"probe-ordinary-before.txt";
+    const wchar_t* priorPolicy = L"probe-ordinary-policy.txt";
+    const wchar_t* priorParent = L"probe-ordinary-parent.txt";
+    if (!WriteByte(source.File(prior), 31) || !WriteByte(source.File(priorPolicy), 32) ||
+        !WriteByte(source.File(priorParent), 33))
+        Check(false, "prepare earlier operations to bind pipe scope");
+    else
+    {
+        JobPipe established;
+        status = MAXDWORD; reply = {};
+        Check(established.Open() && established.Request(Operation::Copy, source, prior, status, &target) && !status &&
+              Send(established, request, status, reply) && !status && reply.present &&
+              established.CancelIdle() == ERROR_SUCCESS && HasByte(target.File(prior), 31) &&
+              HasByte(target.File(targetLeaf), 22), "approved copy job accepts matching exact probe without another session");
+
+        JobPipe wrongPolicy;
+        status = MAXDWORD; reply = {};
+        const Payload ignoredStreams = Make(source, target, sourceLeaf, targetLeaf, Operation::ProbeOverwriteIgnoreAds);
+        Check(wrongPolicy.Open() && wrongPolicy.Request(Operation::Copy, source, priorPolicy, status, &target) && !status &&
+              !Send(wrongPolicy, ignoredStreams, status, reply) && wrongPolicy.Finish() == ERROR_ACCESS_DENIED &&
+              HasByte(target.File(priorPolicy), 32) && HasByte(target.File(targetLeaf), 22),
+              "existing copy scope rejects probe with different stream policy");
+
+        JobPipe wrongScope;
+        status = MAXDWORD; reply = {};
+        const Payload changedParent = Make(source, outside, sourceLeaf, targetLeaf);
+        Check(wrongScope.Open() && wrongScope.Request(Operation::Copy, source, priorParent, status, &target) && !status &&
+              !Send(wrongScope, changedParent, status, reply) && wrongScope.Finish() == ERROR_ACCESS_DENIED &&
+              HasByte(target.File(priorParent), 33) && HasByte(target.File(targetLeaf), 22),
+              "existing copy scope rejects probe for another target parent");
+    }
+
+    JobPipe repeated;
+    status = MAXDWORD; reply = {};
+    Check(repeated.Open() && Send(repeated, request, status, reply) && !status &&
+          WriteFrame(repeated, &request.header, sizeof(request.header)) &&
+          repeated.Finish() != ERROR_SUCCESS && HasByte(target.File(targetLeaf), 22),
+          "second probe while decision is pending is rejected");
+
+    for (bool retryProbe : {false, true})
+    {
+        Payload invalid = request;
+        invalid.header.sourceId.Identifier[15] ^= 1;
+        JobPipe bad;
+        status = MAXDWORD; reply = {};
+        const bool rejected = bad.Open() && Send(bad, invalid, status, reply) &&
+                              status == ERROR_FILE_INVALID && !reply.present;
+        RequestHeader next = request.header;
+        next.operation = retryProbe ? Operation::ProbeOverwrite : Operation::Copy;
+        const bool sent = WriteFrame(bad, &next, sizeof(next));
+        const DWORD stopped = bad.Finish();
+        Check(rejected && (!sent || stopped == ERROR_SUCCESS || stopped == ERROR_BROKEN_PIPE) &&
+              HasByte(source.File(sourceLeaf), 11) && HasByte(target.File(targetLeaf), 22),
+              retryProbe ? "failed initial probe closes job before another probe" :
+                           "failed initial probe closes job before unrelated copy");
+    }
+
+    for (int kind = 0; kind < 4; ++kind)
+    {
+        JobPipe malformed;
+        if (!malformed.Open()) { Check(false, "open malformed-frame fixture"); continue; }
+        bool written = false;
+        if (kind == 0)
+            written = WriteFrame(malformed, &request.header, sizeof(request.header) - 1);
+        else if (kind == 1)
+        {
+            BYTE over[sizeof(RequestHeader) + 1]{};
+            std::memcpy(over, &request.header, sizeof(request.header));
+            written = WriteFrame(malformed, over, sizeof(over));
+        }
+        else
+        {
+            written = WriteFrame(malformed, &request.header, sizeof(request.header));
+            const DWORD length = static_cast<DWORD>(request.body.size() * sizeof(wchar_t));
+            if (kind == 2)
+                written = written && WriteFrame(malformed, request.body.data(), length - sizeof(wchar_t));
+            else
+            {
+                std::wstring over = request.body + L"x";
+                written = written && WriteFrame(malformed, over.data(), static_cast<DWORD>(over.size() * sizeof(wchar_t)));
+            }
+        }
+        const DWORD stopped = malformed.Finish();
+        Check(written && stopped != ERROR_SUCCESS && HasByte(source.File(sourceLeaf), 11) &&
+              HasByte(target.File(targetLeaf), 22), "malformed header or payload ends job without mutation");
+    }
+
+    Payload wrongParent = Make(source, outside, sourceLeaf, targetLeaf);
+    wrongParent.header.targetParentId.Identifier[15] ^= 1;
+    JobPipe scope;
+    status = MAXDWORD; reply = {};
+    Check(scope.Open() && Send(scope, wrongParent, status, reply) && status == ERROR_FILE_INVALID &&
+          !reply.present && scope.Finish() == ERROR_SUCCESS && HasByte(target.File(targetLeaf), 22),
+          "wrong full target parent identity cannot establish probe scope");
+
+    for (int kind = 0; kind < 6; ++kind)
+    {
+        JobPipe commit;
+        status = MAXDWORD; reply = {};
+        if (!commit.Open() || !Send(commit, request, status, reply) || status || !reply.present)
+        { Check(false, "prepare commit substitution test"); continue; }
+        Payload altered = request;
+        GUID nonce = reply.nonce;
+        UacF7::ArchiveRevision targetRevision = reply.target;
+        if (kind == 0) nonce.Data4[7] ^= 1;
+        if (kind == 1) altered.header.sourceId.Identifier[15] ^= 1;
+        if (kind == 2) altered.header.targetParentId.Identifier[15] ^= 1;
+        if (kind == 3) targetRevision.fileId[15] ^= 1;
+        if (kind == 4) altered.body.back() ^= 1;
+        altered.header.operation = kind == 5 ? Operation::CopyOverwriteIgnoreAds : Operation::CopyOverwrite;
+        status = MAXDWORD;
+        const bool responded = Commit(commit, altered, targetRevision, nonce, status);
+        const DWORD stopped = commit.Finish();
+        Check(!responded && stopped != ERROR_SUCCESS && HasByte(source.File(sourceLeaf), 11) &&
+              HasByte(target.File(targetLeaf), 22), "changed nonce, identity, leaf, parent or operation cannot commit");
+    }
+
+    JobPipe eof;
+    status = MAXDWORD; reply = {};
+    Check(eof.Open() && Send(eof, request, status, reply) && !status && reply.present &&
+          (request.header.operation == Operation::ProbeOverwrite) &&
+          ([&] { Payload c = request; c.header.operation = Operation::CopyOverwrite;
+                  return Commit(eof, c, reply.target, reply.nonce, status, false); })() &&
+          eof.Finish() != ERROR_SUCCESS && HasByte(target.File(targetLeaf), 22),
+          "disconnect before commit nonce leaves both files intact");
+
+    JobPipe left, right;
+    DWORD leftStatus = MAXDWORD, rightStatus = MAXDWORD;
+    UacF7::OverwriteProbeReply leftReply{}, rightReply{};
+    if (left.Open() && right.Open() && Send(left, request, leftStatus, leftReply) && !leftStatus &&
+        Send(right, request, rightStatus, rightReply) && !rightStatus &&
+        !IsEqualGUID(leftReply.nonce, rightReply.nonce))
+    {
+        Payload c = request; c.header.operation = Operation::CopyOverwrite;
+        status = MAXDWORD;
+        const bool responded = Commit(right, c, rightReply.target, leftReply.nonce, status);
+        const DWORD stopped = right.Finish();
+        Check(!responded && stopped != ERROR_SUCCESS && left.CancelIdle() == ERROR_SUCCESS &&
+              HasByte(target.File(targetLeaf), 22), "nonce cannot be moved between independent live sessions");
+    }
+    else Check(false, "prepare independent probe sessions");
+
+    for (bool changeSource : {false, true})
+    {
+        const wchar_t* sourceName = changeSource ? L"source-revised-\u6771" : L"source-target-stale-\u6771";
+        const wchar_t* targetName = changeSource ? L"target-source-stale-\u65e5" : L"target-revised-\u65e5";
+        if (!WriteByte(source.File(sourceName), 41) || !WriteByte(target.File(targetName), 42))
+        { Check(false, "prepare revision substitution fixture"); continue; }
+        Payload r = Make(source, target, sourceName, targetName);
+        JobPipe stale;
+        status = MAXDWORD; reply = {};
+        const bool prepared = stale.Open() && Send(stale, r, status, reply) && !status && reply.present;
+        const bool changed = changeSource ? RewriteByte(source.File(sourceName), 43, reply.source) :
+                                            RewriteByte(target.File(targetName), 44, reply.target);
+        r.header.operation = Operation::CopyOverwrite;
+        status = MAXDWORD;
+        UacF7::OverwriteProbeReply updated{};
+        const bool received = prepared && changed && Commit(stale, r, reply.target, reply.nonce, status, true, &updated);
+        const bool correctRetry = changeSource ? !updated.present :
+            updated.present == 1 && !IsEqualGUID(updated.nonce, reply.nonce) &&
+            UacF7::SameFileRevision(updated.source, reply.source) &&
+            !UacF7::SameFileRevision(updated.target, reply.target) && Skip(stale, updated.nonce);
+        // An unsuccessful commit has still consumed its one-shot grant. Do not
+        // let the same job silently fall back to the older overwrite protocol.
+        Payload replay = r;
+        if (changeSource) replay.body.back() ^= 1; // another leaf under the same parent
+        const bool replaySent = WriteFrame(stale, &replay.header, sizeof(replay.header));
+        const DWORD stopped = stale.Finish();
+        Check(received && status == ERROR_FILE_INVALID && correctRetry && replaySent && stopped == ERROR_ACCESS_DENIED &&
+              HasByte(source.File(sourceName), changeSource ? 43 : 41) &&
+              HasByte(target.File(targetName), changeSource ? 42 : 44),
+              changeSource ? "source revision change rejects commit and another-leaf replay" :
+                             "target revision change rejects commit and same-leaf replay");
+    }
+
+    for (bool replaceSource : {false, true})
+    {
+        const wchar_t* sourceName = replaceSource ? L"replace-source" : L"replace-source-target";
+        const wchar_t* targetName = replaceSource ? L"replace-target-source" : L"replace-target";
+        const std::wstring path = replaceSource ? source.File(sourceName) : target.File(targetName);
+        const std::wstring parkedPath = path + L"-original";
+        if (!WriteByte(source.File(sourceName), 51) || !WriteByte(target.File(targetName), 52))
+        { Check(false, "prepare real same-name replacement fixture"); continue; }
+        Payload r = Make(source, target, sourceName, targetName);
+        JobPipe replaced;
+        status = MAXDWORD; reply = {};
+        const bool prepared = replaced.Open() && Send(replaced, r, status, reply) && !status && reply.present;
+        const bool changed = prepared && MoveFileW(path.c_str(), parkedPath.c_str()) && WriteByte(path, 53);
+        r.header.operation = Operation::CopyOverwrite;
+        status = MAXDWORD;
+        UacF7::OverwriteProbeReply updated{};
+        const bool received = changed && Commit(replaced, r, reply.target, reply.nonce, status, true, &updated);
+        const bool correctRetry = replaceSource ? !updated.present :
+            updated.present == 1 && !IsEqualGUID(updated.nonce, reply.nonce) &&
+            UacF7::SameFileRevision(updated.source, reply.source) &&
+            !UacF7::SameFileRevision(updated.target, reply.target) && Skip(replaced, updated.nonce);
+        replaced.Finish();
+        Check(received && status == ERROR_FILE_INVALID && correctRetry && HasByte(path, 53) &&
+              HasByte(parkedPath, replaceSource ? 51 : 52) &&
+              HasByte(replaceSource ? target.File(targetName) : source.File(sourceName), replaceSource ? 52 : 51),
+              replaceSource ? "same-name source replacement preserves original and substitute" :
+                              "same-name target replacement preserves original and substitute");
+    }
+
+    {
+        const wchar_t* sourceName = L"twice-changed-source";
+        const wchar_t* targetName = L"twice-changed-target";
+        if (!WriteByte(source.File(sourceName), 91) || !WriteByte(target.File(targetName), 92))
+            Check(false, "prepare twice-changing target fixture");
+        else
+        {
+            Payload r = Make(source, target, sourceName, targetName);
+            JobPipe twice;
+            UacF7::OverwriteProbeReply initial{}, first{}, second{};
+            DWORD firstStatus = MAXDWORD, secondStatus = MAXDWORD;
+            status = MAXDWORD;
+            const bool prepared = twice.Open() && Send(twice, r, status, initial) && !status && initial.present;
+            const bool firstChange = prepared && RewriteByte(target.File(targetName), 93, initial.target);
+            r.header.operation = Operation::CopyOverwrite;
+            const bool firstReply = firstChange && Commit(twice, r, initial.target, initial.nonce, firstStatus, true, &first);
+            const bool secondChange = firstReply && firstStatus == ERROR_FILE_INVALID && first.present &&
+                                      RewriteByte(target.File(targetName), 94, first.target);
+            const bool secondReply = secondChange && Commit(twice, r, first.target, first.nonce, secondStatus, true, &second);
+            const auto latest = Adopt(CreateFileW(target.File(targetName).c_str(), FILE_READ_ATTRIBUTES,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+            UacF7::ArchiveRevision actual{};
+            const bool matchesLatest = latest && !UacZipUpdate::ReadRevision(latest.get(), actual) &&
+                                       UacF7::SameFileRevision(second.target, actual);
+            Check(secondReply && secondStatus == ERROR_FILE_INVALID && second.present == 1 &&
+                  !IsEqualGUID(initial.nonce, first.nonce) && !IsEqualGUID(first.nonce, second.nonce) &&
+                  UacF7::SameFileRevision(initial.source, first.source) &&
+                  UacF7::SameFileRevision(initial.source, second.source) &&
+                  !UacF7::SameFileRevision(initial.target, first.target) &&
+                  !UacF7::SameFileRevision(first.target, second.target) && matchesLatest &&
+                  twice.CancelIdle() == ERROR_SUCCESS && HasByte(source.File(sourceName), 91) &&
+                  HasByte(target.File(targetName), 94) && IsAbsent(DiskOverwriteJournalName(target.identity)),
+                  "two target changes return two fresh typed snapshots on one pipe; Cancel preserves latest data");
+        }
+    }
+
+    {
+        Directory movingParent;
+        const wchar_t* sourceName = L"parent-scope-source";
+        const wchar_t* targetName = L"parent-scope-target";
+        if (!movingParent.Open(L"parent-scope") || !WriteByte(source.File(sourceName), 101) ||
+            !WriteByte(movingParent.File(targetName), 102))
+            Check(false, "prepare changed target-parent fixture");
+        else
+        {
+            Payload r = Make(source, movingParent, sourceName, targetName);
+            JobPipe parentJob;
+            UacF7::OverwriteProbeReply initial{}, updated{};
+            status = MAXDWORD;
+            const bool prepared = parentJob.Open() && Send(parentJob, r, status, initial) && !status && initial.present;
+            const std::wstring parentPath = movingParent.path, oldPath = parentPath + L"-old";
+            movingParent.handle.reset();
+            const bool swapped = prepared && MoveFileW(parentPath.c_str(), oldPath.c_str()) &&
+                                 CreateDirectoryW(parentPath.c_str(), nullptr) &&
+                                 WriteByte(parentPath + L"\\" + targetName, 103);
+            r.header.operation = Operation::CopyOverwrite;
+            status = MAXDWORD;
+            const bool received = swapped && Commit(parentJob, r, initial.target, initial.nonce, status, true, &updated);
+            parentJob.Finish();
+            Check(received && status == ERROR_FILE_INVALID && !updated.present &&
+                  HasByte(source.File(sourceName), 101) && HasByte(oldPath + L"\\" + targetName, 102) &&
+                  HasByte(parentPath + L"\\" + targetName, 103),
+                  "changed target parent returns no fresh target proposal and preserves both trees");
+        }
+    }
+
+    // Test-only checkpoints are compiled out of all production images.
+    // Pause exactly before and after stale-target recapture, then race the
+    // actual pipe cancellation or a disconnect against that operation.
+    for (unsigned phase : {1u, 2u})
+    {
+        for (bool disconnect : {false, true})
+        {
+            const std::wstring suffix = std::to_wstring(phase) + (disconnect ? L"-disconnect" : L"-cancel");
+            const std::wstring sourceName = L"fault-source-" + suffix;
+            const std::wstring targetName = L"fault-target-" + suffix;
+            const auto reached = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+            const auto resume = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+            if (!reached || !resume || !WriteByte(source.File(sourceName), 111) || !WriteByte(target.File(targetName), 112))
+            { Check(false, "prepare stale-target cancellation fixture"); continue; }
+            Payload r = Make(source, target, sourceName, targetName);
+            JobPipe fault;
+            UacF7::OverwriteProbeReply initial{}, updated{};
+            status = MAXDWORD;
+            const bool prepared = fault.Open() && Send(fault, r, status, initial) && !status && initial.present &&
+                                  RewriteByte(target.File(targetName), 113, initial.target);
+            if (!prepared) { Check(false, "start stale-target cancellation fixture"); continue; }
+            r.header.operation = Operation::CopyOverwrite;
+            probeReached = reached.get(); probeResume = resume.get(); probeStopPhase = phase;
+            DWORD response = MAXDWORD;
+            bool received = false;
+            std::thread commit([&] { received = Commit(fault, r, initial.target, initial.nonce, response, true, &updated); });
+            const bool paused = WaitForSingleObject(reached.get(), 4000) == WAIT_OBJECT_0;
+            BYTE signal = UacRenameLeaf::Detail::transferCancelSignal;
+            const bool interrupted = paused && (disconnect ? fault.Disconnect() : WriteFrame(fault, &signal, sizeof(signal)));
+            SetEvent(resume.get());
+            commit.join();
+            const DWORD stopped = fault.Finish();
+            probeReached = probeResume = nullptr; probeStopPhase = 0;
+            const bool expectedResult = disconnect ? !received :
+                received && response == ERROR_CANCELLED && !updated.present && stopped == ERROR_SUCCESS;
+            Check(paused && interrupted && expectedResult && HasByte(source.File(sourceName), 111) &&
+                  HasByte(target.File(targetName), 113) && IsAbsent(DiskOverwriteJournalName(target.identity)) &&
+                  NoTemporaryEntries(target),
+                  disconnect ? "disconnect at stale refresh checkpoint publishes nothing" :
+                               "Cancel at stale refresh checkpoint returns no proposal or staging");
+        }
+    }
+
+    for (bool differentLeaf : {false, true})
+    {
+        const wchar_t* sourceName = differentLeaf ? L"ignore-source-other" : L"ignore-source-same";
+        const wchar_t* targetName = differentLeaf ? L"ignore-target-other" : L"ignore-target-same";
+        if (!WriteByte(source.File(sourceName), 61) || !WriteByte(target.File(targetName), 62))
+        { Check(false, "prepare Ignore ADS replay fixture"); continue; }
+        Payload r = Make(source, target, sourceName, targetName, Operation::ProbeOverwriteIgnoreAds);
+        JobPipe ignored;
+        status = MAXDWORD; reply = {};
+        const bool prepared = ignored.Open() && Send(ignored, r, status, reply) && !status && reply.present;
+        const bool changed = prepared && RewriteByte(target.File(targetName), 63, reply.target);
+        r.header.operation = Operation::CopyOverwriteIgnoreAds;
+        status = MAXDWORD;
+        UacF7::OverwriteProbeReply updated{};
+        const bool received = changed && Commit(ignored, r, reply.target, reply.nonce, status, true, &updated);
+        const bool skipped = updated.present == 1 && Skip(ignored, updated.nonce);
+        if (differentLeaf) r.body.back() ^= 1;
+        const bool replaySent = WriteFrame(ignored, &r.header, sizeof(r.header));
+        const DWORD stopped = ignored.Finish();
+        Check(received && status == ERROR_FILE_INVALID && skipped && replaySent && stopped == ERROR_ACCESS_DENIED &&
+              HasByte(source.File(sourceName), 61) && HasByte(target.File(targetName), 63),
+              differentLeaf ? "Ignore ADS pending rejects another-leaf replay" :
+                              "Ignore ADS pending rejects same-leaf replay");
+    }
+
+    // This fixture does not elevate its token. If the production security
+    // descriptor/SACL check requires privilege, preserve both names and report
+    // that local boundary rather than pretending publication was verified.
+    for (bool ignore : {false, true})
+    {
+        const wchar_t* sourceName = ignore ? L"commit-source-ignore" : L"commit-source";
+        const wchar_t* targetName = ignore ? L"commit-target-ignore" : L"commit-target";
+        if (!WriteByte(source.File(sourceName), 71) || !WriteByte(target.File(targetName), 72))
+        { Check(false, "prepare exact reviewed commit fixture"); continue; }
+        Payload r = Make(source, target, sourceName, targetName,
+                         ignore ? Operation::ProbeOverwriteIgnoreAds : Operation::ProbeOverwrite);
+        JobPipe reviewed;
+        status = MAXDWORD; reply = {};
+        const bool prepared = reviewed.Open() && Send(reviewed, r, status, reply) && !status && reply.present;
+        r.header.operation = ignore ? Operation::CopyOverwriteIgnoreAds : Operation::CopyOverwrite;
+        status = MAXDWORD;
+        const bool received = prepared && Commit(reviewed, r, reply.target, reply.nonce, status);
+        const bool dataSafe = !status ? HasByte(target.File(targetName), 71) :
+            (status == ERROR_ACCESS_DENIED || status == ERROR_PRIVILEGE_NOT_HELD ||
+             status == ERROR_NOT_ALL_ASSIGNED) && HasByte(target.File(targetName), 72);
+        if (received && status) std::printf("SKIP privileged publication: local token returned %lu\n", status);
+        const bool replaySent = WriteFrame(reviewed, &r.header, sizeof(r.header));
+        const DWORD stopped = reviewed.Finish();
+        Check(received && dataSafe && HasByte(source.File(sourceName), 71) && replaySent &&
+              stopped == ERROR_ACCESS_DENIED,
+              ignore ? "valid Ignore ADS request cannot reuse its one-shot grant" :
+                       "valid overwrite request cannot reuse its one-shot grant");
+    }
+
+    // The read-only probe and denied reviewed commit must not recover or edit
+    // an already existing disk-copy journal. This is a deliberately malformed,
+    // nonempty journal fixture: bytes and NTFS identity are checked below.
+    const auto journalName = DiskOverwriteJournalName(target.identity);
+    const wchar_t* missingSource = L"journal-source-missing";
+    const wchar_t* missingTarget = L"journal-target-missing";
+    const auto parked = target.File(L"journal-target-parked");
+    auto journal = Adopt(CreateFileW(journalName.c_str(), GENERIC_READ | GENERIC_WRITE,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, CREATE_NEW, 0, nullptr));
+    BYTE sentinel = 91;
+    DWORD count = 0;
+    FILE_ID_INFO journalIdentity{};
+    if (!journal || !WriteFile(journal.get(), &sentinel, 1, &count, nullptr) || count != 1 ||
+        !GetFileInformationByHandleEx(journal.get(), FileIdInfo, &journalIdentity, sizeof(journalIdentity)) ||
+        !WriteByte(source.File(missingSource), 81) || !WriteByte(target.File(missingTarget), 82))
+        Check(false, "prepare existing disk-copy journal fixture");
+    else
+    {
+        Payload r = Make(source, target, missingSource, missingTarget);
+        JobPipe missing;
+        status = MAXDWORD; reply = {};
+        const bool prepared = missing.Open() && Send(missing, r, status, reply) && !status && reply.present;
+        const bool moved = prepared && MoveFileW(target.File(missingTarget).c_str(), parked.c_str());
+        r.header.operation = Operation::CopyOverwrite;
+        status = MAXDWORD;
+        const bool received = moved && Commit(missing, r, reply.target, reply.nonce, status);
+        missing.Finish();
+        FILE_ID_INFO after{};
+        LARGE_INTEGER size{};
+        SetFilePointer(journal.get(), 0, nullptr, FILE_BEGIN);
+        BYTE found = 0;
+        DWORD read = 0;
+        Check(received && status == ERROR_FILE_NOT_FOUND &&
+              GetFileInformationByHandleEx(journal.get(), FileIdInfo, &after, sizeof(after)) &&
+              after.VolumeSerialNumber == journalIdentity.VolumeSerialNumber &&
+              !std::memcmp(after.FileId.Identifier, journalIdentity.FileId.Identifier, 16) &&
+              GetFileSizeEx(journal.get(), &size) && size.QuadPart == 1 &&
+              ReadFile(journal.get(), &found, 1, &read, nullptr) && read == 1 && found == sentinel &&
+              IsAbsent(target.File(missingTarget)) && HasByte(parked, 82) && HasByte(source.File(missingSource), 81),
+              "missing target after probe preserves the existing journal and parked original");
+
+        const wchar_t* deniedSource = L"journal-source-denied";
+        const wchar_t* deniedTarget = L"journal-target-denied";
+        const auto deniedPath = target.File(deniedTarget);
+        if (!WriteByte(source.File(deniedSource), 83) || !WriteByte(deniedPath, 84))
+            Check(false, "prepare denied target and journal fixture");
+        else
+        {
+            auto control = Adopt(CreateFileW(deniedPath.c_str(), READ_CONTROL | WRITE_DAC,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+            PSECURITY_DESCRIPTOR savedRaw = nullptr, restrictedRaw = nullptr;
+            PACL savedAcl = nullptr, restrictedAcl = nullptr;
+            SECURITY_DESCRIPTOR_CONTROL savedControl{};
+            DWORD securityRevision = 0;
+            BOOL present = FALSE, defaulted = FALSE;
+            const bool ready = control &&
+                !GetSecurityInfo(control.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION, nullptr, nullptr,
+                                 &savedAcl, nullptr, &savedRaw) &&
+                GetSecurityDescriptorControl(savedRaw, &savedControl, &securityRevision) &&
+                ConvertStringSecurityDescriptorToSecurityDescriptorW(L"D:P(D;;0x100000;;;WD)(A;;FA;;;WD)",
+                    SDDL_REVISION_1, &restrictedRaw, nullptr) &&
+                GetSecurityDescriptorDacl(restrictedRaw, &present, &restrictedAcl, &defaulted) && present;
+            const std::unique_ptr<void, decltype(&LocalFree)> savedSecurity(savedRaw, LocalFree), restricted(restrictedRaw, LocalFree);
+            Payload deniedRequest = Make(source, target, deniedSource, deniedTarget);
+            JobPipe deniedJob;
+            status = MAXDWORD; reply = {};
+            const bool preparedDenied = ready && deniedJob.Open() && Send(deniedJob, deniedRequest, status, reply) &&
+                                        !status && reply.present;
+            const DWORD apply = preparedDenied ? SetSecurityInfo(control.get(), SE_FILE_OBJECT,
+                DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION, nullptr, nullptr, restrictedAcl, nullptr)
+                : ERROR_GEN_FAILURE;
+            DWORD openError = ERROR_SUCCESS;
+            if (!apply)
+            {
+                auto denied = Adopt(CreateFileW(deniedPath.c_str(), FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                    FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+                if (!denied) openError = GetLastError();
+            }
+            deniedRequest.header.operation = Operation::CopyOverwrite;
+            status = MAXDWORD;
+            const bool deniedReply = !apply && Commit(deniedJob, deniedRequest, reply.target, reply.nonce, status);
+            deniedJob.Finish();
+            const DWORD restore = apply ? ERROR_SUCCESS : SetSecurityInfo(control.get(), SE_FILE_OBJECT,
+                DACL_SECURITY_INFORMATION | ((savedControl & SE_DACL_PROTECTED) ?
+                    PROTECTED_DACL_SECURITY_INFORMATION : UNPROTECTED_DACL_SECURITY_INFORMATION),
+                nullptr, nullptr, savedAcl, nullptr);
+            PSECURITY_DESCRIPTOR checkedRaw = nullptr;
+            PACL checkedAcl = nullptr;
+            SECURITY_DESCRIPTOR_CONTROL checkedControl{};
+            DWORD checkedRevision = 0;
+            const bool restoredExact = !apply && !restore &&
+                !GetSecurityInfo(control.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION,
+                                 nullptr, nullptr, &checkedAcl, nullptr, &checkedRaw) &&
+                GetSecurityDescriptorControl(checkedRaw, &checkedControl, &checkedRevision) &&
+                ((savedControl ^ checkedControl) & SE_DACL_PROTECTED) == 0 &&
+                ((!savedAcl && !checkedAcl) || (savedAcl && checkedAcl && savedAcl->AclSize == checkedAcl->AclSize &&
+                    !std::memcmp(savedAcl, checkedAcl, savedAcl->AclSize)));
+            const std::unique_ptr<void, decltype(&LocalFree)> checkedSecurity(checkedRaw, LocalFree);
+            FILE_ID_INFO finalJournal{};
+            LARGE_INTEGER finalSize{};
+            SetFilePointer(journal.get(), 0, nullptr, FILE_BEGIN);
+            BYTE finalByte = 0; DWORD finalRead = 0;
+            if (!ready || !preparedDenied || apply || openError != ERROR_ACCESS_DENIED || !deniedReply ||
+                status != ERROR_ACCESS_DENIED || restore)
+                std::printf("denied fixture: ready=%d prepared=%d apply=%lu open=%lu replied=%d status=%lu restore=%lu\n",
+                            ready, preparedDenied, apply, openError, deniedReply, status, restore);
+            Check(ready && preparedDenied && !apply && openError == ERROR_ACCESS_DENIED && deniedReply &&
+                  status == ERROR_ACCESS_DENIED && restoredExact &&
+                  GetFileInformationByHandleEx(journal.get(), FileIdInfo, &finalJournal, sizeof(finalJournal)) &&
+                  finalJournal.VolumeSerialNumber == journalIdentity.VolumeSerialNumber &&
+                  !std::memcmp(finalJournal.FileId.Identifier, journalIdentity.FileId.Identifier, 16) &&
+                  GetFileSizeEx(journal.get(), &finalSize) && finalSize.QuadPart == 1 &&
+                  ReadFile(journal.get(), &finalByte, 1, &finalRead, nullptr) && finalRead == 1 && finalByte == sentinel &&
+                  HasByte(source.File(deniedSource), 83) && HasByte(deniedPath, 84),
+                  "denied target after probe preserves existing journal and file data");
+        }
+
+        // Release the fixture handle so the dispatcher can open the exact
+        // journal exclusively. Its invalid nonempty contents must be reported
+        // as a recovery error, never as a fresh reviewed target snapshot.
+        journal.reset();
+        const wchar_t* recoverySource = L"journal-source-recovery";
+        const wchar_t* recoveryTarget = L"journal-target-recovery";
+        if (!WriteByte(source.File(recoverySource), 85) || !WriteByte(target.File(recoveryTarget), 86))
+            Check(false, "prepare invalid recovery journal fixture");
+        else
+        {
+            Payload recoveryRequest = Make(source, target, recoverySource, recoveryTarget);
+            JobPipe recovery;
+            UacF7::OverwriteProbeReply initial{}, updated{};
+            status = MAXDWORD;
+            const bool preparedRecovery = recovery.Open() && Send(recovery, recoveryRequest, status, initial) && !status && initial.present;
+            recoveryRequest.header.operation = Operation::CopyOverwrite;
+            status = MAXDWORD;
+            const bool receivedRecovery = preparedRecovery && Commit(recovery, recoveryRequest, initial.target, initial.nonce, status, true, &updated);
+            recovery.Finish();
+            const auto preserved = Adopt(CreateFileW(journalName.c_str(), GENERIC_READ,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+            FILE_ID_INFO id{}; LARGE_INTEGER length{}; BYTE content = 0; DWORD bytesRead = 0;
+            Check(receivedRecovery && status == ERROR_INVALID_DATA && !updated.present && preserved &&
+                  GetFileInformationByHandleEx(preserved.get(), FileIdInfo, &id, sizeof(id)) &&
+                  id.VolumeSerialNumber == journalIdentity.VolumeSerialNumber &&
+                  !std::memcmp(id.FileId.Identifier, journalIdentity.FileId.Identifier, 16) &&
+                  GetFileSizeEx(preserved.get(), &length) && length.QuadPart == 1 &&
+                  ReadFile(preserved.get(), &content, 1, &bytesRead, nullptr) && bytesRead == 1 && content == sentinel &&
+                  HasByte(source.File(recoverySource), 85) && HasByte(target.File(recoveryTarget), 86),
+                  "invalid recovery journal returns no fresh target proposal and preserves evidence");
+        }
+    }
+    journal.reset();
+}
+}
+
+int wmain()
+{
+    Directory source, target, outside;
+    if (!source.Open(L"source") || !target.Open(L"target") || !outside.Open(L"outside")) return 2;
+#ifdef SAM_UAC_FAULT_RECOVERY_1006
+    ProbeWireTests::ForcedRecovery(source, target);
+#else
+    ProbeWireTests::Run(source, target, outside);
+#endif
+    return failures ? 1 : 0;
+}

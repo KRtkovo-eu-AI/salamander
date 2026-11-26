@@ -8,7 +8,7 @@ from branch_panel_getters_tests import block, read, compiler_environment, run
 def main():
     p=argparse.ArgumentParser();p.add_argument('--configuration',choices=('Debug','Release','Both'),default='Both');a=p.parse_args()
     source=read('src/salamdr4.cpp')
-    markers=['static void TrimFileTag(', 'static BOOL ContainsFileTag(', 'HRESULT ReadFileTagsW(', 'BOOL IsFilePropertyWritableW(', 'HRESULT WriteFileStringVectorPropertyW(', 'HRESULT WriteFileTagsW(', 'HRESULT ReadFilePropertyTextW(', 'static HRESULT InitFilePropertyValueFromText(', 'HRESULT WriteFilePropertyTextW(']
+    markers=['static void TrimFileTag(', 'static BOOL ContainsFileTag(', 'static HRESULT ReadPropertyStoreTagsW(', 'HRESULT ReadFileTagsW(', 'BOOL IsFilePropertyWritableW(', 'HRESULT WriteFileStringVectorPropertyW(', 'HRESULT WriteFileTagsW(', 'HRESULT ReadFilePropertyTextW(', 'static HRESULT InitFilePropertyValueFromText(', 'HRESULT WriteFilePropertyTextW(']
     code=read('src/tests/branch_edit_properties_io_tests.cpp.in').replace('@@ACTUAL@@','\n'.join(block(source,m) for m in markers));assert '@@' not in code
     env=compiler_environment();compiler=shutil.which('cl',path=env.get('PATH'))
     with tempfile.TemporaryDirectory(prefix='branch-edit-properties-test-') as temp:

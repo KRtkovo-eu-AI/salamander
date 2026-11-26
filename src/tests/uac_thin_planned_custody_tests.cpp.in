@@ -1,0 +1,198 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Exercise real custody branches and item cleanup. | Preserve plan generation and scoped broker ownership. | #731 | GPT-6 |
+#include <windows.h>
+#include <cstdio>
+#include <exception>
+#include <memory>
+#include <mutex>
+#include <new>
+#include <optional>
+#include <utility>
+
+struct TransferJobSession {
+    HANDLE read = nullptr, pipe = nullptr;
+    ULONGLONG generation = 1;
+    bool needsRoot = false;
+    bool Init() { return CreatePipe(&read, &pipe, nullptr, 0) != FALSE; }
+    bool IsOpen() const { return pipe != nullptr; }
+    ULONGLONG OpeningGeneration() const { return IsOpen() ? generation : 0; }
+    bool NeedsTreeRoot() const { return needsRoot; }
+    void Close() { if (pipe) CloseHandle(pipe); pipe = nullptr; ++generation; }
+    ~TransferJobSession() { if (pipe) Close(); if (read) CloseHandle(read); }
+};
+struct PreparedTransfer {
+    bool matches = true, allocationFailure = false;
+    bool IsInJob(const TransferJobSession&) const {
+        if (allocationFailure) throw std::bad_alloc();
+        return matches;
+    }
+};
+class ThinCopySession {
+public:
+    std::mutex gate;
+    TransferJobSession owned;
+    TransferJobSession* shared = nullptr;
+    std::unique_ptr<TransferJobSession> planned;
+    ULONGLONG plannedGeneration = 0;
+    void ClearMarker() {}
+    void Close() { if (planned && planned->IsOpen()) planned->Close(); }
+    bool TakePlanned(std::unique_ptr<TransferJobSession>&, const PreparedTransfer&);
+    std::unique_ptr<TransferJobSession> ReturnPlanned();
+};
+@@CUSTODY@@
+
+namespace UacF7 { using ::ThinCopySession; using ::TransferJobSession; using ::PreparedTransfer; }
+struct COperations {
+    struct ThinCopyPlanAnchor { volatile LONG Claim = 0; };
+    struct CopySourcePlan {
+        std::unique_ptr<TransferJobSession> Session;
+        std::shared_ptr<ThinCopyPlanAnchor> ThinAnchor = std::make_shared<ThinCopyPlanAnchor>();
+    };
+    std::optional<CopySourcePlan> CopySource;
+};
+struct Dialog { BOOL* CancelWorker = nullptr; HANDLE CancelWorkerEvent = nullptr; };
+struct CThinCopyWorker {
+    COperations& script;
+    Dialog& dialog;
+    std::shared_ptr<COperations::ThinCopyPlanAnchor> claimedAnchor;
+    bool plannedTaken = false;
+    int exceptionsAtEntry = std::uncaught_exceptions();
+    bool targetCreatedByBroker = false, cleanupUncertain = false, scopeMayHaveStarted = false;
+    ThinCopySession plannedSession;
+    ThinCopySession* session = nullptr;
+    std::unique_ptr<PreparedTransfer> request = std::make_unique<PreparedTransfer>();
+    CThinCopyWorker(COperations& s, Dialog& d) : script(s), dialog(d) {}
+@@ITEM_METHODS@@
+    HANDLE Adopt() {
+@@ADOPTION@@
+        return nullptr;
+    }
+};
+
+static int failures = 0;
+static void Check(bool value, const char* label) {
+    std::printf("%s %s\n", value ? "PASS" : "FAIL", label);
+    if (!value) ++failures;
+}
+static bool Valid(HANDLE handle) { DWORD flags = 0; return GetHandleInformation(handle, &flags) != FALSE; }
+static bool Setup(COperations& script) {
+    script.CopySource.emplace();
+    script.CopySource->Session = std::make_unique<TransferJobSession>();
+    return script.CopySource->Session->Init();
+}
+
+int main() {
+    BOOL cancelled = FALSE;
+    Dialog dialog{&cancelled, CreateEventW(nullptr, TRUE, FALSE, nullptr)};
+    Check(dialog.CancelWorkerEvent != nullptr, "create cancellation event");
+    {
+        COperations script; Check(Setup(script), "create planned pipe");
+        auto* original = script.CopySource->Session.get();
+        const auto generation = original->OpeningGeneration();
+        {
+            CThinCopyWorker worker(script, dialog);
+            CThinCopyWorker ordinary(script, dialog);
+            Check(ordinary.PlanAvailableForOriginal() && script.CopySource->ThinAnchor->Claim == 0,
+                  "ordinary item leaves plan unclaimed");
+            Check(worker.ClaimPlan() && worker.Adopt() == nullptr && worker.plannedTaken &&
+                  !script.CopySource->Session && worker.plannedSession.planned.get() == original,
+                  "item takes exact planned session");
+            Check(!ordinary.PlanAvailableForOriginal() && GetLastError() == ERROR_BUSY,
+                  "reentrant ordinary item cannot use checked-out plan");
+            CThinCopyWorker reentrant(script, dialog);
+            Check(!reentrant.ClaimPlan() && GetLastError() == ERROR_BUSY, "reentrant item rejected");
+        }
+        Check(script.CopySource->Session.get() == original && original->OpeningGeneration() == generation &&
+              !cancelled, "normal exit returns same live generation");
+        CThinCopyWorker next(script, dialog);
+        Check(next.ClaimPlan(), "next item can claim returned plan");
+    }
+    for (int failure = 0; failure < 2; ++failure) {
+        COperations script; Check(Setup(script), "create rejected-scope pipe");
+        auto* original = script.CopySource->Session.get();
+        {
+            CThinCopyWorker worker(script, dialog); Check(worker.ClaimPlan(), "claim rejected-scope plan");
+            worker.request->matches = false;
+            worker.request->allocationFailure = failure != 0;
+            Check(worker.Adopt() == INVALID_HANDLE_VALUE && script.CopySource->Session.get() == original &&
+                  GetLastError() == static_cast<DWORD>(failure ? ERROR_NOT_ENOUGH_MEMORY : ERROR_FILE_INVALID),
+                  failure ? "scope allocation failure preserves session" : "scope mismatch preserves session");
+        }
+        Check(original->IsOpen(), "rejected adoption leaves original pipe live");
+    }
+    {
+        COperations script; Check(Setup(script), "create already-closed planned pipe");
+        auto* original = script.CopySource->Session.get(); original->Close();
+        CThinCopyWorker worker(script, dialog); Check(worker.ClaimPlan(), "claim closed plan");
+        Check(worker.Adopt() == INVALID_HANDLE_VALUE && script.CopySource->Session.get() == original &&
+              !original->IsOpen(), "closed planned job is never reopened");
+    }
+    {
+        COperations script; Check(Setup(script), "create missing-root planned pipe");
+        auto* original = script.CopySource->Session.get(); original->needsRoot = true;
+        CThinCopyWorker worker(script, dialog); Check(worker.ClaimPlan(), "claim missing-root plan");
+        Check(worker.Adopt() == INVALID_HANDLE_VALUE && script.CopySource->Session.get() == original &&
+              original->IsOpen(), "missing target root cannot be adopted");
+    }
+    for (int mode = 0; mode < 3; ++mode) {
+        COperations script; Check(Setup(script), "create unsafe-exit pipe");
+        auto* original = script.CopySource->Session.get();
+        try {
+            CThinCopyWorker worker(script, dialog); Check(worker.ClaimPlan(), "claim unsafe-exit plan");
+            Check(worker.Adopt() == nullptr, "take unsafe-exit job");
+            if (mode == 0) worker.plannedSession.Close();
+            if (mode == 1) worker.targetCreatedByBroker = true;
+            if (mode == 2) throw std::bad_alloc();
+        } catch (const std::bad_alloc&) {}
+        Check(script.CopySource->Session.get() == original && !original->IsOpen(),
+              mode == 0 ? "unknown returns closed original" : mode == 1 ? "retained target retires job" :
+              "exception retires job and returns original");
+    }
+    {
+        COperations script; Check(Setup(script), "create changed-generation pipe");
+        auto* original = script.CopySource->Session.get();
+        {
+            CThinCopyWorker worker(script, dialog);
+            Check(worker.ClaimPlan() && worker.Adopt() == nullptr, "take changed-generation job");
+            ++worker.plannedSession.planned->generation;
+        }
+        Check(script.CopySource->Session.get() == original && !original->IsOpen(),
+              "changed generation returns closed original");
+    }
+    for (int replacePlan = 0; replacePlan < 2; ++replacePlan) {
+        cancelled = FALSE; ResetEvent(dialog.CancelWorkerEvent);
+        COperations script; Check(Setup(script), "create conflict pipe");
+        HANDLE oldPipe = script.CopySource->Session->pipe;
+        auto oldAnchor = script.CopySource->ThinAnchor;
+        TransferJobSession* foreign = nullptr;
+        {
+            CThinCopyWorker worker(script, dialog); Check(worker.ClaimPlan() && worker.Adopt() == nullptr, "take conflict job");
+            if (replacePlan) script.CopySource.emplace();
+            script.CopySource->Session = std::make_unique<TransferJobSession>();
+            Check(script.CopySource->Session->Init(), "create foreign pipe");
+            foreign = script.CopySource->Session.get();
+        }
+        Check(script.CopySource->Session.get() == foreign && foreign->IsOpen() && !Valid(oldPipe) &&
+              cancelled && WaitForSingleObject(dialog.CancelWorkerEvent, 0) == WAIT_OBJECT_0 && oldAnchor->Claim == 0,
+              replacePlan ? "ABA replacement preserves foreign job and cancels" :
+                            "occupied slot preserves foreign job and cancels");
+    }
+    {
+        cancelled = FALSE; ResetEvent(dialog.CancelWorkerEvent);
+        COperations script; Check(Setup(script), "create removed-plan pipe");
+        HANDLE oldPipe = script.CopySource->Session->pipe;
+        auto oldAnchor = script.CopySource->ThinAnchor;
+        {
+            CThinCopyWorker worker(script, dialog);
+            Check(worker.ClaimPlan() && worker.Adopt() == nullptr, "take removed-plan job");
+            script.CopySource.reset();
+        }
+        Check(!script.CopySource && !Valid(oldPipe) && cancelled &&
+              WaitForSingleObject(dialog.CancelWorkerEvent, 0) == WAIT_OBJECT_0 && oldAnchor->Claim == 0,
+              "removed plan closes old job and cancels");
+    }
+    CloseHandle(dialog.CancelWorkerEvent);
+    return failures ? 1 : 0;
+}

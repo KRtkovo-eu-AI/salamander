@@ -4,7 +4,11 @@
 // CommentsTranslationProject: TRANSLATED
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-25 | Accept a protected read and a generated-report source together. | Internal viewer navigation keeps both the approved handle and the original file. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 | 2026-11-20 | Store the original source and provider beside the generated report. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
+| 2026-11-15 | Own a verified read handle per viewer document. | Read protected files without a whole-file snapshot. | #731 | GPT-6 |
+| 2026-11-15 | Explain protected viewer ownership. | Keep one approved snapshot scoped to its viewer. | #731 | GPT-6 |
+| 2026-11-08 | Accept an optional read-only snapshot in the internal viewer. | Keep the normal file reader and plugin entry points available. | | GPT-6.1 Sol (Codex) |
 | 2026-11-04 | Cache sparse line-number checkpoints for Internal Viewer. | Avoid O(n) full-file rescans on every paint/status update near EOF (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
 | 2026-11-05 | Cache previous visual-row size for line-up scrolling. | Scroll-up still recomputed ZeroLineSize on every step while scroll-down reused FirstLineSize (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
 | 2026-11-05 | Cache decoded wrap-row starts per logical line. | Line-up through wrapped UTF-8 rows re-walked the whole logical line on every step (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
@@ -13,7 +17,16 @@
 
 #pragma once
 
+#include <memory>
 #include <string>
+#include <vector>
+
+// A broker-opened read handle belongs to exactly one viewer document.
+struct ViewerReadHandleCloser
+{
+    void operator()(void* handle) const { if (handle && handle != INVALID_HANDLE_VALUE) CloseHandle(handle); }
+};
+using ViewerReadHandle = std::unique_ptr<void, ViewerReadHandleCloser>;
 
 #define VIEW_BUFFER_SIZE 60000 // 0.5 * VIEW_BUFFER_SIZE must be > max. length \
                                // of a displayable line
@@ -145,8 +158,10 @@ public:
     // CMenuBar object is released, otherwise WinLib can still dispatch to it.
     void DestroyViewerMenuControls();
 
-    void OpenFile(const char* file, const char* caption, BOOL wholeCaption); // does not manage Lock
-    void OpenFileW(const wchar_t* file, const char* caption, BOOL wholeCaption); // does not manage Lock
+    void OpenFile(const char* file, const char* caption, BOOL wholeCaption,
+                  std::unique_ptr<std::vector<BYTE>> snapshot = {}, ViewerReadHandle readHandle = {}); // does not manage Lock
+    void OpenFileW(const wchar_t* file, const char* caption, BOOL wholeCaption,
+                   std::unique_ptr<std::vector<BYTE>> snapshot = {}, ViewerReadHandle readHandle = {}); // does not manage Lock
 
     void SetReportSource(const char* pluginID, const char* sourcePath, int sourceUID, int sourceIndex);
 
@@ -396,6 +411,11 @@ protected:
     unsigned char* RawBuffer; // original bytes, with size VIEW_BUFFER_SIZE
     unsigned char* GetSearchBuffer() { return FindDialog.HexMode ? RawBuffer : Buffer; }
     char* FileName;        // currently viewed file
+    // Protected bytes belong to one viewer and are not a reusable elevated handle.
+    std::unique_ptr<const std::vector<BYTE>> ProtectedSnapshot;
+    ViewerReadHandle ProtectedReadHandle;
+    BOOL GetViewerSize(HANDLE file, CQuadWord& size, DWORD& error) const;
+    BOOL ReadViewerAt(HANDLE file, ULONGLONG offset, void* buffer, DWORD bytes, DWORD& read) const;
     std::wstring FileNameW; // Unicode filename for local file I/O when available
     __int64 Seek,          // offset of byte 0 in Buffer within the file
         Loaded,            // number of valid bytes in Buffer
@@ -602,4 +622,5 @@ extern HANDLE ViewerContinue; // helper event - waiting for the message-loop thr
 BOOL OpenViewer(const char* name, CViewType mode, int left, int top, int width, int height,
                 UINT showCmd, BOOL returnLock, HANDLE* lock, BOOL* lockOwner,
                 CSalamanderPluginViewerData* viewerData, int enumFileNamesSourceUID,
-                int enumFileNamesLastFileIndex, const char* reportPluginID = NULL);
+                int enumFileNamesLastFileIndex, std::unique_ptr<std::vector<BYTE>> snapshot = {},
+                ViewerReadHandle readHandle = {}, const char* reportPluginID = NULL);

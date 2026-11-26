@@ -1,0 +1,196 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Test transfer prompt failures in worker branches. | Preserve native refusal, cancellation and session handling. | #731 | GPT-6 |
+#include <windows.h>
+#include <cstdio>
+#include <list>
+#include <string>
+
+namespace UacF7 {
+struct PreparedTransfer {};
+struct Result { DWORD error = ERROR_CANCELLED; bool unknown = false; };
+struct TransferPrompt {
+    const PreparedTransfer& request;
+    const char* source;
+    const char* target;
+    bool targetDenied = false;
+    Result result{};
+    bool approved = false;
+    DWORD promptError = ERROR_SUCCESS;
+};
+}
+struct Pending { UacF7::PreparedTransfer Request; std::string Source = "source", Target = "target"; };
+struct CProgressDlgData { BOOL* CancelWorker = nullptr; HANDLE CancelWorkerEvent = nullptr; };
+struct Operation { const char* SourceName = "source"; const char* TargetName = "target"; };
+struct Script { UacF7::PreparedTransfer* ProtectedTreeTransfer = nullptr; };
+enum class Outcome { Failed, Cancelled, Continue };
+constexpr UINT WM_USER_DIALOG = WM_USER + 1;
+constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER = 15, WORKER_DIALOG_UAC_TREE_RESULT = 16,
+                 WORKER_DIALOG_UAC_TRANSFER_PROMPT_ERROR = 22;
+static DWORD waitValue = WAIT_TIMEOUT, waitError = ERROR_INVALID_HANDLE, uiError = ERROR_SUCCESS;
+static bool approval = false, haveEvent = true;
+static int prompts = 0, preErrors = 0, treeResults = 0, executed = 0;
+static DWORD reportedError = ERROR_SUCCESS;
+#undef WaitForSingleObject
+#define WaitForSingleObject FakeWait
+static DWORD FakeWait(HANDLE, DWORD) { SetLastError(waitError); return waitValue; }
+#undef SendMessage
+#define SendMessage FakeMessage
+static LRESULT FakeMessage(HWND, UINT, WPARAM kind, LPARAM payload) {
+    if (kind == WORKER_DIALOG_UAC_TRANSFER) {
+        ++prompts; auto& prompt = *reinterpret_cast<UacF7::TransferPrompt*>(payload);
+        prompt.approved = approval; prompt.promptError = uiError;
+    } else if (kind == WORKER_DIALOG_UAC_TRANSFER_PROMPT_ERROR) {
+        ++preErrors; reportedError = static_cast<DWORD>(payload);
+    } else if (kind == WORKER_DIALOG_UAC_TREE_RESULT) {
+        ++treeResults;
+    }
+    return 0;
+}
+static UacF7::Result ExecuteWithNativeTransferProgress(const UacF7::PreparedTransfer&, HWND, HANDLE,
+                                                       void*, Operation&, Script&, CProgressDlgData&, int&) {
+    ++executed; return {ERROR_SUCCESS, false};
+}
+static bool Transfer(std::list<int>& jobs, BOOL& cancelled, DWORD& error, bool& continued) {
+    HWND progress = nullptr;
+    CProgressDlgData dlgData{&cancelled, haveEvent ? reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(1)) : nullptr};
+    auto existing = jobs.end(); int* planned = nullptr; bool merge = false, targetDenied = true;
+    Pending storage; Pending* pending = &storage;
+    UacF7::PreparedTransfer request;
+    std::string sourceText = "source", targetText = "target";
+@@TRANSFER_BLOCK@@
+    continued = true;
+    return false;
+}
+static Outcome Overwrite(std::list<int>& jobs, BOOL& cancelled, DWORD& error) {
+    HWND progress = nullptr;
+    CProgressDlgData data{&cancelled, haveEvent ? reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(1)) : nullptr};
+    auto existing = jobs.end(); int* planned = nullptr;
+    UacF7::PreparedTransfer request;
+    std::string sourceText = "source", targetText = "target";
+@@OVERWRITE_BLOCK@@
+    return Outcome::Continue;
+}
+static UacF7::Result Tree(BOOL& cancelled) {
+    UacF7::PreparedTransfer request; Script instance{&request}; Script* script = &instance;
+    Operation item; Operation* op = &item;
+    HWND hProgressDlg = nullptr;
+    HANDLE cancelWorkerEvent = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(1));
+    CProgressDlgData dlgData{&cancelled, cancelWorkerEvent};
+    int totalDone = 0;
+@@TREE_BLOCK@@
+    return prompt.result;
+}
+static void Check(bool value, const char* label, int& failures) {
+    std::printf("%s %s\n", value ? "PASS" : "FAIL", label); if (!value) ++failures;
+}
+static void Reset() {
+    waitValue = WAIT_TIMEOUT; waitError = ERROR_INVALID_HANDLE; uiError = ERROR_SUCCESS;
+    approval = false; haveEvent = true; prompts = preErrors = treeResults = executed = 0; reportedError = ERROR_SUCCESS;
+}
+int main() {
+    int failures = 0; BOOL cancelled = FALSE;
+    {
+        Reset(); uiError = ERROR_NOT_ENOUGH_MEMORY;
+        std::list<int> jobs{10, 20}; DWORD error = 0; bool continued = false;
+        const bool handled = Transfer(jobs, cancelled, error, continued);
+        Check(!handled && error == ERROR_NOT_ENOUGH_MEMORY && jobs.size() == 2 && !continued && prompts == 1,
+              "F5/F6 UI error keeps batch sessions", failures);
+    }
+    for (bool event : {false, true}) {
+        Reset(); uiError = ERROR_NOT_ENOUGH_MEMORY; cancelled = event ? FALSE : TRUE;
+        if (event) waitValue = WAIT_OBJECT_0;
+        std::list<int> jobs{10, 20}; DWORD error = 0; bool continued = false;
+        const bool handled = Transfer(jobs, cancelled, error, continued);
+        Check(handled && error == ERROR_CANCELLED && jobs.empty() && !continued,
+              event ? "F5/F6 cancel event wins over UI error" : "F5/F6 cancel flag wins over UI error", failures);
+        cancelled = FALSE;
+    }
+    {
+        Reset(); std::list<int> jobs{10, 20}; DWORD error = 0; bool continued = false;
+        const bool handled = Transfer(jobs, cancelled, error, continued);
+        Check(handled && error == ERROR_CANCELLED && jobs.empty() && !continued, "F5/F6 refusal stays cancellation", failures);
+    }
+    {
+        Reset(); approval = true; std::list<int> jobs{10, 20}; DWORD error = 0; bool continued = false;
+        const bool handled = Transfer(jobs, cancelled, error, continued);
+        Check(!handled && !error && jobs.size() == 2 && continued, "F5/F6 approval continues", failures);
+    }
+    for (int kind = 0; kind < 4; ++kind) {
+        Reset(); approval = true;
+        if (kind == 0) waitValue = WAIT_FAILED;
+        if (kind == 1) { waitValue = WAIT_FAILED; waitError = ERROR_SUCCESS; }
+        if (kind == 2) waitValue = WAIT_ABANDONED;
+        if (kind == 3) haveEvent = false;
+        std::list<int> jobs{10, 20}; DWORD error = 0; bool continued = false;
+        const bool handled = Transfer(jobs, cancelled, error, continued);
+        Check(!handled && error == ERROR_INVALID_HANDLE && jobs.size() == 2 && !continued,
+              "F5/F6 invalid wait fails without broker or session cleanup", failures);
+    }
+    {
+        Reset(); uiError = ERROR_NOT_ENOUGH_MEMORY; std::list<int> jobs{10, 20}; DWORD error = 0;
+        Check(Overwrite(jobs, cancelled, error) == Outcome::Failed && error == ERROR_NOT_ENOUGH_MEMORY && jobs.size() == 2,
+              "overwrite UI error remains failure and preserves jobs", failures);
+    }
+    {
+        Reset(); uiError = ERROR_NOT_ENOUGH_MEMORY; waitValue = WAIT_OBJECT_0;
+        std::list<int> jobs{10, 20}; DWORD error = 0;
+        Check(Overwrite(jobs, cancelled, error) == Outcome::Cancelled && error == ERROR_CANCELLED && jobs.size() == 2,
+              "overwrite cancel event wins over UI error", failures);
+    }
+    {
+        Reset(); std::list<int> jobs{10, 20}; DWORD error = 0;
+        Check(Overwrite(jobs, cancelled, error) == Outcome::Cancelled && error == ERROR_CANCELLED && jobs.size() == 2,
+              "overwrite refusal stays cancellation", failures);
+    }
+    {
+        Reset(); approval = true; std::list<int> jobs{10, 20}; DWORD error = 0;
+        Check(Overwrite(jobs, cancelled, error) == Outcome::Continue && !error && jobs.size() == 3,
+              "overwrite approval continues", failures);
+    }
+    for (int kind = 0; kind < 4; ++kind) {
+        Reset(); approval = true;
+        if (kind == 0) waitValue = WAIT_FAILED;
+        if (kind == 1) { waitValue = WAIT_FAILED; waitError = ERROR_SUCCESS; }
+        if (kind == 2) waitValue = WAIT_ABANDONED;
+        if (kind == 3) haveEvent = false;
+        std::list<int> jobs{10, 20}; DWORD error = 0;
+        Check(Overwrite(jobs, cancelled, error) == Outcome::Failed && error == ERROR_INVALID_HANDLE && jobs.size() == 2,
+              "overwrite invalid wait fails without broker or session cleanup", failures);
+    }
+    {
+        Reset(); uiError = ERROR_NOT_ENOUGH_MEMORY;
+        const auto result = Tree(cancelled);
+        Check(result.error == ERROR_NOT_ENOUGH_MEMORY && !result.unknown && preErrors == 1 &&
+              reportedError == ERROR_NOT_ENOUGH_MEMORY && !executed && !treeResults,
+              "tree reports pre-transfer UI error without transfer", failures);
+    }
+    for (bool event : {false, true}) {
+        Reset(); uiError = ERROR_NOT_ENOUGH_MEMORY; cancelled = event ? FALSE : TRUE;
+        if (event) waitValue = WAIT_OBJECT_0;
+        const auto result = Tree(cancelled);
+        Check(result.error == ERROR_CANCELLED && !preErrors && !executed && !treeResults,
+              event ? "tree cancel event wins over UI error" : "tree cancel flag wins over UI error", failures);
+        cancelled = FALSE;
+    }
+    {
+        Reset(); uiError = ERROR_NOT_ENOUGH_MEMORY; waitValue = WAIT_FAILED;
+        const auto result = Tree(cancelled);
+        Check(result.error == ERROR_INVALID_HANDLE && preErrors == 1 && reportedError == ERROR_INVALID_HANDLE && !executed,
+              "tree reports failed cancellation wait", failures);
+    }
+    {
+        Reset(); uiError = ERROR_NOT_ENOUGH_MEMORY; waitValue = WAIT_FAILED; waitError = ERROR_SUCCESS;
+        const auto result = Tree(cancelled);
+        Check(result.error == ERROR_INVALID_HANDLE && preErrors == 1 && reportedError == ERROR_INVALID_HANDLE && !executed,
+              "tree normalizes failed wait with empty last error", failures);
+    }
+    {
+        Reset(); approval = true;
+        const auto result = Tree(cancelled);
+        Check(result.error == ERROR_SUCCESS && executed == 1 && treeResults == 1 && !preErrors,
+              "tree approval executes and reports result", failures);
+    }
+    return failures ? 1 : 0;
+}

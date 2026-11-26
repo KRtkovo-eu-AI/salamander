@@ -1,0 +1,94 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Test unknown-result warnings through the cancellation filter. | Preserve recovery guidance after cancellation. | #731 | GPT-6.1 Sol |
+// Production gate and warning cases are extracted from dialogs.cpp. The rest
+// of CProgressDialog and SalMessageBox are test seams, not the full UI.
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <cstdio>
+#include <initializer_list>
+
+constexpr UINT testDialogMessage = WM_APP + 92;
+constexpr WPARAM WORKER_DIALOG_UAC_TREE_RESULT = 16;
+constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER_UNKNOWN = 17;
+constexpr WPARAM WORKER_DIALOG_UAC_DISK_RECOVERY_UNKNOWN = 19;
+enum { IDS_UAC_MOVE_UNKNOWN = 1, IDS_UAC_COPY_UNKNOWN, IDS_UAC_DISK_RECOVERY_UNKNOWN, IDS_ERRORMOVE, IDS_ERRORCOPY };
+const char* labels[] = { "unused", "move-unknown", "copy-unknown", "disk-recovery", "move-title", "copy-title" };
+const char* LoadStr(int id) { return labels[id]; }
+
+struct State
+{
+    BOOL cancel = FALSE;
+    int warningCount = 0, ordinaryCount = 0, treeCount = 0;
+    HWND warningOwner = nullptr;
+    const char* warningText = nullptr;
+    const char* warningTitle = nullptr;
+    UINT warningFlags = 0;
+};
+State* current = nullptr;
+
+// Test seam: record calls and owner instead of showing an interactive dialog.
+int SalMessageBox(HWND owner, const char* text, const char* title, UINT flags)
+{
+    ++current->warningCount;
+    current->warningOwner = owner; current->warningText = text;
+    current->warningTitle = title; current->warningFlags = flags;
+    return IDOK;
+}
+
+LRESULT CALLBACK ParentProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    if (message != testDialogMessage) return DefWindowProcW(window, message, wParam, lParam);
+    const BOOL CancelWorker = current->cancel;
+    HWND HWindow = window;
+    @CANCEL_GATE@
+    switch (wParam)
+    {
+        @TRANSFER_CASE@
+        @RECOVERY_CASE@
+        case WORKER_DIALOG_UAC_TREE_RESULT: ++current->treeCount; break;
+        default: ++current->ordinaryCount; break;
+    }
+    return TRUE;
+}
+
+int main()
+{
+    WNDCLASSW wc{}; wc.lpfnWndProc = ParentProc; wc.hInstance = GetModuleHandleW(nullptr);
+    wc.lpszClassName = L"SamandarinUacCancelWarningTest";
+    if (!RegisterClassW(&wc)) return 2;
+    State state; current = &state;
+    const HWND owner = CreateWindowExW(0, wc.lpszClassName, L"test", WS_OVERLAPPED,
+                                       0, 0, 100, 100, nullptr, nullptr, wc.hInstance, nullptr);
+    if (!owner) return 3;
+    int checks = 0, failures = 0;
+    const auto check = [&](bool ok, const char* description) {
+        ++checks; if (!ok) { ++failures; std::printf("FAIL: %s\n", description); }
+    };
+    for (BOOL cancel : {FALSE, TRUE})
+    {
+        for (LPARAM moving : {static_cast<LPARAM>(0), static_cast<LPARAM>(1)})
+        {
+            for (WPARAM kind : {WORKER_DIALOG_UAC_TRANSFER_UNKNOWN, WORKER_DIALOG_UAC_DISK_RECOVERY_UNKNOWN})
+            {
+                state = {}; state.cancel = cancel;
+                SendMessageW(owner, testDialogMessage, kind, moving);
+                const char* expectedText = kind == WORKER_DIALOG_UAC_DISK_RECOVERY_UNKNOWN ? labels[IDS_UAC_DISK_RECOVERY_UNKNOWN] :
+                                           labels[moving ? IDS_UAC_MOVE_UNKNOWN : IDS_UAC_COPY_UNKNOWN];
+                check(state.warningCount == 1 && state.warningOwner == owner && IsWindow(state.warningOwner) &&
+                      state.warningText == expectedText && state.warningTitle == labels[moving ? IDS_ERRORMOVE : IDS_ERRORCOPY] &&
+                      state.warningFlags == (MB_OK | MB_ICONEXCLAMATION), "unknown warning has valid owner and correct text");
+            }
+            state = {}; state.cancel = cancel;
+            SendMessageW(owner, testDialogMessage, 999, moving);
+            check(state.ordinaryCount == (cancel ? 0 : 1), "ordinary prompt is suppressed only after Cancel");
+            state = {}; state.cancel = cancel;
+            SendMessageW(owner, testDialogMessage, WORKER_DIALOG_UAC_TREE_RESULT, moving);
+            check(state.treeCount == 1, "existing tree completion exception remains admitted");
+        }
+    }
+    DestroyWindow(owner);
+    std::printf("cancel warning gate: %d checks, %d failures\n", checks, failures);
+    return failures ? 1 : 0;
+}

@@ -1,0 +1,49 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Real local objects; the metadata failure and CloseHandle last-error change are injected.
+#include <windows.h>
+#include <cstdio>
+#include <string>
+#define HANDLES(x) (x)
+#define HANDLES_Q(x) (x)
+static bool failMetadata = false;
+static BOOL TestFileInformation(HANDLE file, BY_HANDLE_FILE_INFORMATION* info)
+{
+    if (failMetadata) { SetLastError(ERROR_ACCESS_DENIED); return FALSE; }
+    return GetFileInformationByHandle(file, info);
+}
+static BOOL TestCloseHandle(HANDLE file)
+{
+    const BOOL result = CloseHandle(file);
+    SetLastError(ERROR_INVALID_DATA); // Successful calls may alter last error.
+    return result;
+}
+#define GetFileInformationByHandle TestFileInformation
+#define CloseHandle TestCloseHandle
+@@HELPERS@@
+#undef CloseHandle
+#undef GetFileInformationByHandle
+
+int wmain(int argc, wchar_t** argv)
+{
+    if (argc != 2) return 2;
+    const std::wstring dir = std::wstring(argv[1]) + L"\\directory-東";
+    const std::wstring file = dir + L"\\source-日.txt";
+    if (!CreateDirectoryW(dir.c_str(), nullptr)) return 3;
+    HANDLE created = CreateFileW(file.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, 0, nullptr);
+    if (created == INVALID_HANDLE_VALUE) return 4;
+    CloseHandle(created);
+    DWORD volume = 0; ULONGLONG index = 0;
+    const bool fileSuccess = GetParallelFileIdentity(file, volume, index) && (volume || index);
+    const bool directorySuccess = GetParallelDirectoryIdentity(dir, volume, index) && (volume || index);
+    failMetadata = true;
+    const bool fileDenied = !GetParallelFileIdentity(file, volume, index) && GetLastError() == ERROR_ACCESS_DENIED;
+    const bool directoryDenied = !GetParallelDirectoryIdentity(dir, volume, index) && GetLastError() == ERROR_ACCESS_DENIED;
+    failMetadata = false;
+    const bool wrongType = !GetParallelDirectoryIdentity(file, volume, index) && GetLastError() == ERROR_DIRECTORY;
+    const bool missing = !GetParallelFileIdentity(dir + L"\\missing", volume, index) && GetLastError() == ERROR_FILE_NOT_FOUND;
+    if (!DeleteFileW(file.c_str()) || !RemoveDirectoryW(dir.c_str())) return 5;
+    const bool ok = fileSuccess && directorySuccess && fileDenied && directoryDenied && wrongType && missing;
+    std::printf("%s identity preserves failure after handle close and rejects wrong type\n", ok ? "PASS" : "FAIL");
+    return ok ? 0 : 1;
+}

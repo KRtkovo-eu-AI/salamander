@@ -1,0 +1,264 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Exercise parallel copy allocation failure with real files. | Verify targets are not opened or truncated before allocation. | #731 | GPT-6 (Codex) |
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <cstdlib>
+#include <cstdio>
+#include <new>
+#include <string>
+
+#define HANDLES(x) (x)
+#define HANDLES_Q(x) (x)
+#define CMCM_SCAN_AHEAD 1
+struct CQuadWord
+{
+    ULONGLONG Value;
+    CQuadWord(DWORD lo, DWORD hi) : Value((static_cast<ULONGLONG>(hi) << 32) | lo) {}
+    explicit CQuadWord(ULONGLONG value) : Value(value) {}
+    CQuadWord& operator+=(const CQuadWord& other) { Value += other.Value; return *this; }
+    CQuadWord operator*(const CQuadWord& other) const { return CQuadWord(Value * other.Value); }
+    CQuadWord operator/(const CQuadWord& other) const { return CQuadWord(Value / other.Value); }
+    bool operator!=(const CQuadWord& other) const { return Value != other.Value; }
+};
+struct Operation { CQuadWord FileSize{0, 0}; };
+struct DialogData { HANDLE WorkerNotSuspended{}; BOOL* CancelWorker{}; };
+struct Script
+{
+    int CopyMoveConflictMode = 0;
+    bool disabled = false, lease = true, throwLease = false;
+    mutable unsigned leaseChecks = 0;
+    bool IsParallelCopyDisabled() const { return disabled; }
+    bool ValidateParallelCopyLeaseForSideEffect(int, ULONGLONG) const { ++leaseChecks; if (throwLease) throw std::bad_alloc(); return lease; }
+    void GetSpeedLimit(BOOL* enabled, DWORD* value) const { *enabled = FALSE; *value = 0; }
+    void AddParallelCopyBytes(DWORD, DWORD) {}
+};
+struct CParallelCopyBatch { ::DialogData* DialogData{}; ::Script* Script{}; CRITICAL_SECTION CS{}; };
+struct CParallelCopyTask
+{
+    CParallelCopyBatch* Batch{}; HANDLE Input{INVALID_HANDLE_VALUE};
+    BOOL SourceIdentityValid{}; DWORD SourceVolumeSerial{}; ULONGLONG SourceFileIndex{};
+    volatile LONG Cancel{}; int ScriptIndex{}; ULONGLONG LeaseGeneration{};
+    std::wstring Target; BOOL ReplaceTarget{}, DeleteOnFailure{}, OutputIdentityValid{};
+    DWORD TargetVolumeSerial{}, OutputVolumeSerial{}; ULONGLONG TargetFileIndex{}, OutputFileIndex{};
+    ::Operation* Operation{}; int Progress{}; BOOL Success{}, Finished{}; DWORD FinalAttributes{FILE_ATTRIBUTE_ARCHIVE};
+};
+static BOOL ParallelHandleHasNamedStreams(HANDLE, BOOL& hasStreams) { hasStreams = FALSE; return TRUE; }
+static bool failAllocation = false;
+static unsigned allocationCalls = 0, liveAllocations = 0, targetOpenCalls = 0;
+enum class AllocationMutation { None, Lease, Disabled, WorkerCancel, TaskCancel };
+static AllocationMutation allocationMutation = AllocationMutation::None;
+static Script* mutationScript = nullptr;
+static BOOL* mutationWorkerCancel = nullptr;
+static volatile LONG* mutationTaskCancel = nullptr;
+static HANDLE TestCreateFileW(LPCWSTR name, DWORD access, DWORD share, LPSECURITY_ATTRIBUTES security,
+                              DWORD creation, DWORD flags, HANDLE templateFile)
+{
+    ++targetOpenCalls;
+    return CreateFileW(name, access, share, security, creation, flags, templateFile);
+}
+static void* TestMalloc(size_t size)
+{
+    ++allocationCalls;
+    if (failAllocation) return nullptr;
+    void* result = std::malloc(size);
+    if (result)
+    {
+        ++liveAllocations;
+        if (allocationMutation == AllocationMutation::Lease) mutationScript->lease = false;
+        if (allocationMutation == AllocationMutation::Disabled) mutationScript->disabled = true;
+        if (allocationMutation == AllocationMutation::WorkerCancel) *mutationWorkerCancel = TRUE;
+        if (allocationMutation == AllocationMutation::TaskCancel) InterlockedExchange(mutationTaskCancel, 1);
+    }
+    return result;
+}
+static void TestFree(void* ptr)
+{
+    if (ptr) --liveAllocations;
+    std::free(ptr);
+}
+#define malloc TestMalloc
+#define free TestFree
+#define CreateFileW TestCreateFileW
+@@PARALLEL_COPY@@
+@@PARALLEL_THREAD@@
+#undef CreateFileW
+#undef free
+#undef malloc
+
+static int checks = 0, failures = 0;
+static void Check(bool result, const char* label)
+{
+    ++checks;
+    std::printf("%s: %s (%lu)\n", result ? "PASS" : "FAIL", label, GetLastError());
+    if (!result) ++failures;
+}
+static bool WriteNew(const std::wstring& path, const std::string& data)
+{
+    HANDLE file = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, 0, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return false;
+    DWORD written = 0;
+    const bool ok = WriteFile(file, data.data(), static_cast<DWORD>(data.size()), &written, nullptr) && written == data.size();
+    CloseHandle(file);
+    return ok;
+}
+static bool ReadExact(const std::wstring& path, const std::string& expected)
+{
+    HANDLE file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                              nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return false;
+    LARGE_INTEGER size{};
+    bool ok = GetFileSizeEx(file, &size) && size.QuadPart == static_cast<LONGLONG>(expected.size());
+    std::string data(expected.size(), '\0');
+    DWORD read = 0;
+    if (ok) ok = ReadFile(file, data.data(), static_cast<DWORD>(data.size()), &read, nullptr) && read == data.size() && data == expected;
+    CloseHandle(file);
+    return ok;
+}
+static bool Identity(const std::wstring& path, BY_HANDLE_FILE_INFORMATION& info)
+{
+    HANDLE file = CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                              nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return false;
+    const bool ok = GetFileInformationByHandle(file, &info) != FALSE;
+    CloseHandle(file);
+    return ok;
+}
+static bool SameId(const BY_HANDLE_FILE_INFORMATION& a, const BY_HANDLE_FILE_INFORMATION& b)
+{
+    return a.dwVolumeSerialNumber == b.dwVolumeSerialNumber && a.nFileIndexHigh == b.nFileIndexHigh && a.nFileIndexLow == b.nFileIndexLow;
+}
+static bool PrepareTask(CParallelCopyTask& task, CParallelCopyBatch& batch, Operation& op,
+                        const std::wstring& source, const std::wstring& target, bool replace, size_t bytes)
+{
+    HANDLE input = CreateFileW(source.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+    if (input == INVALID_HANDLE_VALUE) return false;
+    BY_HANDLE_FILE_INFORMATION sourceInfo{}, targetInfo{};
+    if (!GetFileInformationByHandle(input, &sourceInfo) || (replace && !Identity(target, targetInfo)))
+    { CloseHandle(input); return false; }
+    task.Batch = &batch; task.Input = input; task.Operation = &op;
+    task.SourceIdentityValid = TRUE; task.SourceVolumeSerial = sourceInfo.dwVolumeSerialNumber;
+    task.SourceFileIndex = (static_cast<ULONGLONG>(sourceInfo.nFileIndexHigh) << 32) | sourceInfo.nFileIndexLow;
+    task.Target = target; task.ReplaceTarget = replace;
+    task.TargetVolumeSerial = targetInfo.dwVolumeSerialNumber;
+    task.TargetFileIndex = (static_cast<ULONGLONG>(targetInfo.nFileIndexHigh) << 32) | targetInfo.nFileIndexLow;
+    op.FileSize = CQuadWord(static_cast<ULONGLONG>(bytes));
+    return true;
+}
+int wmain(int argc, wchar_t** argv)
+{
+    if (argc != 2) return 2;
+    const std::wstring root = argv[1];
+    const std::wstring source = root + L"\\source-東.txt", target = root + L"\\target-日.txt";
+    const std::wstring alias = root + L"\\target-hardlink.txt", ads = target + L":private-流";
+    const std::string sourceBytes = "source fixture contents", targetBytes = "original protected content", streamBytes = "existing stream";
+    if (!WriteNew(source, sourceBytes) || !WriteNew(target, targetBytes) || !WriteNew(ads, streamBytes) ||
+        !CreateHardLinkW(alias.c_str(), target.c_str(), nullptr)) return 3;
+    BY_HANDLE_FILE_INFORMATION original{}, after{}, aliasAfter{};
+    if (!Identity(target, original)) return 4;
+    Check(Identity(alias, aliasAfter) && SameId(original, aliasAfter) && original.nNumberOfLinks == 2 &&
+          ReadExact(target, targetBytes) && ReadExact(alias, targetBytes) && ReadExact(ads, streamBytes),
+          "initial target, hardlink, stream and shared identity match the fixture");
+    BOOL cancel = FALSE; HANDLE resumed = CreateEventW(nullptr, TRUE, TRUE, nullptr);
+    if (!resumed) return 5;
+    DialogData dialog{resumed, &cancel}; Script script; CParallelCopyBatch batch{&dialog, &script, {}};
+    InitializeCriticalSection(&batch.CS);
+    {
+        CParallelCopyTask task; Operation op;
+        if (!PrepareTask(task, batch, op, source, target, true, sourceBytes.size())) return 6;
+        failAllocation = true; allocationCalls = 0; targetOpenCalls = 0;
+        const BOOL copied = ParallelCopyFileW(&task);
+        Check(!copied && allocationCalls == 1 && targetOpenCalls == 0 && liveAllocations == 0,
+              "allocation failure stops before opening or truncating the target");
+        Check(task.Input == INVALID_HANDLE_VALUE && !task.DeleteOnFailure && !task.OutputIdentityValid,
+              "failed preflight transfers no destination cleanup ownership");
+        Check(Identity(target, after) && Identity(alias, aliasAfter) && SameId(original, after) && SameId(after, aliasAfter) &&
+              after.nNumberOfLinks == 2, "existing target and its hardlink keep the same NTFS identity");
+        Check(ReadExact(target, targetBytes), "existing target keeps its original bytes");
+        Check(ReadExact(alias, targetBytes), "hardlink keeps its original bytes");
+        Check(ReadExact(ads, streamBytes), "existing named stream keeps its original bytes");
+        Check(ReadExact(source, sourceBytes), "allocation failure keeps the source bytes");
+    }
+    {
+        CParallelCopyTask task; Operation op;
+        const auto missing = root + L"\\not-created-東.txt";
+        if (!PrepareTask(task, batch, op, source, missing, false, sourceBytes.size())) return 7;
+        failAllocation = true; allocationCalls = 0; targetOpenCalls = 0;
+        Check(!ParallelCopyFileW(&task) && allocationCalls == 1 && targetOpenCalls == 0 && !task.DeleteOnFailure && !task.OutputIdentityValid &&
+              GetFileAttributesW(missing.c_str()) == INVALID_FILE_ATTRIBUTES && GetLastError() == ERROR_FILE_NOT_FOUND,
+              "allocation failure does not create a new target");
+    }
+    {
+        CParallelCopyTask task; Operation op;
+        if (!PrepareTask(task, batch, op, source, target, true, sourceBytes.size())) return 13;
+        script.CopyMoveConflictMode = CMCM_SCAN_AHEAD; script.lease = true; script.leaseChecks = 0;
+        failAllocation = true; allocationCalls = 0; targetOpenCalls = 0;
+        Check(!ParallelCopyFileW(&task) && allocationCalls == 1 && targetOpenCalls == 0 && script.leaseChecks == 0 &&
+              !task.DeleteOnFailure && ReadExact(target, targetBytes),
+              "scan-ahead allocation failure does not validate or touch the target");
+    }
+    {
+        CParallelCopyTask task; Operation op;
+        if (!PrepareTask(task, batch, op, source, target, true, sourceBytes.size())) return 14;
+        HANDLE transferredInput = task.Input;
+        script.CopyMoveConflictMode = CMCM_SCAN_AHEAD; script.lease = true; script.throwLease = true;
+        failAllocation = false; allocationCalls = 0; targetOpenCalls = 0;
+        ParallelCopyThreadProc(&task);
+        script.throwLease = false;
+        DWORD flags = 0;
+        Check(task.Finished && !task.Success && task.Input == INVALID_HANDLE_VALUE &&
+              !GetHandleInformation(transferredInput, &flags) && GetLastError() == ERROR_INVALID_HANDLE &&
+              targetOpenCalls == 0 && liveAllocations == 0 && !task.DeleteOnFailure &&
+              Identity(target, after) && Identity(alias, aliasAfter) && SameId(original, after) && SameId(after, aliasAfter) &&
+              ReadExact(target, targetBytes) && ReadExact(alias, targetBytes) && ReadExact(ads, streamBytes),
+              "thread completes failed preflight, closes input and preserves target, hardlink and ADS");
+    }
+    const AllocationMutation mutations[] = {AllocationMutation::Lease, AllocationMutation::Disabled,
+                                             AllocationMutation::WorkerCancel, AllocationMutation::TaskCancel};
+    const char* labels[] = {"expired lease during allocation stops before target access",
+                            "disabled parallel copy during allocation stops before target access",
+                            "worker cancellation during allocation stops before target access",
+                            "task cancellation during allocation stops before target access"};
+    for (size_t i = 0; i != sizeof(mutations) / sizeof(mutations[0]); ++i)
+    {
+        const auto unchanged = root + L"\\invalidate-東-" + std::to_wstring(i) + L".txt";
+        if (!WriteNew(unchanged, targetBytes) || !Identity(unchanged, original)) return 11;
+        CParallelCopyTask task; Operation op;
+        if (!PrepareTask(task, batch, op, source, unchanged, true, sourceBytes.size())) return 12;
+        script.CopyMoveConflictMode = mutations[i] == AllocationMutation::Lease ? CMCM_SCAN_AHEAD : 0;
+        script.lease = true; script.leaseChecks = 0; script.disabled = false; cancel = FALSE;
+        failAllocation = false; allocationCalls = 0; targetOpenCalls = 0;
+        mutationScript = &script; mutationWorkerCancel = &cancel; mutationTaskCancel = &task.Cancel;
+        allocationMutation = mutations[i];
+        const BOOL copied = ParallelCopyFileW(&task);
+        allocationMutation = AllocationMutation::None;
+        Check(!copied && allocationCalls == 1 && targetOpenCalls == 0 && liveAllocations == 0 &&
+              (mutations[i] != AllocationMutation::Lease || script.leaseChecks == 1) &&
+              !task.DeleteOnFailure && !task.OutputIdentityValid && Identity(unchanged, after) && SameId(original, after) &&
+              ReadExact(unchanged, targetBytes), labels[i]);
+    }
+    script.CopyMoveConflictMode = 0; script.lease = true; script.disabled = false; cancel = FALSE;
+    {
+        CParallelCopyTask task; Operation op;
+        const auto missing = root + L"\\missing-target.txt";
+        if (!PrepareTask(task, batch, op, source, missing, false, sourceBytes.size())) return 8;
+        task.ReplaceTarget = TRUE; failAllocation = false; allocationCalls = 0; targetOpenCalls = 0;
+        Check(!ParallelCopyFileW(&task) && allocationCalls == 1 && targetOpenCalls == 1 && liveAllocations == 0 && !task.DeleteOnFailure,
+              "failed target open releases the preallocated buffer");
+    }
+    {
+        const auto replacement = root + L"\\replace-東.txt";
+        if (!WriteNew(replacement, "old") || !Identity(replacement, original)) return 9;
+        CParallelCopyTask task; Operation op;
+        if (!PrepareTask(task, batch, op, source, replacement, true, sourceBytes.size())) return 10;
+        failAllocation = false; allocationCalls = 0; targetOpenCalls = 0;
+        Check(ParallelCopyFileW(&task) && allocationCalls == 1 && targetOpenCalls == 1 && liveAllocations == 0 &&
+              ReadExact(replacement, sourceBytes), "successful replacement still copies the source");
+        Check(Identity(replacement, after) && SameId(original, after), "successful in-place replacement retains target identity");
+    }
+    DeleteCriticalSection(&batch.CS);
+    CloseHandle(resumed);
+    std::printf("%d checks, %d failures\n", checks, failures);
+    return failures ? 1 : 0;
+}

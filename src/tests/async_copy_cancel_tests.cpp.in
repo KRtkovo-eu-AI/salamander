@@ -1,0 +1,928 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-14 | Exercise native async suspension on connection loss. | Verify a real pending read is drained before error reporting. | #731 | gpt-6.1-terra |
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Exercise real peer loss while workers are paused. | Connect pause handling to the actual transport check. | #731 | gpt-6.1-terra |
+// | 2026-11-14 | Connect the actual transport check to pending native I/O. | Exercise a real peer process exit in the same isolated scenario. | #731 | gpt-6.1-terra |
+// | 2026-11-14 | Exercise async wait on connection loss and completion. | Check real pending I/O is drained only after loss. | #731 | gpt-6.1-terra |
+// | 2026-11-14 | Exercise all async pause modes and completed-write loss. | Check tracked I/O drains before loss is reported. | #731 | gpt-6.1-terra |
+// | 2026-11-14 | Test synchronous pause with a disconnected session. | Verify native error state and prompt detection before resume. | #731 | gpt-6.1-terra |
+// | 2026-11-14 | Test paused connection loss with pending I/O. | Verify the native wait can stop before resume. | #731 | gpt-6.1-terra |
+// | 2026-11-13 | Test issued asynchronous I/O at cancellation. | Exercise native state and drain with real pending pipe requests. | #731 | GPT-6 |
+#include <windows.h>
+#include <atomic>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <memory>
+#include <mutex>
+#include <sstream>
+#include <string>
+#include <thread>
+
+// These application dependencies are adapted; I/O and tested methods are real.
+struct CQuadWord
+{
+    union { struct { DWORD LoDWord, HiDWord; }; unsigned __int64 Value; };
+    CQuadWord() : Value(0) {}
+    CQuadWord(DWORD lo, DWORD hi) : LoDWord(lo), HiDWord(hi) {}
+    bool operator==(const CQuadWord& rhs) const { return Value == rhs.Value; }
+    bool operator<(const CQuadWord& rhs) const { return Value < rhs.Value; }
+    bool operator>(const CQuadWord& rhs) const { return Value > rhs.Value; }
+};
+#define HANDLES(value) (value)
+#define TRACE_I(value) do { if (false) { std::ostringstream trace; trace << value; } } while (0)
+#define TRACE_E(value) TRACE_I(value)
+#define TRACE_C(value) TRACE_I(value)
+static const char* GetErrorText(DWORD) { return "Win32 error"; }
+static DWORD observedReadError = ERROR_SUCCESS;
+static bool observedReadSucceeded = false;
+static bool injectImmediateEOF = false;
+static BOOL ObservedRead(HANDLE file, void* buffer, DWORD size, DWORD* read, OVERLAPPED* overlapped)
+{
+    if (injectImmediateEOF)
+    {
+        observedReadError = ERROR_HANDLE_EOF;
+        observedReadSucceeded = false;
+        SetLastError(observedReadError);
+        return FALSE;
+    }
+    const BOOL result = ReadFile(file, buffer, size, read, overlapped);
+    observedReadSucceeded = result != FALSE;
+    observedReadError = result ? ERROR_SUCCESS : GetLastError();
+    SetLastError(observedReadError);
+    return result;
+}
+#define THIN_COPY_READ ObservedRead
+static DWORD observedWriteError = ERROR_SUCCESS;
+static bool observedWriteSucceeded = false;
+static BOOL ObservedWrite(HANDLE file, const void* buffer, DWORD size, DWORD* written, OVERLAPPED* overlapped)
+{
+    const BOOL result = WriteFile(file, buffer, size, written, overlapped);
+    observedWriteSucceeded = result != FALSE;
+    observedWriteError = result ? ERROR_SUCCESS : GetLastError();
+    SetLastError(observedWriteError);
+    return result;
+}
+#define THIN_COPY_WRITE ObservedWrite
+static HANDLE watchedDrainHandle = nullptr;
+static OVERLAPPED* watchedDrainOverlapped = nullptr;
+static unsigned watchedDrainCalls = 0;
+static bool watchedDrainMatches = true;
+static BOOL ObservedGetOverlappedResult(HANDLE file, OVERLAPPED* overlapped, DWORD* bytes, BOOL wait)
+{
+    if (overlapped == watchedDrainOverlapped)
+    {
+        ++watchedDrainCalls;
+        if (file != watchedDrainHandle || !wait) watchedDrainMatches = false;
+    }
+    return GetOverlappedResult(file, overlapped, bytes, wait);
+}
+#define GetOverlappedResult ObservedGetOverlappedResult
+@@BUFFER@@
+@@ASYNC@@
+@@ENUMS@@
+struct COperations { BOOL ChangeSpeedLimit = FALSE; };
+struct CProgressDlgData { BOOL* CancelWorker = nullptr; HANDLE WorkerNotSuspended = nullptr; };
+namespace UacF7
+{
+struct TransferJobSession
+{
+    HANDLE pipe = nullptr;
+    ULONGLONG OpeningGeneration() const { return pipe ? 1 : 0; }
+};
+class ThinCopySession
+{
+public:
+    DWORD CheckTransport() const;
+    mutable std::mutex gate;
+    TransferJobSession owned;
+    TransferJobSession* shared = nullptr;
+    std::unique_ptr<TransferJobSession> planned;
+    ULONGLONG plannedGeneration = 0;
+};
+static bool clobberSuccessLastError = false;
+static BOOL ObservedPeekNamedPipe(HANDLE pipe, LPVOID buffer, DWORD size, LPDWORD read,
+                                 LPDWORD available, LPDWORD remaining)
+{
+    const BOOL result = PeekNamedPipe(pipe, buffer, size, read, available, remaining);
+    if (result && clobberSuccessLastError) SetLastError(ERROR_INVALID_DATA);
+    return result;
+}
+#define PeekNamedPipe ObservedPeekNamedPipe
+@@TRANSPORT@@
+#undef PeekNamedPipe
+}
+struct ActualConnectionWorker
+{
+    bool scoped = true, brokerHandleDelivered = true;
+    UacF7::ThinCopySession* session = nullptr;
+    bool Scoped() const { return scoped; }
+@@ACTUAL_CONNECTION_METHOD@@
+};
+struct CThinCopyWorker
+{
+    std::atomic<DWORD> connectionStatus{ERROR_SUCCESS};
+    bool brokerHandleDelivered = true;
+    bool scoped = true;
+    UacF7::ThinCopySession* transport = nullptr;
+    CProgressDlgData dialog{};
+    unsigned reports = 0;
+    OVERLAPPED* pending = nullptr;
+    bool drainedBeforeReport = false;
+    bool Scoped() const { return scoped; }
+    DWORD CheckTransferConnection() const { return transport ? transport->CheckTransport() : connectionStatus.load(); }
+    DWORD WaitTransferResume() const;
+    bool ReportTargetFailure(DWORD, int)
+    {
+        ++reports;
+        drainedBeforeReport = pending && HasOverlappedIoCompleted(pending);
+        return false;
+    }
+    bool ReportTransferLoss(DWORD error, int caption) { return ReportTargetFailure(error, caption); }
+};
+@@WAIT_RESUME@@
+#define IDS_ERRORREADINGFILE 1
+#define IDS_ERRORWRITINGFILE 2
+#define SAM_UAC_THIN_COPY_TEST
+static void SyncReadRetryGuard(CThinCopyWorker* thin, BOOL& copyError, unsigned& reopenCount)
+{
+@@SYNC_READ_RETRY_GUARD@@
+    ++reopenCount;
+}
+static void SyncWriteRetryGuard(CThinCopyWorker* thin, BOOL& copyError, unsigned& reopenCount)
+{
+@@SYNC_WRITE_RETRY_GUARD@@
+    ++reopenCount;
+}
+static BOOL AsyncReadRetryGuard(CThinCopyWorker* Thin, BOOL* copyError, unsigned& reopenCount)
+{
+@@ASYNC_READ_RETRY_GUARD@@
+    ++reopenCount;
+    return TRUE;
+}
+static BOOL AsyncWriteRetryGuard(CThinCopyWorker* Thin, BOOL* copyError, unsigned& reopenCount)
+{
+@@ASYNC_WRITE_RETRY_GUARD@@
+    ++reopenCount;
+    return TRUE;
+}
+#undef SAM_UAC_THIN_COPY_TEST
+struct CCopy_Context
+{
+    CAsyncCopyParams* AsyncPar = nullptr;
+    CCopy_ForceOp ForceOp = fopNotUsed;
+    BOOL ReadingDone = FALSE;
+    CCopy_BlkState BlockState[8]{};
+    DWORD BlockDataLen[8]{};
+    CQuadWord BlockOffset[8]{};
+    DWORD BlockTime[8]{};
+    DWORD CurTime = 0;
+    int FreeBlocks = 8, FreeBlockIndex = 0, ReadingBlocks = 0, WritingBlocks = 0;
+    CQuadWord ReadOffset{}, WriteOffset{};
+    CProgressDlgData* DlgData = nullptr;
+    HANDLE* In = nullptr;
+    HANDLE* Out = nullptr;
+    COperations* Script = nullptr;
+    CThinCopyWorker* Thin = nullptr;
+    DWORD PauseFailure = ERROR_SUCCESS;
+    BOOL StartReading(int, DWORD, DWORD*, BOOL);
+    BOOL StartWriting(int, DWORD*);
+    void FreeBlock(int);
+    void CancelOpPhase1();
+    void CancelOpPhase2(int);
+    BOOL FinishPauseFailure(BOOL*, int);
+    BOOL HandleSuspModeAndCancel(BOOL*, BOOL forceWait = FALSE);
+    BOOL WaitForPendingTransfer(HANDLE, OVERLAPPED*, DWORD*, BOOL*);
+};
+// A pipe is deliberately not seekable. Seeking is not part of this test.
+static BOOL SalSetFilePointer(HANDLE, const CQuadWord&) { return TRUE; }
+#define SAM_UAC_THIN_COPY_TEST
+@@ISSUE@@
+@@FREE@@
+@@DRAIN@@
+@@SUSPEND@@
+#undef SAM_UAC_THIN_COPY_TEST
+
+struct Pipe
+{
+    HANDLE server = INVALID_HANDLE_VALUE;
+    HANDLE client = INVALID_HANDLE_VALUE;
+    ~Pipe() { if (client != INVALID_HANDLE_VALUE) CloseHandle(client); if (server != INVALID_HANDLE_VALUE) CloseHandle(server); }
+    bool Open(bool readFromServer, unsigned ordinal)
+    {
+        const std::wstring name = L"\\\\.\\pipe\\samandarin-async-cancel-" +
+            std::to_wstring(GetCurrentProcessId()) + L"-" + std::to_wstring(ordinal);
+        server = CreateNamedPipeW(name.c_str(), (readFromServer ? PIPE_ACCESS_INBOUND : PIPE_ACCESS_OUTBOUND) |
+                                  FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE,
+                                  PIPE_TYPE_BYTE | PIPE_WAIT, 1, 4096, 4096, 0, nullptr);
+        if (server == INVALID_HANDLE_VALUE) return false;
+        client = CreateFileW(name.c_str(), readFromServer ? GENERIC_WRITE : GENERIC_READ, 0, nullptr,
+                             OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr);
+        if (client == INVALID_HANDLE_VALUE) return false;
+        OVERLAPPED connected{};
+        connected.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        if (!connected.hEvent) return false;
+        BOOL ok = ConnectNamedPipe(server, &connected);
+        const DWORD error = ok ? ERROR_SUCCESS : GetLastError();
+        if (!ok && error == ERROR_IO_PENDING)
+        {
+            if (WaitForSingleObject(connected.hEvent, 3000) != WAIT_OBJECT_0)
+            {
+                CancelIoEx(server, &connected);
+                // Never let the kernel retain the stack OVERLAPPED or event.
+                // The isolated test process can safely end on a broken pipe.
+                if (WaitForSingleObject(connected.hEvent, 3000) != WAIT_OBJECT_0)
+                    ExitProcess(3);
+            }
+            DWORD bytes = 0;
+            ok = GetOverlappedResult(server, &connected, &bytes, FALSE);
+        }
+        CloseHandle(connected.hEvent);
+        return ok || error == ERROR_PIPE_CONNECTED;
+    }
+};
+
+static int failures = 0;
+static void Check(bool value, const char* label)
+{
+    std::printf("%s: %s\n", value ? "PASS" : "FAIL", label);
+    if (!value) ++failures;
+}
+
+static void WatchDrain(HANDLE file, OVERLAPPED* overlapped)
+{
+    watchedDrainHandle = file;
+    watchedDrainOverlapped = overlapped;
+    watchedDrainCalls = 0;
+    watchedDrainMatches = true;
+}
+
+static void CheckDrain()
+{
+    Check(watchedDrainCalls == 1 && watchedDrainMatches,
+          "native drain waits on the expected handle and OVERLAPPED");
+    watchedDrainHandle = nullptr;
+    watchedDrainOverlapped = nullptr;
+}
+
+// A failed assertion must never free a buffer or OVERLAPPED still in use by
+// the kernel. End only this isolated process if cancellation cannot complete.
+static void DrainUnexpectedPending(HANDLE file, OVERLAPPED* overlapped)
+{
+    if (HasOverlappedIoCompleted(overlapped)) return;
+    CancelIoEx(file, overlapped);
+    if (WaitForSingleObject(overlapped->hEvent, 5000) != WAIT_OBJECT_0)
+        ExitProcess(4);
+    DWORD bytes = 0;
+    GetOverlappedResult(file, overlapped, &bytes, FALSE);
+    if (!HasOverlappedIoCompleted(overlapped)) ExitProcess(5);
+}
+
+static void Test(bool reading, bool testEOF, unsigned ordinal, bool cancelAtIssue = true)
+{
+    Pipe pipe;
+    if (!pipe.Open(reading, ordinal)) { Check(false, "create isolated overlapped pipe"); return; }
+    CAsyncCopyParams async;
+    async.Init(TRUE);
+    if (async.Failed() || !async.Buffers[0]) { Check(false, "allocate native async buffers"); return; }
+    BOOL cancelled = cancelAtIssue ? TRUE : FALSE;
+    HANDLE input = pipe.server;
+    HANDLE output = reading ? nullptr : pipe.server;
+    COperations ops;
+    CProgressDlgData dialog;
+    dialog.CancelWorker = &cancelled;
+    CCopy_Context ctx;
+    ctx.AsyncPar = &async; ctx.DlgData = &dialog; ctx.In = &input; ctx.Out = &output; ctx.Script = &ops;
+    if (!reading)
+    {
+        ctx.BlockState[0] = cbsRead;
+        ctx.BlockDataLen[0] = 64 * 1024;
+        ctx.FreeBlocks = 7;
+        std::memset(async.Buffers[0], 0x5a, ctx.BlockDataLen[0]);
+    }
+    DWORD error = ERROR_SUCCESS;
+    const BOOL started = reading ? ctx.StartReading(0, 4096, &error, testEOF) : ctx.StartWriting(0, &error);
+    const auto expected = reading ? (testEOF ? cbsTestingEOF : cbsReading) : cbsWriting;
+    Check(cancelAtIssue ? !started && error == ERROR_CANCELLED : started && error == ERROR_SUCCESS,
+          cancelAtIssue ? "cancellation is observed after issuing request" :
+                          "pending request starts normally when not cancelled");
+    Check(ctx.BlockState[0] == expected && ctx.FreeBlocks == 7 &&
+          (reading ? ctx.ReadingBlocks == 1 : ctx.WritingBlocks == 1),
+          "issued request is registered before returning cancellation");
+    Check(!HasOverlappedIoCompleted(async.GetOverlapped(0)), "real pipe request is pending before drain");
+    cancelled = TRUE;
+    WatchDrain(reading ? input : output, async.GetOverlapped(0));
+    ctx.CancelOpPhase1();
+    ctx.CancelOpPhase2(reading ? -1 : 0);
+    Check(HasOverlappedIoCompleted(async.GetOverlapped(0)), "cancel drain waits for real I/O completion");
+    CheckDrain();
+    DrainUnexpectedPending(reading ? input : output, async.GetOverlapped(0));
+    Check(reading ? ctx.BlockState[0] == cbsFree && ctx.FreeBlocks == 8 && ctx.ReadingBlocks == 0 :
+                    ctx.BlockState[0] == cbsRead && ctx.FreeBlocks == 7 && ctx.WritingBlocks == 0 && ctx.WriteOffset.Value == 0,
+          "drain restores the native block counters and offsets");
+}
+
+static void TestImmediateError(bool reading)
+{
+    CAsyncCopyParams async;
+    async.Init(TRUE);
+    if (async.Failed() || !async.Buffers[0]) { Check(false, "allocate immediate-error buffers"); return; }
+    BOOL cancelled = TRUE;
+    HANDLE invalid = INVALID_HANDLE_VALUE;
+    COperations ops;
+    CProgressDlgData dialog;
+    dialog.CancelWorker = &cancelled;
+    CCopy_Context ctx;
+    ctx.AsyncPar = &async; ctx.DlgData = &dialog; ctx.In = &invalid; ctx.Out = &invalid; ctx.Script = &ops;
+    if (!reading)
+    {
+        ctx.BlockState[0] = cbsRead;
+        ctx.BlockDataLen[0] = 8;
+        ctx.FreeBlocks = 7;
+    }
+    DWORD error = ERROR_SUCCESS;
+    const BOOL started = reading ? ctx.StartReading(0, 8, &error, FALSE) : ctx.StartWriting(0, &error);
+    Check(!started && error == ERROR_INVALID_HANDLE, "immediate issue error remains the native error");
+    Check(reading ? ctx.BlockState[0] == cbsFree && ctx.FreeBlocks == 8 && ctx.ReadingBlocks == 0 :
+                    ctx.BlockState[0] == cbsRead && ctx.FreeBlocks == 7 && ctx.WritingBlocks == 0 && ctx.WriteOffset.Value == 0,
+          "immediate issue error does not register an outstanding operation");
+}
+
+static void TestEOF(const wchar_t* directory, bool testEOF, bool inject)
+{
+    const std::wstring path = std::wstring(directory) + L"\\empty-" +
+        (testEOF ? L"test-" : L"read-") + (inject ? L"injected.bin" : L"native.bin");
+    HANDLE created = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (created == INVALID_HANDLE_VALUE) { Check(false, "create empty EOF fixture"); return; }
+    CloseHandle(created);
+    HANDLE input = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
+                               FILE_FLAG_OVERLAPPED, nullptr);
+    HANDLE resumed = CreateEventW(nullptr, TRUE, TRUE, nullptr);
+    if (input == INVALID_HANDLE_VALUE || !resumed)
+    {
+        Check(false, "open empty EOF fixture");
+        if (input != INVALID_HANDLE_VALUE) CloseHandle(input);
+        if (resumed) CloseHandle(resumed);
+        DeleteFileW(path.c_str());
+        return;
+    }
+    {
+        CAsyncCopyParams async;
+        async.Init(TRUE);
+        if (async.Failed() || !async.Buffers[0]) { Check(false, "allocate EOF buffers"); }
+        else
+        {
+            BOOL cancelled = TRUE;
+            HANDLE output = nullptr;
+            COperations ops;
+            CProgressDlgData dialog;
+            dialog.CancelWorker = &cancelled;
+            dialog.WorkerNotSuspended = resumed;
+            CCopy_Context ctx;
+            ctx.AsyncPar = &async; ctx.DlgData = &dialog; ctx.In = &input; ctx.Out = &output; ctx.Script = &ops;
+            DWORD error = ERROR_SUCCESS;
+            observedReadError = ERROR_SUCCESS;
+            injectImmediateEOF = inject;
+            const BOOL started = ctx.StartReading(0, 4096, &error, testEOF ? TRUE : FALSE);
+            injectImmediateEOF = false;
+            if (inject)
+                Check(observedReadError == ERROR_HANDLE_EOF, "inject a synchronous EOF at the native issue boundary");
+            else
+                std::printf("INFO: real empty-file issue returned %lu\n", static_cast<unsigned long>(observedReadError));
+            Check(!started && error == ERROR_CANCELLED &&
+                  ctx.BlockState[0] == (testEOF ? cbsTestingEOF : cbsReading) &&
+                  ctx.FreeBlocks == 7 && ctx.ReadingBlocks == 1,
+                  inject ? "synthetic EOF is registered before cancellation" :
+                           "real empty-file read is registered before cancellation");
+            WatchDrain(input, async.GetOverlapped(0));
+            ctx.CancelOpPhase1();
+            ctx.CancelOpPhase2(-1);
+            CheckDrain();
+            DrainUnexpectedPending(input, async.GetOverlapped(0));
+            Check(ctx.BlockState[0] == cbsFree && ctx.FreeBlocks == 8 && ctx.ReadingBlocks == 0,
+                  inject ? "synthetic EOF drain finishes and restores counters" :
+                           "real empty-file drain finishes and restores counters");
+        }
+    }
+    CloseHandle(resumed);
+    CloseHandle(input);
+    Check(DeleteFileW(path.c_str()) != FALSE, "remove owned EOF fixture");
+}
+
+static void TestCompletedRead()
+{
+    Pipe pipe;
+    if (!pipe.Open(true, 4)) { Check(false, "create pipe for completed read"); return; }
+    OVERLAPPED write{};
+    write.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (!write.hEvent) { Check(false, "create completed-read setup event"); return; }
+    const char data[] = "12345678";
+    DWORD bytes = 0;
+    const BOOL wrote = WriteFile(pipe.client, data, 8, nullptr, &write);
+    const DWORD writeError = wrote ? ERROR_SUCCESS : GetLastError();
+    if ((!wrote && writeError != ERROR_IO_PENDING) || !GetOverlappedResult(pipe.client, &write, &bytes, TRUE) || bytes != 8)
+    {
+        Check(false, "preload completed-read pipe");
+        DrainUnexpectedPending(pipe.client, &write);
+        CloseHandle(write.hEvent);
+        return;
+    }
+    CloseHandle(write.hEvent);
+    CAsyncCopyParams async;
+    async.Init(TRUE);
+    if (async.Failed() || !async.Buffers[0]) { Check(false, "allocate completed-read buffers"); return; }
+    BOOL cancelled = TRUE;
+    HANDLE input = pipe.server, output = nullptr;
+    HANDLE resumed = CreateEventW(nullptr, TRUE, TRUE, nullptr);
+    if (!resumed) { Check(false, "create resumed event"); return; }
+    COperations ops;
+    CProgressDlgData dialog;
+    dialog.CancelWorker = &cancelled; dialog.WorkerNotSuspended = resumed;
+    CCopy_Context ctx;
+    ctx.AsyncPar = &async; ctx.DlgData = &dialog; ctx.In = &input; ctx.Out = &output; ctx.Script = &ops;
+    DWORD error = ERROR_SUCCESS;
+    observedReadError = ERROR_SUCCESS;
+    const BOOL started = ctx.StartReading(0, 8, &error, FALSE);
+    const bool immediate = observedReadSucceeded && observedReadError == ERROR_SUCCESS &&
+                           HasOverlappedIoCompleted(async.GetOverlapped(0));
+    if (immediate)
+        Check(true, "preloaded real pipe read completed synchronously");
+    else if (!observedReadSucceeded && observedReadError == ERROR_IO_PENDING)
+        std::printf("SKIP: pipe read was pending; synchronous-read-only result unavailable\n");
+    else
+        Check(false, "preloaded real pipe read returned an unexpected issue result");
+    Check(!started && error == ERROR_CANCELLED && ctx.BlockState[0] == cbsReading && ctx.ReadingBlocks == 1,
+          "preloaded read is registered before cancellation");
+    WatchDrain(input, async.GetOverlapped(0));
+    ctx.CancelOpPhase1();
+    ctx.CancelOpPhase2(-1);
+    CheckDrain();
+    DrainUnexpectedPending(input, async.GetOverlapped(0));
+    if (immediate)
+        Check(ctx.BlockState[0] == cbsRead && ctx.ReadingBlocks == 0 && ctx.FreeBlocks == 7 && ctx.ReadOffset.Value == 8,
+              "completed data and native counters survive cancellation drain");
+    else
+        Check(ctx.ReadingBlocks == 0 && ((ctx.BlockState[0] == cbsFree && ctx.FreeBlocks == 8) ||
+              (ctx.BlockState[0] == cbsRead && ctx.FreeBlocks == 7)),
+              "pending preloaded-read drain restores native counters");
+    CloseHandle(resumed);
+}
+
+static void TestCompletedWrite()
+{
+    Pipe pipe;
+    if (!pipe.Open(false, 5)) { Check(false, "create pipe for completed write"); return; }
+    CAsyncCopyParams async;
+    async.Init(TRUE);
+    if (async.Failed() || !async.Buffers[0]) { Check(false, "allocate completed-write buffers"); return; }
+    std::memcpy(async.Buffers[0], "12345678", 8);
+    BOOL cancelled = TRUE;
+    HANDLE input = pipe.server, output = pipe.server;
+    HANDLE resumed = CreateEventW(nullptr, TRUE, TRUE, nullptr);
+    if (!resumed) { Check(false, "create resumed event"); return; }
+    COperations ops;
+    CProgressDlgData dialog;
+    dialog.CancelWorker = &cancelled; dialog.WorkerNotSuspended = resumed;
+    CCopy_Context ctx;
+    ctx.AsyncPar = &async; ctx.DlgData = &dialog; ctx.In = &input; ctx.Out = &output; ctx.Script = &ops;
+    ctx.BlockState[0] = cbsRead; ctx.BlockDataLen[0] = 8; ctx.FreeBlocks = 7;
+    DWORD error = ERROR_SUCCESS;
+    observedWriteError = ERROR_SUCCESS;
+    const BOOL started = ctx.StartWriting(0, &error);
+    const bool immediate = observedWriteSucceeded && observedWriteError == ERROR_SUCCESS &&
+                           HasOverlappedIoCompleted(async.GetOverlapped(0));
+    if (immediate)
+        Check(true, "small real pipe write completed synchronously");
+    else if (!observedWriteSucceeded && observedWriteError == ERROR_IO_PENDING)
+        std::printf("SKIP: pipe write was pending; synchronous-write-only result unavailable\n");
+    else
+        Check(false, "small real pipe write returned an unexpected issue result");
+    Check(!started && error == ERROR_CANCELLED && ctx.BlockState[0] == cbsWriting && ctx.WritingBlocks == 1,
+          "small write is registered before cancellation");
+    WatchDrain(output, async.GetOverlapped(0));
+    ctx.CancelOpPhase1();
+    ctx.CancelOpPhase2(0);
+    CheckDrain();
+    DrainUnexpectedPending(output, async.GetOverlapped(0));
+    if (immediate)
+        Check(ctx.BlockState[0] == cbsFree && ctx.WritingBlocks == 0 && ctx.FreeBlocks == 8 && ctx.WriteOffset.Value == 8,
+              "completed write and native counters survive cancellation drain");
+    else
+        Check(ctx.WritingBlocks == 0 && ((ctx.BlockState[0] == cbsFree && ctx.FreeBlocks == 8 && ctx.WriteOffset.Value == 8) ||
+              (ctx.BlockState[0] == cbsRead && ctx.FreeBlocks == 7 && ctx.WriteOffset.Value == 0)),
+              "pending small-write drain restores native counters");
+    CloseHandle(resumed);
+}
+
+static void TestConnectionLossWithPendingRead()
+{
+    Pipe pipe;
+    if (!pipe.Open(true, 91)) { Check(false, "create pipe for connection-loss drain"); return; }
+    CAsyncCopyParams async;
+    async.Init(TRUE);
+    if (async.Failed() || !async.Buffers[0]) { Check(false, "allocate connection-loss buffer"); return; }
+    BOOL cancelled = FALSE, copyError = FALSE;
+    HANDLE input = pipe.server, output = nullptr;
+    HANDLE resumed = CreateEventW(nullptr, TRUE, TRUE, nullptr);
+    if (!resumed) { Check(false, "create resume event for connection-loss test"); return; }
+    COperations ops;
+    CProgressDlgData dialog;
+    dialog.CancelWorker = &cancelled; dialog.WorkerNotSuspended = resumed;
+    CThinCopyWorker thin;
+    thin.dialog = dialog;
+    CCopy_Context ctx;
+    ctx.AsyncPar = &async; ctx.DlgData = &dialog; ctx.In = &input; ctx.Out = &output;
+    ctx.Script = &ops; ctx.Thin = &thin;
+    DWORD error = ERROR_SUCCESS;
+    const BOOL started = ctx.StartReading(0, 4096, &error, FALSE);
+    Check(started && !HasOverlappedIoCompleted(async.GetOverlapped(0)),
+          "connection-loss fixture has a real pending read");
+    thin.connectionStatus = ERROR_BROKEN_PIPE; thin.pending = async.GetOverlapped(0);
+    const BOOL stopped = ctx.HandleSuspModeAndCancel(&copyError);
+    Check(stopped && copyError && thin.reports == 1 && thin.drainedBeforeReport,
+          "connection loss drains issued I/O before reporting and stopping");
+    Check(ctx.ReadingBlocks == 0 && ctx.FreeBlocks == 8 && ctx.BlockState[0] == cbsFree,
+          "connection-loss drain restores native block accounting");
+    DrainUnexpectedPending(input, async.GetOverlapped(0));
+    CloseHandle(resumed);
+}
+
+static void TestPausedConnectionLoss(bool speedLimitCanChange)
+{
+    Pipe pipe;
+    if (!pipe.Open(true, speedLimitCanChange ? 93 : 92)) { Check(false, "create pipe for paused loss"); return; }
+    CAsyncCopyParams async;
+    async.Init(TRUE);
+    if (async.Failed() || !async.Buffers[0]) { Check(false, "allocate paused-loss buffer"); return; }
+    BOOL cancelled = FALSE, copyError = FALSE;
+    HANDLE input = pipe.server, output = nullptr;
+    HANDLE resumed = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (!resumed) { Check(false, "create paused event"); return; }
+    COperations ops;
+    ops.ChangeSpeedLimit = speedLimitCanChange ? TRUE : FALSE;
+    CProgressDlgData dialog;
+    dialog.CancelWorker = &cancelled; dialog.WorkerNotSuspended = resumed;
+    CThinCopyWorker thin;
+    thin.dialog = dialog;
+    CCopy_Context ctx;
+    ctx.AsyncPar = &async; ctx.DlgData = &dialog; ctx.In = &input; ctx.Out = &output;
+    ctx.Script = &ops; ctx.Thin = &thin;
+    DWORD error = ERROR_SUCCESS;
+    const BOOL started = ctx.StartReading(0, 4096, &error, FALSE);
+    Check(started && !HasOverlappedIoCompleted(async.GetOverlapped(0)), "paused loss has pending read");
+    thin.pending = async.GetOverlapped(0);
+    std::thread watcher([&] { Sleep(150); thin.connectionStatus.store(ERROR_BROKEN_PIPE); Sleep(1500); SetEvent(resumed); });
+    const ULONGLONG start = GetTickCount64();
+    const BOOL stopped = ctx.HandleSuspModeAndCancel(&copyError, speedLimitCanChange ? TRUE : FALSE);
+    const ULONGLONG elapsed = GetTickCount64() - start;
+    Check(stopped && copyError && thin.reports == 1 && thin.drainedBeforeReport && elapsed < 1400 &&
+          WaitForSingleObject(resumed, 0) == WAIT_TIMEOUT,
+          "paused worker detects loss and drains pending I/O before resume");
+    watcher.join();
+    DrainUnexpectedPending(input, async.GetOverlapped(0));
+    CloseHandle(resumed);
+}
+
+static void TestPendingWait(bool loseConnection)
+{
+    Pipe pipe;
+    if (!pipe.Open(true, loseConnection ? 95 : 96)) { Check(false, "create async wait pipe"); return; }
+    CAsyncCopyParams async;
+    async.Init(TRUE);
+    if (async.Failed() || !async.Buffers[0]) { Check(false, "allocate async wait buffer"); return; }
+    BOOL cancelled = FALSE, copyError = FALSE;
+    HANDLE input = pipe.server, output = nullptr;
+    HANDLE resumed = CreateEventW(nullptr, TRUE, TRUE, nullptr);
+    if (!resumed) { Check(false, "create async wait resume event"); return; }
+    COperations ops;
+    CProgressDlgData dialog;
+    dialog.CancelWorker = &cancelled; dialog.WorkerNotSuspended = resumed;
+    CThinCopyWorker thin; thin.dialog = dialog;
+    CCopy_Context ctx;
+    ctx.AsyncPar = &async; ctx.DlgData = &dialog; ctx.In = &input; ctx.Out = &output;
+    ctx.Script = &ops; ctx.Thin = &thin;
+    DWORD error = ERROR_SUCCESS, bytes = 0;
+    const BOOL started = ctx.StartReading(0, 1, &error, FALSE);
+    Check(started && !HasOverlappedIoCompleted(async.GetOverlapped(0)), "async wait starts with real pending read");
+    thin.pending = async.GetOverlapped(0);
+    std::thread watcher([&] {
+        Sleep(150);
+        if (loseConnection)
+        {
+            thin.connectionStatus.store(ERROR_BROKEN_PIPE);
+            Sleep(1500);
+            CancelIoEx(input, async.GetOverlapped(0)); // bounded test cleanup if detection fails
+        }
+        else
+        {
+            OVERLAPPED write{};
+            write.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+            BYTE value = 0x42; DWORD written = 0;
+            if (write.hEvent)
+            {
+                const BOOL ok = WriteFile(pipe.client, &value, 1, nullptr, &write);
+                if (ok || GetLastError() == ERROR_IO_PENDING)
+                    GetOverlappedResult(pipe.client, &write, &written, TRUE);
+                CloseHandle(write.hEvent);
+            }
+        }
+    });
+    const ULONGLONG start = GetTickCount64();
+    const BOOL stopped = ctx.WaitForPendingTransfer(input, async.GetOverlapped(0), &bytes, &copyError);
+    const ULONGLONG elapsed = GetTickCount64() - start;
+    if (loseConnection)
+        Check(stopped && copyError && thin.reports == 1 && thin.drainedBeforeReport && elapsed < 1400 &&
+              ctx.ReadingBlocks == 0 && ctx.FreeBlocks == 8,
+              "pending wait detects loss and drains before returning");
+    else
+    {
+        Check(!stopped && !copyError && !thin.reports && bytes == 1,
+              "pending wait returns normal completed read without reporting loss");
+        ctx.CancelOpPhase1(); ctx.CancelOpPhase2(-1);
+    }
+    watcher.join();
+    DrainUnexpectedPending(input, async.GetOverlapped(0));
+    CloseHandle(resumed);
+}
+
+struct ExternalSessionPeer
+{
+    HANDLE server = INVALID_HANDLE_VALUE;
+    HANDLE process = nullptr;
+    ~ExternalSessionPeer()
+    {
+        if (process)
+        {
+            if (WaitForSingleObject(process, 0) == WAIT_TIMEOUT) TerminateProcess(process, 91);
+            WaitForSingleObject(process, 5000);
+            CloseHandle(process);
+        }
+        if (server != INVALID_HANDLE_VALUE) CloseHandle(server);
+    }
+    bool Stop()
+    {
+        return process && TerminateProcess(process, 91) && WaitForSingleObject(process, 5000) == WAIT_OBJECT_0;
+    }
+    bool Open()
+    {
+        const std::wstring name = L"\\\\.\\pipe\\SamThinAsyncPeer-" + std::to_wstring(GetCurrentProcessId());
+        server = CreateNamedPipeW(name.c_str(), PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE,
+                                  PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_REJECT_REMOTE_CLIENTS,
+                                  1, 256, 256, 0, nullptr);
+        if (server == INVALID_HANDLE_VALUE) return false;
+        OVERLAPPED connect{};
+        connect.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        if (!connect.hEvent) return false;
+        const BOOL connected = ConnectNamedPipe(server, &connect);
+        const DWORD connectError = connected ? ERROR_SUCCESS : GetLastError();
+        if (!connected && connectError != ERROR_IO_PENDING && connectError != ERROR_PIPE_CONNECTED)
+        { CloseHandle(connect.hEvent); return false; }
+        wchar_t image[32768]{};
+        const DWORD length = GetModuleFileNameW(nullptr, image, _countof(image));
+        if (!length || length >= _countof(image))
+        {
+            CancelIoEx(server, &connect);
+            if (connectError == ERROR_IO_PENDING) WaitForSingleObject(connect.hEvent, INFINITE);
+            CloseHandle(connect.hEvent); return false;
+        }
+        std::wstring command = L"\"" + std::wstring(image) + L"\" --pipe-child \"" + name + L"\"";
+        STARTUPINFOW startup{}; startup.cb = sizeof(startup);
+        PROCESS_INFORMATION child{};
+        const BOOL launched = CreateProcessW(image, command.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW,
+                                              nullptr, nullptr, &startup, &child);
+        if (launched) { process = child.hProcess; CloseHandle(child.hThread); }
+        bool ready = connected || connectError == ERROR_PIPE_CONNECTED;
+        if (launched && connectError == ERROR_IO_PENDING)
+        {
+            const DWORD wait = WaitForSingleObject(connect.hEvent, 5000);
+            DWORD ignored = 0;
+            ready = wait == WAIT_OBJECT_0 && GetOverlappedResult(server, &connect, &ignored, FALSE);
+        }
+        if (!ready && connectError == ERROR_IO_PENDING)
+        {
+            CancelIoEx(server, &connect);
+            WaitForSingleObject(connect.hEvent, INFINITE);
+        }
+        CloseHandle(connect.hEvent);
+        return launched && ready;
+    }
+};
+
+static void TestExternalLossBeforeSyncRetry()
+{
+    ExternalSessionPeer peer;
+    if (!peer.Open()) { Check(false, "create external peer for synchronous Retry"); return; }
+    UacF7::ThinCopySession transport;
+    transport.owned.pipe = peer.server;
+    ActualConnectionWorker actual; actual.session = &transport;
+    UacF7::clobberSuccessLastError = true;
+    SetLastError(ERROR_ACCESS_DENIED);
+    const DWORD liveStatus = actual.CheckTransferConnection();
+    Check(liveStatus == ERROR_SUCCESS && GetLastError() == ERROR_ACCESS_DENIED,
+          "actual connection check preserves last error when successful pipe call changes it");
+    UacF7::clobberSuccessLastError = false;
+    actual.scoped = false;
+    SetLastError(ERROR_FILE_NOT_FOUND);
+    const DWORD nativeStatus = actual.CheckTransferConnection();
+    Check(nativeStatus == ERROR_SUCCESS && GetLastError() == ERROR_FILE_NOT_FOUND,
+          "actual connection check preserves last error for ordinary copy");
+    actual.scoped = true;
+    CThinCopyWorker thin; thin.transport = &transport;
+    BOOL copyError = FALSE;
+    unsigned reopenCount = 0;
+    SyncReadRetryGuard(&thin, copyError, reopenCount);
+    SyncWriteRetryGuard(&thin, copyError, reopenCount);
+    const BOOL asyncReadLive = AsyncReadRetryGuard(&thin, &copyError, reopenCount);
+    const BOOL asyncWriteLive = AsyncWriteRetryGuard(&thin, &copyError, reopenCount);
+    Check(!copyError && !thin.reports && reopenCount == 4 && asyncReadLive && asyncWriteLive,
+          "live peer permits sync and async Retry to reach reopen");
+    Check(peer.Stop(), "stop external peer while error dialog is conceptually open");
+    Check(actual.CheckTransferConnection() == ERROR_BROKEN_PIPE,
+          "actual connection check reports the disconnected peer");
+    SyncReadRetryGuard(&thin, copyError, reopenCount);
+    Check(copyError && thin.reports == 1 && reopenCount == 4,
+          "read Retry reports real disconnected pipe before reopen");
+    copyError = FALSE;
+    SyncWriteRetryGuard(&thin, copyError, reopenCount);
+    Check(copyError && thin.reports == 2 && reopenCount == 4,
+          "write Retry reports real disconnected pipe before reopen");
+    copyError = FALSE;
+    Check(!AsyncReadRetryGuard(&thin, &copyError, reopenCount) && copyError &&
+          thin.reports == 3 && reopenCount == 4,
+          "async read Retry reports real disconnected pipe before reopen");
+    copyError = FALSE;
+    Check(!AsyncWriteRetryGuard(&thin, &copyError, reopenCount) && copyError &&
+          thin.reports == 4 && reopenCount == 4,
+          "async write Retry reports real disconnected pipe before reopen");
+    copyError = FALSE;
+    SyncReadRetryGuard(nullptr, copyError, reopenCount);
+    SyncWriteRetryGuard(nullptr, copyError, reopenCount);
+    const BOOL asyncReadNative = AsyncReadRetryGuard(nullptr, &copyError, reopenCount);
+    const BOOL asyncWriteNative = AsyncWriteRetryGuard(nullptr, &copyError, reopenCount);
+    Check(!copyError && reopenCount == 8 && asyncReadNative && asyncWriteNative,
+          "native sync and async Retry without a thin worker remains unblocked");
+}
+
+static void TestExternalLossDuringPendingIo(int mode)
+{
+    Pipe io;
+    ExternalSessionPeer peer;
+    if (!io.Open(true, 97 + mode) || !peer.Open()) { Check(false, "create separate I/O and external session pipes"); return; }
+    CAsyncCopyParams async;
+    async.Init(TRUE);
+    if (async.Failed() || !async.Buffers[0]) { Check(false, "allocate external-loss buffer"); return; }
+    BOOL cancelled = FALSE, copyError = FALSE;
+    HANDLE input = io.server, output = nullptr;
+    HANDLE resumed = CreateEventW(nullptr, TRUE, mode == 0 ? TRUE : FALSE, nullptr);
+    if (!resumed) { Check(false, "create external-loss resume event"); return; }
+    UacF7::ThinCopySession transport;
+    transport.owned.pipe = peer.server;
+    COperations ops; CProgressDlgData dialog;
+    dialog.CancelWorker = &cancelled; dialog.WorkerNotSuspended = resumed;
+    CThinCopyWorker thin; thin.dialog = dialog; thin.transport = &transport;
+    CCopy_Context ctx;
+    ctx.AsyncPar = &async; ctx.DlgData = &dialog; ctx.In = &input; ctx.Out = &output;
+    ctx.Script = &ops; ctx.Thin = &thin;
+    DWORD error = ERROR_SUCCESS, bytes = 0;
+    Check(transport.CheckTransport() == ERROR_SUCCESS, "actual transport sees live external peer");
+    const BOOL started = ctx.StartReading(0, 1, &error, FALSE);
+    Check(started && !HasOverlappedIoCompleted(async.GetOverlapped(0)), "external loss has real pending I/O");
+    thin.pending = async.GetOverlapped(0);
+    std::atomic<bool> peerStopped{false};
+    std::thread watcher([&] {
+        Sleep(150); peerStopped.store(peer.Stop()); Sleep(1500);
+        CancelIoEx(input, async.GetOverlapped(0)); // bounded test cleanup
+        SetEvent(resumed);
+    });
+    const ULONGLONG start = GetTickCount64();
+    BOOL stopped = FALSE;
+    if (mode == 0)
+        stopped = ctx.WaitForPendingTransfer(input, async.GetOverlapped(0), &bytes, &copyError);
+    else if (mode == 1)
+        stopped = ctx.HandleSuspModeAndCancel(&copyError);
+    else
+        stopped = thin.WaitTransferResume() == ERROR_BROKEN_PIPE;
+    const ULONGLONG elapsed = GetTickCount64() - start;
+    const bool beforeResume = WaitForSingleObject(resumed, 0) == WAIT_TIMEOUT;
+    watcher.join();
+    if (mode == 2)
+    {
+        Check(peerStopped.load() && stopped && !copyError && !thin.reports && beforeResume && elapsed < 1400,
+              "actual transport detects external process death during sync pause");
+        ctx.CancelOpPhase1(); ctx.CancelOpPhase2(-1);
+    }
+    else
+        Check(peerStopped.load() && stopped && copyError && thin.reports == 1 && thin.drainedBeforeReport &&
+              elapsed < 1400 && ctx.ReadingBlocks == 0 && ctx.FreeBlocks == 8 && (mode == 0 || beforeResume),
+              mode == 0 ? "actual transport detects external process death and drains pending I/O" :
+                          "actual transport detects external process death during async pause and drains I/O");
+    DrainUnexpectedPending(input, async.GetOverlapped(0));
+    CloseHandle(resumed);
+}
+
+static void TestCompletedWritePauseLoss()
+{
+    Pipe pipe;
+    if (!pipe.Open(false, 94)) { Check(false, "create pipe for completed-write pause loss"); return; }
+    CAsyncCopyParams async;
+    async.Init(TRUE);
+    if (async.Failed() || !async.Buffers[0]) { Check(false, "allocate completed-write pause buffer"); return; }
+    BOOL cancelled = FALSE;
+    HANDLE input = pipe.server, output = pipe.server;
+    HANDLE resumed = CreateEventW(nullptr, TRUE, TRUE, nullptr);
+    if (!resumed) { Check(false, "create completed-write resume event"); return; }
+    COperations ops;
+    CProgressDlgData dialog;
+    dialog.CancelWorker = &cancelled; dialog.WorkerNotSuspended = resumed;
+    CThinCopyWorker thin; thin.dialog = dialog; thin.connectionStatus = ERROR_BROKEN_PIPE;
+    CCopy_Context ctx;
+    ctx.AsyncPar = &async; ctx.DlgData = &dialog; ctx.In = &input; ctx.Out = &output;
+    ctx.Script = &ops; ctx.Thin = &thin;
+    ctx.BlockState[0] = cbsRead; ctx.BlockDataLen[0] = 8; ctx.FreeBlocks = 7;
+    std::memcpy(async.Buffers[0], "12345678", 8);
+    observedWriteError = ERROR_SUCCESS; observedWriteSucceeded = false;
+    DWORD error = ERROR_SUCCESS;
+    const BOOL started = ctx.StartWriting(0, &error);
+    if (observedWriteSucceeded && HasOverlappedIoCompleted(async.GetOverlapped(0)))
+    {
+        Check(!started && error == ERROR_BROKEN_PIPE && ctx.PauseFailure == ERROR_BROKEN_PIPE &&
+              ctx.BlockState[0] == cbsWriting && ctx.WritingBlocks == 1,
+              "completed write remains tracked when pause observes session loss");
+    }
+    else
+        std::printf("SKIP: completed-write pause case requires immediate completion\n");
+    thin.pending = async.GetOverlapped(0);
+    ctx.CancelOpPhase1();
+    BOOL copyError = FALSE;
+    if (ctx.PauseFailure != ERROR_SUCCESS)
+        Check(ctx.FinishPauseFailure(&copyError, IDS_ERRORREADINGFILE) && copyError &&
+              thin.reports == 1 && thin.drainedBeforeReport && ctx.PauseFailure == ERROR_SUCCESS,
+              "actual pause-failure handler drains before reporting");
+    else
+        ctx.CancelOpPhase2(-1);
+    Check(ctx.WritingBlocks == 0, "completed-write pause loss drains the tracked request");
+    DrainUnexpectedPending(output, async.GetOverlapped(0));
+    CloseHandle(resumed);
+}
+
+static void TestSynchronousPauseConnectionLoss()
+{
+    BOOL cancelled = FALSE;
+    HANDLE resumed = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (!resumed) { Check(false, "create sync pause event"); return; }
+    CThinCopyWorker thin;
+    thin.dialog.CancelWorker = &cancelled;
+    thin.dialog.WorkerNotSuspended = resumed;
+    std::thread watcher([&] { Sleep(150); thin.connectionStatus.store(ERROR_BROKEN_PIPE); Sleep(1500); SetEvent(resumed); });
+    const ULONGLONG start = GetTickCount64();
+    const DWORD result = thin.WaitTransferResume();
+    Check(result == ERROR_BROKEN_PIPE && GetTickCount64() - start < 1400 &&
+          WaitForSingleObject(resumed, 0) == WAIT_TIMEOUT,
+          "sync pause detects disconnected session before resume");
+    watcher.join();
+    thin.connectionStatus.store(ERROR_SUCCESS);
+    SetLastError(ERROR_ACCESS_DENIED);
+    Check(thin.WaitTransferResume() == ERROR_SUCCESS && GetLastError() == ERROR_ACCESS_DENIED,
+          "successful sync resume preserves the previous error");
+    CloseHandle(resumed);
+}
+
+int wmain(int argc, wchar_t** argv)
+{
+    if (argc == 3 && std::wstring(argv[1]) == L"--pipe-child")
+    {
+        HANDLE client = CreateFileW(argv[2], GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING,
+                                    FILE_FLAG_OVERLAPPED, nullptr);
+        if (client == INVALID_HANDLE_VALUE) return 3;
+        Sleep(INFINITE);
+        CloseHandle(client);
+        return 0;
+    }
+    if (argc != 2) return 2;
+    Test(true, false, 1);
+    Test(true, true, 2);
+    Test(false, false, 3);
+    Test(true, false, 6, false);
+    Test(false, false, 7, false);
+    TestImmediateError(true);
+    TestImmediateError(false);
+    TestEOF(argv[1], false, false);
+    TestEOF(argv[1], true, false);
+    TestEOF(argv[1], false, true);
+    TestEOF(argv[1], true, true);
+    TestCompletedRead();
+    TestCompletedWrite();
+    TestConnectionLossWithPendingRead();
+    TestPausedConnectionLoss(false);
+    TestPausedConnectionLoss(true);
+    TestPendingWait(true);
+    TestPendingWait(false);
+    TestExternalLossDuringPendingIo(0);
+    TestExternalLossDuringPendingIo(1);
+    TestExternalLossDuringPendingIo(2);
+    TestExternalLossBeforeSyncRetry();
+    TestCompletedWritePauseLoss();
+    TestSynchronousPauseConnectionLoss();
+    return failures ? 1 : 0;
+}

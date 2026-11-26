@@ -1,0 +1,281 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Exercise timestamp-only special-file preview and dispatch. | Reject dirty attribute controls and nonzero mutation policies. | #731 | GPT-6.1 Terra |
+// | 2026-11-10 | Exercise explicit retry after refused delete consent. | Keep a fresh elevation request tied to the worker Retry action. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Verify failed delete preparation through the shared worker. | Skip safely without a file operation or elevation. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Exercise verified deletion through the shared executor. | Keep ordinary traversal and stop when Windows consent is cancelled. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Exercise first-denial metadata confirmation and retry. | Ensure a shield never triggers elevation after local success or identity failure. | #731 | GPT-6.1 Sol (Codex) |
+// | 2026-11-10 | Verify metadata ownership, preview and worker outcomes. | Prevent false shields and legacy fallthrough for protected identities. | #731 | GPT-6.1 Sol (Codex) |
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <cstdio>
+#include "@@HEADER@@"
+
+static int Checks = 0, Failures = 0;
+static void Check(bool value, const char* name)
+{
+    ++Checks;
+    if (!value) { ++Failures; printf("FAIL: %s\n", name); }
+}
+static DWORD ProbeResult = ERROR_ACCESS_DENIED;
+static int ProbeCalls = 0, OfferCalls = 0, PrepareCalls = 0, Executions = 0;
+static bool Offer = true, PrepareAllowed = true, ProbeDirectory = false;
+static DWORD LocalError = ERROR_SUCCESS, ElevatedError = ERROR_SUCCESS;
+static BOOL WorkerCancelled = FALSE;
+static int Retries = 0;
+static std::vector<bool> PromptShieldedOk;
+static std::vector<bool> PromptRetryDeclined;
+static char FileName[] = "file.txt";
+static std::wstring LastPath;
+static UacF7::MetadataChange LastChange{};
+static const UacF7::PreparedLeaf* ExecutedRequest = nullptr;
+namespace UacF7
+{
+PreparedLeaf::~PreparedLeaf() {}
+DWORD PreparedLeaf::ExecuteLocal() const
+{
+    ++Executions; ExecutedRequest = this;
+    return LocalError;
+}
+bool CanOfferElevation() { ++OfferCalls; return Offer; }
+bool PreparedLeaf::PrepareMetadata(const std::wstring& path, const MetadataChange& change, MetadataJobPolicy policy)
+{
+    ++PrepareCalls; LastPath = path; LastChange = change;
+    return PrepareAllowed && policy.Allows(change);
+}
+}
+static DWORD ProbeLocalElevationAccess(const std::wstring& path, DWORD access, bool directory)
+{
+    ++ProbeCalls; LastPath = path; ProbeDirectory = directory;
+    Check(access == FILE_WRITE_ATTRIBUTES, "preview requests exactly metadata write access");
+    return ProbeResult;
+}
+@@DATA@@
+struct COperation
+{
+    DWORD Attr = FILE_ATTRIBUTE_ARCHIVE;
+    char* TargetName = reinterpret_cast<char*>(DWORD_PTR(FILE_ATTRIBUTE_ARCHIVE | FILE_ATTRIBUTE_HIDDEN));
+    std::wstring SourceNameW = L"C:\\ordinary\\file.txt";
+    BOOL SourceNameWValid = TRUE;
+    char* SourceName = FileName;
+};
+struct CProgressDlgData
+{
+    HANDLE WorkerNotSuspended = nullptr;
+    BOOL* CancelWorker = &WorkerCancelled;
+    BOOL SkipAllDeleteErr = FALSE;
+    BOOL SkipAllChangeAttrs = FALSE;
+};
+constexpr WPARAM WORKER_DIALOG_UAC_METADATA = 7;
+constexpr WPARAM WORKER_DIALOG_UAC_DELETE = 8;
+constexpr UINT WM_USER_DIALOG = WM_USER + 42;
+constexpr int IDS_ERRORCHANGINGATTRS = 8;
+constexpr int IDB_SKIP = 40, IDB_SKIPALL = 41;
+
+static std::wstring SalPathRemoveExtendedPrefixW(const wchar_t* path) { return path; }
+static std::string SalWideToMultiBytePath(const wchar_t*, UINT) { return FileName; }
+static char* LoadStr(int) { return FileName; }
+static char* GetErrorText(DWORD) { return FileName; }
+
+static LRESULT SendTestMessage(HWND, UINT message, WPARAM kind, LPARAM data)
+{
+    Check(message == WM_USER_DIALOG, "existing metadata error flow retained");
+    if (kind == WORKER_DIALOG_UAC_METADATA || kind == WORKER_DIALOG_UAC_DELETE)
+    {
+        auto& prompt = *reinterpret_cast<UacF7::LeafPrompt*>(data);
+        PromptShieldedOk.push_back(prompt.shieldedOk);
+        PromptRetryDeclined.push_back(prompt.retryDeclined);
+        prompt.result.error = ElevatedError;
+    }
+    else
+    {
+        Check(kind == 0, "verified metadata uses the ordinary file error dialog");
+        auto args = reinterpret_cast<char**>(data);
+        *reinterpret_cast<int*>(args[0]) = Retries > 0 ? IDRETRY : IDCANCEL;
+        if (Retries > 0)
+            --Retries;
+    }
+    return 0;
+}
+#undef SendMessage
+#define SendMessage SendTestMessage
+@@EXECUTOR@@
+#undef SendMessage
+@@TIME@@
+@@CHANGE@@
+@@WORKER@@
+struct CChangeAttrDialog { bool edited = false; bool AnyAttributeEdited() const { return edited; } };
+@@PREVIEW@@
+
+static void Reset()
+{
+    ProbeCalls = OfferCalls = PrepareCalls = Executions = 0;
+    ProbeResult = ERROR_ACCESS_DENIED; Offer = PrepareAllowed = true;
+    LocalError = ElevatedError = ERROR_SUCCESS; WorkerCancelled = FALSE; Retries = 0;
+    PromptShieldedOk.clear(); PromptRetryDeclined.clear(); LastPath.clear(); LastChange = {}; ExecutedRequest = nullptr;
+}
+int main()
+{
+    CChangeAttrsData input{}; input.AllowBasicMetadataPilot = TRUE;
+    input.BasicMetadataSet = FILE_ATTRIBUTE_HIDDEN;
+    UacF7::MetadataChange change{};
+    Check(BuildBasicMetadataChange(FILE_ATTRIBUTE_ARCHIVE, FILE_ATTRIBUTE_ARCHIVE | FILE_ATTRIBUTE_HIDDEN, input, change) &&
+          change.expectedAttributes == FILE_ATTRIBUTE_ARCHIVE && change.attributes == (FILE_ATTRIBUTE_ARCHIVE | FILE_ATTRIBUTE_HIDDEN), "exact basic attribute delta");
+    Check(BuildBasicMetadataChange(FILE_ATTRIBUTE_READONLY, 0, input, change) && change.attributes == FILE_ATTRIBUTE_NORMAL, "clearing last basic bit writes NORMAL");
+    Check(BuildBasicMetadataChange(FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_DIRECTORY, input, change) && !change.attributes, "unchanged directory attributes omitted");
+    Check(!BuildBasicMetadataChange(FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_NORMAL, input, change), "cannot change object type");
+    for (DWORD flag : {FILE_ATTRIBUTE_REPARSE_POINT, FILE_ATTRIBUTE_COMPRESSED, FILE_ATTRIBUTE_ENCRYPTED, FILE_ATTRIBUTE_SPARSE_FILE})
+        Check(!BuildBasicMetadataChange(flag, flag | FILE_ATTRIBUTE_HIDDEN, input, change), "unsupported source flags refused");
+    input.ChangeTimeCreated = TRUE; input.TimeCreated = FILETIME{123, 456};
+    input.ChangeTimeAccessed = TRUE; input.TimeAccessed = FILETIME{789, 101};
+    input.TimeModified = FILETIME{111, 222};
+    Check(BuildBasicMetadataChange(FILE_ATTRIBUTE_ARCHIVE, FILE_ATTRIBUTE_ARCHIVE, input, change) &&
+          change.created == MetadataFileTime(input.TimeCreated) && change.accessed == MetadataFileTime(input.TimeAccessed) && !change.modified,
+          "only selected exact UTC times included");
+    input.ChangeTimeModified = TRUE;
+    Check(BuildBasicMetadataChange(FILE_ATTRIBUTE_ARCHIVE, FILE_ATTRIBUTE_ARCHIVE, input, change) && change.modified == MetadataFileTime(input.TimeModified), "modified time selected independently");
+    input.TimeCreated = {};
+    Check(!BuildBasicMetadataChange(FILE_ATTRIBUTE_ARCHIVE, FILE_ATTRIBUTE_ARCHIVE, input, change), "invalid selected timestamp refused");
+    input = {}; input.AllowBasicMetadataPilot = TRUE; input.AllowSpecialMetadataTimes = TRUE;
+    input.ChangeTimeModified = TRUE; input.TimeModified = FILETIME{111, 222};
+    for (DWORD special : {FILE_ATTRIBUTE_COMPRESSED, FILE_ATTRIBUTE_SPARSE_FILE, FILE_ATTRIBUTE_ENCRYPTED})
+    {
+        const DWORD original = special | FILE_ATTRIBUTE_ARCHIVE;
+        Check(BuildBasicMetadataChange(original, original, input, change) && !change.attributes &&
+              change.expectedAttributes == original && change.modified == MetadataFileTime(input.TimeModified),
+              "special-file timestamp leaves attributes untouched");
+        Check(UacF7::MetadataJobPolicy{}.Allows(change), "timestamp-only policy permits the special file");
+        Check(!UacF7::MetadataJobPolicy{FILE_ATTRIBUTE_HIDDEN, 0}.Allows(change),
+              "special-file scope cannot authorize later attribute mutations");
+        Check(!BuildBasicMetadataChange(original, original | FILE_ATTRIBUTE_HIDDEN, input, change),
+              "special-file attribute mutation is not a timestamp-only request");
+        input.BasicMetadataSet = FILE_ATTRIBUTE_ARCHIVE;
+        Check(!BuildBasicMetadataChange(original, original, input, change), "special-file time policy must be empty");
+        input.BasicMetadataSet = 0;
+    }
+    input.AllowSpecialMetadataTimes = FALSE;
+    Check(!BuildBasicMetadataChange(FILE_ATTRIBUTE_ARCHIVE | FILE_ATTRIBUTE_COMPRESSED,
+                                    FILE_ATTRIBUTE_ARCHIVE | FILE_ATTRIBUTE_COMPRESSED, input, change),
+          "a non-singleton request cannot enable the special-file retry");
+    input.AllowSpecialMetadataTimes = TRUE;
+    for (DWORD rejected : {FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_REPARSE_POINT, FILE_ATTRIBUTE_OFFLINE, FILE_ATTRIBUTE_NORMAL})
+        Check(!BuildBasicMetadataChange(FILE_ATTRIBUTE_COMPRESSED | rejected, FILE_ATTRIBUTE_COMPRESSED | rejected, input, change),
+              "invalid or unsupported special-file flags are refused");
+    input = {}; input.AllowBasicMetadataPilot = TRUE; input.BasicMetadataSet = FILE_ATTRIBUTE_HIDDEN;
+    COperation operation; CProgressDlgData dialog; BOOL success = FALSE; UacF7::PreparedLeaf protectedRequest;
+    Reset();
+    Check(TryChangeBasicMetadata(nullptr, operation, input, dialog, success, &protectedRequest) && success &&
+          !PrepareCalls && ExecutedRequest == &protectedRequest, "owned protected request goes through existing verified executor");
+    operation.SourceNameWValid = FALSE; Reset(); success = TRUE;
+    Check(TryChangeBasicMetadata(nullptr, operation, input, dialog, success, &protectedRequest) && !success && !Executions, "invalid protected path cannot fall into legacy mutation");
+    operation.SourceNameWValid = TRUE; operation.Attr = FILE_ATTRIBUTE_COMPRESSED; Reset(); success = TRUE;
+    Check(TryChangeBasicMetadata(nullptr, operation, input, dialog, success, &protectedRequest) && !success && !Executions, "invalid protected metadata cannot fall into legacy mutation");
+    operation.Attr = FILE_ATTRIBUTE_ARCHIVE; Reset(); LocalError = ERROR_ACCESS_DENIED; ElevatedError = ERROR_CANCELLED;
+    Check(TryChangeBasicMetadata(nullptr, operation, input, dialog, success, &protectedRequest) && !success &&
+          PromptShieldedOk == std::vector<bool>{false}, "unshielded cancellation is propagated without replay");
+    input.MetadataShieldedOk = true;
+    Reset();
+    Check(TryChangeBasicMetadata(nullptr, operation, input, dialog, success, &protectedRequest) && success &&
+          PromptShieldedOk.empty(), "shielded metadata is completed locally when allowed");
+    Reset(); LocalError = ERROR_FILE_INVALID;
+    Check(TryChangeBasicMetadata(nullptr, operation, input, dialog, success, &protectedRequest) && !success &&
+          PromptShieldedOk.empty(), "shielded metadata never elevates after a stale identity error");
+    Reset(); LocalError = ERROR_ACCESS_DENIED;
+    Check(TryChangeBasicMetadata(nullptr, operation, input, dialog, success, &protectedRequest) && success &&
+          PromptShieldedOk == std::vector<bool>{true}, "shielded metadata skips the second application prompt on access denial");
+    Reset(); LocalError = ERROR_ACCESS_DENIED; ElevatedError = ERROR_CANCELLED; Retries = 1;
+    Check(TryChangeBasicMetadata(nullptr, operation, input, dialog, success, &protectedRequest) && !success &&
+          PromptShieldedOk == std::vector<bool>({true, false}), "retry after Windows cancellation needs a new application choice");
+    input.MetadataShieldedOk = false;
+    Reset(); PrepareAllowed = false;
+    Check(!TryChangeBasicMetadata(nullptr, operation, input, dialog, success, nullptr) && PrepareCalls == 1 && !Executions, "ordinary unsupported preparation retains legacy fallback");
+    Reset();
+    Check(TryChangeBasicMetadata(nullptr, operation, input, dialog, success, nullptr) && success && PrepareCalls == 1, "ordinary metadata keeps local preparation");
+
+    Reset(); LocalError = ERROR_ACCESS_DENIED; ElevatedError = ERROR_CANCELLED; Retries = 1;
+    Check(!ExecuteVerifiedWorkerLeaf(nullptr, operation, &protectedRequest, dialog,
+                                     WORKER_DIALOG_UAC_DELETE, IDS_ERRORCHANGINGATTRS, true) &&
+          PromptShieldedOk == std::vector<bool>{true} && Retries == 1,
+          "declining Windows on shielded Yes cancels without a second prompt or retry");
+    Reset(); LocalError = ERROR_ACCESS_DENIED;
+    Check(ExecuteVerifiedWorkerLeaf(nullptr, operation, &protectedRequest, dialog,
+                                    WORKER_DIALOG_UAC_DELETE, IDS_ERRORCHANGINGATTRS) &&
+          PromptShieldedOk == std::vector<bool>{false}, "late access denial still requests Administrator");
+    Reset(); LocalError = ERROR_ACCESS_DENIED; ElevatedError = ERROR_CANCELLED; Retries = 1;
+    Check(!ExecuteVerifiedWorkerLeaf(nullptr, operation, &protectedRequest, dialog,
+                                     WORKER_DIALOG_UAC_DELETE, IDS_ERRORCHANGINGATTRS) &&
+          PromptRetryDeclined == std::vector<bool>({false, true}),
+          "explicit Retry alone may reopen a refused delete scope");
+    Reset(); LocalError = ERROR_ACCESS_DENIED; ElevatedError = ERROR_DIR_NOT_EMPTY;
+    bool nonEmpty = false;
+    Check(ExecuteVerifiedWorkerLeaf(nullptr, operation, &protectedRequest, dialog,
+                                    WORKER_DIALOG_UAC_DELETE, IDS_ERRORCHANGINGATTRS, true, &nonEmpty) &&
+          nonEmpty && PromptShieldedOk == std::vector<bool>{true}, "nonempty direct directory keeps worker traversal pending");
+    Reset(); LocalError = ERROR_DIR_NOT_EMPTY; nonEmpty = false;
+    Check(ExecuteVerifiedWorkerLeaf(nullptr, operation, &protectedRequest, dialog,
+                                    WORKER_DIALOG_UAC_DELETE, IDS_ERRORCHANGINGATTRS, true, &nonEmpty) &&
+          nonEmpty && PromptShieldedOk.empty(), "local nonempty result does not elevate");
+
+    Reset();
+    dialog.SkipAllDeleteErr = TRUE;
+    Check(ExecuteVerifiedWorkerLeaf(nullptr, operation, nullptr, dialog, WORKER_DIALOG_UAC_DELETE,
+                                    IDS_ERRORCHANGINGATTRS, false, nullptr, ERROR_FILE_INVALID) &&
+          ExecutedRequest == nullptr && PromptShieldedOk.empty(),
+          "a failed Branch View identity can be skipped without touching the file");
+    dialog.SkipAllDeleteErr = FALSE;
+
+    MetadataElevationPreview preview; preview.path = L"C:\\ordinary\\file.txt";
+    preview.attributes = FILE_ATTRIBUTE_ARCHIVE; preview.protectedScope = true;
+    const auto shield = [&](DWORD set, DWORD clear = 0, UacF7::MetadataChange times = {}) {
+        return MetadataElevationPreview::Check(set, clear, times, &preview);
+    };
+    Reset();
+    Check(!shield(FILE_ATTRIBUTE_ARCHIVE) && !ProbeCalls && !OfferCalls && !PrepareCalls, "no-op has no shield and no access/trust work");
+    Reset(); ProbeResult = ERROR_SUCCESS;
+    Check(!shield(FILE_ATTRIBUTE_HIDDEN) && !OfferCalls && !PrepareCalls, "protected read scope does not imply denied writes");
+    for (DWORD error : {ERROR_SHARING_VIOLATION, ERROR_NOT_SUPPORTED, ERROR_FILE_NOT_FOUND})
+    {
+        Reset(); ProbeResult = error;
+        Check(!shield(FILE_ATTRIBUTE_HIDDEN) && !OfferCalls && !PrepareCalls, "only access denied can add shield");
+    }
+    Reset();
+    Check(shield(FILE_ATTRIBUTE_HIDDEN) && !PrepareCalls, "protected preview performs no broker preparation or query");
+    Reset(); Offer = false;
+    Check(!shield(FILE_ATTRIBUTE_HIDDEN), "unavailable trusted elevation has no shield");
+    preview.protectedScope = false; Reset(); PrepareAllowed = false;
+    Check(!shield(FILE_ATTRIBUTE_HIDDEN) && PrepareCalls == 1, "ordinary path must be preparable by existing worker");
+    Reset();
+    Check(shield(FILE_ATTRIBUTE_HIDDEN) && PrepareCalls == 1, "ordinary eligible denied write has shield");
+    Reset();
+    Check(!shield(FILE_ATTRIBUTE_COMPRESSED) && !ProbeCalls, "compression excluded from basic metadata preview");
+    Reset();
+    Check(shield(FILE_ATTRIBUTE_HIDDEN, FILE_ATTRIBUTE_COMPRESSED), "clearing already absent compression keeps basic operation eligible");
+    preview.protectedScope = true; preview.attributes = FILE_ATTRIBUTE_DIRECTORY;
+    preview.path = L"C:\\東京\\" + std::wstring(280, L'語');
+    Reset();
+    UacF7::MetadataChange times{}; times.modified = 123456;
+    Check(shield(0, 0, times) && ProbeDirectory && LastPath == preview.path, "directory time preview preserves exact long Unicode path");
+    preview.attributes |= FILE_ATTRIBUTE_REPARSE_POINT; Reset();
+    Check(!shield(FILE_ATTRIBUTE_HIDDEN) && !ProbeCalls, "reparse directory excluded before probing");
+    CChangeAttrDialog controls;
+    preview.dialog = &controls; preview.path = L"C:\\ordinary\\special-\u6771.txt";
+    for (DWORD special : {FILE_ATTRIBUTE_COMPRESSED, FILE_ATTRIBUTE_SPARSE_FILE, FILE_ATTRIBUTE_ENCRYPTED})
+    {
+        preview.attributes = FILE_ATTRIBUTE_ARCHIVE | special; preview.protectedScope = false; Reset();
+        Check(shield(preview.attributes, 0, times) && PrepareCalls == 1 && LastChange.attributes == 0,
+              "untouched special-file controls show the shield for exact time-only metadata");
+        controls.edited = true; Reset();
+        Check(!shield(preview.attributes, 0, times) && !ProbeCalls,
+              "an edited attribute control refuses special-file timestamp elevation");
+        controls.edited = false; Reset();
+        Check(!shield(preview.attributes | FILE_ATTRIBUTE_HIDDEN, 0, times) && !ProbeCalls,
+              "a special-file basic-attribute change cannot borrow the time-only shield");
+        Reset();
+        Check(!shield(FILE_ATTRIBUTE_ARCHIVE, special, times) && !ProbeCalls,
+              "explicitly clearing the special attribute does not qualify for time-only elevation");
+    }
+    printf("Actual protected metadata controller: %d checks, %d failures\n", Checks, Failures);
+    return Failures ? 1 : 0;
+}

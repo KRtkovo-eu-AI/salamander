@@ -2,8 +2,19 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-25 | Keep protected viewer parameters beside Branch View admission. | One declaration serves scoped reads and generated-report navigation. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 // | 2026-11-20 | Declare generated-report dispatch and enumeration identity. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
 // | 2026-11-20 | Admit bundled PictView in Branch View. | Preserve panel image identity and existing viewer restrictions. |  | gpt-6.2-sol |
+// | 2026-11-15 | Explain protected operation interfaces. | Document scoped panel reads and deferred destinations. | #731 | GPT-6 |
+// | 2026-11-12 | Carry owned protected panel viewer state. | Validate the source after modal dispatch. | #731 | GPT-6 (Codex) |
+// | 2026-11-10 | Expose optional deferral after a target directory create denial. | Keep plugin and ordinary target parsing on their existing path. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Return Find editor preparation to its window thread. | Keep the synchronous request free of cross-thread consent dialogs. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Carry Find editor owner and item attributes. | Keep the F4 prompt tied to the selected Find result. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Pass the selected Find row attributes. | Keep protected snapshots limited to supported file types. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Pass the Find owner and verified viewer identity. | Keep the F3 dispatch tied to the selected result and its window. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Declare the protected panel context for the internal viewer. | Bind viewer consent to the selected file inside a protected listing. | #731 | Codex |
+// | 2026-11-09 | Reserve a progress caption activity message. | Keep broker status separate from ordinary progress updates. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Accept a verified panel path in the internal viewer dispatcher. | Other entry points keep their current access behavior. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-04 | Stop Ctrl+arrow on both sides of spaces too. | Spaces were still skipped while punctuation already stopped before and after. | | Composer |
 // | 2026-11-04 | Describe punctuation runs as edit word boundaries. | Ctrl+arrow now stops around every punctuation and symbol run. | | Grok 4.7 |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
@@ -448,9 +459,13 @@ BOOL SalParsePath(HWND parent, char* path, int& type, BOOL& isDir, char*& second
 // se focus) a aktualni cesta je windowsova (cesta je v 'curDiskPath'); 'mask' je na vystupu
 // ukazatel na operacni masku do bufferu 'path'; pokud je v ceste chyba, vraci metoda FALSE,
 // problem uz byl uzivateli ohlasen
+// The caller may defer an inaccessible destination to the scoped UAC transfer;
+// ordinary path parsing continues to use its existing behavior by default.
+using SalDeferredDirectory = bool (*)(void*, const char*, size_t);
 BOOL SalSplitWindowsPath(HWND parent, const char* title, const char* errorTitle, int selCount,
                          char* path, char* secondPart, BOOL pathIsDir, BOOL backslashAtEnd,
-                         const char* dirName, const char* curDiskPath, char*& mask, int pathBufSize);
+                         const char* dirName, const char* curDiskPath, char*& mask, int pathBufSize,
+                         SalDeferredDirectory defer = nullptr, void* deferContext = nullptr);
 
 // ziska z cilove cesty existujici cast a operacni masku; pripadnou neexistujici cast rozpozna; pri
 // uspechu vraci TRUE, relativni cestu k vytvoreni (v 'newDirs'), existujici cilovou cestu (v 'path';
@@ -658,9 +673,18 @@ void RemoveEmptyDirs(const char* dir);
 // vykona rutina pro otevirani vieweru - pouziva se v CFilesWindow::ViewFile a
 // CSalamanderForViewFileOnFS::OpenViewer; dalsi vyuziti se neocekava, proto nejsou
 // popsany parametry a navratove hodnoty
+// Optional viewer context keeps the selected protected identity and its
+// listing session tied to the invoking panel or Find result.
+namespace UacF7 { class ElevatedEditor; class ListingSession; class PreparedLeaf; }
+
 BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, BOOL returnLock,
                  HANDLE& lock, BOOL& lockOwner, BOOL addToHistory, int enumFileNamesSourceUID,
-                 int enumFileNamesLastFileIndex, BOOL fromBranchView = FALSE);
+                 int enumFileNamesLastFileIndex, BOOL fromBranchView = FALSE,
+                 const std::wstring* protectedCandidate = nullptr,
+                 UacF7::ListingSession* protectedListing = nullptr,
+                 const UacF7::PreparedLeaf* foundView = nullptr, bool deniedParent = false,
+                 const UacF7::PreparedLeaf* panelView = nullptr,
+                 bool (*panelStillCurrent)(void*) = nullptr, void* panelContext = nullptr);
 
 // prevede string ('str' o delce 'len') na unsigned __int64 (muze predchazet
 // znamenko '+'; ignoruje white-spaces na zacatku a konci retezce);
@@ -1047,9 +1071,24 @@ struct COpenViewerData
     char* FileName;
     int EnumFileNamesSourceUID;
     int EnumFileNamesLastFileIndex;
+    // Carry the Find owner and selected identity through synchronous UI dispatch.
+    HWND FindOwner = nullptr;
+    DWORD FoundAttributes = INVALID_FILE_ATTRIBUTES;
+    const UacF7::PreparedLeaf* FoundView = nullptr;
 };
 
 //
+// Context for the synchronous WM_USER_EDITFILE from Find.
+struct COpenEditorData
+{
+    char* FileName;
+    DWORD Attributes;
+    UacF7::ElevatedEditor& Editor;
+    DWORD DirectoryError = ERROR_SUCCESS;
+    bool NeedsConsent = false;
+    bool UntrustedEditor = false;
+};
+
 // ****************************************************************************
 
 #define WM_USER_REFRESH_DIR WM_APP + 100   // [BOOL setRefreshEvent, time]
@@ -1058,6 +1097,7 @@ struct COpenViewerData
 #define WM_USER_SETDIALOG WM_APP + 103 // [CProgressData *data, 0] \
                                        // nebo [0, 0] - setprogress
 #define WM_USER_DIALOG WM_APP + 104    // [int dlgID, void *data]
+#define WM_USER_UAC_PROGRESS_ACTIVE (WM_APP + 426) // [bool active, 0]
 
 // icon reader prave nacetl ikonu, vlozil ji do iconcache a rika to panelu
 // bezicimu v hlavnim threadu, aby se mohl prekreslit a ikonku zazalohovat do asociaci
@@ -1160,7 +1200,7 @@ struct COpenViewerData
 
 // prikazy pro hlavni thread (v jinem threadu je nelze spoustet) - vyuziva Find dialog (bezi ve svem threadu)
 #define WM_USER_VIEWFILE WM_APP + 190     // [COpenViewerData *, altView] - otevreni souboru v (alternate) vieweru
-#define WM_USER_EDITFILE WM_APP + 191     // [name, 0] - otevreni souboru v editoru
+#define WM_USER_EDITFILE WM_APP + 191     // [COpenEditorData*, 0] - open Find result in editor
 #define WM_USER_VIEWFILEWITH WM_APP + 192 // [COpenViewerData *, handlerID] - otevreni souboru ve vybranem vieweru
 #define WM_USER_EDITFILEWITH WM_APP + 193 // [name, handlerID] - otevreni souboru ve vybranem editoru
 

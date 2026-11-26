@@ -1,0 +1,54 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Exercise native cleanup truncation after session loss. | Keep an uncertain privileged target unchanged. | #731 | GPT-6 |
+#include <windows.h>
+#include <cstdio>
+
+struct Context { bool terminal, native; bool NativeTarget() const { return native; } };
+static void ErrorCleanup(HANDLE out, bool wholeFileAllocated, Context& thin)
+{
+    (void)thin;
+@@ERROR_BRANCH@@
+}
+static void SkipCleanup(HANDLE out, bool wholeFileAllocated, Context& thin)
+{
+    (void)thin;
+@@SKIP_BRANCH@@
+}
+using Branch = void (*)(HANDLE, bool, Context&);
+int wmain(int argc, wchar_t** argv)
+{
+    if (argc != 2) return 2;
+    const Branch branches[] = {ErrorCleanup, SkipCleanup};
+    unsigned count = 0;
+    for (Branch branch : branches)
+        for (unsigned bits = 0; bits != 8; ++bits)
+        {
+            HANDLE out = CreateFileW(argv[1], GENERIC_READ | GENERIC_WRITE, 0, nullptr,
+                                     CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+            if (out == INVALID_HANDLE_VALUE) return 3;
+            char data[4096]{};
+            DWORD written = 0;
+            LARGE_INTEGER position{};
+            position.QuadPart = 512;
+            if (!WriteFile(out, data, sizeof(data), &written, nullptr) || written != sizeof(data) ||
+                !SetFilePointerEx(out, position, nullptr, FILE_BEGIN)) return 4;
+            const bool allocated = (bits & 1) != 0;
+            Context thin{(bits & 2) != 0, (bits & 4) != 0};
+            branch(out, allocated, thin);
+            LARGE_INTEGER actual{};
+            const bool gotSize = GetFileSizeEx(out, &actual) != FALSE;
+            CloseHandle(out);
+            if (!DeleteFileW(argv[1])) return 5;
+#ifdef SAM_UAC_THIN_COPY_TEST
+            const bool expectTruncate = allocated && (!thin.terminal || thin.NativeTarget());
+#else
+            const bool expectTruncate = allocated;
+#endif
+            if (!gotSize || actual.QuadPart != (expectTruncate ? 512 : 4096)) return 6;
+            ++count;
+        }
+    std::printf("PASS %u actual NTFS cleanup branches\n", count);
+    return 0;
+}

@@ -4,7 +4,11 @@
 // CommentsTranslationProject: TRANSLATED
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-25 | Open a protected document and record its report source together. | Viewer startup keeps the approved bytes and the plug-in that produced the report. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 | 2026-11-20 | Initialize optional report source metadata before starting the viewer. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
+| 2026-11-15 | Read verified handles with the existing block reader. | Preserve viewer navigation without a size limit. | #731 | GPT-6 |
+| 2026-11-15 | Explain protected viewer snapshots. | Document ownership and the ordinary viewer read path. | #731 | GPT-6 |
+| 2026-11-08 | Read protected viewer data from memory. | Keep parsing in the ordinary process and scope the bytes to one open document. | | GPT-6.1 Sol (Codex) |
 | 2026-11-04 | Wrap FindPreviousDecodedEOL within one logical line; invalidate line-number checkpoints on reload. | Full-file wrap replay and line scans made EOF scrolling O(n) for large Unicode files (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
 | 2026-11-05 | Chunk decoded backwards EOL scans and cache previous visual-row size. | Line-up scrolling was still slow because each step walked scalars one Prepare() at a time (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
 | 2026-11-05 | Resolve ZeroLineSize from the logical-line index without FindSeekBefore. | Scroll-up stayed far slower than scroll-down on large files (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
@@ -36,6 +40,8 @@ struct CTVData
     BOOL Success;
     const char* Caption;
     BOOL WholeCaption;
+    std::unique_ptr<std::vector<BYTE>> Snapshot;
+    ViewerReadHandle ReadHandle;
 };
 
 HANDLE ViewerContinue = NULL;
@@ -94,6 +100,9 @@ unsigned ThreadViewerMessageLoopBody(void* parameter)
         wholeCaption = data->WholeCaption;
     }
     UINT showCmd = data->ShowCmd;
+    // Transfer document ownership before the caller is released, including on thread failure.
+    auto snapshot = std::move(data->Snapshot);
+    auto readHandle = std::move(data->ReadHandle);
 
     //  TRACE_I("MoresStanislav: ThreadViewerMessageLoopBody 2");
     //  CALL_STACK_MESSAGE1("MoresStanislav: ThreadViewerMessageLoopBody 2");
@@ -167,7 +176,7 @@ unsigned ThreadViewerMessageLoopBody(void* parameter)
     {
         CALL_STACK_MESSAGE1("ThreadViewerMessageLoopBody::message_loop");
         if (!name.empty())
-            view->OpenFileW(name.c_str(), caption, wholeCaption);
+            view->OpenFileW(name.c_str(), caption, wholeCaption, std::move(snapshot), std::move(readHandle));
 
         MSG msg;
         HWND viewHWindow = view->HWindow; // because WM_QUIT leaves the window object unallocated
@@ -215,7 +224,8 @@ DWORD WINAPI ThreadViewerMessageLoop(void* param)
 BOOL OpenViewer(const char* name, CViewType mode, int left, int top, int width, int height,
                 UINT showCmd, BOOL returnLock, HANDLE* lock, BOOL* lockOwner,
                 CSalamanderPluginViewerData* viewerData, int enumFileNamesSourceUID,
-                int enumFileNamesLastFileIndex, const char* reportPluginID)
+                int enumFileNamesLastFileIndex, std::unique_ptr<std::vector<BYTE>> snapshot,
+                ViewerReadHandle readHandle, const char* reportPluginID)
 {
     CALL_STACK_MESSAGE11("OpenViewer(%s, %d, %d, %d, %d, %d, %u, %d, , , , %d, %d)",
                          name, mode, left, top, width, height, showCmd, returnLock,
@@ -261,6 +271,8 @@ BOOL OpenViewer(const char* name, CViewType mode, int left, int top, int width, 
         data.ShowCmd = showCmd;
         data.Caption = intViewerData != NULL ? intViewerData->Caption : NULL;
         data.WholeCaption = intViewerData != NULL && intViewerData->WholeCaption;
+        data.Snapshot = std::move(snapshot);
+        data.ReadHandle = std::move(readHandle);
 
         DWORD ThreadID;
         HANDLE loop = HANDLES(CreateThread(NULL, 0, ThreadViewerMessageLoop, &data, 0, &ThreadID));
@@ -354,7 +366,7 @@ void CViewerWindow::ConfigHasChanged()
 
 void CViewerWindow::SetLogViewMode(BOOL enable)
 {
-    if (LogViewMode == enable)
+    if (ProtectedSnapshot || ProtectedReadHandle || LogViewMode == enable)
         return;
 
     LogViewMode = enable;
@@ -539,7 +551,7 @@ DWORD WINAPI CViewerWindow::LogViewWatcherThreadProc(LPVOID param)
 
 void CViewerWindow::RefreshLogView()
 {
-    if (MouseDrag || FileName == NULL)
+    if (MouseDrag || FileName == NULL || ProtectedSnapshot || ProtectedReadHandle)
         return;
 
     HANDLE file = OpenViewerFileForRead(FileNameW, FileName);
@@ -649,33 +661,66 @@ void CViewerWindow::CodeCharacters(unsigned char* start, unsigned char* end)
                        UseCodeTable ? CodeTable : NULL);
 }
 
+// The verified read handle uses the ordinary block reader without reopening a privileged path.
+BOOL CViewerWindow::GetViewerSize(HANDLE file, CQuadWord& size, DWORD& error) const
+{
+    if (!ProtectedSnapshot)
+        return SalGetFileSize(ProtectedReadHandle ? ProtectedReadHandle.get() : file, size, error);
+    size.Value = ProtectedSnapshot->size();
+    error = ERROR_SUCCESS;
+    return TRUE;
+}
+
+BOOL CViewerWindow::ReadViewerAt(HANDLE file, ULONGLONG offset, void* buffer, DWORD bytes, DWORD& read) const
+{
+    if (!ProtectedSnapshot)
+    {
+        if (ProtectedReadHandle)
+            file = ProtectedReadHandle.get();
+        LARGE_INTEGER position{};
+        position.QuadPart = offset;
+        return SetFilePointerEx(file, position, nullptr, FILE_BEGIN) &&
+               ReadFile(file, buffer, bytes, &read, nullptr);
+    }
+    if (offset > ProtectedSnapshot->size())
+    {
+        SetLastError(ERROR_HANDLE_EOF);
+        return FALSE;
+    }
+    const size_t start = static_cast<size_t>(offset);
+    read = static_cast<DWORD>(min(static_cast<size_t>(bytes), ProtectedSnapshot->size() - start));
+    if (read)
+        memcpy(buffer, ProtectedSnapshot->data() + start, read);
+    return TRUE;
+}
+
 BOOL CViewerWindow::LoadBefore(HANDLE* hFile)
 {
     CALL_STACK_MESSAGE1("CViewerWindow::LoadBefore()");
     if (FileName == NULL)
         return FALSE;
 
-    HANDLE file;
-    if (hFile == NULL || *hFile == NULL)
+    HANDLE file = nullptr;
+    if (!ProtectedSnapshot && !ProtectedReadHandle && (hFile == NULL || *hFile == NULL))
     {
         file = OpenViewerFileForRead(FileNameW, FileName);
         if (hFile != NULL && file != INVALID_HANDLE_VALUE)
             *hFile = file;
     }
-    else
+    else if (!ProtectedSnapshot && !ProtectedReadHandle)
         file = *hFile;
 
     if (file != INVALID_HANDLE_VALUE)
     {
         CQuadWord size;
         DWORD err;
-        BOOL haveSize = SalGetFileSize(file, size, err);
+        BOOL haveSize = GetViewerSize(file, size, err);
         if (!haveSize || size.Value != (unsigned __int64)FileSize) // error or file change
         {
             TRACE_I("The size of the viewed file has changed or some error occured.");
             // PostMessage(HWindow, WM_COMMAND, CM_REREADFILE, 0);  // legacy, unnecessary: it causes a "fatal error" and triggers a repaint
             Seek = Loaded = 0;
-            if (hFile == NULL) // if the caller does not close the handle, it is up to us
+            if (hFile == NULL && file != nullptr) // if the caller does not close the handle, it is up to us
                 HANDLES(CloseHandle(file));
             return FALSE;
         }
@@ -687,7 +732,7 @@ BOOL CViewerWindow::LoadBefore(HANDLE* hFile)
         if (read == 0)
         {
             TRACE_E("Incorrect call to LoadBefore.");
-            if (hFile == NULL) // if the caller does not close the handle, it is up to us
+            if (hFile == NULL && file != nullptr) // if the caller does not close the handle, it is up to us
                 HANDLES(CloseHandle(file));
             return FALSE;
         }
@@ -702,54 +747,36 @@ BOOL CViewerWindow::LoadBefore(HANDLE* hFile)
         DWORD readed;
         BOOL ret;
         BOOL kill = FALSE; // TRUE means that FileName will be cleared on error
-        CQuadWord resSeek;
-        resSeek.SetUI64(Seek); // note, the seek for SetFilePointer is a signed value
-        resSeek.LoDWord = SetFilePointer(file, resSeek.LoDWord, (PLONG)&resSeek.HiDWord, FILE_BEGIN);
-        err = GetLastError();
-
-        if ((resSeek.LoDWord != INVALID_SET_FILE_POINTER || err == NO_ERROR) && // no error
-            resSeek.Value == (unsigned __int64)Seek)                            // the current file offset matches
+        if (ReadViewerAt(file, Seek, Buffer, read, readed))
         {
-            if (ReadFile(file, Buffer, read, &readed, NULL))
+            if (readed != (DWORD)read)
             {
-                if (readed != (DWORD)read)
-                {
-                    InvalidateRect(HWindow, NULL, FALSE);
-                    Seek = Loaded = 0; // data in Buffer may be corrupted; invalidate them so nothing uses them while the message box is shown
-                    kill = SalMessageBoxViewerPaintBlocked(HWindow, LoadStr(IDS_VIEWER_UNKNOWNERR),
-                                                           LoadStr(IDS_ERRORREADINGFILE),
-                                                           MB_RETRYCANCEL | MB_ICONEXCLAMATION) == IDCANCEL;
-                    ret = FALSE;
-                    Seek = Loaded = 0; // some data might have been loaded while the message box was shown, so invalidate Buffer again
-                }
-                else
-                {
-                    CodeCharacters(Buffer, Buffer + read);
-                    Loaded += readed;
-                    ret = TRUE;
-                }
-            }
-            else
-            {
-                DWORD err2 = GetLastError();
                 InvalidateRect(HWindow, NULL, FALSE);
                 Seek = Loaded = 0; // data in Buffer may be corrupted; invalidate them so nothing uses them while the message box is shown
-                kill = SalMessageBoxViewerPaintBlocked(HWindow, GetErrorText(err2), LoadStr(IDS_ERRORREADINGFILE),
+                kill = SalMessageBoxViewerPaintBlocked(HWindow, LoadStr(IDS_VIEWER_UNKNOWNERR),
+                                                       LoadStr(IDS_ERRORREADINGFILE),
                                                        MB_RETRYCANCEL | MB_ICONEXCLAMATION) == IDCANCEL;
                 ret = FALSE;
                 Seek = Loaded = 0; // some data might have been loaded while the message box was shown, so invalidate Buffer again
             }
+            else
+            {
+                CodeCharacters(Buffer, Buffer + read);
+                Loaded += readed;
+                ret = TRUE;
+            }
         }
         else
         {
+            const DWORD readError = GetLastError();
             InvalidateRect(HWindow, NULL, FALSE);
             Seek = Loaded = 0; // data in Buffer may be corrupted; invalidate them so nothing uses them while the message box is shown
-            kill = SalMessageBoxViewerPaintBlocked(HWindow, GetErrorText(err), LoadStr(IDS_ERRORREADINGFILE),
+            kill = SalMessageBoxViewerPaintBlocked(HWindow, GetErrorText(readError), LoadStr(IDS_ERRORREADINGFILE),
                                                    MB_RETRYCANCEL | MB_ICONEXCLAMATION) == IDCANCEL;
             ret = FALSE;
             Seek = Loaded = 0; // some data might have been loaded while the message box was shown, so invalidate Buffer again
         }
-        if (hFile == NULL) // if the caller does not close the handle, it is up to us
+        if (hFile == NULL && file != nullptr) // if the caller does not close the handle, it is up to us
             HANDLES(CloseHandle(file));
 
         if (!ret && kill) // possibly end working with this file
@@ -801,27 +828,27 @@ BOOL CViewerWindow::LoadBehind(HANDLE* hFile)
     if (FileName == NULL)
         return FALSE;
 
-    HANDLE file;
-    if (hFile == NULL || *hFile == NULL)
+    HANDLE file = nullptr;
+    if (!ProtectedSnapshot && !ProtectedReadHandle && (hFile == NULL || *hFile == NULL))
     {
         file = OpenViewerFileForRead(FileNameW, FileName);
         if (hFile != NULL && file != INVALID_HANDLE_VALUE)
             *hFile = file;
     }
-    else
+    else if (!ProtectedSnapshot && !ProtectedReadHandle)
         file = *hFile;
 
     if (file != INVALID_HANDLE_VALUE)
     {
         CQuadWord size;
         DWORD err;
-        BOOL haveSize = SalGetFileSize(file, size, err);
+        BOOL haveSize = GetViewerSize(file, size, err);
         if (!haveSize || size.Value != (unsigned __int64)FileSize) // error or file change
         {
             TRACE_I("The size of the viewed file has changed or some error occured.");
             // PostMessage(HWindow, WM_COMMAND, CM_REREADFILE, 0);  // legacy, unnecessary: it causes a "fatal error" and triggers a repaint
             Seek = Loaded = 0;
-            if (hFile == NULL) // if the caller does not close the handle, it is up to us
+            if (hFile == NULL && file != nullptr) // if the caller does not close the handle, it is up to us
                 HANDLES(CloseHandle(file));
             return FALSE;
         }
@@ -832,7 +859,7 @@ BOOL CViewerWindow::LoadBehind(HANDLE* hFile)
             read = (int)(FileSize - (Seek + Loaded));
         if (read == 0)
         {
-            if (hFile == NULL) // if the caller does not close the handle, it is up to us
+            if (hFile == NULL && file != nullptr) // if the caller does not close the handle, it is up to us
                 HANDLES(CloseHandle(file));
             return FALSE;
         }
@@ -855,41 +882,23 @@ BOOL CViewerWindow::LoadBehind(HANDLE* hFile)
         BOOL ret;
         BOOL kill = FALSE; // TRUE means that FileName will be set to NULL on error
 
-        CQuadWord resSeek;
-        resSeek.SetUI64(seekEnd); // note, the seek for SetFilePointer is a signed value
-        resSeek.LoDWord = SetFilePointer(file, resSeek.LoDWord, (PLONG)&resSeek.HiDWord, FILE_BEGIN);
-        err = GetLastError();
-        if ((resSeek.LoDWord != INVALID_SET_FILE_POINTER || err == NO_ERROR) && // no error
-            resSeek.Value == (unsigned __int64)seekEnd)                         // the current file offset matches
+        if (ReadViewerAt(file, seekEnd, Buffer + readed, read, readed))
         {
-            if (ReadFile(file, Buffer + readed, read, &readed, NULL))
+            if (readed != (DWORD)read)
             {
-                if (readed != (DWORD)read)
-                {
-                    TRACE_I("CViewerWindow::LoadBehind(): ReadFile returned " << (DWORD)readed << " instead of " << (DWORD)read);
-                    InvalidateRect(HWindow, NULL, FALSE);
-                    Seek = Loaded = 0; // data in Buffer may be corrupted; invalidate them so nothing uses them while the message box is shown
-                    kill = SalMessageBoxViewerPaintBlocked(HWindow, LoadStr(IDS_VIEWER_UNKNOWNERR), LoadStr(IDS_ERRORREADINGFILE),
-                                                           MB_RETRYCANCEL | MB_ICONEXCLAMATION) == IDCANCEL;
-                    ret = FALSE;
-                    Seek = Loaded = 0; // some data might have been loaded while the message box was shown, so invalidate Buffer again
-                }
-                else
-                {
-                    CodeCharacters(Buffer + Loaded, Buffer + Loaded + read);
-                    Loaded += readed;
-                    ret = TRUE;
-                }
-            }
-            else
-            {
-                DWORD err2 = GetLastError();
+                TRACE_I("CViewerWindow::LoadBehind(): ReadFile returned " << (DWORD)readed << " instead of " << (DWORD)read);
                 InvalidateRect(HWindow, NULL, FALSE);
                 Seek = Loaded = 0; // data in Buffer may be corrupted; invalidate them so nothing uses them while the message box is shown
-                kill = SalMessageBoxViewerPaintBlocked(HWindow, GetErrorText(err2), LoadStr(IDS_ERRORREADINGFILE),
+                kill = SalMessageBoxViewerPaintBlocked(HWindow, LoadStr(IDS_VIEWER_UNKNOWNERR), LoadStr(IDS_ERRORREADINGFILE),
                                                        MB_RETRYCANCEL | MB_ICONEXCLAMATION) == IDCANCEL;
                 ret = FALSE;
                 Seek = Loaded = 0; // some data might have been loaded while the message box was shown, so invalidate Buffer again
+            }
+            else
+            {
+                CodeCharacters(Buffer + Loaded, Buffer + Loaded + read);
+                Loaded += readed;
+                ret = TRUE;
             }
         }
         else
@@ -902,7 +911,7 @@ BOOL CViewerWindow::LoadBehind(HANDLE* hFile)
             ret = FALSE;
             Seek = Loaded = 0; // some data might have been loaded while the message box was shown, so invalidate Buffer again
         }
-        if (hFile == NULL) // if the caller does not close the handle, it is up to us
+        if (hFile == NULL && file != nullptr) // if the caller does not close the handle, it is up to us
             HANDLES(CloseHandle(file));
 
         if (!ret && kill) // possibly end working with this file
@@ -972,11 +981,17 @@ void CViewerWindow::HeightChanged(BOOL& fatalErr)
     }
 }
 
-void CViewerWindow::OpenFile(const char* file, const char* caption, BOOL wholeCaption)
+void CViewerWindow::OpenFile(const char* file, const char* caption, BOOL wholeCaption,
+                             std::unique_ptr<std::vector<BYTE>> snapshot, ViewerReadHandle readHandle)
 {
     CALL_STACK_MESSAGE3("CViewerWindow::OpenFile(%s, %s)", file, caption);
     CancelLogViewRetry();
     StopLogViewWatcher();
+    // Close the preceding document's handle when switching and never watch a protected path.
+    ProtectedSnapshot = std::move(snapshot);
+    ProtectedReadHandle = std::move(readHandle);
+    if (ProtectedSnapshot || ProtectedReadHandle)
+        LogViewMode = FALSE;
     std::string fileNameCopy = file != NULL ? file : "";
     const char* fileName = fileNameCopy.c_str();
 
@@ -1030,10 +1045,11 @@ void CViewerWindow::OpenFile(const char* file, const char* caption, BOOL wholeCa
     CanSwitchQuietlyToHex = FALSE;
 }
 
-void CViewerWindow::OpenFileW(const wchar_t* file, const char* caption, BOOL wholeCaption)
+void CViewerWindow::OpenFileW(const wchar_t* file, const char* caption, BOOL wholeCaption,
+                              std::unique_ptr<std::vector<BYTE>> snapshot, ViewerReadHandle readHandle)
 {
     std::string fileA = SalWideToMultiBytePath(file, CP_UTF8);
-    OpenFile(fileA.c_str(), caption, wholeCaption);
+    OpenFile(fileA.c_str(), caption, wholeCaption, std::move(snapshot), std::move(readHandle));
     FileNameW = file != NULL ? file : L"";
     if (LogViewMode)
     {
@@ -1094,8 +1110,9 @@ void CViewerWindow::FileChanged(HANDLE file, BOOL testOnlyFileSize, BOOL& fatalE
     BOOL close;
     if (file == NULL)
     {
-        file = OpenViewerFileForRead(FileNameW, FileName);
-        close = TRUE;
+        if (!ProtectedSnapshot && !ProtectedReadHandle)
+            file = OpenViewerFileForRead(FileNameW, FileName);
+        close = file != nullptr;
     }
     else
         close = FALSE;
@@ -1105,7 +1122,7 @@ void CViewerWindow::FileChanged(HANDLE file, BOOL testOnlyFileSize, BOOL& fatalE
         __int64 oldFS = FileSize;
         CQuadWord size;
         DWORD err;
-        BOOL haveSize = SalGetFileSize(file, size, err);
+        BOOL haveSize = GetViewerSize(file, size, err);
         FileSize = size.Value;
         if (!haveSize ||                               // error while determining the file size
             size >= CQuadWord(0xFFFFFFFF, 0x7FFFFFFF)) // file too large (> 8 EB)
@@ -1170,12 +1187,7 @@ void CViewerWindow::FileChanged(HANDLE file, BOOL testOnlyFileSize, BOOL& fatalE
                 {
                     BYTE sample[RECOGNIZE_FILE_TYPE_BUFFER_LEN] = {0};
                     DWORD read = 0;
-                    CQuadWord sampleSeek;
-                    sampleSeek.SetUI64(0);
-                    sampleSeek.LoDWord = SetFilePointer(file, sampleSeek.LoDWord, (PLONG)&sampleSeek.HiDWord, FILE_BEGIN);
-                    DWORD seekErr = GetLastError();
-                    if ((sampleSeek.LoDWord != INVALID_SET_FILE_POINTER || seekErr == NO_ERROR) &&
-                        ReadFile(file, sample, (DWORD)min((__int64)sizeof(sample), FileSize), &read, NULL))
+                    if (ReadViewerAt(file, 0, sample, static_cast<DWORD>(min((__int64)sizeof(sample), FileSize)), read))
                     {
                         Salamander::Unicode::BomInfo textInfo = Salamander::Unicode::DetectTextEncoding(sample, read);
                         TextEncoding = textInfo.Encoding;

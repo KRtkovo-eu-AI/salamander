@@ -1,0 +1,73 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Test the production denied-directory anchor helper. | Reject a substituted child and release the zero-access handle on cancel. | #731 | GPT-6.1 Terra |
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0A00
+#endif
+#include <windows.h>
+#include <aclapi.h>
+#include <sddl.h>
+#include <cstring>
+#include <cstdio>
+#include <memory>
+#include <string>
+namespace Salamander { namespace BranchView { struct DeniedDirectory { ULONGLONG Volume=0; BYTE FileId[16]{}; bool Verified=false; std::shared_ptr<void> Anchor; }; } }
+namespace OperationRecycleDetail { struct RecycleFileId { ULONGLONG VolumeSerialNumber; BYTE FileId[16]; }; constexpr auto recycleFileIdInfo=static_cast<FILE_INFO_BY_HANDLE_CLASS>(18); }
+namespace UacF7 {
+struct MoveFileIdentity { ULONGLONG serial=0; BYTE id[16]{}; };
+static MoveFileIdentity listed{};
+static std::wstring child, moved;
+static bool replaceDuringCapture=false;
+struct ListingSession {
+    static bool CaptureDirectoryIdentity(const std::wstring&, MoveFileIdentity& value) {
+        value=listed;
+        if (replaceDuringCapture) {
+            replaceDuringCapture=false;
+            if (!MoveFileW(child.c_str(),moved.c_str()) || !CreateDirectoryW(child.c_str(),nullptr)) return false;
+        }
+        return true;
+    }
+};
+}
+static std::wstring SalPathRemoveExtendedPrefixW(const wchar_t* value) { return value; }
+static std::wstring SalPathAddExtendedPrefixW(const wchar_t* value) { return L"\\\\?\\" + std::wstring(value); }
+@@CAPTURE@@
+static int failures=0;
+static void Check(bool ok, const char* text) { std::printf("%s: %s\n",ok?"PASS":"FAIL",text); if(!ok) ++failures; }
+int wmain(int argc, wchar_t** argv)
+{
+    if(argc!=2) return 2;
+    const std::wstring root=std::wstring(argv[1])+L"\\production-anchor-"+std::to_wstring(GetCurrentProcessId());
+    UacF7::child=root+L"\\child"; UacF7::moved=root+L"\\moved";
+    if(!CreateDirectoryW(root.c_str(),nullptr)||!CreateDirectoryW(UacF7::child.c_str(),nullptr)) return 3;
+    HANDLE control=CreateFileW(UacF7::child.c_str(), READ_CONTROL|WRITE_DAC|FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,nullptr,OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS,nullptr);
+    if(control==INVALID_HANDLE_VALUE) return 4;
+    FILE_ID_INFO original{}; if(!GetFileInformationByHandleEx(control,FileIdInfo,&original,sizeof(original))) return 5;
+    UacF7::listed.serial=original.VolumeSerialNumber; CopyMemory(UacF7::listed.id,original.FileId.Identifier,16);
+    PACL acl=nullptr; PSECURITY_DESCRIPTOR originalSecurity=nullptr;
+    if(GetSecurityInfo(control,SE_FILE_OBJECT,DACL_SECURITY_INFORMATION,nullptr,nullptr,&acl,nullptr,&originalSecurity)) return 6;
+    SECURITY_DESCRIPTOR_CONTROL flags{}; DWORD revision=0; if(!GetSecurityDescriptorControl(originalSecurity,&flags,&revision)) return 7;
+    PSECURITY_DESCRIPTOR denied=nullptr;
+    if(!ConvertStringSecurityDescriptorToSecurityDescriptorW(L"D:P(D;;0x00000081;;;WD)(A;;FA;;;WD)",SDDL_REVISION_1,&denied,nullptr)) return 8;
+    BOOL present=FALSE,def=FALSE; PACL denyAcl=nullptr;
+    if(!GetSecurityDescriptorDacl(denied,&present,&denyAcl,&def)||!present||SetSecurityInfo(control,SE_FILE_OBJECT,
+       DACL_SECURITY_INFORMATION|PROTECTED_DACL_SECURITY_INFORMATION,nullptr,nullptr,denyAcl,nullptr)) return 9;
+    Salamander::BranchView::DeniedDirectory prepared;
+    const bool captured=CaptureBranchDenied(UacF7::child,prepared);
+    Check(captured && prepared.Anchor && prepared.Volume==original.VolumeSerialNumber &&
+          !memcmp(prepared.FileId,original.FileId.Identifier,16),"real denied directory is pinned to the exact captured ID");
+    const DWORD restore=SetSecurityInfo(control,SE_FILE_OBJECT,DACL_SECURITY_INFORMATION|
+        ((flags&SE_DACL_PROTECTED)?PROTECTED_DACL_SECURITY_INFORMATION:UNPROTECTED_DACL_SECURITY_INFORMATION),nullptr,nullptr,acl,nullptr);
+    LocalFree(denied); LocalFree(originalSecurity); if(restore) return 10;
+    Salamander::BranchView::DeniedDirectory raced;
+    UacF7::replaceDuringCapture=true;
+    const bool acceptedReplacement=CaptureBranchDenied(UacF7::child,raced);
+    Check(!acceptedReplacement && !raced.Anchor,"same-name replacement between parent capture and open is refused");
+    std::weak_ptr<void> weak=prepared.Anchor; prepared.Anchor.reset();
+    Check(weak.expired(),"cancel releases the captured zero-access anchor");
+    CloseHandle(control);
+    if(!RemoveDirectoryW(UacF7::child.c_str())||!RemoveDirectoryW(UacF7::moved.c_str())||!RemoveDirectoryW(root.c_str())) return 11;
+    return failures?1:0;
+}

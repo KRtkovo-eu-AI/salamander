@@ -1,0 +1,196 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Test consent gForeground transitions without changing the desktop. | Exercise production helper against deterministic Win32 stubs. | #731 | GPT-6 |
+#include <windows.h>
+#include <map>
+#include <cstdio>
+
+struct FakeWindow {
+    DWORD pid = 0, thread = 0;
+    HWND owner = nullptr, root = nullptr, popup = nullptr;
+    bool visible = true, enabled = true, iconic = false;
+};
+static std::map<HWND, FakeWindow> windows;
+static DWORD currentPid = 10, currentThread = 1, inputTime = 100;
+static HWND gForeground = nullptr, activated = nullptr, postedOwner = nullptr;
+static WPARAM postedForeground = 0;
+static LPARAM postedInput = 0;
+static unsigned postCount = 0, activateCount = 0;
+static bool inputWorks = true, activationWorks = true;
+static HWND window(unsigned n) { return reinterpret_cast<HWND>(static_cast<ULONG_PTR>(n)); }
+static HWND rootOf(HWND h, UINT) { auto it=windows.find(h); return it==windows.end() ? nullptr : (it->second.root ? it->second.root : h); }
+static DWORD windowThread(HWND h, LPDWORD pid) {
+    auto it=windows.find(h);
+    if (pid) *pid=it==windows.end() ? 0 : it->second.pid;
+    return it==windows.end() ? 0 : it->second.thread;
+}
+static DWORD processId() { return currentPid; }
+static DWORD threadId() { return currentThread; }
+static HWND currentForeground() { return gForeground; }
+static HWND ownedWindow(HWND h, UINT) { auto it=windows.find(h); return it==windows.end() ? nullptr : it->second.owner; }
+static BOOL fakeLastInput(PLASTINPUTINFO p) { if (!inputWorks) return FALSE; p->dwTime=inputTime; return TRUE; }
+static BOOL visible(HWND h) { auto it=windows.find(h); return it!=windows.end() && it->second.visible; }
+static BOOL enabled(HWND h) { auto it=windows.find(h); return it!=windows.end() && it->second.enabled; }
+static BOOL iconic(HWND h) { auto it=windows.find(h); return it!=windows.end() && it->second.iconic; }
+static HWND lastPopup(HWND h) { auto it=windows.find(h); return it==windows.end() ? nullptr : it->second.popup; }
+static BOOL activate(HWND h) { ++activateCount; activated=h; if (activationWorks) gForeground=h; return activationWorks ? TRUE : FALSE; }
+static BOOL post(HWND h, UINT, WPARAM w, LPARAM l) { ++postCount; postedOwner=h; postedForeground=w; postedInput=l; return TRUE; }
+#ifdef HAS_THIN_FOCUS
+static unsigned sendCount = 0, timeoutSendCount = 0, timeoutValue = 0, timeoutFlags = 0;
+static HWND sentOwner = nullptr;
+static UINT sentMessage = 0;
+static WPARAM sentForeground = 0;
+static LPARAM sentInput = 0;
+static bool sendWorks = true;
+static BOOL isWindow(HWND h) { return windows.find(h) != windows.end(); }
+static LRESULT sendMessage(HWND h, UINT m, WPARAM w, LPARAM l) {
+    ++sendCount; sentOwner=h; sentMessage=m; sentForeground=w; sentInput=l; return sendWorks ? 1 : 0;
+}
+static LRESULT sendTimeout(HWND h, UINT m, WPARAM w, LPARAM l, UINT flags, UINT timeout, PDWORD_PTR result) {
+    ++timeoutSendCount; timeoutValue=timeout; timeoutFlags=flags;
+    sentOwner=h; sentMessage=m; sentForeground=w; sentInput=l;
+    if (result) *result=sendWorks ? 1 : 0;
+    return sendWorks ? 1 : 0;
+}
+#define IsWindow isWindow
+#define SendMessageW sendMessage
+#define SendMessageTimeoutW sendTimeout
+#endif
+#define GetAncestor rootOf
+#define GetWindowThreadProcessId windowThread
+#define GetCurrentProcessId processId
+#define GetCurrentThreadId threadId
+#define GetForegroundWindow currentForeground
+#define GetWindow ownedWindow
+#define GetLastInputInfo fakeLastInput
+#define IsWindowVisible visible
+#define IsWindowEnabled enabled
+#define IsIconic iconic
+#define GetLastActivePopup lastPopup
+#define SetForegroundWindow activate
+#define PostMessageW post
+
+@@IS_OWNED@@
+namespace UacF7 {
+@@CLASS@@
+@@METHODS@@
+}
+#ifdef HAS_THIN_FOCUS
+#include "uac_thin_foreground.h"
+static bool ThinConsentReturned=false;
+static BOOL runThinHandler(HWND HWindow, WPARAM wParam, LPARAM lParam) {
+    switch (UacF7::restoreThinProgressForegroundMessage) {
+@@THIN_HANDLER@@
+    }
+    return FALSE;
+}
+#endif
+
+static int failures = 0;
+static void expect(bool ok, const char* label) { std::printf("%s: %s\n", ok ? "PASS" : "FAIL", label); if (!ok) ++failures; }
+static void reset() {
+    windows.clear(); currentPid=10; currentThread=1; inputTime=100; inputWorks=true; activationWorks=true;
+    gForeground=nullptr; activated=nullptr; postedOwner=nullptr; postedForeground=0; postedInput=0;
+    postCount=activateCount=0;
+#ifdef HAS_THIN_FOCUS
+    sendCount=timeoutSendCount=timeoutValue=timeoutFlags=0; sentOwner=nullptr; sentMessage=0;
+    ThinConsentReturned=false;
+    sentForeground=0; sentInput=0; sendWorks=true;
+#endif
+}
+static void add(HWND h, DWORD pid, DWORD tid) { FakeWindow w; w.pid=pid; w.thread=tid; windows[h]=w; }
+static void deliver() { UacF7::RestoreConsentForeground(postedOwner, reinterpret_cast<HWND>(postedForeground), static_cast<DWORD>(postedInput)); }
+int main() {
+    const HWND progress=window(1), other=window(2), popup=window(3), mainWindow=window(4);
+    reset(); add(progress,10,1); add(other,11,8); gForeground=progress;
+    { UacF7::ConsentForeground c(progress); gForeground=other; c.Restore(); }
+    expect(activateCount==1 && activated==progress, "same-thread consent restores original progress when no input intervened");
+    reset(); add(progress,10,1); add(other,11,8); add(popup,10,1); windows[popup].owner=progress; windows[progress].popup=popup; gForeground=progress;
+    { UacF7::ConsentForeground c(progress); gForeground=other; c.Restore(); }
+    expect(activateCount==1 && activated==popup, "active owned modal dialog has priority over owner");
+    reset(); add(progress,10,1); add(other,11,8); gForeground=other;
+    { UacF7::ConsentForeground c(progress); c.Restore(); }
+    expect(activateCount==0 && postCount==0, "unrelated foreground before consent is never stolen");
+    reset(); add(progress,10,2); add(other,11,8); gForeground=progress;
+    { UacF7::ConsentForeground c(progress); gForeground=other; c.Restore(); }
+    expect(postCount==1 && postedOwner==progress && activateCount==0, "cross-thread restore schedules only to owner");
+    currentThread=2; deliver();
+    expect(activateCount==1 && activated==progress, "unchanged foreground and input permit queued restore");
+    reset(); add(progress,10,2); add(other,11,8); add(mainWindow,10,2); gForeground=progress;
+    { UacF7::ConsentForeground c(progress); gForeground=other; c.Restore(); }
+    currentThread=2; gForeground=mainWindow; deliver();
+    expect(activateCount==0, "changed foreground before queued delivery is respected");
+    reset(); add(progress,10,2); add(other,11,8); gForeground=progress;
+    { UacF7::ConsentForeground c(progress); gForeground=other; c.Restore(); }
+    currentThread=2; ++inputTime; deliver();
+    expect(activateCount==0, "new user input before queued delivery prevents focus theft");
+    reset(); add(progress,10,2); add(other,11,8); gForeground=progress;
+    { UacF7::ConsentForeground c(progress); gForeground=other; c.Restore(); }
+    currentThread=2; windows.erase(progress); deliver();
+    expect(activateCount==0, "destroyed progress window cannot be activated by stale queued delivery");
+    reset(); add(progress,10,1); add(other,11,8); gForeground=progress;
+    { UacF7::ConsentForeground c(progress); gForeground=other; windows[progress].visible=false; c.Restore(); }
+    expect(activateCount==0, "hidden progress window is not activated");
+    reset(); add(progress,10,1); add(other,11,8); gForeground=progress;
+    { UacF7::ConsentForeground c(progress); gForeground=other; windows[progress].iconic=true; c.Restore(); }
+    expect(activateCount==0, "minimized progress window is not activated");
+    reset(); add(progress,10,1); add(other,11,8); gForeground=progress;
+    { UacF7::ConsentForeground c(progress); gForeground=other; windows[progress].enabled=false; c.Restore(); }
+    expect(activateCount==0, "disabled owner without an enabled popup is not activated");
+    reset(); add(progress,10,1); add(other,11,8); gForeground=progress;
+    { UacF7::ConsentForeground c(progress); gForeground=other; inputWorks=false; c.Restore(); }
+    expect(activateCount==0 && postCount==0, "unavailable last-input information fails closed");
+#ifdef HAS_THIN_FOCUS
+    reset(); add(progress,10,1); add(other,11,8); gForeground=progress;
+    { UacF7::ConsentForeground c(progress); gForeground=other; c.RestoreThinProgress(); }
+    expect(sendCount==1 && timeoutSendCount==0 && postCount==0 && sentOwner==progress && sentMessage==UacF7::restoreThinProgressForegroundMessage,
+           "same-thread thin restore uses direct synchronous delivery only");
+    reset(); add(progress,10,2); add(other,11,8); gForeground=progress;
+    { UacF7::ConsentForeground c(progress); gForeground=other; c.RestoreThinProgress(); }
+    expect(timeoutSendCount==1 && sendCount==0 && postCount==0 && sentOwner==progress && sentMessage==UacF7::restoreThinProgressForegroundMessage && timeoutValue>0 && timeoutValue<=1000 && (timeoutFlags & SMTO_ABORTIFHUNG),
+           "cross-thread thin restore uses one bounded synchronous delivery");
+    expect(reinterpret_cast<HWND>(sentForeground)==other && static_cast<DWORD>(sentInput)==100,
+           "thin delivery carries observed foreground and input timestamp");
+    reset(); add(progress,10,2); add(other,11,8); gForeground=progress; sendWorks=false;
+    { UacF7::ConsentForeground c(progress); gForeground=other; c.RestoreThinProgress(); }
+    expect(timeoutSendCount==1 && postCount==0 && activateCount==0,
+           "timed out delivery does not post an unguarded fallback");
+    reset(); add(progress,10,2); add(other,11,8); gForeground=progress;
+    { UacF7::ConsentForeground c(progress); windows.erase(progress); gForeground=other; c.RestoreThinProgress(); }
+    expect(timeoutSendCount==0 && postCount==0 && sendCount==0,
+           "destroyed progress is not sent a restoration request");
+    reset(); add(progress,10,2); add(other,11,8); gForeground=other;
+    { UacF7::ConsentForeground c(progress); c.RestoreThinProgress(); }
+    expect(timeoutSendCount==0 && postCount==0 && sendCount==0,
+           "background app does not request thin restoration");
+#endif
+#ifdef HAS_THIN_FOCUS
+    reset(); add(progress,10,2); add(mainWindow,10,2); add(other,11,8); gForeground=progress;
+    { UacF7::ConsentForeground c(progress); gForeground=mainWindow; c.RestoreThinProgress(); }
+    expect(timeoutSendCount==0 && sendCount==0 && postCount==0,
+           "another active window in the same process is not displaced");
+    reset(); add(progress,10,2); add(popup,10,2); windows[popup].owner=progress; gForeground=progress;
+    { UacF7::ConsentForeground c(progress); gForeground=popup; c.RestoreThinProgress(); }
+    expect(timeoutSendCount==0 && sendCount==0 && postCount==0,
+           "active same-process modal popup is not displaced");
+    reset(); add(progress,10,1); add(other,11,8); gForeground=other;
+    expect(runThinHandler(progress,reinterpret_cast<WPARAM>(other),100) && ThinConsentReturned && gForeground==progress,
+           "message handler flags successful restoration after stable snapshot");
+    reset(); add(progress,10,1); add(other,11,8); gForeground=other; activationWorks=false;
+    expect(runThinHandler(progress,reinterpret_cast<WPARAM>(other),100) && !ThinConsentReturned && gForeground==other,
+           "failed SetForegroundWindow cannot mark successful consent return");
+    reset(); add(progress,10,1); add(other,11,8); gForeground=other; ++inputTime;
+    expect(runThinHandler(progress,reinterpret_cast<WPARAM>(other),100) && !ThinConsentReturned && activateCount==0,
+           "handler rejects stale input without activating progress");
+    reset(); add(progress,10,1); add(other,11,8); add(mainWindow,10,1); gForeground=mainWindow;
+    expect(runThinHandler(progress,reinterpret_cast<WPARAM>(other),100) && !ThinConsentReturned && activateCount==0,
+           "handler rejects an intervening same-process foreground switch");
+    reset(); add(progress,10,1); add(other,11,8); add(popup,10,1); windows[popup].owner=progress;
+    windows[progress].popup=popup; windows[progress].enabled=false; gForeground=other;
+    expect(runThinHandler(progress,reinterpret_cast<WPARAM>(other),100) && !ThinConsentReturned && activated==popup,
+           "modal owner restoration never marks progress as foreground");
+#endif
+    std::printf("Failures: %d\n",failures);
+    return failures ? 1 : 0;
+}

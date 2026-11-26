@@ -4,7 +4,11 @@
 // CommentsTranslationProject: TRANSLATED
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-25 | Keep report navigation beside protected viewer refresh rules. | A generated report still returns to its source, and a protected view stays explicit. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 | 2026-11-20 | Use source identities for report navigation and retain reports on failure. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
+| 2026-11-15 | Explain protected viewer UI behavior. | Distinguish a scoped snapshot from a live file. | #731 | GPT-6 |
+| 2026-11-12 | Release drops ignored while viewer refresh is pending. | Balance WM_DROPFILES ownership without opening a file during recovery. | #731 | GPT-6 (Codex) |
+| 2026-11-08 | Label the protected viewer snapshot and keep refresh explicit. | Avoid re-opening a protected object from automatic viewer activity. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Use the effective legacy code page for double-click word boundaries. | CP1250 accented bytes were split into separate selections in the UTF-8 process. | https://github.com/KRtkovo-eu-AI/salamander/issues/739 | openai/gpt-5.6-luna-pro |
 | 2026-11-05 | Keep previous-line size cache in sync on line-up/line-down. | Scroll-up after EOF was still O(FindPreviousEOL) per step while scroll-down reused FirstLineSize (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
 */
@@ -377,6 +381,9 @@ void CViewerWindow::SetViewerCaption()
         }
         if (!encoding.empty()) caption += L" - [" + encoding + L"]";
     }
+    // Tell the user that this document is the approved snapshot, not a live file view.
+    if (ProtectedSnapshot)
+        caption += L" - [" + ViewerTextToWide(LoadStr(IDS_UAC_VIEW_SNAPSHOT)) + L"]";
     SetWindowTextW(HWindow, caption.c_str());
 }
 
@@ -881,6 +888,14 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 return 0;
             }
             break;
+        }
+
+        case WM_DROPFILES:
+        {
+            // This recovery state deliberately ignores the drop. Unlike the
+            // default window procedure, it still owns the delivered HDROP.
+            DragFinish(reinterpret_cast<HDROP>(wParam));
+            return 0;
         }
 
         case WM_PAINT:
@@ -2705,6 +2720,12 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case CM_REREADFILE:
         {
+            // Refreshing would require a new protected read; do not reopen it implicitly.
+            if (ProtectedSnapshot)
+            {
+                SalMessageBox(HWindow, LoadStr(IDS_UAC_VIEW_REFRESH), LoadStr(IDS_VIEWERTITLE), MB_OK | MB_ICONINFORMATION);
+                return 0;
+            }
             if (MouseDrag)
                 return 0;
             ExitTextMode = FALSE;
