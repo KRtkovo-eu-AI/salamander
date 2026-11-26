@@ -1,5 +1,7 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-26 | Document favorite badges on icons from other tabs. | Let the icon show both the tab origin and the favorite status. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
+| 2026-11-26 | Remove screen-reader support from the Alt+F12 plan. | Keep the current feature scope focused on history and visual indicators. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 | 2026-11-26 | Document independent shared and per-tab histories. | Preserve closed-tab entries and visit order when switching scope or restarting. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 | 2026-11-26 | Allow history rows without an icon. | Keep the icon column focused on paths with an existing icon or a distinct status. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 | 2026-11-26 | Drop the per-row lock icon from the current scope. | The active tab already indicates its lock state. Repeating it would obscure the destination icons. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
@@ -28,10 +30,10 @@
 
 1. Record the originating tab alongside new working directory entries. Carry attribution through duplicate promotion, deferred inserts and copies. Legacy entries without source metadata display the path alone.
 2. At popup construction, compare each location to the current Hot Paths. Reuse the existing lexical path comparison for the relevant path type and resolve supported Hot Path variables without displaying expansion errors. Do not open an archive, reconnect a plug-in, probe a network path or resolve a filesystem link merely to draw the menu. A bookmark edit should be reflected the next time the list opens. Hidden Hot Paths still qualify. Plug-in bookmarks match their stored filesystem name and path text, so a plug-in that uses different external and internal names can leave an alias unmarked.
-3. Within this popup, use the Hot Path star first. Otherwise, in the shared view, use the tab icon if the recorded source is known and differs from the panel opening the popup. Keep the current path icon or empty icon slot for other rows. This keeps one icon at most and prevents copied entries in the per-tab view from looking like cross-tab search results.
-4. Use the existing popup, icon column and keyboard handling. Reuse the shipped Favorites star and Duplicate Tab artwork through the panel's DPI-specific toolbar image lists. Both assets already ship in the light and dark toolbar sets. Keep the row's command ID associated with the original history entry.
+3. Use a standalone Hot Path star in the current tab's list or when a shared entry identifies the current tab as its source. In shared history, a known source from another tab uses the other-tab icon. Add a small star in the upper-right corner of that icon when the path is also a Hot Path. Keep the existing path icon or empty slot for other entries, including shared entries with unknown origins.
+4. Use the existing popup, icon column and keyboard handling. Reuse the shipped Favorites star and Duplicate Tab artwork through the panel's DPI-specific toolbar image lists. Draw the small star as an overlay within the same icon slot. Keep the row's command ID associated with the original history entry.
 
-5. Show the undecorated live tab title as `[Tab name]` before a different tab's path, including rows where the star wins. Escape literal ampersands and apply the prefix after assigning path accelerators. Use an ellipsis for unusually long names to limit menu growth.
+5. Show the undecorated live tab title as `[Tab name]` before a different tab's path, including rows with the small star. Escape literal ampersands and apply the prefix after assigning path accelerators. Use an ellipsis for unusually long names to limit menu growth.
 
 ## Phase 2 — Persistent attribution and closed-tab names
 
@@ -41,7 +43,7 @@
 
 ## History icon colors
 
-**Configuration → History → Use colored icons in the working directory list** is enabled by default. A Hot Path uses a yellow star. Otherwise, a known source tab uses its custom tab color on the existing other-tab icon. A tab without a custom color uses the neutral other-tab icon. Disabling this option uses the neutral icons for both cases. Icon priority still determines a single icon per row.
+**Configuration → History → Use colored icons in the working directory list** is enabled by default. Both the standalone star and the small star are yellow. The other-tab icon uses the source tab's custom color when one is set. Disabling this option uses the neutral palette and preserves the icon shapes and the small star.
 
 Resolve the current custom color of a live source, including a cleared color. When a tab closes, keep its last defined color alongside its caption as optional history metadata. Existing saved rows with no color metadata still resolve the color of their open source or use the neutral icon.
 
@@ -51,21 +53,21 @@ Each recorded visit updates the shared list and the originating tab's list. Chan
 
 When **Save List of Working Directories** is enabled, save both lists regardless of the selected scope. A legacy per-tab profile without a saved shared list can recover entries from its saved open and detached tabs. Those lists only record order within each tab, so the original cross-tab order is unavailable. An explicitly saved empty shared list skips this recovery.
 
-## Follow-up — Icon priority and accessibility
+## Follow-up — Project boundary icon
 
 - Integrate the project boundary when #853 defines the navigation rule. Use that rule for both the icon and the action. Treat the root and its descendants according to the same path-component semantics as navigation. Cover similarly named siblings, different drives, UNC roots, and reparse points or virtual paths according to the project-tab rules.
-- Use the priority order of project boundary once available, Hot Path, different tab, and the existing path icon if available. Leave the icon slot empty when none applies. Make the chosen status available to assistive technology without relying on color. Opening a row continues to target the panel that opened the popup. Opening a history destination in a new tab remains a separate proposal.
+- When available, the project boundary icon takes precedence over the history icon, including an other-tab icon with a small star. Opening a row continues to target the panel that opened the popup. Opening a history destination in a new tab remains a separate proposal.
 
 ## Verification
 
 | Coverage | Expected result |
 |---|---|
-| First-phase popup | A Hot Path from another tab gets the star. An unbookmarked visit from another tab gets the tab icon in shared history. Local and unknown entries retain their previous appearance unless they match a Hot Path. Editing a Hot Path is reflected on the next opening. |
+| Popup icons | A Hot Path from the current tab gets a standalone star. A Hot Path from another tab gets the tab icon with a small star and keeps its source prefix. A non-favorite visit from another tab gets the tab icon alone. Verify the small star with colors enabled and disabled and on an uncolored source tab. Editing a Hot Path is reflected on the next opening. |
 | Recency and lifecycle | Visit the same destination in two tabs, including when its row is already newest. Verify attribution after using the popup to navigate, reordering or moving a tab, detaching it, closing it, and duplicating or reopening it. Compare the same-tab and other-tab views without changing which panel receives navigation. |
 | Entry points and presentation | Compare Alt+F12, Commands, the toolbar and the directory-line drop-down. Check light and dark schemes, selected and unselected icons, DPI scaling, keyboard accelerators and the separate Change Drive and Back/Forward menus. |
 | Paths | Check literal and variable-expanded bookmarks, Unicode components, paths exceeding `MAX_PATH` in UTF-8 or UTF-16, case/trailing separators, an unavailable UNC destination, archive members and plug-in filesystem entries. Opening the popup should make no filesystem or plug-in call just to determine an icon. |
 | Persistence | Save visits from regular and detached tabs, restart, and confirm their source identities resolve to the restored tabs. Rename a source after recording a visit, then close it and confirm the last known name survives both close and restart. Check Unicode, path-only legacy records, invalid metadata, saving disabled and Clear History. |
 | Switching scopes | Interleave visits across tabs and visit the same destination in two tabs. Close a source tab, switch to per-tab history, and return to shared history. Confirm the closed tab's visit remains in place and the duplicate keeps its newest source. Repeat after a restart in per-tab mode with history saving enabled. |
-| Later UI | Confirm that assistive technology can read each icon status. When project tabs are available, check project-root handling and verify that the name prefix remains visible with the project boundary icon. |
+| Project tabs | When project tabs are available, check project-root handling and verify that the name prefix remains visible with the project boundary icon. |
 
 Use the existing Windows build and noninteractive tests first. Record manual UI checks separately from build and automated results.

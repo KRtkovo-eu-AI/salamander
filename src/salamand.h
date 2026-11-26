@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Document ownership of dynamic history popup icons. | Covers both tinted icons and favorite overlays. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Report whether a working directory history was stored. | Distinguish a saved empty list from a missing legacy list. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Track the source tab's custom history icon color. | Retain the last color of closed tabs. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Store a durable origin and caption with working directory visits. | Associate provenance with the same item through loading and history copies. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
@@ -242,8 +243,9 @@ public:
     // maxCount - maximum number of items to add; -1 - all available (separator is not counted)
     // separator - if the menu contains at least one item, a separator is inserted above it
     // panel enables working directory indicators in the full history popup.
+    // The caller owns the icons added to popupIcons and releases them after tracking the popup.
     void FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int maxCount, BOOL separator,
-                              const CFilesWindow* panel = NULL, std::vector<HICON>* coloredIcons = NULL);
+                              const CFilesWindow* panel = NULL, std::vector<HICON>* popupIcons = NULL);
 
     // called when closing an FS - the history stores FS interfaces that need to be NULLed after closing
     // (so there is no accidental match just because the FS interface was allocated at the same address)

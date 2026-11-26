@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-26 | Badge favorites from another tab in directory history. | Show the source tab icon and the favorite status in one slot. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Record intentionally empty working directory lists. | Distinguish a saved empty list from legacy per-tab storage. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Color saved-path and source-tab history icons. | Preserve the default icons and use a closed source's last custom color. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Keep popup source data independent of live history rows. | Resolve tab names from stable copies while formatting the menu. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
@@ -30,6 +31,7 @@
 #include "regwork.h"
 
 #include <map>
+#include <optional>
 
 CUserMenuIconBkgndReader UserMenuIconBkgndReader;
 
@@ -1994,20 +1996,22 @@ static std::string FormatHistoryTabPrefix(const std::wstring& name)
 }
 
 void CPathHistory::FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int maxCount,
-                                        BOOL separator, const CFilesWindow* panel, std::vector<HICON>* coloredIcons)
+                                        BOOL separator, const CFilesWindow* panel, std::vector<HICON>* popupIcons)
 {
     struct HistoryMenuItem
     {
         DWORD Position;
         int ImageIndex;
+        bool FavoriteBadge;
         CWorkingDirectorySource Source;
     };
 
     char buffer[2 * MAX_PATH];
     std::vector<std::string> hotPaths;
     std::vector<HistoryMenuItem> itemsToDecorate;
-    const bool useColors = panel != NULL && coloredIcons != NULL && Configuration.WorkDirHistoryColoredIcons;
-    GUID currentTabId{};
+    const bool sharedHistory = panel != NULL && MainWindow->UsingSharedWorkDirHistory();
+    const GUID currentTabId = sharedHistory ? panel->GetHistoryTabId() : GUID{};
+    const bool useColors = panel != NULL && popupIcons != NULL && Configuration.WorkDirHistoryColoredIcons;
     if (panel != NULL)
     {
         CPathBuffer hotPath;
@@ -2016,8 +2020,6 @@ void CPathHistory::FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int ma
             if (MainWindow->GetExpandedHotPath(NULL, index, hotPath.Data(), hotPath.Capacity()))
                 hotPaths.emplace_back(hotPath.Data());
         }
-        if (MainWindow->UsingSharedWorkDirHistory())
-            currentTabId = panel->GetHistoryTabId();
     }
 
     MENU_ITEM_INFO mii;
@@ -2040,20 +2042,20 @@ void CPathHistory::FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int ma
         mii.String = buffer;
         mii.HIcon = item->GetIcon();
 
-        int imageIndex = -1;
+        bool isHotPath = false;
         for (const std::string& hotPath : hotPaths)
         {
             if (item->MatchesHotPath(hotPath.c_str()))
             {
-                imageIndex = IDX_TB_HISTORYHOTPATH;
+                isHotPath = true;
                 break;
             }
         }
-        const bool fromOtherTab = !IsEqualGUID(currentTabId, GUID{}) &&
-                                  !IsEqualGUID(item->Source.Id, GUID{}) &&
-                                  !IsEqualGUID(item->Source.Id, currentTabId);
-        if (imageIndex == -1 && fromOtherTab)
-            imageIndex = IDX_TB_TABSDUPLICATE;
+        const bool knownSource = !IsEqualGUID(item->Source.Id, GUID{});
+        const bool fromCurrentTab = knownSource && IsEqualGUID(item->Source.Id, currentTabId);
+        const bool fromOtherTab = !IsEqualGUID(currentTabId, GUID{}) && knownSource && !fromCurrentTab;
+        const bool standaloneStar = isHotPath && (!sharedHistory || fromCurrentTab);
+        const int imageIndex = fromOtherTab ? IDX_TB_TABSDUPLICATE : (standaloneStar ? IDX_TB_HISTORYHOTPATH : -1);
 
         if (imageIndex != -1)
         {
@@ -2062,9 +2064,9 @@ void CPathHistory::FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int ma
             mii.HIcon = NULL;
         }
         mii.ID = id++;
-        if (popup->InsertItem(-1, TRUE, &mii) && (fromOtherTab || (useColors && imageIndex == IDX_TB_HISTORYHOTPATH)))
+        if (popup->InsertItem(-1, TRUE, &mii) && (fromOtherTab || (useColors && standaloneStar)))
             itemsToDecorate.push_back({(DWORD)(popup->GetItemCount() - 1), imageIndex,
-                                       fromOtherTab ? item->Source : CWorkingDirectorySource{}});
+                                       fromOtherTab && isHotPath, fromOtherTab ? item->Source : CWorkingDirectorySource{}});
         added++;
     }
 
@@ -2074,35 +2076,53 @@ void CPathHistory::FillHistoryPopupMenu(CMenuPopup* popup, DWORD firstID, int ma
     // Assign the existing path accelerators before inserting source labels.
     CWorkingDirectoryTabs tabs;
     std::map<std::pair<int, COLORREF>, HICON> variants;
-    const int iconSize = useColors ? WinLibDPIFromLogical(panel->HWindow, 16) : 0;
+    std::optional<HICON> favoriteBadge;
+    const int iconSize = panel != NULL && popupIcons != NULL ? WinLibDPIFromLogical(panel->HWindow, 16) : 0;
+    const COLORREF favoriteColor = RGB(255, 211, 48);
     for (const HistoryMenuItem& row : itemsToDecorate)
     {
         const bool fromOtherTab = !IsEqualGUID(row.Source.Id, GUID{});
         const CWorkingDirectorySource source = fromOtherTab ? ResolveWorkingDirectorySource(tabs, row.Source) : row.Source;
-        const bool hotPath = row.ImageIndex == IDX_TB_HISTORYHOTPATH;
-        const COLORREF color = hotPath ? RGB(255, 211, 48) : source.Color;
+        const bool standaloneStar = row.ImageIndex == IDX_TB_HISTORYHOTPATH;
+        const COLORREF color = standaloneStar ? favoriteColor : source.Color;
+        MENU_ITEM_INFO iconInfo = {};
         if (useColors && color != CLR_NONE)
         {
             const auto [variant, inserted] = variants.try_emplace(std::make_pair(row.ImageIndex, color), nullptr);
             if (inserted)
             {
-                HICON icon = hotPath ? CreateTintedToolbarSVGIcon("ExplorerCategoryFavorites", iconSize,
-                                                                 {"", color, RGB(135, 81, 0), 1.4f})
-                                     : CreateTintedToolbarSVGIcon("TabsDuplicate", iconSize,
-                                                                 {"history-tab-fill-", color});
+                HICON icon = standaloneStar ? CreateTintedToolbarSVGIcon("ExplorerCategoryFavorites", iconSize,
+                                                                        {"", color, RGB(135, 81, 0), 1.4f})
+                                            : CreateTintedToolbarSVGIcon("TabsDuplicate", iconSize,
+                                                                        {"history-tab-fill-", color});
                 variant->second = icon;
                 if (icon != NULL)
-                    coloredIcons->push_back(icon);
+                    popupIcons->push_back(icon);
             }
             if (variant->second != NULL)
             {
-                MENU_ITEM_INFO iconInfo = {};
                 iconInfo.Mask = MENU_MASK_IMAGEINDEX | MENU_MASK_ICON;
                 iconInfo.ImageIndex = -1;
                 iconInfo.HIcon = variant->second;
-                popup->SetItemInfo(row.Position, TRUE, &iconInfo);
             }
         }
+        if (row.FavoriteBadge && popupIcons != NULL)
+        {
+            if (!favoriteBadge)
+            {
+                const COLORREF badgeColor = useColors ? favoriteColor : RGB(236, 236, 236);
+                favoriteBadge = CreateTintedToolbarSVGIcon("WorkingDirectoryFavoriteBadge", iconSize, {"", badgeColor});
+                if (*favoriteBadge != NULL)
+                    popupIcons->push_back(*favoriteBadge);
+            }
+            if (*favoriteBadge != NULL)
+            {
+                iconInfo.Mask |= MENU_MASK_OVERLAY;
+                iconInfo.HOverlay = *favoriteBadge;
+            }
+        }
+        if (iconInfo.Mask != 0)
+            popup->SetItemInfo(row.Position, TRUE, &iconInfo);
 
         const std::string prefix = FormatHistoryTabPrefix(source.Name);
         if (prefix.empty())
