@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-27 | Track custom-handler creation mode and actions. | Keep Add New separate from edits and expose delete-button behavior. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-26 | Store the choice to display colored working directory history icons. | Keep the setting independent of history storage. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-14 | Keep user-association ownership on runtime handler rows. | Let file actions select the exact target shown in File Associations ahead of overlapping legacy masks. |  | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-10 | Declare the shared association status resolver. | Keep matrix status text, badge color, and conflict filtering on one provenance calculation. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
@@ -1249,10 +1250,14 @@ protected:
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
     void RefreshList();
     void LoadSelected();
+    void BeginNew();
+    void DeleteCurrent();
+    void UpdateButtons();
     void SaveCurrent();
 
     BOOL Viewers;
     int SelectedRow;
+    BOOL AddingNew;
     std::vector<Salamander::FileAssociations::CustomHandler> Handlers;
 };
 

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-27 | Prefer the most-specific editor mask for F4. | Ensure a concrete File Associations pattern such as *.html beats a broad *.* fallback regardless of runtime row provenance or order. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-25 | Admit bundled Branch viewers without dropping protected reads. | ViewFileInt keeps one consent scope and the Branch View handler policy. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 // | 2026-11-15 | Open protected viewer documents through verified read handles. | Preserve panel consent and native block-based viewing. | #731 | GPT-6 |
 // | 2026-11-12 | Preserve protected panel identity for explicit internal viewers. | Keep View With on the existing viewer and refuse stale modal state. | #731 | GPT-6 (Codex) |
@@ -2472,9 +2473,9 @@ static CViewerMasksItem* FindUserViewerAssociation(CViewerMasks* masks,
     return best;
 }
 
-static CEditorMasksItem* FindUserEditorAssociation(CEditorMasks* masks,
-                                                   const char* namePart,
-                                                   const char* extension)
+static CEditorMasksItem* FindMostSpecificEditorAssociation(CEditorMasks* masks,
+                                                           const char* namePart,
+                                                           const char* extension)
 {
     CEditorMasksItem* best = NULL;
     int bestSpecificity = -1;
@@ -2483,7 +2484,7 @@ static CEditorMasksItem* FindUserEditorAssociation(CEditorMasks* masks,
     for (int i = 0; i < masks->Count; ++i)
     {
         CEditorMasksItem* item = masks->At(i);
-        if (item == NULL || !item->UserAssociationOverride || item->Masks == NULL)
+        if (item == NULL || item->Masks == NULL)
             continue;
         int error;
         if (item->Masks->PrepareMasks(error) && item->Masks->AgreeMasks(namePart, extension))
@@ -3032,10 +3033,10 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID, COpenEditorData* found)
         }
     }
 
-    // Do not let a broader legacy mask (for example *.*) beat a User row
-    // selected in File Associations.
+    // A concrete editor pattern (for example *.html) beats a broad wildcard
+    // fallback (for example *.*), independent of legacy runtime row order.
     if (editor == NULL && handlerID == 0xFFFFFFFF)
-        editor = FindUserEditorAssociation(masks, namePart, tmpExt);
+        editor = FindMostSpecificEditorAssociation(masks, namePart, tmpExt);
 
     if (editor == NULL)
     {

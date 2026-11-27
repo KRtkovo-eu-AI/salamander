@@ -1,4 +1,6 @@
-﻿// | 2026-11-15 | Explain administrator denial when opening folders. | Distinguish a broker denial from an ordinary access error. | #731 | GPT-6 |
+﻿// | 2026-11-27 | Localize custom-handler reference-safety messages. | Explain when an assigned handler cannot be deleted or associations cannot be checked. | | openrouter/openai/gpt-6-luna-pro |
+// | 2026-11-27 | Use compact custom-handler action labels. | Fit localized Add and Delete actions in equal-width buttons. | | openrouter/openai/gpt-6-luna-pro |
+// | 2026-11-15 | Explain administrator denial when opening folders. | Distinguish a broker denial from an ordinary access error. | #731 | GPT-6 |
 // | 2026-11-13 | Localize experimental thin copy consent. | Avoid claiming support for alternate streams. | #731 | GPT-6 |
 // | 2026-11-12 | Describe uncertain partial Branch merges. | Avoid presenting a live retry as an atomic snapshot. | #731 | GPT-6.1 Terra |
 // | 2026-11-12 | Retry denied Branch listings after scoped consent. | Keep partial results and verify listed directory identities. | #731 | GPT-6.1 Terra |
@@ -2614,6 +2616,11 @@ STRINGTABLE
  IDS_CUSTOM_HANDLER_ARGUMENTS, "&Arguments:"
  IDS_CUSTOM_HANDLER_INITIAL_DIRECTORY, "&Initial directory:"
  IDS_CUSTOM_HANDLER_SAVE, "&Save"
+ IDS_CUSTOM_HANDLER_ADD_NEW, "&Add"
+ IDS_CUSTOM_HANDLER_DELETE, "&Delete"
+ IDS_CUSTOM_HANDLER_DELETE_CONFIRM, "Delete the selected handler?"
+ IDS_CUSTOM_HANDLER_IN_USE, "This handler is used by one or more entries in File Associations. Change those assignments before deleting it."
+ IDS_CUSTOM_HANDLER_ASSOCIATIONS_UNAVAILABLE, "File Associations could not be checked. The handler was not deleted."
  IDS_CUSTOM_HANDLER_LIST, "Saved custom handlers"
  IDS_CUSTOM_HANDLER_REQUIRED, "Enter a name and command for this handler."
  IDS_CUSTOM_HANDLER_DUPLICATE, "A handler with this name already exists."

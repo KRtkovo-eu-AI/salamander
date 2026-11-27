@@ -4369,6 +4369,11 @@ SLGINCOMPLETE,""
 14609,1,"Filen används av: %s"
 14610,1,"Terminate these processes and retry?\n\nUnsaved data in these processes may be lost:\n%s"
 14611,1,"Kan inte avsluta någon av processerna som använder filen."
+14612,1,"&Lägg till"
+14613,1,"&Ta bort"
+14614,1,"Vill du ta bort den valda hanteraren?"
+14615,1,"Den här hanteraren används i en eller flera filassociationer. Ändra dessa tilldelningar innan du tar bort den."
+14616,1,"Filassociationerna kunde inte kontrolleras. Hanteraren togs inte bort."
 
 [STRINGTABLE 193]
 14624,1,"Åtkomst nekades. Skapa mappen som administratör?"

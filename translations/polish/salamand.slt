@@ -4369,6 +4369,11 @@ SLGINCOMPLETE,""
 14609,1,"Plik używany przez: %s"
 14610,1,"Terminate these processes and retry?\n\nUnsaved data in these processes may be lost:\n%s"
 14611,1,"Nie można zakończyć procesów używających tego pliku."
+14612,1,"&Dodaj"
+14613,1,"&Usuń"
+14614,1,"Czy usunąć wybrany program obsługi?"
+14615,1,"Ten program obsługi jest używany w co najmniej jednym skojarzeniu plików. Zmień te przypisania przed jego usunięciem."
+14616,1,"Nie można sprawdzić skojarzeń plików. Program obsługi nie został usunięty."
 
 [STRINGTABLE 193]
 14624,1,"Odmowa dostępu. Czy utworzyć ten folder jako administrator?"

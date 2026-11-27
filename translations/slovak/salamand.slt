@@ -4369,6 +4369,11 @@ SLGINCOMPLETE,""
 14609,1,"Súbor používajú tieto procesy: %s"
 14610,1,"Ukončiť tieto procesy a akciu zopakovať?\n\nNeuložené údaje v týchto procesoch sa môžu stratiť:\n%s"
 14611,1,"Nepodarilo sa ukončiť žiadny proces používajúci tento súbor."
+14612,1,"&Pridať"
+14613,1,"&Odstrániť"
+14614,1,"Naozaj chcete odstrániť vybranú obsluhu?"
+14615,1,"Táto obsluha sa používa v jednej alebo viacerých asociáciách súborov. Pred odstránením zmeňte tieto priradenia."
+14616,1,"Asociácie súborov sa nepodarilo skontrolovať. Obsluha nebola odstránená."
 
 [STRINGTABLE 193]
 14624,1,"Prístup bol odmietnutý. Vytvoriť tento priečinok ako správca?"

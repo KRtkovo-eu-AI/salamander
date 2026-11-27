@@ -4369,6 +4369,11 @@ SLGINCOMPLETE,""
 14609,1,"El archivo está siendo utilizado por: %s"
 14610,1,"¿Finalizar estos procesos y volver a intentarlo?\n\nSe pueden perder los datos no guardados de estos procesos:\n%s"
 14611,1,"No se pudo finalizar ninguno de los procesos que utilizan este archivo."
+14612,1,"&Añadir"
+14613,1,"&Eliminar"
+14614,1,"¿Desea eliminar el controlador seleccionado?"
+14615,1,"Este controlador se usa en una o más asociaciones de archivos. Cambie esas asignaciones antes de eliminarlo."
+14616,1,"No se pudieron comprobar las asociaciones de archivos. No se eliminó el controlador."
 
 [STRINGTABLE 193]
 14624,1,"Acceso denegado. ¿Crear esta carpeta como administrador?"

@@ -4369,6 +4369,11 @@ SLGINCOMPLETE,""
 14609,1,"Datoteko uporablja: %s"
 14610,1,"Terminate these processes and retry?\n\nUnsaved data in these processes may be lost:\n%s"
 14611,1,"Ni mogoče končati procesov, ki uporabljajo to datoteko."
+14612,1,"&Dodaj"
+14613,1,"&Izbriši"
+14614,1,"Ali želite izbrisati izbrani upravljalnik?"
+14615,1,"Ta upravljalnik je uporabljen v eni ali več povezavah datotek. Pred brisanjem spremenite te dodelitve."
+14616,1,"Povezav datotek ni bilo mogoče preveriti. Upravljalnik ni bil izbrisan."
 
 [STRINGTABLE 193]
 14624,1,"Dostop zavrnjen. Ustvari to mapo kot skrbnik?"

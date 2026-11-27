@@ -4369,6 +4369,11 @@ SLGINCOMPLETE,""
 14609,1,"Tệp được dùng bởi: %s"
 14610,1,"Dừng các tiến trình này và thử lại?\n\nDữ liệu chưa lưu trong đó có thể bị mất:\n%s"
 14611,1,"Không thể dừng bất kỳ tiến trình nào dùng tệp này."
+14612,1,"&Thêm"
+14613,1,"&Xóa"
+14614,1,"Bạn có muốn xóa trình xử lý đã chọn không?"
+14615,1,"Trình xử lý này được dùng trong một hoặc nhiều liên kết tệp. Hãy thay đổi các liên kết đó trước khi xóa."
+14616,1,"Không thể kiểm tra liên kết tệp. Trình xử lý chưa bị xóa."
 
 [STRINGTABLE 193]
 14624,1,"Truy cập bị từ chối. Tạo thư mục này với quyền quản trị viên?"

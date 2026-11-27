@@ -4369,6 +4369,11 @@ SLGINCOMPLETE,""
 14609,1,"Failą naudoja: %s"
 14610,1,"Terminate these processes and retry?\n\nUnsaved data in these processes may be lost:\n%s"
 14611,1,"Negalima nutraukti nė vieno failą naudojančio proceso."
+14612,1,"&Pridėti"
+14613,1,"&Šalinti"
+14614,1,"Ar tikrai norite pašalinti pasirinktą apdorojimo programą?"
+14615,1,"Šis apdorojimo įrankis naudojamas vienoje ar keliose failų sąsajose. Prieš jį ištrindami pakeiskite šiuos priskyrimus."
+14616,1,"Nepavyko patikrinti failų sąsajų. Apdorojimo įrankis neištrintas."
 
 [STRINGTABLE 193]
 14624,1,"Prieiga uždrausta. Kurti aplanką kaip administratorius?"

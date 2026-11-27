@@ -4369,6 +4369,11 @@ SLGINCOMPLETE,""
 14609,1,"Datoteka je u uporabi: %s"
 14610,1,"Terminate these processes and retry?\n\nUnsaved data in these processes may be lost:\n%s"
 14611,1,"Nije moguće prekinuti procese koji koriste ovu datoteku."
+14612,1,"&Dodaj"
+14613,1,"&Izbriši"
+14614,1,"Želite li izbrisati odabranog rukovatelja?"
+14615,1,"Ovaj rukovatelj koristi se u jednoj ili više asocijacija datoteka. Promijenite te dodjele prije brisanja."
+14616,1,"Nije moguće provjeriti asocijacije datoteka. Rukovatelj nije izbrisan."
 
 [STRINGTABLE 193]
 14624,1,"Pristup je odbijen. Stvoriti ovu mapu kao administrator?"

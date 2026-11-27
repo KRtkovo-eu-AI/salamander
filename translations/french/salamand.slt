@@ -4369,6 +4369,11 @@ SLGINCOMPLETE,""
 14609,1,"Fichier utilisé par les processus suivants : %s"
 14610,1,"Terminer ces processus et réessayer ?\n\nLes données non enregistrées de ces processus peuvent être perdues :\n%s"
 14611,1,"Impossible de terminer les processus qui utilisent ce fichier."
+14612,1,"&Ajouter"
+14613,1,"&Supprimer"
+14614,1,"Voulez-vous supprimer le gestionnaire sélectionné ?"
+14615,1,"Ce gestionnaire est utilisé par une ou plusieurs associations de fichiers. Modifiez ces associations avant de le supprimer."
+14616,1,"Impossible de vérifier les associations de fichiers. Le gestionnaire n'a pas été supprimé."
 
 [STRINGTABLE 193]
 14624,1,"Accès refusé. Créer ce dossier en tant qu'administrateur ?"

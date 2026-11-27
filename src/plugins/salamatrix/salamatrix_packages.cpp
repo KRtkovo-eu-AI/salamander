@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-27 | Use supported flags when tracking extension menus. | Salamander's popup defaults are already left/top aligned; the old no-op constants are not defined by the GUI API. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-26 | Salamatrix Change Drive item offers all extension commands. | Right-clicking the Salamatrix Framework drive shows a submenu with the union of its pluginbar button items and the extension bar items, deduplicated by command id. |  | nvidia/nemotron-3.5-super-vl:free |
 // | 2026-11-07 | Forward Find phrase and flags through Salamatrix viewer invocations. | Webview viewers must prefill Find when opened from the Find window. | https://github.com/KRtkovo-eu-AI/salamander/issues/758 | openai/gpt-5.6-luna-pro |
 // | 2026-11-07 | Use the active Salamatrix window as the owner for host UI. | Extension confirmation dialogs must stay in front of the extension window instead of activating the main window. | https://github.com/KRtkovo-eu-AI/salamander/issues/757 | OpenAI GPT-5.6 Luna Pro |
@@ -2659,7 +2660,7 @@ public:
             mii.SkillLevel = MENU_LEVEL_BEGINNER;
             popup->InsertItem(static_cast<DWORD>(i), TRUE, &mii);
         }
-        DWORD selected = popup->Track(MENU_TRACK_RETURNCMD | MENU_TRACK_LEFTALIGN | MENU_TRACK_TOPALIGN, x, y, parent, NULL);
+        DWORD selected = popup->Track(MENU_TRACK_RETURNCMD, x, y, parent, NULL);
         SalamanderGUI->DestroyMenuPopup(popup);
         if (selected != 0)
         {

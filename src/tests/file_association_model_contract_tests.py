@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-27 | Regress ZIP open, editor precedence, and handler-reference safety. | Keep archive dispatch consistent with Ctrl+PgDown, prefer specific editor masks, and prevent deleting referenced handlers. | https://github.com/KRtkovo-eu-AI/salamander/issues/873 | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-14 | Regress authoritative runtime handler selection. | Ensure explicit user targets beat wildcard fallback rows for viewer/editor actions and exact archive extension mappings. |  | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-14 | Regress independent runtime projection domains. | Ensure an unchanged packer table cannot reject Viewer, Alternate View, or Editor overrides. |  | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-13 | Regress runtime projection with unavailable conflict candidates. | Ensure diagnostic plugin conflicts cannot roll back a valid User override during Apply or startup. |  | openrouter/openai/gpt-6-luna-pro |
@@ -44,6 +45,8 @@ ARRAY = ROOT / "src" / "common" / "array.h"
 PACK_HEADER = ROOT / "src" / "pack.h"
 PACK_IMPLEMENTATION = ROOT / "src" / "pack3.cpp"
 FILE_ACTIONS = ROOT / "src" / "fileswn5.cpp"
+FILE_ACTION_EXECUTION = ROOT / "src" / "fileswn2.cpp"
+FILE_ACTION_ARCHIVE_NAVIGATION = ROOT / "src" / "fileswn0.cpp"
 LIFECYCLE_HEADER = ROOT / "src" / "fileassoclifecycle.h"
 LIFECYCLE_IMPLEMENTATION = ROOT / "src" / "fileassoclifecycle.cpp"
 CFG_HEADER = ROOT / "src" / "cfgdlg.h"
@@ -81,6 +84,8 @@ def main() -> None:
     pack_header = PACK_HEADER.read_text(encoding="utf-8")
     pack_implementation = PACK_IMPLEMENTATION.read_text(encoding="utf-8")
     file_actions = FILE_ACTIONS.read_text(encoding="utf-8")
+    file_action_execution = FILE_ACTION_EXECUTION.read_text(encoding="utf-8")
+    file_action_archive_navigation = FILE_ACTION_ARCHIVE_NAVIGATION.read_text(encoding="utf-8")
     project = PROJECT.read_text(encoding="utf-8")
     filters = FILTERS.read_text(encoding="utf-8")
     lifecycle_header = LIFECYCLE_HEADER.read_text(encoding="utf-8")
@@ -267,7 +272,7 @@ def main() -> None:
             "item->UserAssociationOverride" in add_viewer and
             "item->UserAssociationOverride" in add_editor and
             "FindUserViewerAssociation(masks, namePart, tmpExt)" in file_actions and
-            "FindUserEditorAssociation(masks, namePart, tmpExt)" in file_actions and
+            "FindMostSpecificEditorAssociation(masks, namePart, tmpExt)" in file_actions and
             file_actions.index("FindUserViewerAssociation(masks, namePart, tmpExt)") <
             file_actions.index("for (i = 0; i < masks->Count; i++)", file_actions.index("FindUserViewerAssociation(masks, namePart, tmpExt)")) and
             "FileAssociationPatternSpecificity" in file_actions and
@@ -275,6 +280,44 @@ def main() -> None:
             "if (handlerID != 0xFFFFFFFF)" in file_actions and
             "masks->At(i)->Masks->AgreeMasks(namePart, tmpExt)" in file_actions,
             "explicit user targets must beat wildcard mask order and rejected fallback handlers")
+    editor_resolution = file_actions.index(
+        "editor = FindMostSpecificEditorAssociation(masks, namePart, tmpExt)")
+    editor_fallback = file_actions.index(
+        "for (i = 0; i < masks->Count; i++)", editor_resolution)
+    editor_resolver_start = file_actions.index(
+        "static CEditorMasksItem* FindMostSpecificEditorAssociation(")
+    require(editor_resolution < editor_fallback and
+            "item->UserAssociationOverride" not in
+                file_actions[editor_resolver_start:editor_resolution] and
+            "specificity > bestSpecificity" in file_actions[
+                editor_resolver_start:editor_resolution],
+            "the most-specific Edit mask must beat a broader fallback before legacy mask order")
+
+    execute_start = file_action_execution.index("void CFilesWindow::Execute(int index)")
+    execute_end = file_action_execution.index("void CFilesWindow::", execute_start + 1)
+    execute = file_action_execution[execute_start:execute_end]
+    zip_fallback = execute.index("TryEnterFileAsArchive(index, TRUE)")
+    require("IsZipArchiveFileName(file->Name)" in execute and
+            "PackerFormatConfig.PackIsArchive(file->Name) == 0" in execute and
+            execute.index("IsZipArchiveFileName(file->Name)") < zip_fallback <
+            execute.index("BeginStopRefresh();") and
+            "BOOL CFilesWindow::TryEnterFileAsArchive(int index, BOOL silentProbe)" in
+                file_action_archive_navigation and
+            "if (!silentProbe)" in file_action_archive_navigation and
+            "return !silentProbe;" in file_action_archive_navigation,
+            "default ZIP open must silently probe before shell fallback without probing unrelated files")
+
+    delete_start = dialogs5.index("void CCfgPageCustomHandlers::DeleteCurrent()")
+    delete_end = dialogs5.index("void CCfgPageCustomHandlers::UpdateButtons()", delete_start)
+    delete_handler = dialogs5[delete_start:delete_end]
+    require("CopyCanonicalAssociationsForConfiguration" in delete_handler and
+            "TargetKind::CustomViewer" in delete_handler and
+            "TargetKind::CustomEditor" in delete_handler and
+            "IDS_CUSTOM_HANDLER_IN_USE" in delete_handler and
+            "IDS_CUSTOM_HANDLER_ASSOCIATIONS_UNAVAILABLE" in delete_handler and
+            delete_handler.index("CopyCanonicalAssociationsForConfiguration") <
+            delete_handler.index("IDS_CUSTOM_HANDLER_DELETE_CONFIRM"),
+            "a custom handler referenced by File Associations must not be deleted")
     archive_stage_start = runtime_adapter.index("bool StageArchiveAssociation(")
     archive_stage_end = runtime_adapter.index("bool BeginRuntimeProjection(", archive_stage_start)
     archive_stage = runtime_adapter[archive_stage_start:archive_stage_end]

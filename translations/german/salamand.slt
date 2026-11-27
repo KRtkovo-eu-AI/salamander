@@ -4369,6 +4369,11 @@ SLGINCOMPLETE,""
 14609,1,"Die Datei wird von folgenden Prozessen verwendet: %s"
 14610,1,"Diese Prozesse beenden und erneut versuchen?\n\nNicht gespeicherte Daten in diesen Prozessen können verloren gehen:\n%s"
 14611,1,"Keiner der Prozesse, die diese Datei verwenden, konnte beendet werden."
+14612,1,"&Hinzufügen"
+14613,1,"&Löschen"
+14614,1,"Möchten Sie den ausgewählten Handler löschen?"
+14615,1,"Dieser Handler wird in mindestens einer Dateizuordnung verwendet. Ändern Sie diese Zuordnungen, bevor Sie ihn löschen."
+14616,1,"Die Dateizuordnungen konnten nicht überprüft werden. Der Handler wurde nicht gelöscht."
 
 [STRINGTABLE 193]
 14624,1,"Zugriff verweigert. Diesen Ordner als Administrator erstellen?"

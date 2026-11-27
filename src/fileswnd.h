@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-27 | Support probing an unclassified ZIP during default open. | Keep Enter and double-click consistent with Ctrl+PgDown when the ZIP extension is absent from the panel table. | https://github.com/KRtkovo-eu-AI/salamander/issues/873 | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-15 | Expose a temporary ZIP viewer read handle. | Keep entry data outside the viewer memory budget. | #731 | GPT-6 |
 // | 2026-11-08 | Track protected archive mode on the panel. | Distinguish manual refresh from background refresh. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
@@ -1825,7 +1826,7 @@ public:
 
     void CtrlPageDnOrEnter(WPARAM key);
     void CtrlPageUpOrBackspace();
-    void TryEnterFileAsArchive(int index);
+    BOOL TryEnterFileAsArchive(int index, BOOL silentProbe = FALSE);
 
     // attempts to open the focused file as a shortcut, extract its target
     // and focus that target in the panel 'panel'
