@@ -14,7 +14,7 @@
 */
 (() => {
   const STORAGE_KEY = "samandarin-language";
-  const CACHE_VERSION = "2";
+  const CACHE_VERSION = "3";
   const LOCALES = [
     { code: "en", name: "English", flag: "🇬🇧", htmlLang: "en", dir: "ltr" },
     { code: "ar", name: "العربية", flag: "🇸🇦", htmlLang: "ar", dir: "rtl" },
