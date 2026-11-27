@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-27 | Refresh menu state through the CPlugins public helper. | CPluginData must not call the protected state-cache implementation directly. | | openrouter/openai/gpt-6-luna-pro |
+// | 2026-11-27 | Forward the version-gated Change Drive submenu callback. | Keep plug-in calls inside the existing EnterPlugin/LeavePlugin boundary. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-13 | Resolve plug-in language keys from the containing directory. | Match embedded resource names for plug-ins stored in nested directories. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-09 | Mark first-registration viewer rows for configuration merge. | Preserve new plugin defaults across legacy settings load while respecting saved user removals. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Resolve plugins by stable registry identity. | Provide the canonical association adapter with a session-index lookup that does not depend on row order. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -31,6 +33,7 @@
 #include "common/widepath.h"
 #include "fileactiondisktarget.h"
 #include "langpack.h"
+#include "common/winlibdpi.h"
 
 CPlugins Plugins;
 
@@ -246,6 +249,17 @@ BOOL CPluginInterfaceForFSEncapsulation::ChangeDriveMenuItemContextMenu(HWND par
                                                        closeMenu, postCmd, postCmdParam);
     LeavePlugin();
     return r;
+}
+
+BOOL CPluginInterfaceForFSEncapsulation::BuildChangeDriveMenu(
+    CGUIMenuPopupAbstract* menu, DWORD eventMask, int iconSize,
+    HIMAGELIST* imageList, HIMAGELIST* hotImageList)
+{
+    EnterPlugin();
+    BOOL result = Interface->BuildChangeDriveMenu(
+        menu, eventMask, iconSize, imageList, hotImageList);
+    LeavePlugin();
+    return result;
 }
 
 void CPluginInterfaceForFSEncapsulation::ExecuteChangeDrivePostCommand(int panel, int postCmd, void* postCmdParam)
@@ -4210,6 +4224,47 @@ BOOL CPluginData::ChangeDriveMenuItemContextMenu(HWND parent, int panel, int x, 
                                                                closeMenu, postCmd, postCmdParam);
     }
     return FALSE; // error, so return "value parameters should be ignored"
+}
+
+BOOL CPluginData::BuildChangeDriveMenu(
+    HWND parent, CMenuPopup* menu, HIMAGELIST* imageList,
+    HIMAGELIST* hotImageList)
+{
+    CALL_STACK_MESSAGE3("CPluginData::BuildChangeDriveMenu() (%s v. %s)", DLLName, Version);
+    if (menu == NULL || imageList == NULL || hotImageList == NULL ||
+        !GetLoaded() || BuiltForVersion < SAL_SDK_VER_CHANGEDRIVEMENU ||
+        ChDrvMenuFSItemName == NULL || !PluginIfaceForFS.NotEmpty())
+        return FALSE;
+
+    const int pluginIndex = Plugins.GetIndex(PluginIface.GetInterface());
+    if (pluginIndex < 0)
+        return FALSE;
+
+    Plugins.RecalculateMenuStateCache();
+    const DWORD eventMask = GetMaskForMenuItems(pluginIndex);
+    const int iconSize = GetIconSizeForDPI(
+        ICONSIZE_16, static_cast<int>(WinLibDPIGetWindowDPI(parent)));
+    const BOOL built = PluginIfaceForFS.BuildChangeDriveMenu(
+        static_cast<CGUIMenuPopupAbstract*>(menu), eventMask, iconSize,
+        imageList, hotImageList);
+    if (!built)
+        return FALSE;
+    if (SupportDynMenuExt)
+    {
+        if (!BuildMenu(parent, TRUE))
+        {
+            if (*imageList != NULL)
+                ImageList_Destroy(*imageList);
+            if (*hotImageList != NULL && *hotImageList != *imageList)
+                ImageList_Destroy(*hotImageList);
+            *imageList = NULL;
+            *hotImageList = NULL;
+            ReleasePluginDynMenuIcons();
+            return FALSE;
+        }
+        ReleasePluginDynMenuIcons();
+    }
+    return TRUE;
 }
 
 void CPluginData::EnsureShareExistsOnServer(HWND parent, int panel, const char* server, const char* share)

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-27 | Version the Change Drive submenu callback. | The appended FS interface method must be gated before calling older plug-in vtables. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 
 //****************************************************************************
@@ -233,9 +234,11 @@
 //   104 - 5.0 per-monitor DPI window graphics
 //   105 - 5.0 Salamatrix service registry and panel-tab snapshot API
 //   106 - 5.0 CanOpenArchive on CPluginInterfaceForArchiverAbstract
+//   107 - 5.0 Change Drive submenu callback on CPluginInterfaceForFSAbstract
 
-#define LAST_VERSION_OF_SALAMANDER 106
+#define LAST_VERSION_OF_SALAMANDER 107
 #define SAL_SDK_VER_CANOPENARCHIVE 106
+#define SAL_SDK_VER_CHANGEDRIVEMENU 107
 #define REQUIRE_LAST_VERSION_OF_SALAMANDER "This plugin requires Open Samandarin 5.0 (" SAL_VER_PLATFORM ") or later."
 
 #endif // __SPL_VERS_H

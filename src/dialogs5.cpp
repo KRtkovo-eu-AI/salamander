@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-27 | Delete selected file-association patterns as complete rows. | Confirm and remove every action for selected patterns while preserving Set Unassigned for individual targets. | | openrouter/openai/gpt-6-luna-pro |
+// | 2026-11-27 | Make Add reliably start a blank custom-handler draft. | Clear the list selection before committing draft state and clearing its fields. | | openrouter/openai/gpt-6-luna-pro |
+// | 2026-11-27 | Add creation and safe confirmed deletion for custom handlers. | Manage viewer/editor handlers directly from their detail pages without orphaning File Associations. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-13 | Mark edited association controls as user overrides during validation. | Keep Configuration OK and page navigation from saving visible targets without projecting them into file actions. |  | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-10 | Unify association status, badge color, and conflict filtering. | Apply the same User-first status calculation to the badge, counts, and Conflicts checkbox. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-10 | Prioritize effective user provenance in matrix badges. | Show User after an override replaces a default/plugin association while retaining Conflict for any unresolved action on the same pattern. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
@@ -6232,7 +6235,6 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
             break;
         }
         case IDB_FILEASSOCIATION_DELETE:
-            if (Selected >= 0 && Selected < static_cast<int>(Rows.size()))
             {
                 HWND matrix = GetDlgItem(HWindow, IDL_FILEASSOCIATIONS);
                 std::vector<std::string> selectedPatterns;
@@ -6246,23 +6248,36 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                     selectedItem.iItem = row;
                     if (ListView_GetItem(matrix, &selectedItem) && selectedItem.lParam >= 0 &&
                         selectedItem.lParam < static_cast<LPARAM>(MatrixRows.size()))
-                        selectedPatterns.push_back(MatrixRows[selectedItem.lParam].Pattern);
+                    {
+                        const std::string& pattern = MatrixRows[selectedItem.lParam].Pattern;
+                        if (std::find(selectedPatterns.begin(), selectedPatterns.end(), pattern) ==
+                            selectedPatterns.end())
+                            selectedPatterns.push_back(pattern);
+                    }
                 }
-                if (selectedPatterns.size() > 1)
+
+                if (selectedPatterns.empty() && SelectedMatrixRow >= 0 &&
+                    SelectedMatrixRow < static_cast<int>(MatrixRows.size()))
+                    selectedPatterns.push_back(MatrixRows[SelectedMatrixRow].Pattern);
+                if (selectedPatterns.empty() && Selected >= 0 &&
+                    Selected < static_cast<int>(Rows.size()))
+                    selectedPatterns.push_back(Rows[Selected].Pattern);
+
+                if (!selectedPatterns.empty() &&
+                    SalMessageBox(HWindow, LoadStr(IDS_FILEASSOCIATION_DELETE_PATTERN_CONFIRM),
+                                  LoadStr(IDS_QUESTION),
+                                  MB_YESNO | MSGBOXEX_ESCAPEENABLED | MB_DEFBUTTON2 |
+                                      MB_ICONQUESTION) == IDYES)
                 {
                     for (size_t i = Rows.size(); i > 0; --i)
-                        if (std::find(selectedPatterns.begin(), selectedPatterns.end(), Rows[i - 1].Pattern) != selectedPatterns.end() &&
-                            Rows[i - 1].AssociationCategory == static_cast<Salamander::FileAssociations::Category>(SelectedCategory) &&
-                            (SelectedCategory != static_cast<int>(Salamander::FileAssociations::Category::PanelArchive) ||
-                             Rows[i - 1].Operation == static_cast<Salamander::FileAssociations::PanelOperation>(SelectedOperation)))
+                        if (std::find(selectedPatterns.begin(), selectedPatterns.end(),
+                                      Rows[i - 1].Pattern) != selectedPatterns.end())
                             Rows.erase(Rows.begin() + i - 1);
+
+                    Selected = -1;
+                    SelectedMatrixRow = -1;
+                    RefreshList();
                 }
-                else
-                    Rows.erase(Rows.begin() + Selected);
-                if (Selected >= static_cast<int>(Rows.size()))
-                    Selected = static_cast<int>(Rows.size()) - 1;
-                SelectedMatrixRow = -1;
-                RefreshList();
             }
             break;
         case IDB_FILEASSOCIATION_RESET:
@@ -6932,7 +6947,7 @@ CCfgPageCustomHandlers::CCfgPageCustomHandlers(BOOL viewers)
                            viewers ? IDD_CFGPAGE_CUSTOMVIEWERS : IDD_CFGPAGE_CUSTOMEDITORS,
                            viewers ? IDD_CFGPAGE_CUSTOMVIEWERS : IDD_CFGPAGE_CUSTOMEDITORS,
                            PSP_USETITLE, NULL),
-      Viewers(viewers), SelectedRow(-1)
+      Viewers(viewers), SelectedRow(-1), AddingNew(FALSE)
 {
 }
 
@@ -6944,9 +6959,11 @@ void CCfgPageCustomHandlers::Transfer(CTransferInfo& ti)
             ? Salamander::FileAssociations::CustomHandlerKind::Viewer
             : Salamander::FileAssociations::CustomHandlerKind::Editor;
         Handlers = Salamander::FileAssociations::GetCustomHandlers(kind);
-        RefreshList();
         SelectedRow = Handlers.empty() ? -1 : 0;
+        AddingNew = FALSE;
+        RefreshList();
         LoadSelected();
+        UpdateButtons();
     }
     else
     {
@@ -6999,6 +7016,88 @@ void CCfgPageCustomHandlers::LoadSelected()
     SetDlgItemText(HWindow, IDE_INITDIR, item.InitDir.c_str());
 }
 
+void CCfgPageCustomHandlers::BeginNew()
+{
+    HWND list = GetDlgItem(HWindow, IDL_CUSTOM_HANDLERS);
+    if (list != NULL)
+        ListView_SetItemState(list, -1, 0, LVIS_SELECTED | LVIS_FOCUSED);
+
+    // Deselecting the list can synchronously notify the dialog. Commit the new
+    // draft state afterwards so a list notification cannot restore the old row.
+    SelectedRow = -1;
+    AddingNew = TRUE;
+    SetDlgItemText(HWindow, IDE_CUSTOM_HANDLER_NAME, "");
+    SetDlgItemText(HWindow, IDE_COMMAND, "");
+    SetDlgItemText(HWindow, IDE_ARGUMENTS, "");
+    SetDlgItemText(HWindow, IDE_INITDIR, "");
+    UpdateButtons();
+    SetFocus(GetDlgItem(HWindow, IDE_CUSTOM_HANDLER_NAME));
+}
+
+void CCfgPageCustomHandlers::DeleteCurrent()
+{
+    if (SelectedRow < 0 || SelectedRow >= static_cast<int>(Handlers.size()))
+        return;
+
+    Salamander::FileAssociations::CFileAssociationModel associations;
+    if (!Salamander::FileAssociations::CopyCanonicalAssociationsForConfiguration(
+            &associations, NULL))
+    {
+        SalMessageBox(HWindow, LoadStr(IDS_CUSTOM_HANDLER_ASSOCIATIONS_UNAVAILABLE),
+                      LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+        return;
+    }
+    const Salamander::FileAssociations::TargetKind targetKind = Viewers
+        ? Salamander::FileAssociations::TargetKind::CustomViewer
+        : Salamander::FileAssociations::TargetKind::CustomEditor;
+    for (size_t i = 0; i < associations.Associations().size(); ++i)
+    {
+        const Salamander::FileAssociations::Association& association =
+            associations.Associations()[i];
+        if (association.AssociationTarget.Kind == targetKind &&
+            _stricmp(association.AssociationTarget.StableId.c_str(),
+                     Handlers[SelectedRow].Id.c_str()) == 0)
+        {
+            SalMessageBox(HWindow, LoadStr(IDS_CUSTOM_HANDLER_IN_USE),
+                          LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+            return;
+        }
+    }
+
+    if (SalMessageBox(HWindow, LoadStr(IDS_CUSTOM_HANDLER_DELETE_CONFIRM), LoadStr(IDS_QUESTION),
+                      MB_YESNO | MSGBOXEX_ESCAPEENABLED | MB_DEFBUTTON2 | MB_ICONQUESTION) != IDYES)
+        return;
+
+    std::vector<Salamander::FileAssociations::CustomHandler> replacement = Handlers;
+    replacement.erase(replacement.begin() + SelectedRow);
+    const Salamander::FileAssociations::CustomHandlerKind kind = Viewers
+        ? Salamander::FileAssociations::CustomHandlerKind::Viewer
+        : Salamander::FileAssociations::CustomHandlerKind::Editor;
+    std::string error;
+    if (!Salamander::FileAssociations::ReplaceCustomHandlers(kind, replacement, &error))
+    {
+        SalMessageBox(HWindow, LoadStr(IDS_CUSTOM_HANDLER_INVALID), LoadStr(IDS_ERRORTITLE),
+                      MB_OK | MB_ICONEXCLAMATION);
+        return;
+    }
+
+    Handlers.swap(replacement);
+    if (Handlers.empty())
+        SelectedRow = -1;
+    else if (SelectedRow >= static_cast<int>(Handlers.size()))
+        SelectedRow = static_cast<int>(Handlers.size()) - 1;
+    AddingNew = FALSE;
+    RefreshList();
+    LoadSelected();
+    UpdateButtons();
+}
+
+void CCfgPageCustomHandlers::UpdateButtons()
+{
+    const BOOL validItem = SelectedRow >= 0 && SelectedRow < static_cast<int>(Handlers.size());
+    EnableWindow(GetDlgItem(HWindow, IDB_CUSTOM_HANDLER_DELETE), validItem && !AddingNew);
+}
+
 void CCfgPageCustomHandlers::SaveCurrent()
 {
     std::vector<char> name(SAL_MAX_PATH), command(SAL_MAX_PATH), arguments(SAL_MAX_PATH), initDir(SAL_MAX_PATH);
@@ -7020,16 +7119,19 @@ void CCfgPageCustomHandlers::SaveCurrent()
         return;
 
     int existingRow = -1;
-    if (SelectedRow >= 0 && SelectedRow < static_cast<int>(Handlers.size()) &&
-        _stricmp(Handlers[SelectedRow].Name.c_str(), name.data()) == 0)
-        existingRow = SelectedRow;
-    else
-        for (size_t i = 0; i < Handlers.size(); ++i)
-            if (_stricmp(Handlers[i].Name.c_str(), name.data()) == 0)
-            {
-                existingRow = static_cast<int>(i);
-                break;
-            }
+    if (!AddingNew)
+    {
+        if (SelectedRow >= 0 && SelectedRow < static_cast<int>(Handlers.size()) &&
+            _stricmp(Handlers[SelectedRow].Name.c_str(), name.data()) == 0)
+            existingRow = SelectedRow;
+        else
+            for (size_t i = 0; i < Handlers.size(); ++i)
+                if (_stricmp(Handlers[i].Name.c_str(), name.data()) == 0)
+                {
+                    existingRow = static_cast<int>(i);
+                    break;
+                }
+    }
 
     Salamander::FileAssociations::CustomHandler handler;
     if (existingRow >= 0)
@@ -7083,8 +7185,10 @@ void CCfgPageCustomHandlers::SaveCurrent()
     }
     Handlers.swap(replacement);
     SelectedRow = savedRow;
+    AddingNew = FALSE;
     RefreshList();
     LoadSelected();
+    UpdateButtons();
 }
 
 INT_PTR CCfgPageCustomHandlers::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -7124,6 +7228,8 @@ INT_PTR CCfgPageCustomHandlers::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
         SetDlgItemText(HWindow, IDC_STATIC_1, LoadStr(IDS_CUSTOM_HANDLER_DETAILS));
         SetDlgItemText(HWindow, IDC_STATIC_2, LoadStr(Viewers ? IDS_CUSTOM_HANDLER_VIEWERS_HELP
                                                               : IDS_CUSTOM_HANDLER_EDITORS_HELP));
+        SetDlgItemText(HWindow, IDB_CUSTOM_HANDLER_ADD_NEW, LoadStr(IDS_CUSTOM_HANDLER_ADD_NEW));
+        SetDlgItemText(HWindow, IDB_CUSTOM_HANDLER_DELETE, LoadStr(IDS_CUSTOM_HANDLER_DELETE));
         SetDlgItemText(HWindow, IDB_CUSTOM_HANDLER_SAVE, LoadStr(IDS_CUSTOM_HANDLER_SAVE));
         SendMessage(GetDlgItem(HWindow, IDE_CUSTOM_HANDLER_NAME), EM_LIMITTEXT, SAL_MAX_PATH - 1, 0);
         SendMessage(GetDlgItem(HWindow, IDE_COMMAND), EM_LIMITTEXT, SAL_MAX_PATH - 1, 0);
@@ -7133,9 +7239,20 @@ INT_PTR CCfgPageCustomHandlers::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
         ChangeToArrowButton(HWindow, IDB_BROWSEARGUMENTS);
         ChangeToArrowButton(HWindow, IDB_BROWSEINITDIR);
         ElasticVerticalLayout(1, IDL_CUSTOM_HANDLERS);
+        UpdateButtons();
         break;
     }
     case WM_COMMAND:
+        if (LOWORD(wParam) == IDB_CUSTOM_HANDLER_ADD_NEW && HIWORD(wParam) == BN_CLICKED)
+        {
+            BeginNew();
+            return TRUE;
+        }
+        if (LOWORD(wParam) == IDB_CUSTOM_HANDLER_DELETE && HIWORD(wParam) == BN_CLICKED)
+        {
+            DeleteCurrent();
+            return 0;
+        }
         if (LOWORD(wParam) == IDB_CUSTOM_HANDLER_SAVE && HIWORD(wParam) == BN_CLICKED)
         {
             SaveCurrent();
@@ -7170,7 +7287,9 @@ INT_PTR CCfgPageCustomHandlers::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
             if ((changed->uNewState & LVIS_SELECTED) != 0)
             {
                 SelectedRow = changed->iItem;
+                AddingNew = FALSE;
                 LoadSelected();
+                UpdateButtons();
             }
         }
         break;
@@ -7190,6 +7309,7 @@ INT_PTR CCfgPageCustomHandlers::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
             SetWindowPos(save, NULL, client.right - rightMargin - (saveRect.right - saveRect.left),
                          saveRect.top, 0, 0, SWP_NOZORDER | SWP_NOSIZE | SWP_NOACTIVATE);
         }
+
         HWND list = GetDlgItem(HWindow, IDL_CUSTOM_HANDLERS);
         RECT listClient;
         if (list != NULL && GetClientRect(list, &listClient) && Header_GetItemCount(ListView_GetHeader(list)) == 4)

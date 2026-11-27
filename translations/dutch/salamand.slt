@@ -4369,6 +4369,12 @@ SLGINCOMPLETE,""
 14609,1,"Bestand wordt gebruikt door: %s"
 14610,1,"Deze processen beëindigen en opnieuw proberen?\n\nNiet-opgeslagen gegevens in deze processen kunnen verloren gaan:\n%s"
 14611,1,"Geen van de processen die dit bestand gebruiken, kan worden beëindigd."
+14612,1,"&Nieuw toevoegen"
+14613,1,"&Verwijderen"
+14614,1,"Weet u zeker dat u de geselecteerde handler wilt verwijderen?"
+14615,1,"Deze handler wordt gebruikt in een of meer bestandskoppelingen. Wijzig die koppelingen voordat u de handler verwijdert."
+14616,1,"De bestandskoppelingen konden niet worden gecontroleerd. De handler is niet verwijderd."
+14617,1,"Alle geselecteerde patronen en bijbehorende acties verwijderen?"
 
 [STRINGTABLE 193]
 14624,1,"Toegang geweigerd. Deze map als beheerder maken?"

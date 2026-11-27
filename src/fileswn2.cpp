@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-27 | Probe unclassified ZIPs before shell execution. | Open supported ZIP contents in the panel on Enter or double-click even when the archive extension is missing from the runtime table. | https://github.com/KRtkovo-eu-AI/salamander/issues/873 | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-15 | Stream protected ZIP viewer entries to an ephemeral read handle. | Remove the whole-entry memory limit while keeping ZIP validation. | #731 | GPT-6 |
 // | 2026-11-11 | Prepare a new protected listing before leaving the current panel. | Preserve the previous session when access to a different root is cancelled or fails. | #731 | GPT-6.1 Terra |
 // | 2026-11-08 | Collect one decoded entry for the caller. | Keep partial or invalid output out of viewer and file publication. | | GPT-6.1 Sol (Codex) |
@@ -947,12 +948,35 @@ static void ShowBranchLaunchFailure(HWND owner, const std::wstring& source, HRES
     }
 }
 
+static bool IsZipArchiveFileName(const char* fileName)
+{
+    if (fileName == NULL)
+        return false;
+    const char* baseName = strrchr(fileName, '\\');
+    baseName = baseName != NULL ? baseName + 1 : fileName;
+    const char* extension = strrchr(baseName, '.');
+    return extension != NULL && _stricmp(extension, ".zip") == 0;
+}
+
 void CFilesWindow::Execute(int index)
 {
     CALL_STACK_MESSAGE2("CFilesWindow::Execute(%d)", index);
     MainWindow->CancelPanelsUI(); // cancel QuickSearch and QuickEdit
     if (index < 0 || index >= Dirs->Count + Files->Count)
         return;
+
+    // Normal open uses the extension table for archive dispatch. If a ZIP row
+    // is missing there, probe its contents like Ctrl+PgDown before falling back
+    // to the Windows association. Keep other container-like document types on
+    // their configured shell associations.
+    if (Is(ptDisk) && index >= Dirs->Count)
+    {
+        CFileData* file = &Files->At(index - Dirs->Count);
+        if (IsZipArchiveFileName(file->Name) &&
+            PackerFormatConfig.PackIsArchive(file->Name) == 0 &&
+            TryEnterFileAsArchive(index, TRUE))
+            return;
+    }
 
     char path[32768];
     char fullName[32768 + 10];

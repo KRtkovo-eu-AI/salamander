@@ -1,4 +1,5 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-27 | Reserve custom-handler action control IDs. | Keep create and delete buttons addressable on both handler pages. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-26 | Reserve the original-tab history action string ID. | Localize the right-side working directory action. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Reserve the colored history icons control ID. | Keep the new option available to localized resources. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-09 | Add identifiers for lock-aware file error recovery. | Show detected locking processes and offer termination from the core operation dialog. | https://github.com/KRtkovo-eu-AI/salamander/issues/836 | GPT-6 (Codex) |
@@ -371,6 +372,8 @@
 #define IDC_CUSTOM_HANDLER_ARGUMENTS_LABEL 6344
 #define IDC_CUSTOM_HANDLER_INITDIR_LABEL 6345
 #define IDB_CUSTOM_HANDLER_SAVE         6346
+#define IDB_CUSTOM_HANDLER_ADD_NEW      6348
+#define IDB_CUSTOM_HANDLER_DELETE       6349
 #define IDC_INFOLINEBROWSE              607
 #define IDC_SINGLECLICK                 608
 #define IDC_CHD_SHOWANOTHER             610

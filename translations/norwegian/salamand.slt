@@ -4369,6 +4369,12 @@ SLGINCOMPLETE,""
 14609,1,"Filen er i bruk av: %s"
 14610,1,"Avslutt disse prosessene og prøv igjen?\n\nUlagrede data kan gå tapt:\n%s"
 14611,1,"Kan ikke avslutte noen prosesser som bruker filen."
+14612,1,"&Legg til ny"
+14613,1,"&Slett"
+14614,1,"Vil du slette den valgte behandleren?"
+14615,1,"Denne behandleren brukes i én eller flere filtilknytninger. Endre tilordningene før du sletter den."
+14616,1,"Filtilknytningene kunne ikke kontrolleres. Behandleren ble ikke slettet."
+14617,1,"Slette alle valgte mønstre og tilhørende handlinger?"
 
 [STRINGTABLE 193]
 14624,1,"Tilgang avvist. Opprette denne mappen som administrator?"

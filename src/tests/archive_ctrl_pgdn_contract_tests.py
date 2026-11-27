@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-27 | Keep the archive contract valid after SDK extensions. | CanOpenArchive remains SDK 106 while newer append-only interfaces raise the current SDK version. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-07 | Assert archive-association provenance survives migrations. | Prevent #748 cleanup from replacing user-selected owners and keep per-extension metadata available for #733. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | OpenAI GPT-5.6 Luna Pro |
 # | 2026-11-05 | Assert 7-Zip no longer steals TAR/ZIP/UnRAR panel extensions. | Guard the issue #748 association ownership fix. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | Composer |
 
@@ -144,9 +145,17 @@ def main() -> int:
     )
 
     spl_vers = SPL_VERS.read_text(encoding="utf-8")
+    last_version = re.search(
+        r"#define\s+LAST_VERSION_OF_SALAMANDER\s+(\d+)\b", spl_vers
+    )
+    archive_version = re.search(
+        r"#define\s+SAL_SDK_VER_CANOPENARCHIVE\s+(\d+)\b", spl_vers
+    )
     require(
-        re.search(r"#define\s+LAST_VERSION_OF_SALAMANDER\s+106\b", spl_vers) is not None,
-        "LAST_VERSION_OF_SALAMANDER must be 106",
+        last_version is not None
+        and archive_version is not None
+        and int(last_version.group(1)) >= int(archive_version.group(1)),
+        "LAST_VERSION_OF_SALAMANDER must include CanOpenArchive's SDK version",
     )
     require(
         re.search(r"#define\s+SAL_SDK_VER_CANOPENARCHIVE\s+106\b", spl_vers) is not None,
@@ -178,7 +187,7 @@ def main() -> int:
         "ExecuteAssociation" not in ctrl,
         "CtrlPageDnOrEnter must not call ExecuteAssociation",
     )
-    try_enter = function_body(fileswn0, "void CFilesWindow::TryEnterFileAsArchive")
+    try_enter = function_body(fileswn0, "BOOL CFilesWindow::TryEnterFileAsArchive")
     require(
         "ExecuteAssociation" not in try_enter,
         "TryEnterFileAsArchive must not call ExecuteAssociation",
