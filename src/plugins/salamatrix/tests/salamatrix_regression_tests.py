@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-27 | Allow independent viewer z-order while preserving close activation. | Issue #866 requires switchable viewers; #757 still returns focus to the requesting window. | https://github.com/KRtkovo-eu-AI/salamander/issues/866 | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-26 | Reject a policy override switch in Extension Menu Builder. | The shipped script was flagged as a dropper for embedding that command line. | | Grok 4.7 |
 # | 2026-11-13 | Accept later plug-in versions in safety guards. | Keep refresh and service-cache version floors valid after subsequent releases. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-12 | Derive extension locale coverage from shipped locale resources. | Translation expansion must not stale fixed locale lists. | | openai/gpt-6-luna-pro |
-# | 2026-11-07 | Check foreground ownership for viewers and extension UI. | Issue #757 regressions must keep dialogs and viewers attached to the active extension window. | https://github.com/KRtkovo-eu-AI/salamander/issues/757 | OpenAI GPT-5.6 Luna Pro |
+# | 2026-11-07 | Check foreground ownership for dialogs and viewer activation. | Dialogs remain owned; viewers return activation to the active extension window on close. | https://github.com/KRtkovo-eu-AI/salamander/issues/757 | OpenAI GPT-5.6 Luna Pro |
 # | 2026-11-06 | Check deferred plug-in references through refusal and reload. | The production vector owns one LoadLibrary reference per successful deferred unload. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 # | 2026-11-06 | Expect short Salamatrix extension/command IDs. | Packages dropped the OpenSalamander. prefix; old IDs failed CI. | | Composer |
 # | 2026-11-05 | Require Salamatrix FS SVG icons at 16/32/48. | Thumbnail view asked for 48px icons but SVG items stayed at 16px. | | Composer |
@@ -1493,10 +1494,24 @@ def main() -> int:
             "extension UI does not select the active same-process window as its owner")
     require(packages, r"request\.ParentWindow = InteractiveParentWindow\(General\)",
             "extension runtime requests still use only the main message-box parent")
-    require(native_viewer, r"IsWindow\(parameters_->owner\)\s*\?\s*parameters_->owner\s*:\s*nullptr",
-            "native viewers discard their requested owner when creating the window")
-    require(native_viewer, r"SetWindowLongPtrW\(window_, GWLP_HWNDPARENT",
-            "reused native viewers do not update their owner window")
+    require(
+        native_viewer,
+        r"CreateWindowExW\(extendedStyle, className, title\.c_str\(\),[\s\S]*?"
+        r"nullptr,\s*nullptr,\s*parameters_->module,\s*this\)",
+        "native viewers must be independent top-level windows so users can switch back to Salamander")
+    require_absent(
+        native_viewer,
+        r"GWLP_HWNDPARENT",
+        "reused native viewers must not restore owner z-order coupling")
+    require(
+        native_viewer,
+        r"void RestoreOwnerActivation\(\)[\s\S]*?const HWND owner = parameters_->owner;[\s\S]*?"
+        r"GetForegroundWindow\(\) == window_[\s\S]*?SetForegroundWindow\(owner\)",
+        "closing native viewers do not reactivate the requested owner")
+    require(
+        native_viewer,
+        r"bool Reopen\([\s\S]*?DestroyMenus\(\);\s*parameters_\.swap\(parameters\)",
+        "reused native viewers do not update the requested activation owner")
     require(
         packages,
         r'salamander\.sides\.context.*?'
