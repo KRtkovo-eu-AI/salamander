@@ -1,6 +1,7 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-27 | Reuse archive probing from default ZIP open. | Let Enter and double-click continue to shell only when a silent ZIP probe finds no panel archive handler. | https://github.com/KRtkovo-eu-AI/salamander/issues/873 | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-08 | Carry manual protected ZIP refresh into archive navigation. | Keep the existing refresh rollback behavior. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-15 | Explain protected archive refresh intent. | Keep interactive reads tied to explicit user refresh. | #731 | GPT-6 |
@@ -205,19 +206,19 @@ void CFilesWindow::CtrlPageDnOrEnter(WPARAM key)
     }
 }
 
-void CFilesWindow::TryEnterFileAsArchive(int index)
+BOOL CFilesWindow::TryEnterFileAsArchive(int index, BOOL silentProbe)
 {
     CALL_STACK_MESSAGE2("CFilesWindow::TryEnterFileAsArchive(%d)", index);
     if (!Is(ptDisk) || index < Dirs->Count || index >= Files->Count + Dirs->Count)
-        return;
+        return FALSE;
 
     CFileData* file = &Files->At(index - Dirs->Count);
     const BOOL branch = IsBranchView();
     if (branch && GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*file)) != file)
-        return;
+        return TRUE;
     const std::wstring source = GetItemFullPathW(*file);
     if (source.empty())
-        return;
+        return TRUE;
     const std::string sourcePath = SalWideToMultiBytePath(source.c_str(), CP_UTF8);
     const std::string savedPath(GetPath());
     const std::wstring savedPathW(GetPathW());
@@ -236,19 +237,20 @@ void CFilesWindow::TryEnterFileAsArchive(int index)
     {
         RefreshDirectory();
         EndStopRefresh();
-        return;
+        return TRUE;
     }
     if (!stillCurrent())
     {
         EndStopRefresh();
-        return;
+        return TRUE;
     }
     if (sourcePath.size() >= SAL_MAX_PATH)
     {
-        SalMessageBox(HWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERRORCHANGINGDIR),
-                      MB_OK | MB_ICONEXCLAMATION);
+        if (!silentProbe)
+            SalMessageBox(HWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERRORCHANGINGDIR),
+                          MB_OK | MB_ICONEXCLAMATION);
         EndStopRefresh();
-        return;
+        return !silentProbe;
     }
 
     const char* fullName = sourcePath.c_str();
@@ -257,14 +259,15 @@ void CFilesWindow::TryEnterFileAsArchive(int index)
     if (!stillCurrent())
     {
         EndStopRefresh();
-        return;
+        return TRUE;
     }
     if (plugin == NULL)
     {
-        SalMessageBox(HWindow, LoadStr(IDS_FILEISNOTARCHIVE), LoadStr(IDS_ERRORCHANGINGDIR),
-                      MB_OK | MB_ICONEXCLAMATION);
+        if (!silentProbe)
+            SalMessageBox(HWindow, LoadStr(IDS_FILEISNOTARCHIVE), LoadStr(IDS_ERRORCHANGINGDIR),
+                          MB_OK | MB_ICONEXCLAMATION);
         EndStopRefresh();
-        return;
+        return !silentProbe;
     }
 
     BOOL noChange = TRUE;
@@ -274,6 +277,7 @@ void CFilesWindow::TryEnterFileAsArchive(int index)
         TopIndexMem.Clear();
     UpdateWindow(HWindow);
     EndStopRefresh();
+    return TRUE;
 }
 
 void CFilesWindow::CtrlPageUpOrBackspace()

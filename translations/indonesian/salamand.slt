@@ -4369,6 +4369,12 @@ SLGINCOMPLETE,""
 14609,1,"File digunakan oleh: %s"
 14610,1,"Terminate these processes and retry?\n\nUnsaved data in these processes may be lost:\n%s"
 14611,1,"Tidak bisa menghentikan proses yang menggunakan file ini."
+14612,1,"&Tambah baru"
+14613,1,"&Hapus"
+14614,1,"Hapus penangan yang dipilih?"
+14615,1,"Penangan ini digunakan oleh satu atau beberapa Asosiasi File. Ubah penetapan tersebut sebelum menghapusnya."
+14616,1,"Asosiasi File tidak dapat diperiksa. Penangan tidak dihapus."
+14617,1,"Hapus semua pola yang dipilih beserta tindakan yang ditetapkan?"
 
 [STRINGTABLE 193]
 14624,1,"Akses ditolak. Buat folder ini sebagai administrator?"

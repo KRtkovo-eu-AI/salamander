@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-27 | Match the archive-entry fixture to the BOOL probe API. | Compile the shared probe after it gained silent detection for default ZIP opening. | https://github.com/KRtkovo-eu-AI/salamander/issues/873 | openrouter/openai/gpt-6-luna-pro |
 """Compile actual CtrlPgDn/archive probe dispatch and real ZIP signature I/O."""
 import argparse
 from pathlib import Path
@@ -30,7 +32,7 @@ def main():
         "IS_SEVEN": block(pack,"static BOOL IsSevenZipArchiverPlugin("),
         "GET_PLUGIN": block(pack,"CPluginData* PackGetPluginForArchiveFile("),
         "PROBE_PLUGIN": block(pack,"CPluginData* PackProbeArchivePlugin("),
-        "TRY_ENTER": block(host,"void CFilesWindow::TryEnterFileAsArchive("),
+        "TRY_ENTER": block(host,"BOOL CFilesWindow::TryEnterFileAsArchive("),
         "CTRL_PGDN": block(host,"void CFilesWindow::CtrlPageDnOrEnter("),
         "DIRECTORY_TEXT": block(read("src/fileswn1.cpp"),"void CFilesWindow::DirectoryLineSetText("),
     }

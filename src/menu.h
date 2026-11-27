@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-27 | Add private click-through behavior to popup rows. | Preserve the original command for a Change Drive row that also owns a submenu. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-26 | Add optional internal popup secondary actions. | Reuse menu rows for an alternate command without extending the plug-in API. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 
 #pragma once
@@ -152,6 +153,7 @@ protected:
     DWORD State;
     DWORD ID;
     CMenuPopup* SubMenu;
+    BOOL ClickCommand;
     HBITMAP HBmpChecked;
     HBITMAP HBmpUnchecked;
     HBITMAP HBmpItem;
@@ -343,6 +345,9 @@ public:
     virtual BOOL WINAPI SetDefaultItem(DWORD position, BOOL byPosition);
     virtual BOOL WINAPI EnableItem(DWORD position, BOOL byPosition, BOOL enabled);
     virtual int WINAPI GetItemCount() { return Items.Count; }
+
+    // Host-only behavior: a mouse click activates a row that also has a submenu.
+    BOOL SetItemClickCommand(int index, BOOL enabled);
 
     virtual void WINAPI RemoveAllItems();
     virtual BOOL WINAPI RemoveItemsRange(int firstIndex, int lastIndex);

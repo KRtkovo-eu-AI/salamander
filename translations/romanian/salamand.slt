@@ -4369,6 +4369,12 @@ SLGINCOMPLETE,""
 14609,1,"Fișierul este utilizat de: %s"
 14610,1,"Închei aceste procese și reîncerci?\n\nDatele nesalvate din aceste procese se pot pierde:\n%s"
 14611,1,"Nu s-a putut încheia niciun proces care utilizează acest fișier."
+14612,1,"&Adăugați unul nou"
+14613,1,"&Ștergeți"
+14614,1,"Doriți să ștergeți handlerul selectat?"
+14615,1,"Acest handler este folosit de una sau mai multe asocieri de fișiere. Modificați aceste asocieri înainte de a-l șterge."
+14616,1,"Asocierile de fișiere nu au putut fi verificate. Handlerul nu a fost șters."
+14617,1,"Ștergeți toate modelele selectate și acțiunile asociate?"
 
 [STRINGTABLE 193]
 14624,1,"Acces refuzat. Creați acest dosar ca administrator?"

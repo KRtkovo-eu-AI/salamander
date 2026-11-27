@@ -4369,6 +4369,12 @@ SLGINCOMPLETE,""
 14609,1,"A fájlt ezek a folyamatok használják: %s"
 14610,1,"Leállítja ezeket a folyamatokat, és újrapróbálja?\n\nA folyamatok nem mentett adatai elveszhetnek:\n%s"
 14611,1,"A fájlt használó folyamatok egyikét sem sikerült leállítani."
+14612,1,"&Új hozzáadása"
+14613,1,"&Törlés"
+14614,1,"Törli a kijelölt kezelőt?"
+14615,1,"Ez a kezelő egy vagy több fájltársításban használatban van. A törlés előtt módosítsa ezeket a társításokat."
+14616,1,"A fájltársításokat nem sikerült ellenőrizni. A kezelő nem lett törölve."
+14617,1,"Törli az összes kijelölt mintát és a hozzájuk tartozó műveleteket?"
 
 [STRINGTABLE 193]
 14624,1,"A hozzáférés megtagadva. Létrehozza ezt a mappát rendszergazdaként?"

@@ -4369,6 +4369,12 @@ SLGINCOMPLETE,""
 14609,1,"Soubor používají tyto procesy: %s"
 14610,1,"Ukončit tyto procesy a akci opakovat?\n\nNeuložená data v těchto procesech mohou být ztracena:\n%s"
 14611,1,"Nepodařilo se ukončit žádný proces používající tento soubor."
+14612,1,"&Přidat novou"
+14613,1,"&Smazat"
+14614,1,"Opravdu chcete smazat vybranou obsluhu?"
+14615,1,"Tato obsluha se používá v jedné či více asociacích souborů. Před smazáním změňte tato přiřazení."
+14616,1,"Asociace souborů se nepodařilo ověřit. Obsluha nebyla smazána."
+14617,1,"Opravdu chcete smazat všechny vybrané vzory a jejich přiřazené akce?"
 
 [STRINGTABLE 193]
 14624,1,"Přístup byl odepřen. Vytvořit tuto složku jako správce?"

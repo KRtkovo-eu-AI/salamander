@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-27 | Append an optional Change Drive submenu callback. | Salamatrix needs a real icon-bearing cascade on its Change Drive item without changing older plug-in vtable slots. | | openrouter/openai/gpt-6-luna-pro |
 
 //****************************************************************************
 //
@@ -23,6 +26,7 @@ struct CFileData;
 class CPluginFSInterfaceAbstract;
 class CSalamanderDirectoryAbstract;
 class CPluginDataInterfaceAbstract;
+class CGUIMenuPopupAbstract;
 
 //
 // ****************************************************************************
@@ -892,6 +896,24 @@ public:
     // plugin by mel bez cekani vylistovat na teto ceste aspon tento jeden share, aby mohlo
     // dojit k jeho fokusu v panelu (coz je bezne chovani pri zmene cesty pres up-dir)
     virtual void WINAPI EnsureShareExistsOnServer(int panel, const char* server, const char* share) = 0;
+
+    // Builds the optional cascading submenu shown on this plug-in's Change Drive item.
+    // 'eventMask' has the same meaning as CSalamanderConnectAbstract::AddMenuItem's
+    // state masks. 'iconSize' is the requested physical pixel size for menu icons.
+    // The host owns any returned image lists and destroys them after the root menu closes.
+    // This method is append-only and is called only for plug-ins built for SDK version 107+.
+    virtual BOOL WINAPI BuildChangeDriveMenu(CGUIMenuPopupAbstract* menu,
+                                             DWORD eventMask, int iconSize,
+                                             HIMAGELIST* imageList,
+                                             HIMAGELIST* hotImageList)
+    {
+        (void)menu;
+        (void)eventMask;
+        (void)iconSize;
+        (void)imageList;
+        (void)hotImageList;
+        return FALSE;
+    }
 };
 
 #ifdef _MSC_VER

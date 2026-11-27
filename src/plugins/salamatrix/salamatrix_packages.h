@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-27 | Declare the Salamatrix Change Drive submenu builder. | Expose the manifest-backed union to the real Change Drive cascade. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-06 | Remember ViewFile placement for ui.viewer.open. | JSON Viewer chrome must not depend on the script round-tripping geometry. |  | Composer |
 // | 2026-11-04 | Pick up extension installs that finish after startup. | The install helper copies files only after Samandarin exits, so a restart that overlaps that copy never saw the new package. | | Grok 4.7 |
 // | 2026-11-04 | Accept extension installs recorded in extensions.ver. | A package copied into the extensions directory stayed removed or undiscovered until its manifest was added by hand. | | Grok 4.7 |
@@ -226,6 +227,9 @@ private:
         const char* invocationJson);
     void RegisterToolbarButtons();
     void UnregisterToolbarButtons();
+    BOOL BuildChangeDriveMenu(CGUIMenuPopupAbstract* menu, DWORD eventMask,
+                              int iconSize, HIMAGELIST* imageList,
+                              HIMAGELIST* hotImageList);
     void FinishHostDispatch();
     void BeginExecution();
     void FinishExecution();

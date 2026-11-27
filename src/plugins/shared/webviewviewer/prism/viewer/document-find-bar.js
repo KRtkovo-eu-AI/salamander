@@ -6,6 +6,7 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
 | 2026-11-07 | Add hidden Find query prefill for shared webview viewers. | Opening a viewer from Find must preserve the phrase without showing the dialog. | https://github.com/KRtkovo-eu-AI/salamander/issues/758 | openai/gpt-5.6-luna-pro |
+| 2026-11-26 | Close the viewer on Esc when no document Find bar is open. | Chromium's PDF viewer swallows Esc before it reaches the page, so Esc never closed the window unless Find was used first. |  | nvidia/nemotron-3.5-super-vl:free |
 */
 "use strict";
 
@@ -117,9 +118,13 @@
 
   function showFindBar(focusInput) {
     const ui = ensureBar();
+    const wasOpen = runtime().isFindBarOpen;
     ui.findBar.classList.remove("hidden");
     ui.findBar.style.display = "flex";
     runtime().isFindBarOpen = true;
+    if (!wasOpen) {
+      postHost("salamander-find:open");
+    }
     if (focusInput && ui.findInput) {
       ui.findInput.focus();
       ui.findInput.select();
@@ -239,7 +244,11 @@
     clearFindHighlight();
     ui.findBar.classList.add("hidden");
     ui.findBar.style.display = "none";
+    const wasOpen = runtime().isFindBarOpen;
     runtime().isFindBarOpen = false;
+    if (wasOpen) {
+      postHost("salamander-find:close");
+    }
     window.focus();
     if (range && !range.collapsed) {
       try {

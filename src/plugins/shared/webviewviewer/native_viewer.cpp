@@ -2,11 +2,14 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-27 | Track document Find open/close messages for Escape. | Keep the first Escape on the Find bar and close the viewer only after it is closed. | | openrouter/openai/gpt-6-luna-pro |
+// | 2026-11-27 | Fix return statements in shared Find-message handling. | Handle open and close actions in the void message dispatcher. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-08 | Show shared WebView2 viewer windows in the Windows taskbar. | Owned top-level windows are omitted from the taskbar unless they opt in with WS_EX_APPWINDOW. |  | openai/gpt-5.6-luna-pro |
 // | 2026-11-07 | Open PrismSharp Find bar for F3 navigation. | F3 and Shift+F3 must reveal the search dialog before moving between matches. |  | openai/gpt-5.6-luna-pro |
 // | 2026-11-07 | Preserve hidden Find prefill across shared webview viewers. | Find-triggered viewers must carry the phrase without opening the dialog. | https://github.com/KRtkovo-eu-AI/salamander/issues/758 | openai/gpt-5.6-luna-pro |
 // | 2026-11-07 | Preserve the requested owner when creating and reusing native viewers. | Closing Prism/WebView2 must return activation to the window that opened the viewer. | https://github.com/KRtkovo-eu-AI/salamander/issues/757 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-06 | Esc closes document Find bar without closing the viewer. | Mirror Prism: page owns Esc; salamander-close only when Find is closed. |  | Composer |
+// | 2026-11-26 | Close the viewer on Esc when no document Find bar is open. | Chromium's PDF viewer swallows Esc before it reaches the page, so Esc never closed the window unless Find was used first. |  | nvidia/nemotron-3.5-super-vl:free |
 // | 2026-11-06 | Move document Find bar 50px lower. | Keep clear of the JSON Viewer chrome at the top edge. |  | Composer |
 // | 2026-11-06 | Scroll document panels to the current Find match. | JSON Viewer uses nested overflow:auto; window.scrollTo left matches off-screen. |  | Composer |
 // | 2026-11-06 | Stop resetting Find to the first match on F3. | Re-injecting the Find script + duplicate findNext raced back to match 1. |  | Composer |
@@ -2539,7 +2542,24 @@ private:
                         {
                             args->put_Handled(TRUE);
                             PostMessageW(viewerWindow, WM_CLOSE, 0, 0);
+                            return S_OK;
                         }
+                        // RenderDocument owns Esc through its page Find bar.  When the Find bar is
+                        // open, Esc closes it first (page-owned); only then does Esc close the
+                        // viewer.  When no Find bar is open, close the viewer directly so Esc
+                        // works even before Find was ever used, without stealing Esc from an
+                        // open Find bar.  Chromium's built-in PDF viewer swallows Esc before it
+                        // reaches the page DOM, so the page cannot be relied upon to close.
+                        if (self->parameters_->kind == NativeViewerKind::RenderDocument && self->findBarOpen_)
+                            return S_OK;
+                        if (self->parameters_->kind == NativeViewerKind::RenderDocument)
+                        {
+                            args->put_Handled(TRUE);
+                            PostMessageW(viewerWindow, WM_CLOSE, 0, 0);
+                            return S_OK;
+                        }
+                        // PrismText: Esc stays owned by the page (existing behavior).
+                        return S_OK;
                     }
                     else if (virtualKey == VK_F5)
                         command = IDM_NV_REFRESH;
@@ -3674,9 +3694,30 @@ private:
 
     void HandleFindMessage(const std::wstring& payload)
     {
+        if (payload == L"open")
+        {
+            findBarOpen_ = true;
+            return;
+        }
+        if (payload == L"close")
+        {
+            findBarOpen_ = false;
+            return;
+        }
+
         std::wstring action;
         if (!FindJsonString(payload, L"action", action))
             return;
+        if (action == L"open")
+        {
+            findBarOpen_ = true;
+            return;
+        }
+        if (action == L"close")
+        {
+            findBarOpen_ = false;
+            return;
+        }
         if (action == L"remember")
         {
             std::wstring query;
@@ -3816,6 +3857,7 @@ private:
         if (!webView_)
             return;
         SetLoadProgress(70);
+        findBarOpen_ = false;
         const std::wstring extension = ExtensionOf(parameters_->filePath);
         if (parameters_->kind == NativeViewerKind::PrismText)
         {
@@ -4159,6 +4201,7 @@ private:
     bool prismPageReady_ = false;
     bool waitingForReusedDocument_ = false;
     bool idle_ = false;
+    bool findBarOpen_ = false;
     ULONGLONG idleExpires_ = 0;
     int loadProgress_ = 0;
     PreparationTarget* preparationTarget_ = nullptr;

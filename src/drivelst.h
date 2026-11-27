@@ -1,5 +1,10 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-27 | Map nested Change Drive commands by stable plug-in identity. | Keep extension submenu commands executable after rebuilding and closing the popup. | | openrouter/openai/gpt-6-luna-pro |
+// | 2026-11-27 | Track Change Drive submenu commands and icon-list ownership. | Cascading plug-in commands must execute after the root menu closes. | | openrouter/openai/gpt-6-luna-pro |
+// | 2026-11-27 | Match the CPluginData forward declaration to its struct definition. | Avoid MSVC C4099 class-versus-struct warnings when including plug-in headers. | | openrouter/openai/gpt-6-luna-pro |
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
@@ -9,6 +14,8 @@
 #ifndef SAL_MAX_PATH
 #define SAL_MAX_PATH 32768
 #endif
+
+#include <vector>
 
 #define ONEDRIVE_MAXBUSINESSDISPLAYNAME 500
 
@@ -114,6 +121,20 @@ struct CDriveData
 class CMenuPopup;
 class CFilesWindow;
 class CDriveBar;
+struct CPluginData;
+
+struct CDriveMenuCommand
+{
+    DWORD MenuId;
+    int CommandId;
+    const char* DLLName; // stable plugin-owned identity; GetPluginData compares this pointer
+};
+
+struct CDriveMenuImageLists
+{
+    HIMAGELIST ImageList;
+    HIMAGELIST HotImageList;
+};
 
 class CDrivesList
 {
@@ -128,6 +149,9 @@ protected:
     TDirectArray<CDriveData>* Drives;
     CMenuPopup* MenuPopup;
     int FocusIndex; // what item from the Drives array should be focused
+    std::vector<CDriveMenuCommand> PluginMenuCommands;
+    std::vector<CDriveMenuImageLists> PluginMenuImageLists;
+    DWORD NextPluginMenuCommandId;
 
     DWORD CachedDrivesMask;        // bit array of drives, which we got during the last BuildData()
     DWORD CachedCloudStoragesMask; // bit array of cloud storages, which we got during the last BuildData()
@@ -138,11 +162,7 @@ public:
     // driveTypeParam = letter of the drive to activate (or 0 (PluginFS) or '\\' (UNC))
     CDrivesList(CFilesWindow* filesWindow, const char* currentPath, CDriveTypeEnum* driveType,
                 DWORD_PTR* driveTypeParam, int* postCmd, void** postCmdParam, BOOL* fromContextMenu);
-    ~CDrivesList()
-    {
-        delete Drives;
-        Drives = NULL;
-    }
+    ~CDrivesList();
 
     // adding an item to Driver array (used during BuildData from Plugins)
     void AddDrive(CDriveData& drv, int& index)
@@ -220,6 +240,8 @@ public:
 
 protected:
     BOOL LoadMenuFromData();
+    BOOL MapPluginMenuCommands(CMenuPopup* menu, const char* dllName);
+    void ReleasePluginMenuResources();
 
     void AddMountedFolderDrives(CDriveData& drv, BOOL getGrayIcons);
 
