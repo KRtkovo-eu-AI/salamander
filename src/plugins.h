@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-27 | Expose a narrow menu-state refresh for plugin-owned cascades. | Callers need current event masks without accessing CPlugins' protected cache implementation. | | openrouter/openai/gpt-6-luna-pro |
+// | 2026-11-27 | Expose the version-gated Change Drive submenu callback. | Forward the append-only SDK hook and preserve older plug-in vtables. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-09 | Give stateless plugins stable file-association identities. | Make installed viewers without private registry configuration visible as targets and preserve their ownership during migration. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-08 | Expose stable plugin registry identities. | Allow canonical file associations to resolve plugins without relying on session array ordinals. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-06 | Retain all deferred provider references across reload and shutdown retry. | Preserve every LoadLibrary reference across a refused close and provider reload. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
@@ -318,6 +320,10 @@ public:
                                         const char* pluginFSName, int pluginFSNameIndex,
                                         BOOL isDetachedFS, BOOL& refreshMenu,
                                         BOOL& closeMenu, int& postCmd, void*& postCmdParam);
+
+    BOOL BuildChangeDriveMenu(CGUIMenuPopupAbstract* menu, DWORD eventMask,
+                              int iconSize, HIMAGELIST* imageList,
+                              HIMAGELIST* hotImageList);
 
     // direct interface call (does not go through CPluginData + InitDLL), a call-stack message is created;
     // called right after ChangeDriveMenuItemContextMenu -- the plugin is definitely loaded
@@ -2779,6 +2785,10 @@ public:
                                         BOOL isDetachedFS, BOOL& refreshMenu,
                                         BOOL& closeMenu, int& postCmd, void*& postCmdParam);
 
+    // Build the loaded, SDK-version-supported plug-in's optional Change Drive submenu.
+    BOOL BuildChangeDriveMenu(HWND parent, CMenuPopup* menu,
+                              HIMAGELIST* imageList, HIMAGELIST* hotImageList);
+
     // plugin call: EnsureShareExistsOnServer
     void EnsureShareExistsOnServer(HWND parent, int panel, const char* server, const char* share);
 
@@ -3037,6 +3047,9 @@ public:                     // helper variables for handling menu items coming f
     int RootMenuItemsCount; // original number of items in the plugin root menu, -1 means "not yet determined"
 
     CPluginsStateCache StateCache;
+
+    // Refresh menu state before a plug-in menu built outside CPlugins' menu entry points.
+    void RecalculateMenuStateCache() { CalculateStateCache(); }
 
     DWORD LoadInfoBase; // base for creating flag returned via CSalamanderPluginEntry::GetLoadInformation()
 

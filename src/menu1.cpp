@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-27 | Initialize private popup click-through state. | Ordinary popup rows must keep the default expand-on-hover behavior. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-26 | Measure an optional secondary action label in the right column. | Keep command text and its accelerators independent. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // CommentsTranslationProject: TRANSLATED
 
@@ -208,6 +209,7 @@ CMenuItem::CMenuItem()
     State = 0;
     ID = 0;
     SubMenu = NULL;
+    ClickCommand = FALSE;
     HBmpChecked = NULL;
     HBmpUnchecked = NULL;
     HBmpItem = NULL;

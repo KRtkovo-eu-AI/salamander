@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-27 | Nest extension menus and preserve Change Drive actions. | Keep command routing valid, move the API separator, and retain the parent drive action on click. | | openrouter/openai/gpt-6-luna-pro |
+// | 2026-11-27 | Attach and dispatch the Salamatrix Change Drive cascade. | Use a real submenu, retain its icons through tracking, and route commands through the plugin menu dispatcher. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-09 | Allow Hot Paths to precede plug-in items in Change Drive. | Reorder the two menu blocks when configured while preserving the default order and Drive Bar behavior. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
 // | 2026-11-05 | Survive faulty shell extension SEH in drive menus. | Drive context-menu QueryContextMenu/InvokeCommand must not terminate. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
@@ -1075,6 +1077,7 @@ CDrivesList::CDrivesList(CFilesWindow* filesWindow, const char* currentPath,
     CALL_STACK_MESSAGE_NONE
     Drives = new TDirectArray<CDriveData>(30, 30);
     MenuPopup = NULL;
+    NextPluginMenuCommandId = 0x7F000000u;
     FilesWindow = filesWindow;
     DriveType = driveType;
     DriveTypeParam = driveTypeParam;
@@ -2708,6 +2711,7 @@ static void GetDriveMenuFreeSpaceToolTip(void* context, DWORD itemID, char* text
 BOOL CDrivesList::LoadMenuFromData()
 {
     CALL_STACK_MESSAGE1("CDrivesList::LoadMenuFromData()");
+    PluginMenuCommands.clear();
     MENU_ITEM_INFO mii;
     int i;
     for (i = 0; i < Drives->Count; i++)
@@ -2738,10 +2742,148 @@ BOOL CDrivesList::LoadMenuFromData()
             if (item->DriveType == drvtPluginFSInOtherPanel)
                 mii.State |= MFS_DISABLED | MFS_GRAYED;
         }
+
+        CMenuPopup* pluginSubMenu = NULL;
+        HIMAGELIST pluginMenuImages = NULL;
+        HIMAGELIST pluginMenuHotImages = NULL;
+        if (item->DriveType == drvtPluginCmd && item->DLLName != NULL)
+        {
+            CPluginData* pluginData = Plugins.GetPluginData(item->DLLName);
+            if (pluginData != NULL && pluginData->GetLoaded())
+            {
+#ifdef new
+#undef new
+#define RESTORE_NEW_DRIVE_CHANGE_SUBMENU
+#endif
+                pluginSubMenu = new (std::nothrow) CMenuPopup();
+#ifdef RESTORE_NEW_DRIVE_CHANGE_SUBMENU
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_NEW_DRIVE_CHANGE_SUBMENU
+#endif
+                if (pluginSubMenu != NULL &&
+                    pluginData->BuildChangeDriveMenu(
+                        FilesWindow->HWindow, pluginSubMenu,
+                        &pluginMenuImages, &pluginMenuHotImages) &&
+                    pluginSubMenu->GetItemCount() > 0)
+                {
+                    pluginSubMenu->SetImageList(pluginMenuImages, TRUE);
+                    pluginSubMenu->SetHotImageList(pluginMenuHotImages, TRUE);
+                    mii.Mask |= MENU_MASK_SUBMENU;
+                    mii.SubMenu = pluginSubMenu;
+                }
+                else
+                {
+                    delete pluginSubMenu;
+                    pluginSubMenu = NULL;
+                    if (pluginMenuImages != NULL)
+                        ImageList_Destroy(pluginMenuImages);
+                    if (pluginMenuHotImages != NULL &&
+                        pluginMenuHotImages != pluginMenuImages)
+                        ImageList_Destroy(pluginMenuHotImages);
+                    pluginMenuImages = NULL;
+                    pluginMenuHotImages = NULL;
+                }
+            }
+        }
+
         if (!MenuPopup->InsertItem(i, TRUE, &mii))
+        {
+            // Match the plug-in menu builder's ownership rule for failed inserts.
+            if (pluginSubMenu != NULL)
+                delete pluginSubMenu;
+            if (pluginMenuImages != NULL)
+                ImageList_Destroy(pluginMenuImages);
+            if (pluginMenuHotImages != NULL &&
+                pluginMenuHotImages != pluginMenuImages)
+                ImageList_Destroy(pluginMenuHotImages);
             return FALSE;
+        }
+        if (pluginSubMenu != NULL)
+        {
+            // This submenu is populated eagerly and owns no menu-loop image cleanup.
+            if (!MenuPopup->SetItemClickCommand(i, TRUE))
+                return FALSE;
+            pluginSubMenu->SetPopupID(0);
+            if (pluginMenuImages != NULL || pluginMenuHotImages != NULL)
+            {
+                CDriveMenuImageLists imageLists;
+                imageLists.ImageList = pluginMenuImages;
+                imageLists.HotImageList = pluginMenuHotImages;
+                PluginMenuImageLists.push_back(imageLists);
+            }
+            if (!MapPluginMenuCommands(pluginSubMenu, item->DLLName))
+                return FALSE;
+        }
     }
     return TRUE;
+}
+
+BOOL CDrivesList::MapPluginMenuCommands(CMenuPopup* menu, const char* dllName)
+{
+    if (menu == NULL || dllName == NULL)
+        return FALSE;
+    menu->SetPopupID(0);
+    for (int menuIndex = 0; menuIndex < menu->GetItemCount(); ++menuIndex)
+    {
+        MENU_ITEM_INFO commandInfo = {};
+        commandInfo.Mask = MENU_MASK_TYPE | MENU_MASK_ID | MENU_MASK_SUBMENU;
+        if (!menu->GetItemInfo(static_cast<DWORD>(menuIndex), TRUE, &commandInfo))
+            return FALSE;
+        if (commandInfo.Type == MENU_TYPE_SEPARATOR)
+            continue;
+        if (commandInfo.SubMenu != NULL &&
+            !MapPluginMenuCommands(
+                static_cast<CMenuPopup*>(commandInfo.SubMenu), dllName))
+            return FALSE;
+        if (commandInfo.ID == 0)
+            continue;
+
+        if (NextPluginMenuCommandId < 0x7F000000u ||
+            NextPluginMenuCommandId >= 0x7FFFFFFFu)
+        {
+            TRACE_E("Change Drive submenu command ID range exhausted");
+            return FALSE;
+        }
+        const DWORD menuId = NextPluginMenuCommandId++;
+        CDriveMenuCommand command;
+        command.MenuId = menuId;
+        command.CommandId = static_cast<int>(commandInfo.ID);
+        command.DLLName = dllName;
+        PluginMenuCommands.push_back(command);
+
+        MENU_ITEM_INFO remap = {};
+        remap.Mask = MENU_MASK_ID;
+        remap.ID = menuId;
+        if (!menu->SetItemInfo(static_cast<DWORD>(menuIndex), TRUE, &remap))
+        {
+            PluginMenuCommands.pop_back();
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+void CDrivesList::ReleasePluginMenuResources()
+{
+    PluginMenuCommands.clear();
+    for (size_t i = 0; i < PluginMenuImageLists.size(); ++i)
+    {
+        const CDriveMenuImageLists& imageLists = PluginMenuImageLists[i];
+        if (imageLists.ImageList != NULL)
+            ImageList_Destroy(imageLists.ImageList);
+        if (imageLists.HotImageList != NULL &&
+            imageLists.HotImageList != imageLists.ImageList)
+            ImageList_Destroy(imageLists.HotImageList);
+    }
+    PluginMenuImageLists.clear();
+    NextPluginMenuCommandId = 0x7F000000u;
+}
+
+CDrivesList::~CDrivesList()
+{
+    ReleasePluginMenuResources();
+    delete Drives;
+    Drives = NULL;
 }
 
 BOOL CDrivesList::ExecuteItem(int index, HWND hwnd, const RECT* exclude, BOOL* fromDropDown)
@@ -2950,6 +3092,7 @@ BOOL CDrivesList::Track()
     {
         delete MenuPopup;
         MenuPopup = NULL;
+        ReleasePluginMenuResources();
         return FALSE;
     }
 
@@ -2962,6 +3105,7 @@ BOOL CDrivesList::Track()
         DestroyData();
         delete MenuPopup;
         MenuPopup = NULL;
+        ReleasePluginMenuResources();
         return FALSE;
     }
 
@@ -2975,12 +3119,60 @@ BOOL CDrivesList::Track()
 
     // let the returning variable be set
     if (cmd != 0)
-        if (!ExecuteItem(cmd - 1, NULL, NULL, NULL))
+    {
+        bool pluginMenuCommand = false;
+        for (size_t i = 0; i < PluginMenuCommands.size(); ++i)
+        {
+            if (PluginMenuCommands[i].MenuId == cmd)
+            {
+                pluginMenuCommand = true;
+                break;
+            }
+        }
+        if (!pluginMenuCommand && !ExecuteItem(cmd - 1, NULL, NULL, NULL))
             cmd = 0;
+    }
 
     DestroyData();
     delete MenuPopup;
     MenuPopup = NULL;
+    if (cmd != 0)
+    {
+        for (size_t i = 0; i < PluginMenuCommands.size(); ++i)
+        {
+            if (PluginMenuCommands[i].MenuId != cmd)
+                continue;
+            const CDriveMenuCommand selectedCommand = PluginMenuCommands[i];
+            CPluginData* pluginData =
+                Plugins.GetPluginData(selectedCommand.DLLName);
+            if (pluginData != NULL && pluginData->GetLoaded())
+            {
+                const int pluginIndex = Plugins.GetIndex(
+                    pluginData->GetPluginInterface()->GetInterface());
+                if (pluginIndex >= 0)
+                {
+                    BOOL unselect = FALSE;
+                    if (!pluginData->ExecuteMenuItem2(
+                            FilesWindow, FilesWindow->HWindow, pluginIndex,
+                            selectedCommand.CommandId, unselect))
+                    {
+                        pluginData->ExecuteToolbarCommand(
+                            FilesWindow, FilesWindow->HWindow, pluginIndex,
+                            selectedCommand.CommandId, unselect);
+                    }
+                    if (unselect)
+                    {
+                        FilesWindow->StoreSelection();
+                        FilesWindow->SetSel(FALSE, -1, TRUE);
+                        PostMessage(FilesWindow->HWindow, WM_USER_SELCHANGED, 0, 0);
+                    }
+                }
+            }
+            cmd = 0;
+            break;
+        }
+    }
+    ReleasePluginMenuResources();
 
     // synchronize drive bars once more (it could have changed during the menu)
     MainWindow->RebuildDriveBarsIfNeeded(TRUE, GetCachedDrivesMask(), // to speed up, we will use our cached masks

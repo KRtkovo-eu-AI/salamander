@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-27 | Keep clicked cascade rows' original command behavior. | Allow hover to open a submenu while a mouse click activates the parent item. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-26 | Route optional menu row actions through the popup command result. | Keep normal row activation while providing a mouse and keyboard route to the alternate command. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-10 | Convert native menu labels to the active menu text encoding. | Preserve localized shell menu labels when the system code page is not UTF-8. | https://github.com/KRtkovo-eu-AI/salamander/issues/752 | GPT-6 (Codex) |
 // CommentsTranslationProject: TRANSLATED
@@ -295,6 +296,14 @@ void CMenuPopup::SetMinWidth(int minWidth)
 void CMenuPopup::SetPopupID(DWORD id)
 {
     ID = id;
+}
+
+BOOL CMenuPopup::SetItemClickCommand(int index, BOOL enabled)
+{
+    if (index < 0 || index >= Items.Count)
+        return FALSE;
+    Items[index]->ClickCommand = enabled;
+    return TRUE;
 }
 
 DWORD
@@ -2517,8 +2526,16 @@ void CMenuPopup::DoDispatchMessage(MSG* msg, BOOL* leaveMenu, DWORD* retValue, B
                 SharedRes->MenuBar != NULL && SharedRes->MenuBar->HelpMode && // Petr: we are opened from the menubar and in HelpMode (Shift+F1) +
                     (item->SubMenu == NULL || item->ID != 0))                 // Petr: plus we have a command ID or submenu (a "grayed" submenu cannot be opened)
             {
+                if (item->ClickCommand && msg->message == WM_LBUTTONUP)
+                {
+                    popup->FinishCommand(item->ID, leaveMenu, retValue);
+                    return;
+                }
                 if (!(item->State & MENU_STATE_GRAYED) && // Petr: opening "grayed" submenus is not possible
-                    item->SubMenu != NULL && item->SubMenu != popup->OpenedSubMenu)
+                    item->SubMenu != NULL && item->SubMenu != popup->OpenedSubMenu &&
+                    !(item->ClickCommand &&
+                      (msg->message == WM_LBUTTONDOWN ||
+                       msg->message == WM_LBUTTONDBLCLK)))
                 {
                     // if a sub-menu is open, close it
                     if (popup->OpenedSubMenu != NULL)

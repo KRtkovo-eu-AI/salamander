@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-27 | Preserve extension dropdowns in Change Drive. | Keep package commands grouped like Extension Bar while retaining every unique action. | | openrouter/openai/gpt-6-luna-pro |
+// | 2026-11-27 | Add a real icon-bearing Change Drive submenu. | The existing context menu is separate; the cascade must union plugin-menu and Extension Bar actions. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-27 | Use supported flags when tracking extension menus. | Salamander's popup defaults are already left/top aligned; the old no-op constants are not defined by the GUI API. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-26 | Salamatrix Change Drive item offers all extension commands. | Right-clicking the Salamatrix Framework drive shows a submenu with the union of its pluginbar button items and the extension bar items, deduplicated by command id. |  | nvidia/nemotron-3.5-super-vl:free |
 // | 2026-11-07 | Forward Find phrase and flags through Salamatrix viewer invocations. | Webview viewers must prefill Find when opened from the Find window. | https://github.com/KRtkovo-eu-AI/salamander/issues/758 | openai/gpt-5.6-luna-pro |
@@ -2594,6 +2596,14 @@ public:
     }
     virtual void WINAPI ExecuteChangeDriveMenuItem(int panel)
     { int failReason = 0; SalamanderGeneral->ChangePanelPathToPluginFS(panel, SalamatrixFSName, "", &failReason); }
+    virtual BOOL WINAPI BuildChangeDriveMenu(
+        CGUIMenuPopupAbstract* menu, DWORD eventMask, int iconSize,
+        HIMAGELIST* imageList, HIMAGELIST* hotImageList)
+    {
+        return Owner != NULL && Owner->BuildChangeDriveMenu(
+                                    menu, eventMask, iconSize,
+                                    imageList, hotImageList);
+    }
     virtual BOOL WINAPI ChangeDriveMenuItemContextMenu(HWND parent, int panel, int x, int y, CPluginFSInterfaceAbstract* pluginFS, const char* pluginFSName, int pluginFSNameIndex, BOOL isDetachedFS, BOOL& refreshMenu, BOOL& closeMenu, int& postCmd, void*& postCmdParam)
     {
         UNREFERENCED_PARAMETER(panel);
@@ -7374,6 +7384,414 @@ void PackageManager::RegisterToolbarButtons()
             General->RegisterToolbarButton(&button);
         }
     }
+}
+
+BOOL PackageManager::BuildChangeDriveMenu(
+    CGUIMenuPopupAbstract* menu, DWORD eventMask, int iconSize,
+    HIMAGELIST* imageList, HIMAGELIST* hotImageList)
+{
+    if (imageList != NULL)
+        *imageList = NULL;
+    if (hotImageList != NULL)
+        *hotImageList = NULL;
+    if (menu == NULL || imageList == NULL || hotImageList == NULL ||
+        iconSize <= 0)
+        return FALSE;
+
+    struct Entry
+    {
+        DWORD Id;
+        std::string Title;
+        std::string IconPath;
+        std::string IconDarkPath;
+        BOOL Enabled;
+        int ImageIndex;
+    };
+    struct Block
+    {
+        bool IsSubmenu;
+        std::string Title;
+        std::string IconPath;
+        std::string IconDarkPath;
+        BOOL Enabled;
+        int ImageIndex;
+        std::vector<Entry> Entries;
+
+        Block() : IsSubmenu(false), Enabled(TRUE), ImageIndex(-1) {}
+    };
+    std::vector<Block> blocks;
+    std::vector<int> seenCommandIds;
+
+    for (size_t p = 0; p < Packages.size(); ++p)
+    {
+        Package* package = Packages[p];
+        if (package == NULL || !package->RuntimeUsable)
+            continue;
+
+        int packageMenuCommandCount = 0;
+        bool hasToolbarMenu = false;
+        bool toolbarMenuEnabled = false;
+        std::string toolbarMenuTitle;
+        for (size_t c = 0; c < package->Manifest.Commands.size(); ++c)
+        {
+            const CExtensionManifestCommand& command =
+                package->Manifest.Commands[c];
+            if (command.Visible && command.Menu != "none")
+                ++packageMenuCommandCount;
+            if (!command.Visible || !command.Toolbar || !command.ToolbarMenu)
+                continue;
+            if (!hasToolbarMenu)
+                toolbarMenuTitle = command.Title;
+            hasToolbarMenu = true;
+            for (size_t child = 0;
+                 child < package->Manifest.Commands.size(); ++child)
+            {
+                const CExtensionManifestCommand& menuCommand =
+                    package->Manifest.Commands[child];
+                if (menuCommand.Visible && menuCommand.Enabled &&
+                    (menuCommand.Menu == "plugin" ||
+                     menuCommand.Menu == "both"))
+                    toolbarMenuEnabled = true;
+            }
+        }
+
+        std::vector<Entry> packageEntries;
+        for (size_t c = 0; c < package->Manifest.Commands.size(); ++c)
+        {
+            const CExtensionManifestCommand& command =
+                package->Manifest.Commands[c];
+            // MenuExtension::BuildMenu includes every visible command whose
+            // menu is not "none", including context-scoped menu commands.
+            const bool inPluginMenu = command.Menu != "none";
+            const bool inExtensionBarButton =
+                command.Toolbar && !command.ToolbarMenu;
+            const bool inExtensionBarMenu = hasToolbarMenu &&
+                (command.Menu == "plugin" || command.Menu == "both");
+            if (!command.Visible ||
+                (!inPluginMenu && !inExtensionBarButton) ||
+                command.Title.empty() || c >= package->CommandIds.size())
+                continue;
+
+            const int commandId = package->CommandIds[c];
+            if (std::find(seenCommandIds.begin(), seenCommandIds.end(), commandId) !=
+                seenCommandIds.end())
+                continue;
+            seenCommandIds.push_back(commandId);
+
+            Entry entry;
+            entry.Id = static_cast<DWORD>(commandId);
+            entry.Title = command.Title;
+            entry.Enabled = command.Enabled ? TRUE : FALSE;
+            entry.ImageIndex = -1;
+            if (inPluginMenu)
+            {
+                if (Menu != NULL)
+                {
+                    const DWORD state = Menu->GetMenuItemState(commandId, eventMask);
+                    const bool pluginMenuEnabled =
+                        (state & MENU_ITEM_STATE_ENABLED) != 0;
+                    const bool extensionBarEnabled =
+                        (inExtensionBarButton || inExtensionBarMenu) &&
+                        command.Enabled;
+                    entry.Enabled =
+                        (pluginMenuEnabled || extensionBarEnabled) ? TRUE : FALSE;
+                }
+                if (c < package->CommandIconPaths.size())
+                    entry.IconPath = package->CommandIconPaths[c];
+                if (c < package->CommandIconDarkPaths.size())
+                    entry.IconDarkPath = package->CommandIconDarkPaths[c];
+                if (entry.IconPath.empty() &&
+                    (inExtensionBarButton || inExtensionBarMenu))
+                {
+                    entry.IconPath = package->IconPath;
+                    entry.IconDarkPath = package->IconDarkPath;
+                }
+            }
+            else
+            {
+                // Direct Extension Bar buttons use the package icon.
+                entry.IconPath = package->IconPath;
+                entry.IconDarkPath = package->IconDarkPath;
+            }
+            packageEntries.push_back(entry);
+        }
+
+        if (packageEntries.empty())
+            continue;
+
+        Block block;
+        block.IsSubmenu = hasToolbarMenu || packageMenuCommandCount > 1;
+        block.Entries.swap(packageEntries);
+        if (block.IsSubmenu)
+        {
+            if (hasToolbarMenu && !toolbarMenuTitle.empty())
+                block.Title = toolbarMenuTitle;
+            else
+            {
+                char packageTitle[256];
+                StringCchCopyA(
+                    packageTitle, _countof(packageTitle),
+                    package->Manifest.Name.empty()
+                        ? package->Id.c_str()
+                        : package->Manifest.Name.c_str());
+                if (General != NULL)
+                    General->DuplicateAmpersands(
+                        packageTitle, _countof(packageTitle));
+                block.Title = packageTitle;
+            }
+            block.IconPath = package->IconPath;
+            block.IconDarkPath = package->IconDarkPath;
+            // MenuExtension groups are always openable. Extension Bar dropdowns
+            // are enabled if any visible plugin/both child is enabled.
+            bool packageHasEnabledEntry = false;
+            for (size_t e = 0; e < block.Entries.size(); ++e)
+                if (block.Entries[e].Enabled)
+                    packageHasEnabledEntry = true;
+            block.Enabled = packageMenuCommandCount > 1 ||
+                                    toolbarMenuEnabled || packageHasEnabledEntry
+                                ? TRUE
+                                : FALSE;
+        }
+        blocks.push_back(block);
+    }
+
+    Entry reference;
+    reference.Id = static_cast<DWORD>(CommandOpenAutomationApiReference);
+    reference.Title = "Automation API &Reference...";
+    reference.Enabled = Menu != NULL &&
+                        (Menu->GetMenuItemState(
+                             CommandOpenAutomationApiReference, eventMask) &
+                         MENU_ITEM_STATE_ENABLED) != 0;
+    reference.ImageIndex = -1;
+
+    int iconCount = 0;
+    for (size_t b = 0; b < blocks.size(); ++b)
+    {
+        Block& block = blocks[b];
+        if (block.IsSubmenu && !block.IconPath.empty())
+            block.ImageIndex = iconCount++;
+        for (size_t e = 0; e < block.Entries.size(); ++e)
+        {
+            if (!block.Entries[e].IconPath.empty())
+                block.Entries[e].ImageIndex = iconCount++;
+        }
+    }
+
+    // These manifest icons are chosen at runtime from installed extensions,
+    // so fixed IDX_TB_* image-list entries cannot represent them. Use the
+    // dynamic-menu image-list path and let the host retain the lists through
+    // the root Change Drive menu's tracking lifetime.
+    CGUIIconListAbstract* colorIcons = NULL;
+    CGUIIconListAbstract* grayIcons = NULL;
+    if (iconCount > 0 && SalamanderGUI != NULL)
+    {
+        colorIcons = SalamanderGUI->CreateIconList();
+        if (colorIcons == NULL ||
+            !colorIcons->Create(iconSize, iconSize, iconCount))
+        {
+            if (colorIcons != NULL)
+                SalamanderGUI->DestroyIconList(colorIcons);
+            colorIcons = NULL;
+        }
+    }
+    if (colorIcons != NULL)
+    {
+        int imageIndex = 0;
+        const auto replaceIcon = [&](const std::string& iconPath,
+                                     const std::string& iconDarkPath,
+                                     int index) -> BOOL
+        {
+            const bool useDarkIcon =
+                DarkModeIsWindowsDarkSchemeSelected() &&
+                !iconDarkPath.empty();
+            const char* preferredPath =
+                useDarkIcon ? iconDarkPath.c_str() : iconPath.c_str();
+            HICON icon = SalamanderGUI->CreateSVGIcon(preferredPath, iconSize);
+            if (icon == NULL && useDarkIcon)
+                icon = SalamanderGUI->CreateSVGIcon(
+                    iconPath.c_str(), iconSize);
+            if (icon != NULL)
+            {
+                const BOOL replaced = colorIcons->ReplaceIcon(index, icon);
+                DestroyIcon(icon);
+                return replaced;
+            }
+            return FALSE;
+        };
+        for (size_t b = 0; b < blocks.size(); ++b)
+        {
+            Block& block = blocks[b];
+            if (block.IsSubmenu && !block.IconPath.empty())
+            {
+                if (!replaceIcon(block.IconPath, block.IconDarkPath, imageIndex))
+                    block.ImageIndex = -1;
+                ++imageIndex;
+            }
+            for (size_t e = 0; e < block.Entries.size(); ++e)
+            {
+                Entry& entry = block.Entries[e];
+                if (entry.IconPath.empty())
+                    continue;
+                if (!replaceIcon(entry.IconPath, entry.IconDarkPath, imageIndex))
+                    entry.ImageIndex = -1;
+                ++imageIndex;
+            }
+        }
+
+        grayIcons = SalamanderGUI->CreateIconList();
+        if (grayIcons == NULL || !grayIcons->CreateAsCopy(colorIcons, TRUE))
+        {
+            if (grayIcons != NULL)
+                SalamanderGUI->DestroyIconList(grayIcons);
+            grayIcons = NULL;
+        }
+        if (grayIcons != NULL)
+        {
+            *imageList = grayIcons->GetImageList();
+            *hotImageList = colorIcons->GetImageList();
+            if (*imageList == NULL || *hotImageList == NULL)
+            {
+                if (*imageList != NULL)
+                    ImageList_Destroy(*imageList);
+                if (*hotImageList != NULL)
+                    ImageList_Destroy(*hotImageList);
+                *imageList = NULL;
+                *hotImageList = NULL;
+            }
+            SalamanderGUI->DestroyIconList(grayIcons);
+            grayIcons = NULL;
+        }
+        SalamanderGUI->DestroyIconList(colorIcons);
+        colorIcons = NULL;
+    }
+    if (*imageList == NULL || *hotImageList == NULL)
+    {
+        for (size_t b = 0; b < blocks.size(); ++b)
+        {
+            blocks[b].ImageIndex = -1;
+            for (size_t e = 0; e < blocks[b].Entries.size(); ++e)
+                blocks[b].Entries[e].ImageIndex = -1;
+        }
+    }
+
+    const auto destroyImageLists = [&]()
+    {
+        if (*imageList != NULL)
+            ImageList_Destroy(*imageList);
+        if (*hotImageList != NULL && *hotImageList != *imageList)
+            ImageList_Destroy(*hotImageList);
+        *imageList = NULL;
+        *hotImageList = NULL;
+    };
+    const auto insertEntry = [](CGUIMenuPopupAbstract* target,
+                                const Entry& entry) -> BOOL
+    {
+        MENU_ITEM_INFO info = {};
+        info.Mask = MENU_MASK_TYPE | MENU_MASK_STRING | MENU_MASK_ID |
+                    MENU_MASK_STATE | MENU_MASK_IMAGEINDEX;
+        info.Type = MENU_TYPE_STRING;
+        info.State = entry.Enabled ? 0 : MENU_STATE_GRAYED;
+        info.ID = entry.Id;
+        info.String = const_cast<char*>(entry.Title.c_str());
+        info.ImageIndex = entry.ImageIndex;
+        return target->InsertItem(static_cast<DWORD>(-1), TRUE, &info);
+    };
+
+    for (size_t b = 0; b < blocks.size(); ++b)
+    {
+        const Block& block = blocks[b];
+        if (!block.IsSubmenu)
+        {
+            for (size_t e = 0; e < block.Entries.size(); ++e)
+            {
+                if (!insertEntry(menu, block.Entries[e]))
+                {
+                    destroyImageLists();
+                    return FALSE;
+                }
+            }
+            continue;
+        }
+
+        CGUIMenuPopupAbstract* extensionMenu = SalamanderGUI != NULL
+                                                  ? SalamanderGUI->CreateMenuPopup()
+                                                  : NULL;
+        if (extensionMenu == NULL)
+        {
+            // Preserve the complete command union if a package submenu cannot
+            // be allocated; only the grouping degrades to a flat list.
+            for (size_t e = 0; e < block.Entries.size(); ++e)
+            {
+                if (!insertEntry(menu, block.Entries[e]))
+                {
+                    destroyImageLists();
+                    return FALSE;
+                }
+            }
+            continue;
+        }
+
+        BOOL childItemsInserted = TRUE;
+        for (size_t e = 0; e < block.Entries.size(); ++e)
+        {
+            if (!insertEntry(extensionMenu, block.Entries[e]))
+            {
+                childItemsInserted = FALSE;
+                break;
+            }
+        }
+        if (!childItemsInserted)
+        {
+            SalamanderGUI->DestroyMenuPopup(extensionMenu);
+            destroyImageLists();
+            return FALSE;
+        }
+        extensionMenu->SetPopupID(0);
+
+        MENU_ITEM_INFO groupInfo = {};
+        groupInfo.Mask = MENU_MASK_TYPE | MENU_MASK_STRING | MENU_MASK_ID |
+                         MENU_MASK_SUBMENU | MENU_MASK_STATE |
+                         MENU_MASK_IMAGEINDEX;
+        groupInfo.Type = MENU_TYPE_STRING;
+        groupInfo.State = block.Enabled ? 0 : MENU_STATE_GRAYED;
+        groupInfo.ID = 0;
+        groupInfo.SubMenu = extensionMenu;
+        groupInfo.String = const_cast<char*>(block.Title.c_str());
+        groupInfo.ImageIndex = block.ImageIndex;
+        if (!menu->InsertItem(static_cast<DWORD>(-1), TRUE, &groupInfo))
+        {
+            SalamanderGUI->DestroyMenuPopup(extensionMenu);
+            destroyImageLists();
+            return FALSE;
+        }
+    }
+
+    if (!blocks.empty())
+    {
+        MENU_ITEM_INFO separator = {};
+        separator.Mask = MENU_MASK_TYPE;
+        separator.Type = MENU_TYPE_SEPARATOR;
+        if (!menu->InsertItem(static_cast<DWORD>(-1), TRUE, &separator))
+        {
+            destroyImageLists();
+            return FALSE;
+        }
+    }
+
+    MENU_ITEM_INFO referenceInfo = {};
+    referenceInfo.Mask = MENU_MASK_TYPE | MENU_MASK_STRING | MENU_MASK_ID |
+                         MENU_MASK_STATE | MENU_MASK_IMAGEINDEX;
+    referenceInfo.Type = MENU_TYPE_STRING;
+    referenceInfo.State = reference.Enabled ? 0 : MENU_STATE_GRAYED;
+    referenceInfo.ID = reference.Id;
+    referenceInfo.String = const_cast<char*>(reference.Title.c_str());
+    referenceInfo.ImageIndex = -1;
+    if (!menu->InsertItem(static_cast<DWORD>(-1), TRUE, &referenceInfo))
+    {
+        destroyImageLists();
+        return FALSE;
+    }
+    return TRUE;
 }
 
 void PackageManager::UnregisterToolbarButtons()

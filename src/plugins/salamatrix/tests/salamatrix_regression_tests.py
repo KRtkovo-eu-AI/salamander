@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-27 | Verify nested extension commands and Change Drive click behavior. | Prevent no-op actions, missing package dropdowns, and loss of the original drive-row command. | | openrouter/openai/gpt-6-luna-pro |
+# | 2026-11-27 | Verify accessible Change Drive menu-state refresh. | Prevent CPluginData from calling CPlugins' protected state-cache method. | | openrouter/openai/gpt-6-luna-pro |
+# | 2026-11-27 | Verify the real Change Drive cascade and command union. | Prevent a regression to the separate right-click context menu or to an incomplete extension-command list. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-26 | Reject a policy override switch in Extension Menu Builder. | The shipped script was flagged as a dropper for embedding that command line. | | Grok 4.7 |
 # | 2026-11-13 | Accept later plug-in versions in safety guards. | Keep refresh and service-cache version floors valid after subsequent releases. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-12 | Derive extension locale coverage from shipped locale resources. | Translation expansion must not stale fixed locale lists. | | openai/gpt-6-luna-pro |
@@ -113,6 +116,12 @@ def main() -> int:
     plugins_header = read("src/plugins.h")
     plugins1 = read("src/plugins1.cpp")
     plugins2 = read("src/plugins2.cpp")
+    drivelst = read("src/drivelst.cpp")
+    drivelst_header = read("src/drivelst.h")
+    menu2 = read("src/menu2.cpp")
+    menu_header = read("src/menu.h")
+    menu_items = read("src/menu1.cpp")
+    sdk_versions = read("src/plugins/shared/spl_vers.h")
     filesbx2 = read("src/filesbx2.cpp")
     filesmap = read("src/filesmap.cpp")
     fileswn3 = read("src/fileswn3.cpp")
@@ -1623,6 +1632,141 @@ def main() -> int:
         r"packageIconIndex.*?AddSubmenuStart\(\s*"
         r"packageIconIndex",
         "multi-command extension submenus do not display the package icon")
+    change_drive_builder = cpp_function(
+        packages, "BOOL PackageManager::BuildChangeDriveMenu(")
+    change_drive_plugin = cpp_function(
+        plugins1, "BOOL CPluginData::BuildChangeDriveMenu(")
+    change_drive_menu = cpp_function(
+        drivelst, "BOOL CDrivesList::LoadMenuFromData()")
+    change_drive_map = cpp_function(
+        drivelst, "BOOL CDrivesList::MapPluginMenuCommands(")
+    change_drive_track = cpp_function(drivelst, "BOOL CDrivesList::Track()")
+    change_drive_rebuild = cpp_function(drivelst, "BOOL CDrivesList::RebuildMenu()")
+    change_drive_release = cpp_function(
+        drivelst, "void CDrivesList::ReleasePluginMenuResources()")
+    change_drive_mouse = cpp_function(
+        menu2, "void CMenuPopup::DoDispatchMessage(")
+    change_drive_click = cpp_function(
+        menu2, "BOOL CMenuPopup::SetItemClickCommand(")
+    change_drive_hover = cpp_function(menu2, "void CMenuPopup::OnTimerTimeout()")
+    require(
+        fs_contract,
+        r"EnsureShareExistsOnServer\(.*?BuildChangeDriveMenu\(CGUIMenuPopupAbstract\* menu,"
+        r".*?HIMAGELIST\* imageList.*?return FALSE;",
+        "the optional Change Drive submenu callback is not appended to the FS SDK interface")
+    require(
+        sdk_versions,
+        r"LAST_VERSION_OF_SALAMANDER 107.*?SAL_SDK_VER_CHANGEDRIVEMENU 107",
+        "the new FS vtable method is not protected by SDK version 107")
+    require(
+        change_drive_plugin,
+        r"!GetLoaded\(\).*?BuiltForVersion < SAL_SDK_VER_CHANGEDRIVEMENU.*?"
+        r"Plugins\.RecalculateMenuStateCache\(\).*?"
+        r"GetMaskForMenuItems\(pluginIndex\).*?PluginIfaceForFS\.BuildChangeDriveMenu.*?"
+        r"if \(!built\).*?BuildMenu\(parent, TRUE\).*?ReleasePluginDynMenuIcons",
+        "the Change Drive callback is not gated and built from the current plugin menu state")
+    require(
+        change_drive_menu,
+        r"pluginData->BuildChangeDriveMenu.*?"
+        r"SetImageList\(pluginMenuImages, TRUE\).*?"
+        r"SetHotImageList\(pluginMenuHotImages, TRUE\).*?"
+        r"MENU_MASK_SUBMENU.*?"
+        r"MapPluginMenuCommands\(pluginSubMenu, item->DLLName\)",
+        "the ordinary Change Drive entry does not receive a clickable cascading submenu")
+    require(
+        change_drive_map,
+        r"MENU_MASK_SUBMENU.*?commandInfo\.SubMenu != NULL.*?"
+        r"MapPluginMenuCommands\(.*?command\.DLLName = dllName;.*?"
+        r"PluginMenuCommands\.push_back",
+        "nested extension actions are not recursively mapped to executable commands")
+    require(
+        drivelst_header + change_drive_track,
+        r"const char\* DLLName;.*?stable plugin-owned identity.*?"
+        r"Plugins\.GetPluginData\(selectedCommand\.DLLName\)",
+        "Change Drive command routing copies DLLName and cannot resolve the plugin identity")
+    require_absent(
+        change_drive_track,
+        r"selectedCommand\.DLLName\.c_str\(\)",
+        "Change Drive command routing must preserve the plugin-owned DLLName pointer")
+    require(
+        menu_header + menu_items + change_drive_menu + change_drive_click +
+        change_drive_mouse,
+        r"BOOL ClickCommand;.*?ClickCommand = FALSE;.*?"
+        r"SetItemClickCommand\(i, TRUE\).*?Items\[index\]->ClickCommand = enabled;.*?"
+        r"item->ClickCommand.*?WM_LBUTTONUP.*?FinishCommand\(item->ID.*?"
+        r"WM_LBUTTONDOWN.*?WM_LBUTTONDBLCLK",
+        "clicking Salamatrix's Change Drive row does not run its original action")
+    require(
+        change_drive_hover,
+        r"selectedItem->SubMenu != NULL.*?CreatePopupWindow",
+        "hovering the Change Drive row no longer opens its submenu")
+    require(
+        change_drive_builder,
+        r'command\.Menu != "none".*?command\.Toolbar && !command\.ToolbarMenu',
+        "the Change Drive submenu does not include plugin-menu and direct Extension Bar commands")
+    require(
+        change_drive_builder,
+        r"!command\.Visible \|\| !command\.Toolbar \|\| !command\.ToolbarMenu.*?"
+        r"hasToolbarMenu.*?"
+        r"inExtensionBarMenu.*?block\.IsSubmenu = hasToolbarMenu \|\| packageMenuCommandCount > 1.*?"
+        r"SalamanderGUI->CreateMenuPopup\(\).*?groupInfo\.SubMenu = extensionMenu",
+        "Change Drive does not preserve per-extension Extension Bar dropdown submenus")
+    require_absent(
+        change_drive_builder,
+        r"CMenuPopup",
+        "Salamatrix must create nested menus through the plug-in GUI API")
+    require(
+        change_drive_builder,
+        r"seenCommandIds.*?std::find\(seenCommandIds.*?seenCommandIds\.push_back",
+        "the Change Drive submenu does not deduplicate commands exposed in both surfaces")
+    require(
+        change_drive_builder,
+        r"GetMenuItemState\(commandId, eventMask\).*?CommandIconPaths.*?"
+        r"CommandIconDarkPaths.*?package->IconPath.*?package->IconDarkPath",
+        "the Change Drive submenu does not retain menu state and the correct light/dark icon sources")
+    require(
+        change_drive_builder,
+        r"DarkModeIsWindowsDarkSchemeSelected\(\).*?CreateSVGIcon.*?"
+        r"CreateAsCopy\(colorIcons, TRUE\).*?GetImageList\(\)",
+        "the Change Drive submenu does not create DPI-sized grayscale and hot icon lists")
+    require(
+        change_drive_builder,
+        r"MENU_MASK_IMAGEINDEX.*?info\.ImageIndex = entry\.ImageIndex",
+        "Change Drive submenu entries do not select their manifest icon-list indices")
+    require(
+        change_drive_builder,
+        r"for \(size_t b = 0; b < blocks\.size\(\); \+\+b\).*?"
+        r"insertEntry\(menu, block\.Entries\[e\]\).*?"
+        r"if \(!blocks\.empty\(\)\).*?MENU_TYPE_SEPARATOR.*?referenceInfo",
+        "the API reference separator is not placed after all extension commands")
+    require(
+        change_drive_builder,
+        r"Automation API &Reference",
+        "the Change Drive submenu omits the existing Salamatrix Automation API reference command")
+    require(
+        change_drive_track,
+        r"delete MenuPopup;.*?ExecuteMenuItem2\(.*?ExecuteToolbarCommand\(.*?"
+        r"StoreSelection\(\).*?SetSel\(FALSE, -1, TRUE\).*?cmd = 0;.*?"
+        r"ReleasePluginMenuResources\(\).*?return cmd != 0",
+        "Change Drive submenu commands are not dispatched after the root popup closes")
+    require_absent(
+        change_drive_rebuild,
+        r"ReleasePluginMenuResources",
+        "Change Drive icon lists are released while the root popup can still be tracking")
+    require(
+        drivelst,
+        r"NextPluginMenuCommandId = 0x7F000000u;.*?LoadMenuFromData\(\).*?"
+        r"NextPluginMenuCommandId >= 0x7FFFFFFFu.*?"
+        r"const DWORD menuId = NextPluginMenuCommandId\+\+",
+        "rebuilt Change Drive submenus can reuse a command ID while the old menu remains active")
+    require(
+        change_drive_release,
+        r"PluginMenuImageLists\.clear\(\);.*?NextPluginMenuCommandId = 0x7F000000u;",
+        "Change Drive submenu command IDs are not reset after the root popup has closed")
+    require(
+        packages,
+        r"ChangeDriveMenuItemContextMenu\(.*?popup->Track\(MENU_TRACK_RETURNCMD",
+        "the existing right-click context menu callback was removed instead of adding a cascade")
     require(
         mainwnd3,
         r"WM_USER_TBDROPDOWN.*?CM_EXTTOOLBAR_MIN.*?"
