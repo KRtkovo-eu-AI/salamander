@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-27 | Guard independent viewer activation and taskbar behavior. | Prevent the shared viewer from staying above its host when the user switches windows. | https://github.com/KRtkovo-eu-AI/salamander/issues/866 | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-08 | Guard the shared viewer taskbar window style. | WebView2 render, PrismSharp, and JSON Viewer must keep independent taskbar buttons. |  | openai/gpt-5.6-luna-pro |
 
 from pathlib import Path
@@ -615,10 +616,13 @@ def main() -> None:
     if (
         "const DWORD extendedStyle = WS_EX_APPWINDOW |" not in native_viewer
         or "CreateWindowExW(extendedStyle, className" not in native_viewer
-        or "IsWindow(parameters_->owner) ? parameters_->owner : nullptr" not in native_viewer
+        or "nullptr, nullptr, parameters_->module, this" not in native_viewer
+        or "GWLP_HWNDPARENT" in native_viewer
+        or "void RestoreOwnerActivation()" not in native_viewer
+        or "RestoreOwnerActivation();" not in native_viewer
     ):
         raise AssertionError(
-            "shared viewer windows must keep their owner and opt into independent taskbar buttons"
+            "shared viewer windows must stay switchable, restore host activation on close, and keep their taskbar buttons"
         )
 
     # Edit menu, print, go to line, DevTools policy.

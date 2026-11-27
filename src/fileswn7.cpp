@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Prevent copying and deleting from the protected archive pilot. | Keep the archive listing read-only. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-27 | Restore the selected archive target when copy history supplies its universal mask. | Archive extraction accepts a directory, not the `*.*` entry used by ordinary copy history. | https://github.com/KRtkovo-eu-AI/salamander/issues/780 | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-15 | Explain protected ZIP staging. | Document workspace ownership and pre-publication validation. | #731 | GPT-6 |
 // | 2026-11-15 | Explain protected ZIP operation boundaries. | Clarify bounded extraction and staged updates. | #731 | GPT-6 |
 // | 2026-11-11 | Compare the portable file-list exclusion identity. | Keep both the volume serial and all 128 identity bits. | #731 | GPT-6.1 Sol |
@@ -834,6 +835,59 @@ static BOOL ReadUnpackDiskDestination(const wchar_t* source, char* destination, 
            CopyUnpackDestination(encoded.c_str(), destination, capacity);
 }
 
+// A prior ordinary copy can leave the target panel's universal file mask in
+// shared history. Archive extraction targets the directory itself, so restore
+// that exact panel root only when the selected mask resolves back to it.
+static BOOL RestoreUnpackDirectoryFromUniversalMask(char* path, int capacity,
+                                                     const char* targetDirectory)
+{
+    if (path == NULL || targetDirectory == NULL || targetDirectory[0] == 0 || capacity <= 0)
+        return FALSE;
+    const char* terminator = static_cast<const char*>(memchr(path, 0, static_cast<size_t>(capacity)));
+    if (terminator == NULL)
+        return FALSE;
+
+    const size_t length = static_cast<size_t>(terminator - path);
+    size_t maskLength = 0;
+    if (length >= 3 && memcmp(path + length - 3, "*.*", 3) == 0)
+        maskLength = 3;
+    else if (length >= 1 && path[length - 1] == '*')
+        maskLength = 1;
+    if (maskLength == 0 || length <= maskLength)
+        return FALSE;
+
+    const size_t maskStart = length - maskLength;
+    if (path[maskStart - 1] != '\\' && path[maskStart - 1] != '/')
+        return FALSE;
+
+    size_t pathRootLength = maskStart;
+    size_t targetRootLength = strlen(targetDirectory);
+    while (pathRootLength > 3 && (path[pathRootLength - 1] == '\\' || path[pathRootLength - 1] == '/'))
+        --pathRootLength;
+    while (targetRootLength > 3 &&
+           (targetDirectory[targetRootLength - 1] == '\\' || targetDirectory[targetRootLength - 1] == '/'))
+        --targetRootLength;
+    if (pathRootLength != targetRootLength)
+        return FALSE;
+
+    const std::string pathRootText(path, pathRootLength);
+    const std::string targetRootText(targetDirectory, targetRootLength);
+    std::wstring pathRoot = SalMultiByteToWidePath(pathRootText.c_str(), CP_UTF8);
+    std::wstring targetRoot = SalMultiByteToWidePath(targetRootText.c_str(), CP_UTF8);
+    if (pathRoot.empty() || targetRoot.empty())
+        return FALSE;
+    for (std::wstring::iterator character = pathRoot.begin(); character != pathRoot.end(); ++character)
+        if (*character == L'/')
+            *character = L'\\';
+    for (std::wstring::iterator character = targetRoot.begin(); character != targetRoot.end(); ++character)
+        if (*character == L'/')
+            *character = L'\\';
+    if (CompareStringOrdinal(pathRoot.c_str(), -1, targetRoot.c_str(), -1, TRUE) != CSTR_EQUAL)
+        return FALSE;
+
+    return CopyUnpackDestination(targetDirectory, path, capacity);
+}
+
 // Best-effort cleanup of the exact newly-created tree: never delete files or follow reparse directories.
 static void RemoveEmptyUnpackDirectoriesW(const std::wstring& root)
 {
@@ -1544,6 +1598,9 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                 EndStopRefresh();
                 return;
             }
+            if (watchDiskTarget)
+                RestoreUnpackDirectoryFromUniversalMask(path, pathBuffer.Capacity(),
+                                                        diskTarget.DefaultPath.c_str());
             const bool useDefaultDiskTarget = watchDiskTarget && tgtPath == NULL &&
                                               diskTarget.HasDefaultText(path, pathBuffer.Capacity());
             UpdateWindow(MainWindow->HWindow);

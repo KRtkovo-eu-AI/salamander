@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-27 | Verify archive extraction strips only the active directory's universal mask. | Prevent a stale `*.*` history entry from becoming an extraction destination. | https://github.com/KRtkovo-eu-AI/salamander/issues/780 | openrouter/openai/gpt-6-luna-pro |
 // Actual destination helpers; no panel, parser or archive-engine emulation.
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -39,6 +42,19 @@ int main(){
  Check(CopyUnpackDestination("",out,1)&&out[0]==0,"explicit empty text preserved for resolver semantics");
  char alias[12]="abcdef";
  Check(CopyUnpackDestination(alias+1,alias,12)&&std::string(alias)=="bcdef","overlapping owned source supported");
+ char maskedDefault[64]="C:\\TEMP\\*.*";
+ Check(RestoreUnpackDirectoryFromUniversalMask(maskedDefault,sizeof(maskedDefault),"C:\\TEMP")!=FALSE,"restore target root from its universal mask");
+ Check(std::string(maskedDefault)=="C:\\TEMP","universal mask does not remain in extraction path");
+ char maskedRoot[64]="C:\\*";
+ Check(RestoreUnpackDirectoryFromUniversalMask(maskedRoot,sizeof(maskedRoot),"C:\\")!=FALSE,"preserve drive-root target identity");
+ Check(std::string(maskedRoot)=="C:\\","drive root remains exact");
+ char maskedCaseAndSlash[64]="c:/temp/*.*";
+ Check(RestoreUnpackDirectoryFromUniversalMask(maskedCaseAndSlash,sizeof(maskedCaseAndSlash),"C:\\TEMP")!=FALSE,"match Windows paths independent of case and separator direction");
+ Check(std::string(maskedCaseAndSlash)=="C:\\TEMP","restore the selected panel root spelling");
+ char otherDirectory[64]="C:\\OTHER\\*.*";
+ Check(!RestoreUnpackDirectoryFromUniversalMask(otherDirectory,sizeof(otherDirectory),"C:\\TEMP")&&std::string(otherDirectory)=="C:\\OTHER\\*.*","do not replace a different custom destination");
+ char customMask[64]="C:\\TEMP\\*.txt";
+ Check(!RestoreUnpackDirectoryFromUniversalMask(customMask,sizeof(customMask),"C:\\TEMP")&&std::string(customMask)=="C:\\TEMP\\*.txt","leave non-universal masks unchanged");
  for(const char* component:{"ascii",u8"東京",u8"žluť",u8"🙂"})
   Check(!IsUnpackDirectoryComponentInvalid(component,strlen(component)),"valid Unicode component is not an ASCII control");
  for(const char* component:{" leading","trailing ","trailing.","\tleading","trailing\t",u8"東京.",u8"東京 "})

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-27 | Route the viewer's Configuration command to Internal Viewer settings. | Keep it out of the File Associations page after the tree moved. | https://github.com/KRtkovo-eu-AI/salamander/issues/861 | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-26 | Enable and expose colored working directory history icons. | Allow users to switch between colored and standard icons. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-09 | Default Change Drive menu to show Plugin items first. | Preserve the current block order unless the user chooses Hot Paths first. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
 // | 2026-11-09 | Add custom viewer/editor pages below File Associations. | Expose saved named handlers as editable configuration targets. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -1075,7 +1076,7 @@ CConfigurationDlg::CConfigurationDlg(HWND parent, CUserMenuItems* userMenuItems,
     : CTreePropDialog(parent, HLanguage, LoadStr(IDS_CONFIGURATION),
                       mode == 0 ? Configuration.LastFocusedPage : mode == 1 ? 17
                                                               : mode == 2   ? 16
-                                                             : mode == 3   ? 20
+                                                              : mode == CCFG_MODE_INTERNAL_VIEWER ? CCFG_PAGE_INTERNAL_VIEWER
                                                              : mode == 4   ? 20
                                                             : mode == 5   ? 1
                                                                           : 14 /* mode == 6 */,

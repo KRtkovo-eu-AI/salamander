@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Route explicit Refresh to protected archives. | Leave background refresh noninteractive. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-27 | Use the named Internal Viewer configuration entry point. | Avoid coupling viewer navigation to a reassigned numeric page mode. | https://github.com/KRtkovo-eu-AI/salamander/issues/861 | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-26 | Activate the live source of a working directory history entry. | Select the correct tab even across panels and detached windows. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Resolve the history source's current custom color. | Keep colored icons in sync with the source tab. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Resolve and preserve history origins by tab GUID. | Capture the title before a tab closes and restore identity on undo. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
@@ -6041,7 +6042,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
     {
         if (GetForegroundWindow() != HWindow)
             SetForegroundWindow(HWindow); // so we rise above the viewer
-        OnConfiguration(3, 0);
+        OnConfiguration(CCFG_MODE_INTERNAL_VIEWER, 0);
         HWND hCaller = (HWND)wParam;
         if (IsWindow(hCaller))
         {

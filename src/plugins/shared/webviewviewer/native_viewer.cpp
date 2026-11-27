@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-27 | Keep shared viewer windows switchable with the host. | Owned windows remain above Salamander even when Always On Top is disabled. | https://github.com/KRtkovo-eu-AI/salamander/issues/866 | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-08 | Show shared WebView2 viewer windows in the Windows taskbar. | Owned top-level windows are omitted from the taskbar unless they opt in with WS_EX_APPWINDOW. |  | openai/gpt-5.6-luna-pro |
 // | 2026-11-07 | Open PrismSharp Find bar for F3 navigation. | F3 and Shift+F3 must reveal the search dialog before moving between matches. |  | openai/gpt-5.6-luna-pro |
 // | 2026-11-07 | Preserve hidden Find prefill across shared webview viewers. | Find-triggered viewers must carry the phrase without opening the dialog. | https://github.com/KRtkovo-eu-AI/salamander/issues/758 | openai/gpt-5.6-luna-pro |
@@ -1521,15 +1522,14 @@ public:
         int width = (std::max)(parameters_->placement.right - parameters_->placement.left, 320L);
         int height = (std::max)(parameters_->placement.bottom - parameters_->placement.top, 240L);
         std::wstring title = WindowTitle();
-        // Keep the owner for activation and lifecycle coordination, but opt the
-        // owned top-level window into its own taskbar button.
+        // Keep this as an independent top-level window so the host can be raised
+        // above it. WS_EX_APPWINDOW gives it a separate taskbar button.
         const DWORD extendedStyle = WS_EX_APPWINDOW |
             (parameters_->alwaysOnTop ? WS_EX_TOPMOST : 0);
         window_ = CreateWindowExW(extendedStyle, className, title.c_str(),
                                   WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
                                   parameters_->placement.left, parameters_->placement.top, width, height,
-                                  IsWindow(parameters_->owner) ? parameters_->owner : nullptr,
-                                  nullptr, parameters_->module, this);
+                                  nullptr, nullptr, parameters_->module, this);
         if (window_ != nullptr)
         {
             creationComplete_ = true;
@@ -1581,10 +1581,6 @@ public:
         // Menus and labels must follow the new request, including font/locale.
         DestroyMenus();
         parameters_.swap(parameters);
-        SetWindowLongPtrW(window_, GWLP_HWNDPARENT,
-                          reinterpret_cast<LONG_PTR>(IsWindow(parameters_->owner)
-                                                         ? parameters_->owner
-                                                         : nullptr));
         ReadSettings();
         if (!CreateCustomMenuBar())
         {
@@ -1680,10 +1676,19 @@ private:
             gWindows.erase(found);
     }
 
+    void RestoreOwnerActivation()
+    {
+        const HWND owner = parameters_->owner;
+        if (!gShuttingDown.load() && IsWindow(owner) && IsWindowVisible(owner) &&
+            GetForegroundWindow() == window_)
+            SetForegroundWindow(owner);
+    }
+
     void CloseOrKeepReady()
     {
         if (idle_)
             return;
+        RestoreOwnerActivation();
         if (!gPrismKeepReady.load() || gShuttingDown.load() || gIdlePrismViewer != nullptr ||
             parameters_->kind != NativeViewerKind::PrismText ||
             !prismPageReady_ || !browserHealthy_ || loadProgress_ != 100 || !webView_ || !controller_)

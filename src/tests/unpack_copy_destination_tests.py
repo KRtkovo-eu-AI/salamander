@@ -1,5 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Samandarin Contributors
+# SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-27 | Cover archive destinations contaminated by copy-history masks. | Keep extraction rooted at the active directory when history has `*.*`. | https://github.com/KRtkovo-eu-AI/salamander/issues/780 | openrouter/openai/gpt-6-luna-pro |
 """Actual archive-copy destination helpers and controller placement; no archive engine facade."""
 import argparse,shutil,tempfile
 from pathlib import Path
@@ -8,10 +11,13 @@ from branch_panel_getters_tests import block,read,compiler_environment,run
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--configuration',choices=('Debug','Release','Both'),default='Both');a=p.parse_args()
  source=read('src/fileswn7.cpp');wide=read('src/common/widepath.cpp');text=read('src/tests/unpack_copy_destination_tests.cpp.in')
- text=text.replace('@@ACTUAL@@','\n'.join(block(source,m) for m in ('static BOOL IsUnpackDirectoryComponentInvalid(', 'static BOOL CopyUnpackDestination(', 'static BOOL ReadUnpackDiskDestination(')))
+ text=text.replace('@@ACTUAL@@','\n'.join(block(source,m) for m in ('static BOOL IsUnpackDirectoryComponentInvalid(', 'static BOOL CopyUnpackDestination(', 'static BOOL ReadUnpackDiskDestination(', 'static BOOL RestoreUnpackDirectoryFromUniversalMask(')))
  text=text.replace('@@CONVERSIONS@@','\n'.join(block(wide,m) for m in ('std::wstring SalMultiByteToWidePath(', 'std::string SalWideToMultiBytePath(')))
  assert '@@' not in text
  controller=block(source,'void CFilesWindow::UnpackZIPArchive(')
+ mask_restore=controller.index('RestoreUnpackDirectoryFromUniversalMask(')
+ default_classification=controller.index('const bool useDefaultDiskTarget =')
+ assert mask_restore < default_classification, 'restore the directory default before classifying the dialog result'
  for needle in ('CPathBuffer changesRootBuffer;', 'CPathBuffer newDirsBuffer;', 'CopyUnpackDestination(tgtPath, path, pathBuffer.Capacity())', 'ReadUnpackDiskDestination(diskTarget.Root.c_str()', 'NULL, NULL, pathBuffer.Capacity()', 'SalCreateDirectoryExW(newDirsW.c_str()', 'RemoveEmptyUnpackDirectoriesW(', 'if (strlen(path) >= MAX_PATH)', 'PackGetVerifiedBranchUnpacker(this, GetZIPArchive(), PluginData.GetInterface()) == NULL'):
   assert needle in controller,needle
  for forbidden in ('lstrcpyn(path, tgtPath', 'char newDirs[MAX_PATH]', 'char changesRoot[MAX_PATH]', 'SalPathAddBackslash(path, MAX_PATH + 200)', 'CreateDirectory(newDirs', 'RemoveEmptyDirs(newDirs'):

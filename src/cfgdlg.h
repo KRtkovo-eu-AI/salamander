@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-27 | Name the Internal Viewer configuration route and page. | Keep its menu link separate from File Associations after the tree was reorganized. | https://github.com/KRtkovo-eu-AI/salamander/issues/861 | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-26 | Store the choice to display colored working directory history icons. | Keep the setting independent of history storage. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-14 | Keep user-association ownership on runtime handler rows. | Let file actions select the exact target shown in File Associations ahead of overlapping legacy masks. |  | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-10 | Declare the shared association status resolver. | Keep matrix status text, badge color, and conflict filtering on one provenance calculation. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
@@ -1569,11 +1570,18 @@ protected:
 //
 // ****************************************************************************
 
+enum
+{
+    CCFG_MODE_INTERNAL_VIEWER = 3,
+    CCFG_PAGE_INTERNAL_VIEWER = 9
+};
+
 class CConfigurationDlg : public CTreePropDialog
 {
 public:
     // mode: 0 - normal
     //       1 - hot paths
+    //       CCFG_MODE_INTERNAL_VIEWER - Internal Viewer settings
     CConfigurationDlg(HWND parent, CUserMenuItems* userMenuItems, int mode = 0, int param = 0);
 
 public:
