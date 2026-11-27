@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-27 | Regress PDF Find-bar Escape ordering. | Parse the raw Find open/close messages so the first Escape closes Find and the next closes the viewer. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-08 | Guard the shared viewer taskbar window style. | WebView2 render, PrismSharp, and JSON Viewer must keep independent taskbar buttons. |  | openai/gpt-5.6-luna-pro |
 
 from pathlib import Path
@@ -656,6 +657,21 @@ def main() -> None:
     esc_block = flattened[flattened.index("virtualKey == VK_ESCAPE"):flattened.index("virtualKey == VK_F5")]
     if "PrismText" not in esc_block:
         raise AssertionError("the host Esc accelerator must not close a Prism viewer while a find/go-to bar is open")
+    find_message_start = native_viewer.index("void HandleFindMessage(")
+    find_message_end = native_viewer.index('if (action == L"remember")', find_message_start)
+    find_message = native_viewer[find_message_start:find_message_end]
+    if not (
+        find_message.index('payload == L"open"')
+        < find_message.index('payload == L"close"')
+        < find_message.index('FindJsonString(payload, L"action", action)')
+    ):
+        raise AssertionError("raw Find open/close messages must update the host state before JSON parsing")
+    document_escape = esc_block[esc_block.index("// RenderDocument owns Esc"):]
+    if not (
+        document_escape.index("self->findBarOpen_")
+        < document_escape.index("PostMessageW(viewerWindow, WM_CLOSE, 0, 0)")
+    ):
+        raise AssertionError("an open document Find bar must consume Escape before the viewer-close fallback")
     reset_block = virtual_viewer[virtual_viewer.index("documentEpoch += 1;"):virtual_viewer.index("clearFindHighlight();")]
     for token in ("selectAllActive = false;", "hideGotoBar();", "gotoTotal = 1;"):
         if token not in reset_block:

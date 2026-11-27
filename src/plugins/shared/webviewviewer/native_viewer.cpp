@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-27 | Track document Find open/close messages for Escape. | Keep the first Escape on the Find bar and close the viewer only after it is closed. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-27 | Fix return statements in shared Find-message handling. | Handle open and close actions in the void message dispatcher. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-08 | Show shared WebView2 viewer windows in the Windows taskbar. | Owned top-level windows are omitted from the taskbar unless they opt in with WS_EX_APPWINDOW. |  | openai/gpt-5.6-luna-pro |
 // | 2026-11-07 | Open PrismSharp Find bar for F3 navigation. | F3 and Shift+F3 must reveal the search dialog before moving between matches. |  | openai/gpt-5.6-luna-pro |
@@ -3693,6 +3694,17 @@ private:
 
     void HandleFindMessage(const std::wstring& payload)
     {
+        if (payload == L"open")
+        {
+            findBarOpen_ = true;
+            return;
+        }
+        if (payload == L"close")
+        {
+            findBarOpen_ = false;
+            return;
+        }
+
         std::wstring action;
         if (!FindJsonString(payload, L"action", action))
             return;

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-27 | Regress custom-handler Add draft reset. | Ensure Add clears the selection and all detail fields before returning focus for a new handler. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-27 | Regress ZIP open, editor precedence, and handler-reference safety. | Keep archive dispatch consistent with Ctrl+PgDown, prefer specific editor masks, and prevent deleting referenced handlers. | https://github.com/KRtkovo-eu-AI/salamander/issues/873 | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-14 | Regress authoritative runtime handler selection. | Ensure explicit user targets beat wildcard fallback rows for viewer/editor actions and exact archive extension mappings. |  | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-14 | Regress independent runtime projection domains. | Ensure an unchanged packer table cannot reject Viewer, Alternate View, or Editor overrides. |  | openrouter/openai/gpt-6-luna-pro |
@@ -318,6 +319,22 @@ def main() -> None:
             delete_handler.index("CopyCanonicalAssociationsForConfiguration") <
             delete_handler.index("IDS_CUSTOM_HANDLER_DELETE_CONFIRM"),
             "a custom handler referenced by File Associations must not be deleted")
+    add_start = dialogs5.index("void CCfgPageCustomHandlers::BeginNew()")
+    add_end = dialogs5.index("void CCfgPageCustomHandlers::DeleteCurrent()", add_start)
+    add_handler = dialogs5[add_start:add_end]
+    add_command_start = dialogs5.index(
+        "if (LOWORD(wParam) == IDB_CUSTOM_HANDLER_ADD_NEW && HIWORD(wParam) == BN_CLICKED)")
+    add_command_end = dialogs5.index(
+        "if (LOWORD(wParam) == IDB_CUSTOM_HANDLER_DELETE", add_command_start)
+    add_command = dialogs5[add_command_start:add_command_end]
+    require(add_handler.index("ListView_SetItemState") < add_handler.index("SelectedRow = -1;") <
+            add_handler.index("AddingNew = TRUE;") and
+            all(f'SetDlgItemText(HWindow, {control}, "");' in add_handler for control in (
+                "IDE_CUSTOM_HANDLER_NAME", "IDE_COMMAND", "IDE_ARGUMENTS", "IDE_INITDIR")) and
+            "SetFocus(GetDlgItem(HWindow, IDE_CUSTOM_HANDLER_NAME));" in add_handler and
+            "BeginNew();" in add_command and "return TRUE;" in add_command and
+            lang_resource.count("IDB_CUSTOM_HANDLER_ADD_NEW,") == 2,
+            "Add must reliably clear both handler pages and enter a new draft")
     archive_stage_start = runtime_adapter.index("bool StageArchiveAssociation(")
     archive_stage_end = runtime_adapter.index("bool BeginRuntimeProjection(", archive_stage_start)
     archive_stage = runtime_adapter[archive_stage_start:archive_stage_end]

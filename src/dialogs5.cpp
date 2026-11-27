@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-27 | Make Add reliably start a blank custom-handler draft. | Clear the list selection before committing draft state and clearing its fields. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-27 | Add creation and safe confirmed deletion for custom handlers. | Manage viewer/editor handlers directly from their detail pages without orphaning File Associations. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-13 | Mark edited association controls as user overrides during validation. | Keep Configuration OK and page navigation from saving visible targets without projecting them into file actions. |  | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-10 | Unify association status, badge color, and conflict filtering. | Apply the same User-first status calculation to the badge, counts, and Conflicts checkbox. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
@@ -7004,11 +7005,18 @@ void CCfgPageCustomHandlers::LoadSelected()
 
 void CCfgPageCustomHandlers::BeginNew()
 {
+    HWND list = GetDlgItem(HWindow, IDL_CUSTOM_HANDLERS);
+    if (list != NULL)
+        ListView_SetItemState(list, -1, 0, LVIS_SELECTED | LVIS_FOCUSED);
+
+    // Deselecting the list can synchronously notify the dialog. Commit the new
+    // draft state afterwards so a list notification cannot restore the old row.
     SelectedRow = -1;
     AddingNew = TRUE;
-    ListView_SetItemState(GetDlgItem(HWindow, IDL_CUSTOM_HANDLERS), -1, 0,
-                          LVIS_SELECTED | LVIS_FOCUSED);
-    LoadSelected();
+    SetDlgItemText(HWindow, IDE_CUSTOM_HANDLER_NAME, "");
+    SetDlgItemText(HWindow, IDE_COMMAND, "");
+    SetDlgItemText(HWindow, IDE_ARGUMENTS, "");
+    SetDlgItemText(HWindow, IDE_INITDIR, "");
     UpdateButtons();
     SetFocus(GetDlgItem(HWindow, IDE_CUSTOM_HANDLER_NAME));
 }
@@ -7225,7 +7233,7 @@ INT_PTR CCfgPageCustomHandlers::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
         if (LOWORD(wParam) == IDB_CUSTOM_HANDLER_ADD_NEW && HIWORD(wParam) == BN_CLICKED)
         {
             BeginNew();
-            return 0;
+            return TRUE;
         }
         if (LOWORD(wParam) == IDB_CUSTOM_HANDLER_DELETE && HIWORD(wParam) == BN_CLICKED)
         {
