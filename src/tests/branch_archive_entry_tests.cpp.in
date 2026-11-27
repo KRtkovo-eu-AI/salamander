@@ -1,5 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Samandarin Contributors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-27 | Match archive-entry fixture to the BOOL probe API. | Compile the production archive probe after it gained a result for silent ZIP detection. | https://github.com/KRtkovo-eu-AI/salamander/issues/873 | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-07 | Model the protected-listing caption state. | Verify the UTF-8 scope boundary and that virtual paths clear it. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Verify the protected ZIP panel header. | Cover the archive shield and intact virtual path. | | GPT-6.1 Sol (Codex) |
 #include <windows.h>
@@ -114,7 +116,7 @@ public:
   if(ChangeOK){ArchiveView=TRUE;ArchiveName=path;Branch=FALSE;Disk=FALSE;RootW=L"archive panel";Root="archive panel";Files->Values.clear();Files->Count=0;}
   return ChangeOK;
  }
- void TryEnterFileAsArchive(int);
+  BOOL TryEnterFileAsArchive(int, BOOL = FALSE);
  void CtrlPageDnOrEnter(WPARAM);
 };
 @@IS_SEVEN@@
