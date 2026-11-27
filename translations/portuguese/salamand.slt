@@ -4369,11 +4369,12 @@ SLGINCOMPLETE,""
 14609,1,"Arquivo em uso por: %s"
 14610,1,"Terminate these processes and retry?\n\nUnsaved data in these processes may be lost:\n%s"
 14611,1,"Não foi possível encerrar processos usando este arquivo."
-14612,1,"&Adicionar"
+14612,1,"&Adicionar novo"
 14613,1,"&Excluir"
 14614,1,"Deseja excluir o manipulador selecionado?"
 14615,1,"Este manipulador está associado a uma ou mais associações de ficheiros. Altere essas associações antes de o excluir."
 14616,1,"Não foi possível verificar as associações de ficheiros. O manipulador não foi excluído."
+14617,1,"Eliminar todos os padrões selecionados e as ações associadas?"
 
 [STRINGTABLE 193]
 14624,1,"Acesso negado. Criar esta pasta como administrador?"

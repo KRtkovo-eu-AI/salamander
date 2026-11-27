@@ -4369,11 +4369,12 @@ SLGINCOMPLETE,""
 14609,1,"Filen bruges af: %s"
 14610,1,"Afslut disse processer og gentag?\n\nIkke-gemte data i disse processer kan gå tabt:\n%s"
 14611,1,"Kunne ikke afslutte processer, der bruger filen."
-14612,1,"&Tilføj"
+14612,1,"&Tilføj ny"
 14613,1,"&Slet"
 14614,1,"Vil du slette den valgte handler?"
 14615,1,"Denne handler bruges i en eller flere filtilknytninger. Skift disse tilknytninger, før du sletter den."
 14616,1,"Filtilknytningerne kunne ikke kontrolleres. Handleren blev ikke slettet."
+14617,1,"Slet alle valgte mønstre og deres handlinger?"
 
 [STRINGTABLE 193]
 14624,1,"Adgang blev nægtet. Opret denne mappe som administrator?"

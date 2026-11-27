@@ -1,4 +1,6 @@
-﻿// | 2026-11-27 | Localize custom-handler reference-safety messages. | Explain when an assigned handler cannot be deleted or associations cannot be checked. | | openrouter/openai/gpt-6-luna-pro |
+﻿// | 2026-11-27 | Confirm whole-pattern File Associations deletion. | Distinguish deleting all actions for a pattern from setting one target to Unassigned. | | openrouter/openai/gpt-6-luna-pro |
+// | 2026-11-27 | Clarify the custom-handler creation label. | Distinguish starting a new handler from the shorter Add action. | | openrouter/openai/gpt-6-luna-pro |
+// | 2026-11-27 | Localize custom-handler reference-safety messages. | Explain when an assigned handler cannot be deleted or associations cannot be checked. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-27 | Use compact custom-handler action labels. | Fit localized Add and Delete actions in equal-width buttons. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-15 | Explain administrator denial when opening folders. | Distinguish a broker denial from an ordinary access error. | #731 | GPT-6 |
 // | 2026-11-13 | Localize experimental thin copy consent. | Avoid claiming support for alternate streams. | #731 | GPT-6 |
@@ -2563,6 +2565,7 @@ STRINGTABLE
  IDS_FILEASSOCIATION_STATUS, "Status:"
  IDS_FILEASSOCIATION_ADD, "&Add / Update"
  IDS_FILEASSOCIATION_DELETE, "&Delete"
+ IDS_FILEASSOCIATION_DELETE_PATTERN_CONFIRM, "Delete all selected patterns and their action assignments?"
  IDS_FILEASSOCIATION_RESET, "&Reset to default"
  IDS_FILEASSOCIATION_UNASSIGNED, "Set &unassigned"
  IDS_FILEASSOCIATION_VIEW, "View"
@@ -2616,7 +2619,7 @@ STRINGTABLE
  IDS_CUSTOM_HANDLER_ARGUMENTS, "&Arguments:"
  IDS_CUSTOM_HANDLER_INITIAL_DIRECTORY, "&Initial directory:"
  IDS_CUSTOM_HANDLER_SAVE, "&Save"
- IDS_CUSTOM_HANDLER_ADD_NEW, "&Add"
+ IDS_CUSTOM_HANDLER_ADD_NEW, "&Add New"
  IDS_CUSTOM_HANDLER_DELETE, "&Delete"
  IDS_CUSTOM_HANDLER_DELETE_CONFIRM, "Delete the selected handler?"
  IDS_CUSTOM_HANDLER_IN_USE, "This handler is used by one or more entries in File Associations. Change those assignments before deleting it."

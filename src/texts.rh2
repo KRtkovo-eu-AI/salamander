@@ -1,3 +1,4 @@
+// | 2026-11-27 | Reserve File Associations pattern-delete confirmation. | Localize the prompt before removing selected patterns and all their action assignments. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-27 | Reserve custom-handler action, confirmation, and safety strings. | Localize handler management and assigned-handler deletion protection. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-15 | Explain administrator denial when opening folders. | Distinguish a broker denial from an ordinary access error. | #731 | GPT-6 |
 // | 2026-11-13 | Localize experimental thin copy consent. | Avoid claiming support for alternate streams. | #731 | GPT-6 |
@@ -3314,6 +3315,7 @@
 #define IDS_CUSTOM_HANDLER_DELETE_CONFIRM                14614
 #define IDS_CUSTOM_HANDLER_IN_USE                        14615
 #define IDS_CUSTOM_HANDLER_ASSOCIATIONS_UNAVAILABLE      14616
+#define IDS_FILEASSOCIATION_DELETE_PATTERN_CONFIRM       14617
 
 #define IDS_UAC_MKDIR_CONFIRM                        14624
 #define IDS_UAC_MKDIR_UNKNOWN                        14625

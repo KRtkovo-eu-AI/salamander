@@ -4369,11 +4369,12 @@ SLGINCOMPLETE,""
 14609,1,"Tiedosto on käytössä: %s"
 14610,1,"Terminate these processes and retry?\n\nUnsaved data in these processes may be lost:\n%s"
 14611,1,"Tiedostoa käyttävien prosessien lopetus epäonnistui."
-14612,1,"&Lisää"
+14612,1,"&Lisää uusi"
 14613,1,"&Poista"
 14614,1,"Haluatko varmasti poistaa valitun käsittelijän?"
 14615,1,"Tätä käsittelijää käytetään yhdessä tai useammassa tiedostoliitännässä. Muuta määrityksiä ennen poistamista."
 14616,1,"Tiedostoliitäntöjä ei voitu tarkistaa. Käsittelijää ei poistettu."
+14617,1,"Poistetaanko kaikki valitut mallit ja niiden toimintomääritykset?"
 
 [STRINGTABLE 193]
 14624,1,"Pääsy estetty. Luodaanko kansio järjestelmänvalvojana?"

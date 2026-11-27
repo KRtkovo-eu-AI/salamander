@@ -4369,11 +4369,12 @@ SLGINCOMPLETE,""
 14609,1,"Dosya kullanımda: %s"
 14610,1,"Terminate these processes and retry?\n\nUnsaved data in these processes may be lost:\n%s"
 14611,1,"Bu dosyayı kullanan işlemlerden hiçbiri sonlandırılamadı."
-14612,1,"&Ekle"
+14612,1,"&Yeni ekle"
 14613,1,"&Sil"
 14614,1,"Seçili işleyici silinsin mi?"
 14615,1,"Bu işleyici bir veya daha fazla dosya ilişkilendirmesinde kullanılıyor. Silmeden önce bu atamaları değiştirin."
 14616,1,"Dosya ilişkilendirmeleri denetlenemedi. İşleyici silinmedi."
+14617,1,"Seçili tüm desenler ve ilişkili eylem atamaları silinsin mi?"
 
 [STRINGTABLE 193]
 14624,1,"Erişim reddedildi. Bu klasör yönetici olarak oluşturulsun mu?"

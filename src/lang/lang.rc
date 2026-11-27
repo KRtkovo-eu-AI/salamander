@@ -1,4 +1,5 @@
 ﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-27 | Preserve Save alignment beside custom-handler actions. | Keep Add New and Delete equal-width on the left while retaining Save's original size and right alignment. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-27 | Add Add New Handler and Delete Handler controls. | Provide create/delete actions beside Save on both custom-handler pages. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-26 | Add the working directory history action text. | Name the action that opens a path in its original tab. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Add the working directory history icon color checkbox. | Allow users to change the presentation from the History page. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
@@ -1245,9 +1246,9 @@ BEGIN
     LTEXT           "",IDC_CUSTOM_HANDLER_INITDIR_LABEL,6,170,50,8
     EDITTEXT        IDE_INITDIR,59,168,220,14,ES_AUTOHSCROLL | WS_TABSTOP
     PUSHBUTTON      "",IDB_BROWSEINITDIR,284,168,12,14,WS_TABSTOP
-    PUSHBUTTON      "",IDB_CUSTOM_HANDLER_ADD_NEW,6,188,64,14,WS_TABSTOP
-    PUSHBUTTON      "",IDB_CUSTOM_HANDLER_DELETE,73,188,64,14,WS_TABSTOP
-    PUSHBUTTON      "",IDB_CUSTOM_HANDLER_SAVE,140,188,64,14,WS_TABSTOP
+    PUSHBUTTON      "",IDB_CUSTOM_HANDLER_ADD_NEW,6,188,80,14,WS_TABSTOP
+    PUSHBUTTON      "",IDB_CUSTOM_HANDLER_DELETE,89,188,80,14,WS_TABSTOP
+    PUSHBUTTON      "",IDB_CUSTOM_HANDLER_SAVE,216,188,64,14,WS_TABSTOP
 END
 
 IDD_CFGPAGE_CUSTOMEDITORS DIALOGEX 77, 57, 299, 231
@@ -1269,9 +1270,9 @@ BEGIN
     LTEXT           "",IDC_CUSTOM_HANDLER_INITDIR_LABEL,6,170,50,8
     EDITTEXT        IDE_INITDIR,59,168,220,14,ES_AUTOHSCROLL | WS_TABSTOP
     PUSHBUTTON      "",IDB_BROWSEINITDIR,284,168,12,14,WS_TABSTOP
-    PUSHBUTTON      "",IDB_CUSTOM_HANDLER_ADD_NEW,6,188,64,14,WS_TABSTOP
-    PUSHBUTTON      "",IDB_CUSTOM_HANDLER_DELETE,73,188,64,14,WS_TABSTOP
-    PUSHBUTTON      "",IDB_CUSTOM_HANDLER_SAVE,140,188,64,14,WS_TABSTOP
+    PUSHBUTTON      "",IDB_CUSTOM_HANDLER_ADD_NEW,6,188,80,14,WS_TABSTOP
+    PUSHBUTTON      "",IDB_CUSTOM_HANDLER_DELETE,89,188,80,14,WS_TABSTOP
+    PUSHBUTTON      "",IDB_CUSTOM_HANDLER_SAVE,216,188,64,14,WS_TABSTOP
 END
 
 IDD_CHANGEDIR DIALOGEX 10, 24, 261, 78

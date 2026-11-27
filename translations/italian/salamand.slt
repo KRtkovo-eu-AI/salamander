@@ -4369,11 +4369,12 @@ SLGINCOMPLETE,""
 14609,1,"Il file è utilizzato da: %s"
 14610,1,"Terminare questi processi e riprovare?\n\nI dati non salvati in questi processi potrebbero andare persi:\n%s"
 14611,1,"Non è stato possibile terminare alcun processo che utilizza questo file."
-14612,1,"&Aggiungi"
+14612,1,"&Nuovo"
 14613,1,"&Elimina"
 14614,1,"Eliminare il gestore selezionato?"
 14615,1,"Questo gestore è usato da una o più associazioni di file. Modifica tali associazioni prima di eliminarlo."
 14616,1,"Impossibile verificare le associazioni di file. Il gestore non è stato eliminato."
+14617,1,"Eliminare tutti i pattern selezionati e le azioni associate?"
 
 [STRINGTABLE 193]
 14624,1,"Accesso negato. Creare questa cartella come amministratore?"

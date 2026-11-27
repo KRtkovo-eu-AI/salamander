@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-27 | Regress confirmed full-pattern association deletion. | Remove all actions for selected patterns while keeping Set Unassigned as a separate target operation. | | openrouter/openai/gpt-6-luna-pro |
+# | 2026-11-27 | Regress custom-handler Add New layout and Save alignment. | Keep Add New/Delete equal-width on the left while preserving Save's original size and right alignment. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-27 | Regress custom-handler Add draft reset. | Ensure Add clears the selection and all detail fields before returning focus for a new handler. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-27 | Regress ZIP open, editor precedence, and handler-reference safety. | Keep archive dispatch consistent with Ctrl+PgDown, prefer specific editor masks, and prevent deleting referenced handlers. | https://github.com/KRtkovo-eu-AI/salamander/issues/873 | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-14 | Regress authoritative runtime handler selection. | Ensure explicit user targets beat wildcard fallback rows for viewer/editor actions and exact archive extension mappings. |  | openrouter/openai/gpt-6-luna-pro |
@@ -333,8 +335,14 @@ def main() -> None:
                 "IDE_CUSTOM_HANDLER_NAME", "IDE_COMMAND", "IDE_ARGUMENTS", "IDE_INITDIR")) and
             "SetFocus(GetDlgItem(HWindow, IDE_CUSTOM_HANDLER_NAME));" in add_handler and
             "BeginNew();" in add_command and "return TRUE;" in add_command and
-            lang_resource.count("IDB_CUSTOM_HANDLER_ADD_NEW,") == 2,
-            "Add must reliably clear both handler pages and enter a new draft")
+            'IDS_CUSTOM_HANDLER_ADD_NEW, "&Add New"' in texts_resource and
+            lang_resource.count("IDB_CUSTOM_HANDLER_ADD_NEW,6,188,80,14,WS_TABSTOP") == 2 and
+            lang_resource.count("IDB_CUSTOM_HANDLER_DELETE,89,188,80,14,WS_TABSTOP") == 2 and
+            lang_resource.count("IDB_CUSTOM_HANDLER_SAVE,216,188,64,14,WS_TABSTOP") == 2 and
+            "HWND save = GetDlgItem(HWindow, IDB_CUSTOM_HANDLER_SAVE);" in dialogs5 and
+            "const int rightMargin = WinLibDPIFromLogical(HWindow, 8);" in dialogs5 and
+            "client.right - rightMargin - (saveRect.right - saveRect.left)" in dialogs5,
+            "Add New and Delete must stay equal-width on the left while Save retains its original right alignment")
     archive_stage_start = runtime_adapter.index("bool StageArchiveAssociation(")
     archive_stage_end = runtime_adapter.index("bool BeginRuntimeProjection(", archive_stage_start)
     archive_stage = runtime_adapter[archive_stage_start:archive_stage_end]
@@ -476,6 +484,21 @@ def main() -> None:
         "RefreshList();", apply_handler.index("Rows = savedModel.Associations();")))
     require(apply_stage_positions == sorted(apply_stage_positions),
             "Apply must validate, commit, persist, flush, reload, and refresh in order")
+    delete_start = dialogs5.index("case IDB_FILEASSOCIATION_DELETE:")
+    delete_end = dialogs5.index("case IDB_FILEASSOCIATION_RESET:", delete_start)
+    delete_handler = dialogs5[delete_start:delete_end]
+    unassigned_start = dialogs5.index("case IDB_FILEASSOCIATION_UNASSIGNED:", delete_end)
+    unassigned_end = dialogs5.index("case IDC_FILEASSOCIATION_HELP:", unassigned_start)
+    unassigned_handler = dialogs5[unassigned_start:unassigned_end]
+    require("MatrixRows[selectedItem.lParam].Pattern" in delete_handler and
+            "IDS_FILEASSOCIATION_DELETE_PATTERN_CONFIRM" in delete_handler and
+            "MB_YESNO" in delete_handler and "MB_DEFBUTTON2" in delete_handler and
+            "Rows[i - 1].Pattern" in delete_handler and
+            "Rows.erase(Rows.begin() + i - 1);" in delete_handler and
+            "Selected = -1;" in delete_handler and "SelectedMatrixRow = -1;" in delete_handler and
+            "TargetKind::Unassigned" in unassigned_handler and
+            "Provenance::Disabled" in unassigned_handler,
+            "Delete must confirm and remove every action for a selected pattern while Set Unassigned remains separate")
     require("EnsureCanonicalAssociationsMaterializedForConfiguration(&error)" in dialogs5 and
             dialogs5.index("EnsureCanonicalAssociationsMaterializedForConfiguration(&error)") <
                 dialogs5.index("CopyCanonicalAssociationsForConfiguration(&model, &error)"),

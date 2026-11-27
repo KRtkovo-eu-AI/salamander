@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-27 | Delete selected file-association patterns as complete rows. | Confirm and remove every action for selected patterns while preserving Set Unassigned for individual targets. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-27 | Make Add reliably start a blank custom-handler draft. | Clear the list selection before committing draft state and clearing its fields. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-27 | Add creation and safe confirmed deletion for custom handlers. | Manage viewer/editor handlers directly from their detail pages without orphaning File Associations. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-13 | Mark edited association controls as user overrides during validation. | Keep Configuration OK and page navigation from saving visible targets without projecting them into file actions. |  | openrouter/openai/gpt-6-luna-pro |
@@ -6234,7 +6235,6 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
             break;
         }
         case IDB_FILEASSOCIATION_DELETE:
-            if (Selected >= 0 && Selected < static_cast<int>(Rows.size()))
             {
                 HWND matrix = GetDlgItem(HWindow, IDL_FILEASSOCIATIONS);
                 std::vector<std::string> selectedPatterns;
@@ -6248,23 +6248,36 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                     selectedItem.iItem = row;
                     if (ListView_GetItem(matrix, &selectedItem) && selectedItem.lParam >= 0 &&
                         selectedItem.lParam < static_cast<LPARAM>(MatrixRows.size()))
-                        selectedPatterns.push_back(MatrixRows[selectedItem.lParam].Pattern);
+                    {
+                        const std::string& pattern = MatrixRows[selectedItem.lParam].Pattern;
+                        if (std::find(selectedPatterns.begin(), selectedPatterns.end(), pattern) ==
+                            selectedPatterns.end())
+                            selectedPatterns.push_back(pattern);
+                    }
                 }
-                if (selectedPatterns.size() > 1)
+
+                if (selectedPatterns.empty() && SelectedMatrixRow >= 0 &&
+                    SelectedMatrixRow < static_cast<int>(MatrixRows.size()))
+                    selectedPatterns.push_back(MatrixRows[SelectedMatrixRow].Pattern);
+                if (selectedPatterns.empty() && Selected >= 0 &&
+                    Selected < static_cast<int>(Rows.size()))
+                    selectedPatterns.push_back(Rows[Selected].Pattern);
+
+                if (!selectedPatterns.empty() &&
+                    SalMessageBox(HWindow, LoadStr(IDS_FILEASSOCIATION_DELETE_PATTERN_CONFIRM),
+                                  LoadStr(IDS_QUESTION),
+                                  MB_YESNO | MSGBOXEX_ESCAPEENABLED | MB_DEFBUTTON2 |
+                                      MB_ICONQUESTION) == IDYES)
                 {
                     for (size_t i = Rows.size(); i > 0; --i)
-                        if (std::find(selectedPatterns.begin(), selectedPatterns.end(), Rows[i - 1].Pattern) != selectedPatterns.end() &&
-                            Rows[i - 1].AssociationCategory == static_cast<Salamander::FileAssociations::Category>(SelectedCategory) &&
-                            (SelectedCategory != static_cast<int>(Salamander::FileAssociations::Category::PanelArchive) ||
-                             Rows[i - 1].Operation == static_cast<Salamander::FileAssociations::PanelOperation>(SelectedOperation)))
+                        if (std::find(selectedPatterns.begin(), selectedPatterns.end(),
+                                      Rows[i - 1].Pattern) != selectedPatterns.end())
                             Rows.erase(Rows.begin() + i - 1);
+
+                    Selected = -1;
+                    SelectedMatrixRow = -1;
+                    RefreshList();
                 }
-                else
-                    Rows.erase(Rows.begin() + Selected);
-                if (Selected >= static_cast<int>(Rows.size()))
-                    Selected = static_cast<int>(Rows.size()) - 1;
-                SelectedMatrixRow = -1;
-                RefreshList();
             }
             break;
         case IDB_FILEASSOCIATION_RESET:
@@ -7285,6 +7298,18 @@ INT_PTR CCfgPageCustomHandlers::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
     const INT_PTR result = CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
     if (uMsg == WM_INITDIALOG || uMsg == WM_SIZE)
     {
+        HWND save = GetDlgItem(HWindow, IDB_CUSTOM_HANDLER_SAVE);
+        RECT client;
+        RECT saveRect;
+        if (save != NULL && GetClientRect(HWindow, &client) &&
+            GetWindowRect(save, &saveRect))
+        {
+            MapWindowPoints(NULL, HWindow, reinterpret_cast<POINT*>(&saveRect), 2);
+            const int rightMargin = WinLibDPIFromLogical(HWindow, 8);
+            SetWindowPos(save, NULL, client.right - rightMargin - (saveRect.right - saveRect.left),
+                         saveRect.top, 0, 0, SWP_NOZORDER | SWP_NOSIZE | SWP_NOACTIVATE);
+        }
+
         HWND list = GetDlgItem(HWindow, IDL_CUSTOM_HANDLERS);
         RECT listClient;
         if (list != NULL && GetClientRect(list, &listClient) && Header_GetItemCount(ListView_GetHeader(list)) == 4)
