@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-28 | Defer navigation confirmation until a resolved destination is available. | Allow in-root project navigation while keeping the central path gates authoritative. | https://github.com/KRtkovo-eu-AI/salamander/issues/853 | openai/gpt-6-luna-pro |
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-15 | Restart access probes when either panel array is reordered. | Preserve complete file and directory coverage across sort changes. | #731 | GPT-6 |
 // | 2026-11-15 | Schedule scoped folder access indicators. | Keep slow access checks away from panel listing and rendering. | #731 | GPT-6 |
@@ -2986,9 +2987,6 @@ BOOL AddWin64RedirectedDir(const char* path, CFilesArray* dirs, WIN32_FIND_DATA*
 BOOL CFilesWindow::ChangeDir(const char* newDir, int suggestedTopIndex, const char* suggestedFocusName,
                              int mode, int* failReason, BOOL convertFSPathToInternal, BOOL showNewDirPathInErrBoxes)
 {
-    if (!ConfirmUnlockTabForPathChange())
-        return FALSE;
-
     CALL_STACK_MESSAGE7("CFilesWindow::ChangeDir(%s, %d, %s, %d, , %d, %d)", newDir, suggestedTopIndex,
                         suggestedFocusName, mode, convertFSPathToInternal, showNewDirPathInErrBoxes);
 
@@ -3616,9 +3614,6 @@ BOOL CFilesWindow::ChangePathToDrvType(HWND parent, int driveType, const char* d
 
 void CFilesWindow::ChangeDrive(char drive)
 {
-    if (!ConfirmUnlockTabForPathChange())
-        return;
-
     CALL_STACK_MESSAGE2("CFilesWindow::ChangeDrive(%u)", drive);
     //--- DefaultDire refresh
     MainWindow->UpdateDefaultDir(MainWindow->GetActivePanel() != this);

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-28 | Persist project roots and Unicode workspace titles with every panel tab. | Restore navigation boundaries and names across restarts without narrowing long UTF-16 paths. | https://github.com/KRtkovo-eu-AI/salamander/issues/853 | openai/gpt-6-luna-pro |
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-26 | Save working directory histories in either scope. | Preserve shared visit order and closed-tab entries across a restart in per-tab mode. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Persist the working directory history icon color setting. | Restore the display preference from saved configurations. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
@@ -1221,7 +1222,10 @@ const char* PANEL_TABCOUNT_REG = "Tab Count";
 const char* PANEL_ACTIVETAB_REG = "Active Tab";
 const char* PANEL_TABCOLOR_REG = "Tab Color";
 const char* PANEL_TABPREFIX_REG = "Tab Prefix";
+const char* PANEL_TABPREFIXW_REG = "Tab Prefix UTF-16";
 const char* PANEL_TABLOCKED_REG = "Tab Locked";
+const char* PANEL_PROJECTROOT_REG = "Project Workspace Root";
+const char* PANEL_PROJECTRESTRICTED_REG = "Project Workspace Restricted";
 const char* PANEL_HISTORYTABID_REG = "History Tab ID";
 const char* DETACHED_TAB_PRESENT_REG = "Present";
 const char* DETACHED_TAB_SIDE_REG = "Original Side";
@@ -2710,6 +2714,8 @@ static void SavePanelSettingsToKey(CFilesWindow* panel, HKEY key, BOOL useGenera
     if (panel->HasCustomTabPrefix())
     {
         const std::wstring& prefix = panel->GetCustomTabPrefix();
+        const DWORD wideBytes = static_cast<DWORD>((prefix.size() + 1) * sizeof(wchar_t));
+        SetValue(key, PANEL_TABPREFIXW_REG, REG_SZ, prefix.c_str(), wideBytes);
         int needed = WideCharToMultiByte(CP_ACP, 0, prefix.c_str(), -1, NULL, 0, NULL, NULL);
         if (needed > 0)
         {
@@ -2723,7 +2729,24 @@ static void SavePanelSettingsToKey(CFilesWindow* panel, HKEY key, BOOL useGenera
             DeleteValue(key, PANEL_TABPREFIX_REG);
     }
     else
+    {
         DeleteValue(key, PANEL_TABPREFIX_REG);
+        DeleteValue(key, PANEL_TABPREFIXW_REG);
+    }
+
+    if (panel->HasProjectWorkspace())
+    {
+        const std::wstring& root = panel->GetProjectWorkspaceRoot();
+        const DWORD rootBytes = static_cast<DWORD>((root.size() + 1) * sizeof(wchar_t));
+        SetValue(key, PANEL_PROJECTROOT_REG, REG_SZ, root.c_str(), rootBytes);
+        DWORD restricted = panel->IsProjectWorkspaceRestricted() ? 1 : 0;
+        SetValue(key, PANEL_PROJECTRESTRICTED_REG, REG_DWORD, &restricted, sizeof(restricted));
+    }
+    else
+    {
+        DeleteValue(key, PANEL_PROJECTROOT_REG);
+        DeleteValue(key, PANEL_PROJECTRESTRICTED_REG);
+    }
 
     if (panel->IsTabLocked())
     {
@@ -2818,8 +2841,26 @@ static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBu
     else
         panel->ClearCustomTabColor();
 
+    bool loadedWidePrefix = false;
+    DWORD widePrefixSize = 0;
+    if (GetSize(key, PANEL_TABPREFIXW_REG, REG_SZ, widePrefixSize) &&
+        widePrefixSize >= sizeof(wchar_t) && widePrefixSize % sizeof(wchar_t) == 0 &&
+        widePrefixSize <= 65536)
+    {
+        std::vector<wchar_t> buffer(widePrefixSize / sizeof(wchar_t) + 1, L'\0');
+        if (GetValue(key, PANEL_TABPREFIXW_REG, REG_SZ, buffer.data(), widePrefixSize))
+        {
+            buffer.back() = L'\0';
+            if (buffer[0] != 0)
+                panel->SetCustomTabPrefix(buffer.data());
+            else
+                panel->ClearCustomTabPrefix();
+            loadedWidePrefix = true;
+        }
+    }
+
     DWORD prefixSize = 0;
-    if (GetSize(key, PANEL_TABPREFIX_REG, REG_SZ, prefixSize) && prefixSize > 1)
+    if (!loadedWidePrefix && GetSize(key, PANEL_TABPREFIX_REG, REG_SZ, prefixSize) && prefixSize > 1)
     {
         std::vector<char> buffer(prefixSize);
         if (GetValue(key, PANEL_TABPREFIX_REG, REG_SZ, buffer.data(), prefixSize))
@@ -2846,7 +2887,7 @@ static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBu
         else
             panel->ClearCustomTabPrefix();
     }
-    else
+    else if (!loadedWidePrefix)
         panel->ClearCustomTabPrefix();
 
     DWORD lockedValue = 0;
@@ -2854,6 +2895,58 @@ static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBu
         panel->SetTabLocked(lockedValue != 0);
     else
         panel->SetTabLocked(false);
+
+    DWORD projectRootSize = 0;
+    bool loadedProjectWorkspace = false;
+    if (GetSize(key, PANEL_PROJECTROOT_REG, REG_SZ, projectRootSize) &&
+        projectRootSize >= sizeof(wchar_t) && projectRootSize % sizeof(wchar_t) == 0 &&
+        projectRootSize <= 65536)
+    {
+        std::vector<wchar_t> root(projectRootSize / sizeof(wchar_t) + 1, L'\0');
+        if (GetValue(key, PANEL_PROJECTROOT_REG, REG_SZ, root.data(), projectRootSize))
+        {
+            root.back() = L'\0';
+            if (root[0] != 0)
+            {
+                DWORD restrictedValue = 1;
+                GetValue(key, PANEL_PROJECTRESTRICTED_REG, REG_DWORD, &restrictedValue, sizeof(restrictedValue));
+                panel->SetProjectWorkspace(root.data(), restrictedValue != 0);
+                loadedProjectWorkspace = panel->HasProjectWorkspace();
+            }
+        }
+    }
+    if (!loadedProjectWorkspace)
+        panel->ClearProjectWorkspace();
+}
+
+static BOOL TryRestoreProjectWorkspaceRoot(CFilesWindow* panel)
+{
+    if (panel == NULL || !panel->HasProjectWorkspace())
+        return FALSE;
+
+    const auto rootPath = SalWideToMultiBytePath(panel->GetProjectWorkspaceRoot().c_str(), CP_UTF8);
+    BOOL restored = FALSE;
+    if (!rootPath.empty() && rootPath.size() < 32767)
+        restored = panel->ChangePathToDisk(panel->HWindow, rootPath.c_str(), -1, NULL,
+                                           NULL, TRUE, FALSE, TRUE, NULL, FALSE);
+    if (restored || panel->IsCurrentPathInProjectWorkspace())
+        return restored;
+
+    if (rootPath.empty() || rootPath.size() >= 32767)
+        return FALSE;
+
+    // A failed startup restore must not leave a stale listing from outside the
+    // workspace visible. Keep the root as the logical location until it can be read.
+    panel->UserWorkedOnThisPath = FALSE;
+    panel->CloseCurrentPath(panel->HWindow, FALSE, FALSE, FALSE, TRUE, FALSE);
+    panel->SetPanelType(ptDisk);
+    panel->SetPath(rootPath.c_str());
+    panel->NeedsRefreshOnActivation = TRUE;
+    panel->RefreshListBox(0, -1, -1, FALSE, FALSE);
+    panel->DirectoryLineSetText();
+    panel->UpdateDriveIcon(FALSE);
+    panel->RefreshHostedTreeViews();
+    return FALSE;
 }
 
 // A directory can allow metadata queries while denying enumeration. The saved
@@ -2862,8 +2955,12 @@ static BOOL RestoreDeniedSavedPanelPath(CFilesWindow* panel, const char* path)
 {
     std::wstring candidate = SalPathRemoveExtendedPrefixW(
         SalMultiByteToWidePath(path, IsValidPathUtf8Text(path) ? CP_UTF8 : CP_ACP).c_str());
+    const bool projectRestricted = panel->IsProjectWorkspaceRestricted();
     if (candidate.size() < 3 || candidate[1] != L':' || candidate[2] != L'\\' ||
         GetDriveTypeW(candidate.substr(0, 3).c_str()) != DRIVE_FIXED)
+        return FALSE;
+
+    if (projectRestricted && !panel->IsProjectWorkspacePathLexicallyInside(candidate.c_str()))
         return FALSE;
 
     while (candidate.size() > 3 && candidate.back() == L'\\')
@@ -2899,10 +2996,18 @@ static BOOL RestoreDeniedSavedPanelPath(CFilesWindow* panel, const char* path)
                 return TRUE;
             break;
         }
+        if (projectRestricted && panel->IsProjectWorkspaceRootPath(candidate.c_str()))
+            break;
         if (candidate.size() == 3)
             break;
         const auto separator = candidate.rfind(L'\\');
         candidate.resize(max(size_t{3}, separator));
+    }
+
+    if (projectRestricted)
+    {
+        TryRestoreProjectWorkspaceRoot(panel);
+        return TRUE;
     }
 
     panel->ChangeToFixedDrive(panel->HWindow);
@@ -2916,9 +3021,41 @@ static BOOL RestorePanelPathFromConfig(CMainWindow* mainWnd, CFilesWindow* panel
         return FALSE;
     if (path == NULL || path[0] == 0)
     {
+        if (panel->IsProjectWorkspaceRestricted())
+        {
+            TryRestoreProjectWorkspaceRoot(panel);
+            if (mainWnd != NULL)
+                mainWnd->UpdatePanelTabTitle(panel);
+            return TRUE;
+        }
         if (mainWnd != NULL)
             mainWnd->UpdatePanelTabTitle(panel);
         return FALSE;
+    }
+
+    if (panel->IsProjectWorkspaceRestricted())
+    {
+        BOOL restored = RestoreDeniedSavedPanelPath(panel, path);
+        if (!restored)
+        {
+            const std::wstring requestedPath = SalMultiByteToWidePath(
+                path, IsValidPathUtf8Text(path) ? CP_UTF8 : CP_ACP);
+            if (!requestedPath.empty() && panel->IsProjectWorkspacePath(requestedPath.c_str()))
+            {
+                if (useGeneralPath)
+                    restored = panel->ChangeDirLite(path);
+                if (!restored && IsDiskOrUNCPath(path))
+                    restored = panel->ChangePathToDisk(panel->HWindow, path, -1, NULL,
+                                                       NULL, TRUE, FALSE, FALSE, NULL, FALSE);
+            }
+        }
+
+        if (!restored)
+            TryRestoreProjectWorkspaceRoot(panel);
+
+        if (mainWnd != NULL)
+            mainWnd->UpdatePanelTabTitle(panel);
+        return TRUE; // do not let startup recovery fall back outside the restricted workspace
     }
 
     if (RestoreDeniedSavedPanelPath(panel, path) ||
@@ -4507,8 +4644,20 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         {
             // Hidden tabs do not need a directory listing during startup. Remember their disk path
             // cheaply and let SwitchPanelTab load the listing when the user first activates them.
+            const char* startupPath = path;
+            std::string projectRootPath;
+            if (panel->IsProjectWorkspaceRestricted())
+            {
+                const std::wstring savedPath = SalMultiByteToWidePath(
+                    path, IsValidPathUtf8Text(path) ? CP_UTF8 : CP_ACP);
+                if (savedPath.empty() || !panel->IsProjectWorkspacePath(savedPath.c_str()))
+                {
+                    projectRootPath = SalWideToMultiBytePath(panel->GetProjectWorkspaceRoot().c_str(), CP_UTF8);
+                    startupPath = projectRootPath.c_str();
+                }
+            }
             panel->SetPanelType(ptDisk);
-            panel->SetPath(path);
+            panel->SetPath(startupPath);
             panel->NeedsRefreshOnActivation = TRUE;
             UpdatePanelTabTitle(panel);
             restored = TRUE;
@@ -6796,7 +6945,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         // The legacy settings only store disk paths.
         if (!leftPanelPathSet && !PanelConfigPathsRestoredLeft)
         {
-            if (leftPanelPath[0] != 0)
+            if (leftPanelPath[0] != 0 || LeftPanel->IsProjectWorkspaceRestricted())
                 RestorePanelPathFromConfig(this, LeftPanel, leftPanelPath, FALSE);
             else
                 LeftPanel->ChangeToRescuePathOrFixedDrive(LeftPanel->HWindow);
@@ -6806,7 +6955,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
 
         if (!rightPanelPathSet && !PanelConfigPathsRestoredRight)
         {
-            if (rightPanelPath[0] != 0)
+            if (rightPanelPath[0] != 0 || RightPanel->IsProjectWorkspaceRestricted())
                 RestorePanelPathFromConfig(this, RightPanel, rightPanelPath, FALSE);
             else
                 RightPanel->ChangeToRescuePathOrFixedDrive(RightPanel->HWindow);

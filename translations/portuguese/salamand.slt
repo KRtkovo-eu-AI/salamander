@@ -3545,6 +3545,11 @@ SLGINCOMPLETE,""
 13245,1,"Fecha&r todas as páginas do lado direito, excepto esta e por omissão"
 13246,1,"Página D&uplicate"
 13247,1,"Página D&uplicate"
+15120,1,"Definir como espaço de trabalho do projeto"
+15121,1,"Definir aqui a raiz do projeto"
+15122,1,"Restringir a navegação à raiz do projeto"
+15123,1,"Remover a restrição de navegação do projeto"
+15124,1,"Limpar espaço de trabalho do projeto"
 
 [STRINGTABLE 124]
 13248,1,"Reabrir &Aba Fechada"
@@ -4032,6 +4037,8 @@ SLGINCOMPLETE,""
 14300,1,"Diretório"
 14301,1,"Página Trancada"
 14302,1,"Esta aba está bloqueada para evitar alterar o conteúdo exibido nela. Deseja desbloquear a página e abrir a localização solicitada?"
+15125,1,"Espaço de trabalho do projeto"
+15126,1,"Sair da raiz do projeto e remover a restrição de navegação?"
 14303,1,"Extensão (indisponível em tempo de execução)"
 
 [STRINGTABLE 173]

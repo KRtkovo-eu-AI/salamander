@@ -1,4 +1,5 @@
-﻿// | 2026-11-27 | Confirm whole-pattern File Associations deletion. | Distinguish deleting all actions for a pattern from setting one target to Unassigned. | | openrouter/openai/gpt-6-luna-pro |
+﻿// | 2026-11-28 | Localize project-workspace tab actions and leave confirmation. | Explain workspace setup, restriction controls, and explicit navigation outside the root. | https://github.com/KRtkovo-eu-AI/salamander/issues/853 | openai/gpt-6-luna-pro |
+// | 2026-11-27 | Confirm whole-pattern File Associations deletion. | Distinguish deleting all actions for a pattern from setting one target to Unassigned. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-27 | Clarify the custom-handler creation label. | Distinguish starting a new handler from the shorter Add action. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-27 | Localize custom-handler reference-safety messages. | Explain when an assigned handler cannot be deleted or associations cannot be checked. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-27 | Use compact custom-handler action labels. | Fit localized Add and Delete actions in equal-width buttons. | | openrouter/openai/gpt-6-luna-pro |
@@ -132,6 +133,11 @@ STRINGTABLE
  IDS_MENU_LEFT_CLEARTABCOLOR,"C&lear Tab Color"
  IDS_MENU_LEFT_SETTABPREFIX, "Set Tab &Prefix..."
  IDS_MENU_LEFT_CLEARTABPREFIX,"C&lear Tab Prefix"
+ IDS_MENU_TAB_PROJECT_SET, "Set as Project Workspace"
+ IDS_MENU_TAB_PROJECT_ROOT_HERE, "Set Project Root Here"
+ IDS_MENU_TAB_PROJECT_RESTRICT, "Restrict Navigation to Project Root"
+ IDS_MENU_TAB_PROJECT_RELAX, "Remove Project Navigation Restriction"
+ IDS_MENU_TAB_PROJECT_CLEAR, "Clear Project Workspace"
  IDS_MENU_LEFT_DUPLICATETABRIGHT, "Duplicate Tab to &Right Side"
  IDS_MENU_LEFT_MOVETABTORIGHT,    "Move Tab to &Right Side"
  IDS_MENU_LEFT_CLOSEALLEXCEPTDEFAULT, "Close all &Left Side tabs except default"
@@ -707,6 +713,8 @@ STRINGTABLE
  IDS_PASTE_CHANGE_DIRECTORY, "Change Directory"
  IDS_LOCKEDTAB_TITLE, "Locked Tab"
  IDS_LOCKEDTAB_CHANGEPATH, "This tab is locked to prevent changing the content displayed in it. Do you want to unlock the tab and open the requested location?"
+ IDS_PROJECT_WORKSPACE_TITLE, "Project Workspace"
+ IDS_PROJECT_WORKSPACE_LEAVE, "Leave the project root and remove the navigation restriction?"
 
  IDS_ALWAYSONTOP, "Always on &Top"
  IDS_WANTALWAYSONTOP, "Always on Top prevents other application windows from open above Open Samandarin windows. You will not be able to open these windows on top until you turn off Always on Top."

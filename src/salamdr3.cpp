@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-28 | Preflight original-tab history destinations against project workspace roots. | Confirm leaving before executing history routes that can enter plugin filesystems. | https://github.com/KRtkovo-eu-AI/salamander/issues/853 | openai/gpt-6-luna-pro |
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-26 | Use the active code page for the original-tab action. | Match the menu renderer in both UTF-8 and legacy ANSI processes. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-26 | Open working directory history paths in their original tabs. | Keep the normal selection behavior and resolve the live source by ID. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
@@ -2216,9 +2217,17 @@ void CPathHistory::ExecuteInOriginalTab(CPathHistoryItem& destination)
             return;
     }
 
-    // Some plug-in filesystem routes do not ask for confirmation on their own.
+    const BOOL destinationIsDiskOrArchive = destination.Type == 0 || destination.Type == 1;
+    const std::wstring destinationPathW = destinationIsDiskOrArchive && path != NULL
+        ? SalMultiByteToWidePath(path, IsValidPathUtf8Text(path) ? CP_UTF8 : CP_ACP)
+        : std::wstring();
+    if (destinationIsDiskOrArchive && destinationPathW.empty())
+        return;
+
+    // Preflight the resolved history target before any filesystem route runs.
     if (MainWindow->FindPanelTabByHistoryId(destination.Source.Id) != panel ||
-        !panel->ConfirmUnlockTabForPathChange() ||
+        !panel->ConfirmUnlockTabForPathChange(destinationIsDiskOrArchive ? destinationPathW.c_str() : L"",
+                                              destinationIsDiskOrArchive) ||
         MainWindow->FindPanelTabByHistoryId(destination.Source.Id) != panel)
         return;
 

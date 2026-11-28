@@ -3545,6 +3545,11 @@ SLGINCOMPLETE,""
 13245,1,"Zatvori sve &desne kartice osim ove i zadane"
 13246,1,"&Dupliciraj"
 13247,1,"&Dupliciraj"
+15120,1,"Postavi kao radni prostor projekta"
+15121,1,"Postavi korijensku mapu projekta ovdje"
+15122,1,"Ograniči navigaciju na korijensku mapu projekta"
+15123,1,"Ukloni ograničenje navigacije projekta"
+15124,1,"Očisti radni prostor projekta"
 
 [STRINGTABLE 124]
 13248,1,"Otvori &zatvorenu"
@@ -4032,6 +4037,8 @@ SLGINCOMPLETE,""
 14300,1,"Imenik"
 14301,1,"Zaključana"
 14302,1,"Ova kartica je zaključana, pa se prikazani sadržaj ne može promijeniti. Želite li je otključati i otvoriti traženu lokaciju?"
+15125,1,"Radni prostor projekta"
+15126,1,"Napustiti korijensku mapu projekta i ukloniti ograničenje navigacije?"
 14303,1,"Dodatak (izvršenje nedostupno)"
 
 [STRINGTABLE 173]

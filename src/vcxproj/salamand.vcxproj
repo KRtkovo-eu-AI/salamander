@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- | Date | Summary | Reason | Ticket | Model |
+| 2026-11-28 | Include project-workspace path helpers in the core project. | Keep the shared containment implementation visible alongside panel path code. | https://github.com/KRtkovo-eu-AI/salamander/issues/853 | openai/gpt-6-luna-pro |
 | 2026-11-26 | Clear stale installer manifest before runtime-only host staging. | A previous full staging can leave managed-plugin-files.txt that blocks the host build. | | nvidia/nemotron-3.5-super-vl:free |
 | 2026-11-25 | Stage host runtime files without waiting for plug-in binaries. | Keep the TargetDir fix and skip installer inventory during the host build. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 | 2026-11-16 | Make runtime-only staging explicit for host validation builds. | Avoid requiring the complete installer payload when building individual projects. | #731 | GPT-6 |
@@ -1075,6 +1076,7 @@
     </ClInclude>
     <ClInclude Include="..\fileswnd.h">
     </ClInclude>
+    <ClInclude Include="..\project_workspace_paths.h" />
     <ClInclude Include="..\filenamecase.h">
     </ClInclude>
     <ClInclude Include="..\filter.h">

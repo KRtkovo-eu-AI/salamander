@@ -3545,6 +3545,11 @@ SLGINCOMPLETE,""
 13245,1,"Stäng alla &högerflikar utom denna och standard"
 13246,1,"D&uplicera"
 13247,1,"D&uplicera"
+15120,1,"Ange som projektarbetsyta"
+15121,1,"Ange projektroten här"
+15122,1,"Begränsa navigeringen till projektroten"
+15123,1,"Ta bort projektets navigeringsbegränsning"
+15124,1,"Rensa projektarbetsytan"
 
 [STRINGTABLE 124]
 13248,1,"Återöppna &flik"
@@ -4032,6 +4037,8 @@ SLGINCOMPLETE,""
 14300,1,"Katalog"
 14301,1,"Låst flik"
 14302,1,"Fliken är låst för att förhindra ändring av innehållet som visas i den. Vill du låsa upp fliken och öppna den begärda platsen?"
+15125,1,"Projektarbetsyta"
+15126,1,"Vill du lämna projektroten och ta bort navigeringsbegränsningen?"
 14303,1,"Tillägg (körningsmiljö saknas)"
 
 [STRINGTABLE 173]

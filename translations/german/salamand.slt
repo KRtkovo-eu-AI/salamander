@@ -3545,6 +3545,11 @@ SLGINCOMPLETE,""
 13245,1,"Alle Tabs auf der &rechten Seite schließen, außer diese und die Standard-Registerkarte"
 13246,1,"D&oppelteter Tab"
 13247,1,"D&oppelteter Tab"
+15120,1,"Als Projektarbeitsbereich festlegen"
+15121,1,"Projektstammordner hier festlegen"
+15122,1,"Navigation auf Projektstammordner beschränken"
+15123,1,"Projektnavigationsbeschränkung aufheben"
+15124,1,"Projektarbeitsbereich löschen"
 
 [STRINGTABLE 124]
 13248,1,"Geschlossenen &Tab erneut öffnen"
@@ -4032,6 +4037,8 @@ SLGINCOMPLETE,""
 14300,1,"Verzeichnis"
 14301,1,"Gesperrter Tab"
 14302,1,"Dieser Tab ist gesperrt, um das darin angezeigte Inhalt zu ändern. Möchten Sie den Tab entsperren und den angeforderten Speicherort öffnen?"
+15125,1,"Projektarbeitsbereich"
+15126,1,"Projektstammordner verlassen und Navigationsbeschränkung aufheben?"
 14303,1,"Erweiterung (Laufzeit nicht verfügbar)"
 
 [STRINGTABLE 173]

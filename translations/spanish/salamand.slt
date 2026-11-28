@@ -3545,6 +3545,11 @@ SLGINCOMPLETE,""
 13245,1,"Cerrar todas las pestañas del &lado derecho excepto esta y la predeterminada"
 13246,1,"D&uplicar pestaña"
 13247,1,"D&uplicar pestaña"
+15120,1,"Establecer como espacio de trabajo del proyecto"
+15121,1,"Establecer aquí la raíz del proyecto"
+15122,1,"Restringir la navegación a la raíz del proyecto"
+15123,1,"Quitar la restricción de navegación del proyecto"
+15124,1,"Borrar espacio de trabajo del proyecto"
 
 [STRINGTABLE 124]
 13248,1,"Volver a abrir la &pestaña cerrada"
@@ -4032,6 +4037,8 @@ SLGINCOMPLETE,""
 14300,1,"Directorio"
 14301,1,"Pestaña bloqueada"
 14302,1,"Esta pestaña está bloqueada para evitar cambiar el contenido que se muestra. ¿Quieres desbloquear la pestaña y abrir la ubicación solicitada?"
+15125,1,"Espacio de trabajo del proyecto"
+15126,1,"¿Quieres salir de la raíz del proyecto y quitar la restricción de navegación?"
 14303,1,"Extensión (tiempo no disponible)"
 
 [STRINGTABLE 173]

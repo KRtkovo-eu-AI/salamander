@@ -3545,6 +3545,11 @@ SLGINCOMPLETE,""
 13245,1,"Alle tabbladen aan &rechterzijde sluiten behalve deze en standaard"
 13246,1,"D&upliceren van tab"
 13247,1,"D&upliceren van tab"
+15120,1,"Instellen als projectwerkruimte"
+15121,1,"Projecthoofdmap hier instellen"
+15122,1,"Navigatie beperken tot de projecthoofdmap"
+15123,1,"Navigatiebeperking van project verwijderen"
+15124,1,"Projectwerkruimte wissen"
 
 [STRINGTABLE 124]
 13248,1,"Gesloten &tab opnieuw openen"
@@ -4032,6 +4037,8 @@ SLGINCOMPLETE,""
 14300,1,"Map"
 14301,1,"Vast tabblad"
 14302,1,"Dit tabblad is vergrendeld om te voorkomen dat de inhoud in het tabblad wordt gewijzigd. Wilt u het tabblad ontgrendelen en de aangevraagde locatie openen?"
+15125,1,"Projectwerkruimte"
+15126,1,"De projecthoofdmap verlaten en de navigatiebeperking verwijderen?"
 14303,1,"Extensie (runtime niet beschikbaar)"
 
 [STRINGTABLE 173]

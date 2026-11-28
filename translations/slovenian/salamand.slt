@@ -3545,6 +3545,11 @@ SLGINCOMPLETE,""
 13245,1,"Zapri vse &desne zavihke razen tega in privzetega"
 13246,1,"Dvojni &zavihek"
 13247,1,"Dvojni &zavihek"
+15120,1,"Nastavi kot projektni delovni prostor"
+15121,1,"Tukaj nastavi korensko mapo projekta"
+15122,1,"Omeji krmarjenje na korensko mapo projekta"
+15123,1,"Odstrani omejitev krmarjenja projekta"
+15124,1,"Počisti projektni delovni prostor"
 
 [STRINGTABLE 124]
 13248,1,"Ponovno &zavihek"
@@ -4032,6 +4037,8 @@ SLGINCOMPLETE,""
 14300,1,"Imenik"
 14301,1,"Zakl. zav."
 14302,1,"Ta zavihek je zaklenjen, da se prepreči spreminjanje vsebine v njem. Ali želite zavihek odkleniti in odpreti zahtevano lokacijo?"
+15125,1,"Projektni delovni prostor"
+15126,1,"Zapustiti korensko mapo projekta in odstraniti omejitev krmarjenja?"
 14303,1,"Dodatek (runtime ni na voljo)"
 
 [STRINGTABLE 173]

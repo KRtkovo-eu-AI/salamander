@@ -3545,6 +3545,11 @@ SLGINCOMPLETE,""
 13245,1,"Zamknij wszystkie &prawe karty poza tą i domyślną"
 13246,1,"D&uplikuj"
 13247,1,"D&uplikuj"
+15120,1,"Ustaw jako obszar roboczy projektu"
+15121,1,"Ustaw tutaj katalog główny projektu"
+15122,1,"Ogranicz nawigację do katalogu głównego projektu"
+15123,1,"Usuń ograniczenie nawigacji projektu"
+15124,1,"Wyczyść obszar roboczy projektu"
 
 [STRINGTABLE 124]
 13248,1,"Przywróć &kartę"
@@ -4032,6 +4037,8 @@ SLGINCOMPLETE,""
 14300,1,"Katalog"
 14301,1,"Zablokowana karta"
 14302,1,"Ta karta jest zablokowana, aby zapobiec zmianie jej zawartości. Czy odblokować ją i otworzyć żądane położenie?"
+15125,1,"Obszar roboczy projektu"
+15126,1,"Opuścić katalog główny projektu i usunąć ograniczenie nawigacji?"
 14303,1,"Rozszerzenie (brak środowiska)"
 
 [STRINGTABLE 173]
