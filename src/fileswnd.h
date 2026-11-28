@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-28 | Store fixed project-workspace roots and their independent navigation restriction. | Keep project tabs navigable within their root without reusing the general tab lock. | https://github.com/KRtkovo-eu-AI/salamander/issues/853 | openai/gpt-6-luna-pro |
 // | 2026-11-27 | Support probing an unclassified ZIP during default open. | Keep Enter and double-click consistent with Ctrl+PgDown when the ZIP extension is absent from the panel table. | https://github.com/KRtkovo-eu-AI/salamander/issues/873 | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-15 | Expose a temporary ZIP viewer read handle. | Keep entry data outside the viewer memory budget. | #731 | GPT-6 |
 // | 2026-11-08 | Track protected archive mode on the panel. | Distinguish manual refresh from background refresh. | | GPT-6.1 Sol (Codex) |
@@ -989,6 +990,8 @@ public:
     bool CustomTabPrefixValid;
     std::wstring CustomTabPrefix;
     bool TabLocked;
+    std::wstring ProjectWorkspaceRoot;
+    bool ProjectWorkspaceRestricted;
     std::string ShutdownGeneralPath;
 
     BOOL StatusLineVisible;
@@ -1184,7 +1187,19 @@ public:
     void ClearCustomTabPrefix();
     bool IsTabLocked() const { return TabLocked; }
     void SetTabLocked(bool locked) { TabLocked = locked; }
-    BOOL ConfirmUnlockTabForPathChange();
+    bool HasProjectWorkspace() const { return !ProjectWorkspaceRoot.empty(); }
+    bool IsProjectWorkspaceRestricted() const { return HasProjectWorkspace() && ProjectWorkspaceRestricted; }
+    const std::wstring& GetProjectWorkspaceRoot() const { return ProjectWorkspaceRoot; }
+    void SetProjectWorkspace(const wchar_t* root, bool restrictNavigation);
+    bool SetProjectWorkspaceFromCurrentPath();
+    void ClearProjectWorkspace();
+    void SetProjectWorkspaceRestricted(bool restricted);
+    BOOL IsProjectWorkspacePath(const wchar_t* path) const;
+    BOOL IsProjectWorkspacePathLexicallyInside(const wchar_t* path) const;
+    BOOL IsCurrentPathInProjectWorkspace();
+    BOOL IsAtProjectWorkspaceRoot();
+    BOOL IsProjectWorkspaceRootPath(const wchar_t* path) const;
+    BOOL ConfirmUnlockTabForPathChange(const wchar_t* targetPath = NULL, BOOL targetIsDiskOrArchive = TRUE);
 
     BOOL IsGood() { return DirectoryLine != NULL &&
                            StatusLine != NULL && ListBox != NULL && Files != NULL && Dirs != NULL &&

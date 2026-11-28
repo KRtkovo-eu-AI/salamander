@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-28 | Preserve project-workspace settings in closed-tab snapshots. | Undo Close Tab must restore the fixed root and its active navigation restriction. | https://github.com/KRtkovo-eu-AI/salamander/issues/853 | openai/gpt-6-luna-pro |
 // | 2026-11-08 | Identify explicit panel refresh commands. | Prompt for a fresh archive read only on user refresh. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-26 | Expose live history tab lookup and activation. | Route the original-tab command using the stable history ID. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
@@ -448,6 +449,8 @@ public:
         COLORREF CustomColor;
         bool HasCustomPrefix;
         std::wstring CustomPrefix;
+        std::wstring ProjectWorkspaceRoot;
+        bool ProjectWorkspaceRestricted;
         bool UserWorkedOnPath;
         std::unique_ptr<CPathHistory> PathHistory;
         std::unique_ptr<CPathHistory> WorkDirHistory;
@@ -739,6 +742,9 @@ public:
     void CommandClearPanelTabColor(CFilesWindow* panel);
     void CommandSetPanelTabPrefix(CFilesWindow* panel);
     void CommandClearPanelTabPrefix(CFilesWindow* panel);
+    void CommandSetPanelProjectWorkspace(CFilesWindow* panel);
+    void CommandClearPanelProjectWorkspace(CFilesWindow* panel);
+    void CommandTogglePanelProjectWorkspaceRestriction(CFilesWindow* panel);
     void CommandDuplicateTabToOtherSide(CPanelSide side, int index);
     int CommandMoveTabToOtherSide(CPanelSide side, int index, int targetInsertIndex = -1);
     int CommandMoveTabToOtherSide(CPanelSide side, CFilesWindow* panel, int targetInsertIndex = -1);

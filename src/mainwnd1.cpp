@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-28 | Enable Go to Root for the stored project root. | Let project tabs return to their workspace root from any descendant or archive. | https://github.com/KRtkovo-eu-AI/salamander/issues/853 | openai/gpt-6-luna-pro |
 // | 2026-11-08 | Disable entry content actions for the protected listing. | Keep metadata and navigation available. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-26 | Clear working directory history from closed-tab snapshots. | Prevent Undo Close Tab from restoring cleared paths and source names. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
@@ -6786,11 +6787,15 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
                      strcmp(obj->LeftPanel->Dirs->At(0).Name, "..") == 0);
         rightUpDir = (obj->RightPanel->Dirs->Count != 0 &&
                       strcmp(obj->RightPanel->Dirs->At(0).Name, "..") == 0);
-        if (!leftUpDir)
+        if (obj->LeftPanel->HasProjectWorkspace())
+            leftRootDir = !obj->LeftPanel->IsAtProjectWorkspaceRoot();
+        else if (!leftUpDir)
             leftRootDir = FALSE; // we are already at root (no up-dir exists)
         else
             leftRootDir = TRUE; //!obj->LeftPanel->Is(ptDisk) || !IsUNCRootPath(obj->LeftPanel->GetPath());
-        if (!rightUpDir)
+        if (obj->RightPanel->HasProjectWorkspace())
+            rightRootDir = !obj->RightPanel->IsAtProjectWorkspaceRoot();
+        else if (!rightUpDir)
             rightRootDir = FALSE; // we are already at root (no up-dir exists)
         else
             rightRootDir = TRUE; //!obj->RightPanel->Is(ptDisk) || !IsUNCRootPath(obj->RightPanel->GetPath());

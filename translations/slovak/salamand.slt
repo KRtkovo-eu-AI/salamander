@@ -3545,6 +3545,11 @@ SLGINCOMPLETE,""
 13245,1,"Zavrieť všetky karty na &pravej strane okrem tejto a predvolenej"
 13246,1,"D&uplikovať kartu"
 13247,1,"D&uplikovať kartu"
+15120,1,"Nastaviť ako pracovný priestor projektu"
+15121,1,"Nastaviť koreň projektu sem"
+15122,1,"Obmedziť navigáciu na koreň projektu"
+15123,1,"Odstrániť obmedzenie navigácie projektu"
+15124,1,"Vymazať pracovný priestor projektu"
 
 [STRINGTABLE 124]
 13248,1,"Znovu otvoriť zatvorenú &kartu"
@@ -4032,6 +4037,8 @@ SLGINCOMPLETE,""
 14300,1,"Adresár"
 14301,1,"Uzamknutá karta"
 14302,1,"Táto karta je uzamknutá, aby sa zabránilo zmene obsahu zobrazeného na nej. Chcete odomknúť kartu a otvoriť požadované umiestnenie?"
+15125,1,"Pracovný priestor projektu"
+15126,1,"Opustiť koreň projektu a odstrániť obmedzenie navigácie?"
 14303,1,"Rozšírenie (runtime nedostupné)"
 
 [STRINGTABLE 173]

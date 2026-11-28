@@ -3545,6 +3545,11 @@ SLGINCOMPLETE,""
 13245,1,"Varsayılan ve bu hariç tüm &Sağ sekmeleri kapat"
 13246,1,"Sekme &Kopyala"
 13247,1,"Sekme &Kopyala"
+15120,1,"Proje Çalışma Alanı olarak ayarla"
+15121,1,"Proje kökünü buraya ayarla"
+15122,1,"Gezintiyi proje köküyle sınırla"
+15123,1,"Proje gezinme kısıtlamasını kaldır"
+15124,1,"Proje Çalışma Alanını temizle"
 
 [STRINGTABLE 124]
 13248,1,"Kapalı &Sekmeyi Aç"
@@ -4032,6 +4037,8 @@ SLGINCOMPLETE,""
 14300,1,"Dizin"
 14301,1,"Kilitli Sekme"
 14302,1,"Bu sekme, görüntülenen içeriğin değişmesini önlemek için kilitli. Kilidini açıp istenen konumu açmak istiyor musunuz?"
+15125,1,"Proje Çalışma Alanı"
+15126,1,"Proje kökünden çıkıp gezinme kısıtlamasını kaldırmak istiyor musunuz?"
 14303,1,"Uzantı (çalışma zamanı yok)"
 
 [STRINGTABLE 173]

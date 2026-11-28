@@ -3545,6 +3545,11 @@ SLGINCOMPLETE,""
 13245,1,"Chiudi tutte le schede a &destra tranne questa e quella predefinita"
 13246,1,"D&uplica scheda"
 13247,1,"D&uplica scheda"
+15120,1,"Imposta come area di lavoro del progetto"
+15121,1,"Imposta qui la radice del progetto"
+15122,1,"Limita la navigazione alla radice del progetto"
+15123,1,"Rimuovi la limitazione di navigazione del progetto"
+15124,1,"Cancella area di lavoro del progetto"
 
 [STRINGTABLE 124]
 13248,1,"Riapri scheda chiusa &..."
@@ -4032,6 +4037,8 @@ SLGINCOMPLETE,""
 14300,1,"Cartella"
 14301,1,"Scheda bloccata"
 14302,1,"Questa scheda è bloccata per impedire la modifica del contenuto visualizzato. Vuoi sbloccare la scheda e aprire la posizione richiesta?"
+15125,1,"Area di lavoro del progetto"
+15126,1,"Uscire dalla radice del progetto e rimuovere la limitazione di navigazione?"
 14303,1,"Estensione (runtime non disponibile)"
 
 [STRINGTABLE 173]

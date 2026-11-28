@@ -3545,6 +3545,11 @@ SLGINCOMPLETE,""
 13245,1,"Tutup semua tab Sisi &Kanan kecuali ini dan bawaan"
 13246,1,"D&uplikat Tab"
 13247,1,"D&uplikat Tab"
+15120,1,"Jadikan Ruang Kerja Proyek"
+15121,1,"Tetapkan Akar Proyek di Sini"
+15122,1,"Batasi Navigasi ke Akar Proyek"
+15123,1,"Hapus Batasan Navigasi Proyek"
+15124,1,"Hapus Ruang Kerja Proyek"
 
 [STRINGTABLE 124]
 13248,1,"Buka Kembali &Tab"
@@ -4032,6 +4037,8 @@ SLGINCOMPLETE,""
 14300,1,"Direktori"
 14301,1,"Tab terkunci"
 14302,1,"Tab ini terkunci untuk mencegah perubahan konten yang ditampilkan. Ingin membuka kunci tab dan membuka lokasi yang diminta?"
+15125,1,"Ruang Kerja Proyek"
+15126,1,"Tinggalkan akar proyek dan hapus batasan navigasi?"
 14303,1,"Ekstensi (runtime tak tersedia)"
 
 [STRINGTABLE 173]

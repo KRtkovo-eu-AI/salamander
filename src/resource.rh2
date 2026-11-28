@@ -1,3 +1,4 @@
+// | 2026-11-28 | Reserve project-workspace tab commands. | Expose setting the root, toggling its navigation restriction, and clearing the workspace. | https://github.com/KRtkovo-eu-AI/salamander/issues/853 | openai/gpt-6-luna-pro |
 // | 2026-11-08 | Remove the standalone ZIP recovery command ID. | Keep only existing ZIP commands. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Add the ZIP recovery command ID. | Route recovery through the existing Files menu. | | GPT-6.1 Sol (Codex) |
 // WARNING: cannot be replaced by "#pragma once" because it is included from .rc file and it seems resource compiler does not support "#pragma once"
@@ -357,6 +358,9 @@
 #define CM_BRANCH_STOP         1184
 
 #define CM_DETACHTAB           1140
+#define CM_TAB_SET_PROJECT_WORKSPACE 1141
+#define CM_TAB_TOGGLE_PROJECT_RESTRICTION 1142
+#define CM_TAB_CLEAR_PROJECT_WORKSPACE 1143
 
 // accelerators
 #define IDA_MAINACCELS1        935        // pouzitelne i v editacnim modu

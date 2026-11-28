@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-28 | Enforce project-root navigation checks for disks, archives, and plugin filesystems. | Resolve destinations before transitions and keep path recovery inside restricted workspaces. | https://github.com/KRtkovo-eu-AI/salamander/issues/853 | openai/gpt-6-luna-pro |
 // | 2026-11-27 | Probe unclassified ZIPs before shell execution. | Open supported ZIP contents in the panel on Enter or double-click even when the archive extension is missing from the runtime table. | https://github.com/KRtkovo-eu-AI/salamander/issues/873 | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-15 | Stream protected ZIP viewer entries to an ephemeral read handle. | Remove the whole-entry memory limit while keeping ZIP validation. | #731 | GPT-6 |
 // | 2026-11-11 | Prepare a new protected listing before leaving the current panel. | Preserve the previous session when access to a different root is cancelled or fails. | #731 | GPT-6.1 Terra |
@@ -3018,9 +3019,6 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
                                     BOOL refreshListBox, BOOL canForce, BOOL isRefresh, int* failReason,
                                     BOOL shorterPathWarning, int tryCloseReason)
 {
-    if (!isRefresh && !ConfirmUnlockTabForPathChange())
-        return FALSE;
-
     CALL_STACK_MESSAGE9("CFilesWindow::ChangePathToDisk(, %s, %d, %s, , %d, %d, %d, , %d, %d)", path,
                         suggestedTopIndex, suggestedFocusName, refreshListBox, canForce, isRefresh,
                         shorterPathWarning, tryCloseReason);
@@ -3046,14 +3044,9 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
         suggestedFocusName = backup2;
     }
 
-    // restore panel state info (top-index + focused-name) before potentially closing this path
-    RefreshPathHistoryData();
-
     if (noChange != NULL)
         *noChange = TRUE;
 
-    if (!isRefresh)
-        MainWindow->CancelPanelsUI(); // cancel QuickSearch and QuickEdit
     // restore DefaultDir
     MainWindow->UpdateDefaultDir(TRUE);
 
@@ -3071,6 +3064,32 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
     }
     path = backup;
 
+    const std::wstring resolvedPathW = SalMultiByteToWidePath(
+        path, IsValidPathUtf8Text(path) ? CP_UTF8 : CP_ACP);
+    if (resolvedPathW.empty())
+    {
+        if (failReason != NULL)
+            *failReason = CHPPFR_INVALIDPATH;
+        return FALSE;
+    }
+    if (isRefresh && IsProjectWorkspaceRestricted() && !IsProjectWorkspacePath(resolvedPathW.c_str()))
+    {
+        if (failReason != NULL)
+            *failReason = CHPPFR_INVALIDPATH;
+        return FALSE; // an automatic refresh must not follow a reparse point outside the fixed root
+    }
+    if (!isRefresh && !ConfirmUnlockTabForPathChange(resolvedPathW.c_str(), TRUE))
+        return FALSE;
+
+    const bool restrictFallbackToWorkspace = HasProjectWorkspace() &&
+        (IsProjectWorkspaceRestricted() || IsProjectWorkspaceRootPath(resolvedPathW.c_str()));
+
+    // Do not change the saved current-path history when the user declines the destination.
+    RefreshPathHistoryData();
+
+    if (!isRefresh)
+        MainWindow->CancelPanelsUI(); // cancel QuickSearch and QuickEdit after confirmation
+
     // start the waiting cursor
     BOOL setWait = (GetCursor() != LoadCursor(NULL, IDC_WAIT)); // is it already waiting?
     HCURSOR oldCur;
@@ -3084,7 +3103,8 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
     BOOL openIfPathIsInaccessibleGoToCfg = FALSE;
     char ifPathIsInaccessibleGoTo[SAL_MAX_PATH];
     GetIfPathIsInaccessibleGoTo(ifPathIsInaccessibleGoTo);
-    if ((ifPathIsInaccessibleGoTo[0] == '\\' && ifPathIsInaccessibleGoTo[1] == '\\' ||
+    if (!restrictFallbackToWorkspace &&
+        (ifPathIsInaccessibleGoTo[0] == '\\' && ifPathIsInaccessibleGoTo[1] == '\\' ||
          ifPathIsInaccessibleGoTo[0] != 0 && ifPathIsInaccessibleGoTo[1] == ':') &&
         !IsTheSamePath(path, ifPathIsInaccessibleGoTo))
     {
@@ -3205,6 +3225,17 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
         }
         else
             SalCheckAndRestorePathWithCut(parent, changedPath, tryNet, err, lastErr, pathInvalid, cut, FALSE);
+        if (restrictFallbackToWorkspace && !pathInvalid && err == ERROR_SUCCESS)
+        {
+            const std::wstring recoveredPathW = SalMultiByteToWidePath(
+                changedPath, IsValidPathUtf8Text(changedPath) ? CP_UTF8 : CP_ACP);
+            if (recoveredPathW.empty() || !IsProjectWorkspacePath(recoveredPathW.c_str()))
+            {
+                pathInvalid = TRUE;
+                cut = FALSE;
+                err = lastErr = ERROR_PATH_NOT_FOUND;
+            }
+        }
         if (cut)
         { // invalidate proposed listbox settings (we'll list a different path)
             suggestedTopIndex = -1;
@@ -3310,7 +3341,19 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
             FIXED_DRIVE:
 
                 BOOL change = FALSE;
-                if (fixedDrive || !CutDirectory(changedPath)) // we attempt to shorten the path
+                if (restrictFallbackToWorkspace)
+                {
+                    std::wstring fallbackPathW = SalMultiByteToWidePath(
+                        changedPath, IsValidPathUtf8Text(changedPath) ? CP_UTF8 : CP_ACP);
+                    if (!fixedDrive && !fallbackPathW.empty() && IsProjectWorkspacePath(fallbackPathW.c_str()) &&
+                        CutDirectory(changedPath))
+                    {
+                        fallbackPathW = SalMultiByteToWidePath(
+                            changedPath, IsValidPathUtf8Text(changedPath) ? CP_UTF8 : CP_ACP);
+                        change = !fallbackPathW.empty() && IsProjectWorkspacePath(fallbackPathW.c_str());
+                    }
+                }
+                else if (fixedDrive || !CutDirectory(changedPath)) // we attempt to shorten the path
                 {
                     if (canTryUserRescuePath) // first we try the "rescue path" user wished for
                     {
@@ -3743,9 +3786,6 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
                                        int* failReason, BOOL isRefresh, BOOL canFocusFileName,
                                        BOOL isHistory, CPluginData* forcedPlugin, bool allowProtectedZip)
 {
-    if (!isRefresh && !ConfirmUnlockTabForPathChange())
-        return FALSE;
-
     CALL_STACK_MESSAGE10("CFilesWindow::ChangePathToArchive(%s, %s, %d, %s, %d, , %d, , %d, %d, %d)",
                          archive, archivePath, suggestedTopIndex, suggestedFocusName,
                          forceUpdate, refreshListBox, isRefresh, canFocusFileName, isHistory);
@@ -3763,14 +3803,8 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
         suggestedFocusName = backup3;
     }
 
-    // restore panel state info (top-index + focused-name) before potentially closing this path
-    RefreshPathHistoryData();
-
     if (noChange != NULL)
         *noChange = TRUE;
-
-    if (!isRefresh)
-        MainWindow->CancelPanelsUI(); // cancel QuickSearch and QuickEdit
 
     // restore DefaultDir
     MainWindow->UpdateDefaultDir(TRUE);
@@ -3788,6 +3822,29 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
         return FALSE;
     }
     archive = backup1;
+
+    const std::wstring archivePathW = SalMultiByteToWidePath(
+        archive, IsValidPathUtf8Text(archive) ? CP_UTF8 : CP_ACP);
+    if (archivePathW.empty())
+    {
+        if (failReason != NULL)
+            *failReason = CHPPFR_INVALIDPATH;
+        return FALSE;
+    }
+    if (isRefresh && IsProjectWorkspaceRestricted() && !IsProjectWorkspacePath(archivePathW.c_str()))
+    {
+        if (failReason != NULL)
+            *failReason = CHPPFR_INVALIDPATH;
+        return FALSE; // do not recover or refresh an archive through a path now resolving outside the root
+    }
+    if (!isRefresh && !ConfirmUnlockTabForPathChange(archivePathW.c_str(), TRUE))
+        return FALSE;
+
+    // Do not change the saved current-path history when the user declines the destination.
+    RefreshPathHistoryData();
+
+    if (!isRefresh)
+        MainWindow->CancelPanelsUI(); // cancel QuickSearch and QuickEdit after confirmation
 
     const bool sameProtectedZip = IsProtectedZip() && StrICmp(GetZIPArchive(), archive) == 0;
     if (sameProtectedZip && isRefresh && !allowProtectedZip)
@@ -4490,7 +4547,13 @@ BOOL CFilesWindow::ChangePathToPluginFS(const char* fsName, const char* fsUserPa
                                         BOOL* noChange, BOOL refreshListBox, int* failReason, BOOL isRefresh,
                                         BOOL canFocusFileName, BOOL convertPathToInternal)
 {
-    if (!isRefresh && !ConfirmUnlockTabForPathChange())
+    if (isRefresh && IsProjectWorkspaceRestricted())
+    {
+        if (failReason != NULL)
+            *failReason = CHPPFR_INVALIDPATH;
+        return FALSE;
+    }
+    if (!isRefresh && !ConfirmUnlockTabForPathChange(L"", FALSE))
         return FALSE;
 
     CALL_STACK_MESSAGE11("CFilesWindow::ChangePathToPluginFS(%s, %s, %d, %s, %d, %d, , %d, , %d, %d, %d)",
@@ -5008,6 +5071,9 @@ BOOL CFilesWindow::ChangePathToDetachedFS(int fsIndex, int suggestedTopIndex,
     CALL_STACK_MESSAGE9("CFilesWindow::ChangePathToDetachedFS(%d, %d, %s, %d, , %s, %s, %d, %d)", fsIndex,
                         suggestedTopIndex, suggestedFocusName, refreshListBox, newFSName, newUserPart,
                         mode, canFocusFileName);
+
+    if (!ConfirmUnlockTabForPathChange(L"", FALSE))
+        return FALSE;
 
     char backup[MAX_PATH];
     if (suggestedFocusName != NULL)

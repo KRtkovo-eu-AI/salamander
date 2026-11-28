@@ -3545,6 +3545,11 @@ SLGINCOMPLETE,""
 13245,1,"Luk alle &højrefaner undtagen denne og standard"
 13246,1,"D&uplikér fane"
 13247,1,"D&uplikér fane"
+15120,1,"Angiv som projektarbejdsområde"
+15121,1,"Angiv projektroden her"
+15122,1,"Begræns navigation til projektroden"
+15123,1,"Fjern projektets navigationsbegrænsning"
+15124,1,"Ryd projektarbejdsområde"
 
 [STRINGTABLE 124]
 13248,1,"Genåbn &lukketfane"
@@ -4032,6 +4037,8 @@ SLGINCOMPLETE,""
 14300,1,"Mappe"
 14301,1,"Låst fane"
 14302,1,"Denne fane er låst for at forhindre ændring af det viste indhold. Vil du fjerne låsen og åbne den ønskede placering?"
+15125,1,"Projektarbejdsområde"
+15126,1,"Vil du forlade projektroden og fjerne navigationsbegrænsningen?"
 14303,1,"Udvidelse (kørsel utilgængelig)"
 
 [STRINGTABLE 173]

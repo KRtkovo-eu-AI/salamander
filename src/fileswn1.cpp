@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-28 | Confirm navigation leaving project roots and route Go to Root to the stored workspace root. | Keep project navigation independent of the general tab lock. | https://github.com/KRtkovo-eu-AI/salamander/issues/853 | openai/gpt-6-luna-pro |
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-26 | Generate history identities when constructing tabs. | Give intentional duplicates independent persistent identities. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 // | 2026-11-15 | Probe ordinary file operations with the existing folder worker. | Indicate denied access without changing files or treating a read grant as write authority. | #731 | GPT-6 |
@@ -3127,6 +3128,8 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     CustomTabPrefixValid = false;
     CustomTabPrefix.clear();
     TabLocked = false;
+    ProjectWorkspaceRoot.clear();
+    ProjectWorkspaceRestricted = false;
     ViewTemplate = parent->ViewTemplates.Get(2); // detailed view
     BuildColumnsTemplate();
     CopyColumnsTemplateToColumns();
@@ -4380,24 +4383,39 @@ void CFilesWindow::SetAutomaticRefresh(BOOL value, BOOL force)
     }
 }
 
-BOOL CFilesWindow::ConfirmUnlockTabForPathChange()
+BOOL CFilesWindow::ConfirmUnlockTabForPathChange(const wchar_t* targetPath, BOOL targetIsDiskOrArchive)
 {
     CALL_STACK_MESSAGE1("CFilesWindow::ConfirmUnlockTabForPathChange()");
 
-    if (!IsTabLocked())
-        return TRUE;
+    bool confirmTabUnlock = false;
+    if (IsTabLocked() && MainWindow != NULL &&
+        MainWindow->GetPanelTabIndex(GetPanelSide(), this) > 0 &&
+        MainWindow->HWindow != NULL && IsWindowVisible(MainWindow->HWindow) && GetPath()[0] != 0)
+        confirmTabUnlock = true;
 
-    if (MainWindow == NULL || MainWindow->GetPanelTabIndex(GetPanelSide(), this) <= 0)
-        return TRUE;
+    const bool targetIsStoredProjectRoot = targetPath != NULL && IsProjectWorkspaceRootPath(targetPath);
+    const bool confirmProjectLeave = targetPath != NULL && IsProjectWorkspaceRestricted() &&
+                                     !targetIsStoredProjectRoot &&
+                                     (!targetIsDiskOrArchive || !IsProjectWorkspacePath(targetPath));
 
-    if (MainWindow->HWindow == NULL || !IsWindowVisible(MainWindow->HWindow) || GetPath()[0] == 0)
-        return TRUE;
+    if (confirmProjectLeave &&
+        (MainWindow == NULL || MainWindow->HWindow == NULL || !IsWindowVisible(MainWindow->HWindow)))
+        return FALSE; // startup and hidden-tab recovery must not silently leave an unverifiable root
 
-    if (SalMessageBox(HWindow, LoadStr(IDS_LOCKEDTAB_CHANGEPATH), LoadStr(IDS_LOCKEDTAB_TITLE),
+    if (confirmTabUnlock &&
+        SalMessageBox(HWindow, LoadStr(IDS_LOCKEDTAB_CHANGEPATH), LoadStr(IDS_LOCKEDTAB_TITLE),
                       MB_YESNO | MB_ICONQUESTION) != IDYES)
         return FALSE;
 
-    MainWindow->CommandUnlockTab(this);
+    if (confirmProjectLeave &&
+        SalMessageBox(HWindow, LoadStr(IDS_PROJECT_WORKSPACE_LEAVE), LoadStr(IDS_PROJECT_WORKSPACE_TITLE),
+                      MB_YESNO | MB_ICONQUESTION) != IDYES)
+        return FALSE;
+
+    if (confirmTabUnlock)
+        MainWindow->CommandUnlockTab(this);
+    if (confirmProjectLeave)
+        SetProjectWorkspaceRestricted(false);
     return TRUE;
 }
 
@@ -4405,6 +4423,12 @@ void CFilesWindow::GotoRoot()
 {
     CALL_STACK_MESSAGE1("CFilesWindow::GotoRoot()");
     TopIndexMem.Clear(); // long jump
+
+    if (HasProjectWorkspace())
+    {
+        ChangePathToDiskW(HWindow, ProjectWorkspaceRoot.c_str());
+        return;
+    }
 
     char root[MAX_PATH];
     if (Is(ptDisk) || Is(ptZIPArchive))

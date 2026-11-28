@@ -1,3 +1,4 @@
+// | 2026-11-28 | Reserve localized project-workspace menu and confirmation strings. | Keep workspace setup and leaving-root confirmation translatable. | https://github.com/KRtkovo-eu-AI/salamander/issues/853 | openai/gpt-6-luna-pro |
 // | 2026-11-27 | Reserve File Associations pattern-delete confirmation. | Localize the prompt before removing selected patterns and all their action assignments. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-27 | Reserve custom-handler action, confirmation, and safety strings. | Localize handler management and assigned-handler deletion protection. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-15 | Explain administrator denial when opening folders. | Distinguish a broker denial from an ordinary access error. | #731 | GPT-6 |
@@ -2223,6 +2224,11 @@
 #define IDS_MENU_LEFT_CLEARTABCOLOR  13231
 #define IDS_MENU_LEFT_SETTABPREFIX   13234
 #define IDS_MENU_LEFT_CLEARTABPREFIX 13235
+#define IDS_MENU_TAB_PROJECT_SET     15120
+#define IDS_MENU_TAB_PROJECT_ROOT_HERE 15121
+#define IDS_MENU_TAB_PROJECT_RESTRICT 15122
+#define IDS_MENU_TAB_PROJECT_RELAX   15123
+#define IDS_MENU_TAB_PROJECT_CLEAR   15124
 #define IDS_MENU_LEFT_DUPLICATETABRIGHT 13240
 #define IDS_MENU_LEFT_MOVETABTORIGHT    13241
 #define IDS_MENU_LEFT_CLOSEALLEXCEPTDEFAULT 13228
@@ -3029,6 +3035,8 @@
 #define IDS_PANELTIP_KIND_DIRECTORY      14300
 #define IDS_LOCKEDTAB_TITLE              14301
 #define IDS_LOCKEDTAB_CHANGEPATH         14302
+#define IDS_PROJECT_WORKSPACE_TITLE      15125
+#define IDS_PROJECT_WORKSPACE_LEAVE      15126
 #define IDS_EXTENSIONBAR                 14311
 #define IDS_MENU_OPT_VSB_EXT             14312
 #define IDS_PLUGIN_ARCHIVES_LABEL        14313

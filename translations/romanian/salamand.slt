@@ -3545,6 +3545,11 @@ SLGINCOMPLETE,""
 13245,1,"Închide toate filele din &partea dreaptă, cu excepția acesteia și a celei implicite"
 13246,1,"D&uplică tabul"
 13247,1,"D&uplică tabul"
+15120,1,"Setează ca spațiu de lucru al proiectului"
+15121,1,"Setează aici rădăcina proiectului"
+15122,1,"Limitează navigarea la rădăcina proiectului"
+15123,1,"Elimină restricția de navigare a proiectului"
+15124,1,"Șterge spațiul de lucru al proiectului"
 
 [STRINGTABLE 124]
 13248,1,"Redeschide tabul &închis"
@@ -4032,6 +4037,8 @@ SLGINCOMPLETE,""
 14300,1,"Director"
 14301,1,"Tab blocat"
 14302,1,"Acest tab este blocat pentru a preveni schimbarea conținutului afișat. Doriți să deblocați tabul și să deschideți locația solicitată?"
+15125,1,"Spațiu de lucru al proiectului"
+15126,1,"Părăsiți rădăcina proiectului și eliminați restricția de navigare?"
 14303,1,"Extensie (runtime indisponibil)"
 
 [STRINGTABLE 173]

@@ -3545,6 +3545,11 @@ SLGINCOMPLETE,""
 13245,1,"Az összes &jobb oldali fül bezárása, kivéve ezt és az alapértelmezettet"
 13246,1,"F&ül megkettőzése"
 13247,1,"F&ül megkettőzése"
+15120,1,"Beállítás projekt-munkaterületként"
+15121,1,"Projekt gyökérmappájának beállítása itt"
+15122,1,"Navigáció korlátozása a projekt gyökérmappájára"
+15123,1,"Projekt navigációs korlátozásának feloldása"
+15124,1,"Projekt-munkaterület törlése"
 
 [STRINGTABLE 124]
 13248,1,"Bezárt &Fül újbóli megnyitása"
@@ -4032,6 +4037,8 @@ SLGINCOMPLETE,""
 14300,1,"Könyvtár"
 14301,1,"Zárt lap"
 14302,1,"Ez a lap le van zárva, hogy ne lehessen módosítani a rajta megjelenő tartalmat. Ki szeretné nyitni a lapot, és megnyitni a kért helyet?"
+15125,1,"Projekt-munkaterület"
+15126,1,"Elhagyja a projekt gyökérmappáját és feloldja a navigációs korlátozást?"
 14303,1,"Bővítmény (futókörnyezet nem elérhető)"
 
 [STRINGTABLE 173]

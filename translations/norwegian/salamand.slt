@@ -3545,6 +3545,11 @@ SLGINCOMPLETE,""
 13245,1,"Lukk alle &høyre faner utenom denne og standard"
 13246,1,"D&upliser fane"
 13247,1,"D&upliser fane"
+15120,1,"Angi som prosjektarbeidsområde"
+15121,1,"Angi prosjektroten her"
+15122,1,"Begrens navigering til prosjektroten"
+15123,1,"Fjern prosjektets navigeringsbegrensning"
+15124,1,"Tøm prosjektarbeidsområdet"
 
 [STRINGTABLE 124]
 13248,1,"Åpne lukket &fane"
@@ -4032,6 +4037,8 @@ SLGINCOMPLETE,""
 14300,1,"Katalog"
 14301,1,"Låst fane"
 14302,1,"Denne fanen er låst for å hindre endring av innholdet som vises i den. Vil du låse opp fanen og åpne ønsket plassering?"
+15125,1,"Prosjektarbeidsområde"
+15126,1,"Vil du forlate prosjektroten og fjerne navigeringsbegrensningen?"
 14303,1,"Utvidelse (kjøretid mangler)"
 
 [STRINGTABLE 173]

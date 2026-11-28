@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-28 | Add project-workspace tab actions and preserve their state through tab lifecycle operations. | Expose fixed-root navigation while keeping project settings independent from tab locking. | https://github.com/KRtkovo-eu-AI/salamander/issues/853 | openai/gpt-6-luna-pro |
 // | 2026-11-08 | Route explicit Refresh to protected archives. | Leave background refresh noninteractive. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-27 | Use the named Internal Viewer configuration entry point. | Avoid coupling viewer navigation to a reassigned numeric page mode. | https://github.com/KRtkovo-eu-AI/salamander/issues/861 | openrouter/openai/gpt-6-luna-pro |
@@ -803,6 +804,8 @@ void CMainWindow::RememberClosedTab(CPanelSide side, CFilesWindow* panel, int in
     info.HasCustomPrefix = panel->HasCustomTabPrefix();
     if (info.HasCustomPrefix)
         info.CustomPrefix = panel->GetCustomTabPrefix();
+    info.ProjectWorkspaceRoot = panel->GetProjectWorkspaceRoot();
+    info.ProjectWorkspaceRestricted = panel->IsProjectWorkspaceRestricted();
     info.UserWorkedOnPath = panel->UserWorkedOnThisPath != FALSE;
 
     if (panel->PathHistory != NULL)
@@ -922,6 +925,10 @@ static std::wstring BuildTabDisplayText(CFilesWindow* panel, int index)
     if (index == 0)
         result = L"\u2691";
     else if (panel->IsTabLocked())
+        result = L"\U0001F512";
+    if (index == 0 && panel->IsProjectWorkspaceRestricted())
+        result += L" \U0001F512";
+    else if (index > 0 && panel->IsProjectWorkspaceRestricted() && !panel->IsTabLocked())
         result = L"\U0001F512";
     if (!name.empty())
     {
@@ -1394,15 +1401,33 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
 
     appendSeparator();
 
-    BOOL canSetColor = (index >= 0 && index < tabs.Count && targetPanel != NULL && !targetPanel->IsTabLocked());
-    BOOL hasCustomColor = (targetPanel != NULL && targetPanel->HasCustomTabColor() && !targetPanel->IsTabLocked());
-    BOOL canSetPrefix = targetPanel != NULL && !targetPanel->IsTabLocked();
-    BOOL hasCustomPrefix = (targetPanel != NULL && targetPanel->HasCustomTabPrefix() && !targetPanel->IsTabLocked());
+    BOOL tabSettingsEditable = targetPanel != NULL &&
+                              (!targetPanel->IsTabLocked() || targetPanel->HasProjectWorkspace());
+    BOOL canSetColor = (index >= 0 && index < tabs.Count && tabSettingsEditable);
+    BOOL hasCustomColor = (targetPanel != NULL && targetPanel->HasCustomTabColor() && tabSettingsEditable);
+    BOOL canSetPrefix = tabSettingsEditable;
+    BOOL hasCustomPrefix = (targetPanel != NULL && targetPanel->HasCustomTabPrefix() && tabSettingsEditable);
     appendMenuItem(colorCmd, colorText, -1, canSetColor);
     appendMenuItem(clearCmd, clearText, -1, hasCustomColor);
 
     appendMenuItem(prefixCmd, prefixText, -1, canSetPrefix);
     appendMenuItem(clearPrefixCmd, clearPrefixText, -1, hasCustomPrefix);
+
+    if (targetPanel != NULL && (targetPanel->Is(ptDisk) || targetPanel->HasProjectWorkspace()))
+    {
+        appendSeparator();
+        if (targetPanel->Is(ptDisk))
+            appendMenuItem(CM_TAB_SET_PROJECT_WORKSPACE,
+                           targetPanel->HasProjectWorkspace() ? IDS_MENU_TAB_PROJECT_ROOT_HERE : IDS_MENU_TAB_PROJECT_SET,
+                           -1, TRUE);
+        if (targetPanel->HasProjectWorkspace())
+        {
+            appendMenuItem(CM_TAB_TOGGLE_PROJECT_RESTRICTION,
+                           targetPanel->IsProjectWorkspaceRestricted() ? IDS_MENU_TAB_PROJECT_RELAX : IDS_MENU_TAB_PROJECT_RESTRICT,
+                           -1, TRUE);
+            appendMenuItem(CM_TAB_CLEAR_PROJECT_WORKSPACE, IDS_MENU_TAB_PROJECT_CLEAR, -1, TRUE);
+        }
+    }
 
     appendSeparator();
 
@@ -1432,6 +1457,22 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
 
     if (command == 0)
         return;
+
+    if (targetPanel != NULL && command == CM_TAB_SET_PROJECT_WORKSPACE)
+    {
+        CommandSetPanelProjectWorkspace(targetPanel);
+        return;
+    }
+    if (targetPanel != NULL && command == CM_TAB_TOGGLE_PROJECT_RESTRICTION)
+    {
+        CommandTogglePanelProjectWorkspaceRestriction(targetPanel);
+        return;
+    }
+    if (targetPanel != NULL && command == CM_TAB_CLEAR_PROJECT_WORKSPACE)
+    {
+        CommandClearPanelProjectWorkspace(targetPanel);
+        return;
+    }
 
     if (command == CM_DETACHTAB || command == moveCmd)
     {
@@ -2330,7 +2371,7 @@ void CMainWindow::CommandSetPanelTabColor(CFilesWindow* panel)
 {
     if (panel == NULL)
         return;
-    if (panel->IsTabLocked())
+    if (panel->IsTabLocked() && !panel->HasProjectWorkspace())
         return;
 
     static COLORREF customColors[16] = {0};
@@ -2354,7 +2395,7 @@ void CMainWindow::CommandClearPanelTabColor(CFilesWindow* panel)
 {
     if (panel == NULL)
         return;
-    if (panel->IsTabLocked())
+    if (panel->IsTabLocked() && !panel->HasProjectWorkspace())
         return;
     if (!panel->HasCustomTabColor())
         return;
@@ -2367,7 +2408,7 @@ void CMainWindow::CommandSetPanelTabPrefix(CFilesWindow* panel)
 {
     if (panel == NULL)
         return;
-    if (panel->IsTabLocked())
+    if (panel->IsTabLocked() && !panel->HasProjectWorkspace())
         return;
 
     char buffer[SAL_MAX_PATH];
@@ -2417,13 +2458,46 @@ void CMainWindow::CommandClearPanelTabPrefix(CFilesWindow* panel)
 {
     if (panel == NULL)
         return;
-    if (panel->IsTabLocked())
+    if (panel->IsTabLocked() && !panel->HasProjectWorkspace())
         return;
     if (!panel->HasCustomTabPrefix())
         return;
 
     panel->ClearCustomTabPrefix();
     UpdatePanelTabTitle(panel);
+}
+
+void CMainWindow::CommandSetPanelProjectWorkspace(CFilesWindow* panel)
+{
+    if (panel == NULL || !panel->Is(ptDisk))
+        return;
+    if (panel->SetProjectWorkspaceFromCurrentPath())
+        RefreshCommandStates();
+}
+
+void CMainWindow::CommandClearPanelProjectWorkspace(CFilesWindow* panel)
+{
+    if (panel == NULL || !panel->HasProjectWorkspace())
+        return;
+    panel->ClearProjectWorkspace();
+    RefreshCommandStates();
+}
+
+void CMainWindow::CommandTogglePanelProjectWorkspaceRestriction(CFilesWindow* panel)
+{
+    if (panel == NULL || !panel->HasProjectWorkspace())
+        return;
+
+    if (panel->IsProjectWorkspaceRestricted())
+        panel->SetProjectWorkspaceRestricted(false);
+    else
+    {
+        if (!panel->IsCurrentPathInProjectWorkspace())
+            panel->GotoRoot();
+        if (panel->IsCurrentPathInProjectWorkspace())
+            panel->SetProjectWorkspaceRestricted(true);
+    }
+    RefreshCommandStates();
 }
 
 CFilesWindow* CMainWindow::CreateDuplicatePanelTab(CPanelSide targetSide, CFilesWindow* sourcePanel, int insertIndex)
@@ -2515,6 +2589,9 @@ CFilesWindow* CMainWindow::CreateDuplicatePanelTab(CPanelSide targetSide, CFiles
         newPanel->SetCustomTabPrefix(sourcePanel->GetCustomTabPrefix().c_str());
     else
         newPanel->ClearCustomTabPrefix();
+
+    newPanel->SetProjectWorkspace(sourcePanel->GetProjectWorkspaceRoot().c_str(),
+                                  sourcePanel->IsProjectWorkspaceRestricted());
 
     if (newPanel->PathHistory != NULL && sourcePanel->PathHistory != NULL)
         newPanel->PathHistory->CopyFrom(*sourcePanel->PathHistory);
@@ -2686,6 +2763,8 @@ bool CMainWindow::CommandReopenClosedTab(CPanelSide side)
         panel->SetCustomTabPrefix(entry.CustomPrefix.c_str());
     else
         panel->ClearCustomTabPrefix();
+
+    panel->SetProjectWorkspace(entry.ProjectWorkspaceRoot.c_str(), entry.ProjectWorkspaceRestricted);
 
     if (panel->PathHistory != NULL)
     {

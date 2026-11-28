@@ -3545,6 +3545,11 @@ SLGINCOMPLETE,""
 13245,1,"Đóng mọi thẻ bên &phải trừ thẻ này và thẻ mặc định"
 13246,1,"&Nhân đôi thẻ"
 13247,1,"&Nhân đôi thẻ"
+15120,1,"Đặt làm không gian làm việc của dự án"
+15121,1,"Đặt thư mục gốc dự án tại đây"
+15122,1,"Giới hạn điều hướng trong thư mục gốc dự án"
+15123,1,"Bỏ giới hạn điều hướng của dự án"
+15124,1,"Xóa không gian làm việc của dự án"
 
 [STRINGTABLE 124]
 13248,1,"Mở lại &thẻ đã đóng"
@@ -4032,6 +4037,8 @@ SLGINCOMPLETE,""
 14300,1,"Thư mục"
 14301,1,"Thẻ đã khóa"
 14302,1,"Thẻ này đã bị khóa để tránh thay đổi nội dung đang hiển thị. Bạn có muốn mở khóa thẻ và mở vị trí được yêu cầu không?"
+15125,1,"Không gian làm việc của dự án"
+15126,1,"Rời khỏi thư mục gốc dự án và bỏ giới hạn điều hướng?"
 14303,1,"Phần mở rộng (không có runtime)"
 
 [STRINGTABLE 173]

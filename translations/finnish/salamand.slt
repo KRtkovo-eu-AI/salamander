@@ -3545,6 +3545,11 @@ SLGINCOMPLETE,""
 13245,1,"Sulje &oikeat välilehdet paitsi tämä ja oletus"
 13246,1,"Kopioi &välilehti"
 13247,1,"Kopioi &välilehti"
+15120,1,"Aseta projektin työtilaksi"
+15121,1,"Aseta projektin juurikansio tähän"
+15122,1,"Rajoita siirtyminen projektin juurikansioon"
+15123,1,"Poista projektin siirtymisrajoitus"
+15124,1,"Tyhjennä projektin työtila"
 
 [STRINGTABLE 124]
 13248,1,"Avaa uudelleen suljettu &välilehti"
@@ -4032,6 +4037,8 @@ SLGINCOMPLETE,""
 14300,1,"Hakemisto"
 14301,1,"Lukittu välilehti"
 14302,1,"Tämä välilehti on lukittu, jotta sen näyttämä sisältö ei muutu. Haluatko poistaa lukituksen ja avata pyydetyn sijainnin?"
+15125,1,"Projektin työtila"
+15126,1,"Poistu projektin juurikansiosta ja poista siirtymisrajoitus?"
 14303,1,"Laajennus (ajoaika ei käytössä)"
 
 [STRINGTABLE 173]

@@ -3545,6 +3545,11 @@ SLGINCOMPLETE,""
 13245,1,"Uždaryti visus &dešinės pusės skirtukus, išskyrus šį ir numatytąjį"
 13246,1,"D&ubliuoti skirtuką"
 13247,1,"D&ubliuoti skirtuką"
+15120,1,"Nustatyti kaip projekto darbo sritį"
+15121,1,"Nustatyti projekto šakninį katalogą čia"
+15122,1,"Apriboti naršymą projekto šakniniu katalogu"
+15123,1,"Pašalinti projekto naršymo apribojimą"
+15124,1,"Išvalyti projekto darbo sritį"
 
 [STRINGTABLE 124]
 13248,1,"Atidaryti uždarytą &skirtuką"
@@ -4032,6 +4037,8 @@ SLGINCOMPLETE,""
 14300,1,"Katalogas"
 14301,1,"Užrakintas skirtukas"
 14302,1,"Šis skirtukas užrakintas, kad nebūtų pakeistas rodomas turinys. Ar norite atrakinti skirtuką ir atidaryti prašomą vietą?"
+15125,1,"Projekto darbo sritis"
+15126,1,"Išeiti iš projekto šakninio katalogo ir pašalinti naršymo apribojimą?"
 14303,1,"Plėtinys (vykdymo aplinka nepasiekiama)"
 
 [STRINGTABLE 173]

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-28 | Implement project-workspace state and physical path-boundary checks. | Preserve fixed roots, titles, and restriction state independently of generic tab locking. | https://github.com/KRtkovo-eu-AI/salamander/issues/853 | openai/gpt-6-luna-pro |
 // | 2026-11-08 | Keep clipboard transfer disabled for the protected ZIP pilot. | Preserve the listing-only boundary. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-15 | Explain the protected ZIP clipboard boundary. | Keep clipboard operations within the supported archive paths. | #731 | GPT-6 |
@@ -11,6 +12,7 @@
 
 #include "precomp.h"
 #include "branchdroptarget.h"
+#include "project_workspace_paths.h"
 #include "common/widepath.h"
 #include "branch_view.h"
 #include "branchclipboard.h"
@@ -150,6 +152,111 @@ void CFilesWindow::ClearCustomTabPrefix()
     CALL_STACK_MESSAGE_NONE
     CustomTabPrefix.clear();
     CustomTabPrefixValid = false;
+}
+
+void CFilesWindow::SetProjectWorkspace(const wchar_t* root, bool restrictNavigation)
+{
+    CALL_STACK_MESSAGE_NONE
+    std::wstring normalizedRoot;
+    if (root == NULL || !Salamander::ProjectWorkspacePaths::Normalize(root, normalizedRoot))
+    {
+        ProjectWorkspaceRoot.clear();
+        ProjectWorkspaceRestricted = false;
+    }
+    else
+    {
+        ProjectWorkspaceRoot.swap(normalizedRoot);
+        ProjectWorkspaceRestricted = restrictNavigation;
+    }
+
+    if (MainWindow != NULL)
+        MainWindow->UpdatePanelTabTitle(this);
+}
+
+bool CFilesWindow::SetProjectWorkspaceFromCurrentPath()
+{
+    if (!Is(ptDisk) || GetPathW() == NULL || GetPathW()[0] == 0)
+        return false;
+
+    SetProjectWorkspace(GetPathW(), true);
+    if (!HasProjectWorkspace())
+        return false;
+
+    if (!HasCustomTabPrefix())
+    {
+        std::wstring title = ProjectWorkspaceRoot;
+        if (title.size() > 3 || title.size() <= 2 || title[1] != L':')
+            while (title.size() > 1 && title.back() == L'\\')
+                title.pop_back();
+
+        const size_t separator = title.find_last_of(L'\\');
+        std::wstring leaf = separator == std::wstring::npos ? title : title.substr(separator + 1);
+        if (leaf.empty() && title.size() >= 2 && title[1] == L':')
+            leaf = title.substr(0, 2);
+        if (!leaf.empty())
+            SetCustomTabPrefix(leaf.c_str());
+    }
+
+    if (MainWindow != NULL)
+        MainWindow->UpdatePanelTabTitle(this);
+    return true;
+}
+
+void CFilesWindow::ClearProjectWorkspace()
+{
+    CALL_STACK_MESSAGE_NONE
+    ProjectWorkspaceRoot.clear();
+    ProjectWorkspaceRestricted = false;
+    if (MainWindow != NULL)
+        MainWindow->UpdatePanelTabTitle(this);
+}
+
+void CFilesWindow::SetProjectWorkspaceRestricted(bool restricted)
+{
+    CALL_STACK_MESSAGE_NONE
+    ProjectWorkspaceRestricted = HasProjectWorkspace() && restricted;
+    if (MainWindow != NULL)
+        MainWindow->UpdatePanelTabTitle(this);
+}
+
+BOOL CFilesWindow::IsProjectWorkspacePath(const wchar_t* path) const
+{
+    return HasProjectWorkspace() &&
+           Salamander::ProjectWorkspacePaths::IsWithinProjectRoot(ProjectWorkspaceRoot.c_str(), path);
+}
+
+BOOL CFilesWindow::IsProjectWorkspacePathLexicallyInside(const wchar_t* path) const
+{
+    return HasProjectWorkspace() &&
+           Salamander::ProjectWorkspacePaths::IsWithinLexically(ProjectWorkspaceRoot.c_str(), path);
+}
+
+BOOL CFilesWindow::IsCurrentPathInProjectWorkspace()
+{
+    if (!HasProjectWorkspace())
+        return FALSE;
+    if (Is(ptDisk))
+        return IsProjectWorkspacePath(GetPathW());
+    if (Is(ptZIPArchive) && GetZIPArchive() != NULL && GetZIPArchive()[0] != 0)
+    {
+        const char* archive = GetZIPArchive();
+        const std::wstring wideArchive = SalMultiByteToWidePath(
+            archive, IsValidPathUtf8Text(archive) ? CP_UTF8 : CP_ACP);
+        return !wideArchive.empty() && IsProjectWorkspacePath(wideArchive.c_str());
+    }
+    return FALSE;
+}
+
+BOOL CFilesWindow::IsAtProjectWorkspaceRoot()
+{
+    return HasProjectWorkspace() && Is(ptDisk) && GetPathW() != NULL &&
+           Salamander::ProjectWorkspacePaths::IsSameLexically(ProjectWorkspaceRoot.c_str(), GetPathW());
+}
+
+BOOL CFilesWindow::IsProjectWorkspaceRootPath(const wchar_t* path) const
+{
+    return HasProjectWorkspace() && path != NULL &&
+           Salamander::ProjectWorkspacePaths::IsSameLexically(ProjectWorkspaceRoot.c_str(), path);
 }
 
 int CFilesWindow::GetPanelCode()

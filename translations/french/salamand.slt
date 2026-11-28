@@ -3545,6 +3545,11 @@ SLGINCOMPLETE,""
 13245,1,"Fermer tous les onglets &à droite sauf celui-ci et l’onglet par défaut"
 13246,1,"D&upliquer l’onglet"
 13247,1,"D&upliquer l’onglet"
+15120,1,"Définir comme espace de travail du projet"
+15121,1,"Définir la racine du projet ici"
+15122,1,"Limiter la navigation à la racine du projet"
+15123,1,"Supprimer la restriction de navigation du projet"
+15124,1,"Effacer l’espace de travail du projet"
 
 [STRINGTABLE 124]
 13248,1,"Rouvrir l’onglet &fermé"
@@ -4032,6 +4037,8 @@ SLGINCOMPLETE,""
 14300,1,"Répertoire"
 14301,1,"Onglet verrouillé"
 14302,1,"Cet onglet est verrouillé afin d'éviter de modifier le contenu qui y est affiché. Voulez-vous déverrouiller l'onglet et ouvrir l'emplacement demandé ?"
+15125,1,"Espace de travail du projet"
+15126,1,"Quitter la racine du projet et supprimer la restriction de navigation ?"
 14303,1,"Extension (exécution indisponible)"
 
 [STRINGTABLE 173]

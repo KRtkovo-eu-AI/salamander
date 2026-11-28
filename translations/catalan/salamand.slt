@@ -3545,6 +3545,11 @@ SLGINCOMPLETE,""
 13245,1,"Tanca &dretes excepte aquesta i per defecte"
 13246,1,"D&uplica fitxa"
 13247,1,"D&uplica fitxa"
+15120,1,"Estableix com a espai de treball del projecte"
+15121,1,"Estableix aquí l'arrel del projecte"
+15122,1,"Limita la navegació a l'arrel del projecte"
+15123,1,"Suprimeix la restricció de navegació del projecte"
+15124,1,"Neteja l'espai de treball del projecte"
 
 [STRINGTABLE 124]
 13248,1,"Reobre la &tancada"
@@ -4032,6 +4037,8 @@ SLGINCOMPLETE,""
 14300,1,"Directori"
 14301,1,"Pestanya bloquejada"
 14302,1,"Aquesta pestanya està bloquejada per evitar que canviï el contingut que mostra. Voleu desbloquejar-la i obrir la ubicació demanada?"
+15125,1,"Espai de treball del projecte"
+15126,1,"Voleu sortir de l'arrel del projecte i suprimir la restricció de navegació?"
 14303,1,"Extensió (runtime no disponible)"
 
 [STRINGTABLE 173]
