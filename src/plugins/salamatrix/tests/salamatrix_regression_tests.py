@@ -144,9 +144,14 @@ def main() -> int:
     toolbar4 = read("src/toolbar4.cpp")
     toolbar8 = read("src/toolbar8.cpp")
     main_menu = read("src/menu4.cpp")
-    samandarin_entry = read("src/plugins/samandarin/managed/EntryPoint.cs")
-    samandarin_managed_project = read(
-        "src/plugins/samandarin/managed/Samandarin.Managed.csproj")
+    samandarin_shell = read("src/plugins/samandarin/samandarin.cpp")
+    samandarin_updater = read("src/plugins/samandarin/native_updater.cpp")
+    samandarin_catalog = read("src/plugins/samandarin/native_catalog.cpp")
+    samandarin_installer = read("src/plugins/samandarin/native_installer.cpp")
+    samandarin_archive = read("src/plugins/samandarin/native_archive.cpp")
+    samandarin_project = read("src/plugins/samandarin/vcxproj/samandarin.vcxproj")
+    samandarin_solution = read("src/plugins/samandarin/vcxproj/samandarin.sln")
+    salamander_solution = read("src/vcxproj/salamand.sln")
     javascriptruntime = read("src/plugins/javascriptruntime/javascriptruntime.cpp")
     pythonruntime = read("src/plugins/pythonruntime/pythonruntime.cpp")
     python_discovery = read(
@@ -380,101 +385,68 @@ def main() -> int:
         raise AssertionError(
             "A bundled one-shot extension still starts a worker at startup")
 
-    update_check = re.search(
-        r"public static async Task CheckForUpdatesAsync\(.*?"
-        r"(?=\n    public static void Shutdown\(\))",
-        samandarin_entry,
-        re.MULTILINE | re.DOTALL)
-    if update_check is None or update_check.group(0).count(
-            "CheckSemaphore.WaitAsync") != 1:
-        raise AssertionError(
-            "Samandarin update check must acquire its semaphore exactly once")
     require(
-        samandarin_entry,
-        r"private void AddImageListImage\(string key, Image source\).*?"
-        r"var bitmap = CreateImageListBitmap\(source, _pluginImages\.ImageSize\);.*?"
-        r"_pluginImageListSources\.Add\(key, bitmap\);.*?"
-        r"_pluginImages\.Images\.Add\(key, bitmap\);.*?"
-        r"private void ClearImageListImages\(\).*?"
-        r"_pluginImages\.Images\.Clear\(\);.*?bitmap\.Dispose\(\);",
-        "Samandarin Plugin Updates does not retain ImageList source bitmaps")
+        samandarin_shell,
+        r"NativeUpdater_CheckNow\(parent\).*?NativeUpdater_ShowPluginUpdates\(parent\).*?"
+        r"NativeUpdater_Initialize\(parent\)",
+        "Samandarin menu and startup entry points do not route through the native updater")
+    require(
+        samandarin_updater,
+        r"ProcessCheck\(const WorkItem& work\).*?HttpGet\(kReleaseUrl.*?"
+        r"FetchPluginCatalog\(&rows.*?NativeUi_PostCheckCompletion",
+        "Samandarin release/catalog checks are not dispatched on the native worker")
+    require(
+        samandarin_updater,
+        r"CreateThread\(nullptr, 0, WorkerThreadProc",
+        "Samandarin native updater does not own a dedicated worker")
+    require(
+        samandarin_catalog,
+        r"plugins-stable\.json.*?extensions-stable\.json.*?plugins-unofficial\.json.*?"
+        r"extension-runtimes\.json.*?ResolveLocalizedText.*?CanInstallPluginRow",
+        "Native Samandarin catalog loading is missing its sources, localization, or host scanner")
+    require(
+        samandarin_catalog,
+        r"Samandarin_ExportInstalledPlugins.*?Samandarin_ExportInstalledExtensions",
+        "Native Samandarin catalog loading does not use the host's installed-package exports")
+    require(
+        samandarin_archive,
+        r"kMaximumExpandedBytes.*?ValidateArchivePath.*?kpidSymLink.*?kpidHardLink.*?"
+        r"ExtractAndValidatePackage",
+        "Native package extraction does not validate archive links, sizes, and paths")
+    require(
+        samandarin_installer,
+        r"HttpDownloadToFile.*?ComputeSha256.*?ExtractAndValidatePackage.*?"
+        r"VerifyExtractedPackage.*?Samandarin_InstallAfterExit",
+        "Native package installation is missing download/hash/extract/verify/post-exit stages")
     require_absent(
-        samandarin_entry,
-        r"using var bitmap\s*=\s*CreateImageListBitmap",
-        "Samandarin Plugin Updates disposes ImageList source bitmaps too early")
-    salamander_solution = read("src/vcxproj/salamand.sln")
-    samandarin_managed_guid = r"\{B2CAEA75-EAA8-4B2F-AF57-E187CDDFD710\}"
-    for configuration in ("Debug", "Release", "Release clean"):
-        require(
-            salamander_solution,
-            samandarin_managed_guid + rf"\.{configuration}\|x64\.ActiveCfg = {configuration}\|x64.*?" +
-            samandarin_managed_guid + rf"\.{configuration}\|x64\.Build\.0 = {configuration}\|x64",
-            f"Samandarin.Managed {configuration}|x64 solution mapping does not build the x64 output")
-    samandarin_solution = read("src/plugins/samandarin/vcxproj/samandarin.sln")
-    standalone_managed_guid = r"\{E9F70914-3011-4D4F-9E79-3A9540A5E0F3\}"
-    for solution_configuration, project_configuration in (("Debug", "Debug"), ("Release", "Release"), ("Release clean", "Release clean"), ("SDK", "Release")):
-        require(
-            samandarin_solution,
-            standalone_managed_guid + rf"\.{solution_configuration}\|x64\.ActiveCfg = {project_configuration}\|x64.*?" +
-            standalone_managed_guid + rf"\.{solution_configuration}\|x64\.Build\.0 = {project_configuration}\|x64",
-            f"Standalone Samandarin solution maps {solution_configuration}|x64 managed build away from x64")
-    bootstrap_guid = r"\{0D11429A-8289-4BC2-B0CE-FCBD66A9F271\}"
+        samandarin_project,
+        r"managed_bridge\.cpp|Samandarin\.Managed\.csproj|OpenSalamander\.ManagedBootstrap\.csproj",
+        "Samandarin native project still compiles or references managed updater components")
     for solution_text, solution_name in ((salamander_solution, "main"), (samandarin_solution, "standalone Samandarin")):
-        for configuration in ("Debug", "Release", "Release clean"):
-            require(
-                solution_text,
-                bootstrap_guid + rf"\.{configuration}\|x64\.ActiveCfg = {configuration}\|x64.*?" +
-                bootstrap_guid + rf"\.{configuration}\|x64\.Build\.0 = {configuration}\|x64",
-                f"{solution_name} solution maps ManagedBootstrap {configuration}|x64 away from x64")
+        require_absent(
+            solution_text,
+            r"Project\([^\n]*Samandarin\.Managed|\{(?:B2CAEA75-EAA8-4B2F-AF57-E187CDDFD710|E9F70914-3011-4D4F-9E79-3A9540A5E0F3)\}",
+            f"{solution_name} solution still contains the managed Samandarin project")
     require(
-        samandarin_managed_project,
-        r"CleanStagedSamandarinManagedAssembly.*?AfterTargets=\"Clean\".*?"
-        r"Condition=\"'\$\(Platform\)' == 'x64'\".*?"
-        r"Delete Files=\"\$\(SamandarinStagedPluginDir\)Samandarin\.Managed\.dll\"",
-        "Cleaning Samandarin.Managed does not remove its staged plugin assembly")
-    require(
-        samandarin_entry + samandarin_managed_project,
-        r"DefaultPluginImageResource = \"OpenSalamander\.Plugin\.png\".*?"
-        r"Image\.FromStream\(stream\).*?"
-        r"res\\plugin\.png.*?OpenSalamander\.Plugin\.png",
-        "Samandarin Plugin Updates does not use src/res/plugin.png by default")
-    require(
-        samandarin_entry,
-        r"private async Task RefreshAsync\(\).*?"
-        r"BindRows\(\);.*?SetLoadingState\(false\);.*?"
-        r"StartCatalogImageLoad\(_rows\);",
-        "Samandarin Plugin Updates still blocks the initial list on catalog icons")
+        salamander_solution,
+        r"Project\([^\n]*OpenSalamander\.ManagedBootstrap",
+        "The main solution no longer builds the shared bootstrap required by other managed plugins")
     require_absent(
-        samandarin_entry,
-        r"SetLoadingState\(false\);\s*"
-        r"await EnsureCatalogImagesAsync",
-        "Samandarin Plugin Updates still downloads icons serially before refresh completes")
-    require(
-        samandarin_entry,
-        r"CatalogImageDownloadConcurrency\s*=\s*[2-9][0-9]*.*?"
-        r"HashSet<string>\(StringComparer\.OrdinalIgnoreCase\).*?"
-        r"SemaphoreSlim\(CatalogImageDownloadConcurrency\).*?"
-        r"Task\.WhenAll\(downloads\).*?"
-        r"SendAsync\(request, cancellationToken\).*?"
-        r"MaxConnectionsPerServer\s*=\s*"
-        r"PluginUpdatesDialog\.CatalogImageDownloadConcurrency",
-        "Samandarin catalog icons are not deduplicated and loaded with bounded concurrency")
-    require(
-        samandarin_entry,
-        r"HashSet<string> _scheduledPackageKeys = new\(StringComparer\.OrdinalIgnoreCase\).*?"
-        r"!IsPackageScheduled\(row\).*?"
-        r"_scheduledPackageKeys\.Add\(PackageScheduleKey\(package\)\)",
-        "Plugin Updates keeps Install disabled after the selection changes")
+        samandarin_solution,
+        r"OpenSalamander\.ManagedBootstrap",
+        "The standalone Samandarin solution still references ManagedBootstrap")
     require_absent(
-        samandarin_entry,
-        r"_installScheduled",
-        "Plugin Updates still disables Install for every row after one install")
-    require(
-        read("src/plugins/samandarin/managed/PluginInstaller.cs"),
-        r"Local\\OpenSamandarin\.PackageInstall.*?"
-        r"Invoke-PackageInstallLock \{\{.*?"
-        r"extensions\.ver",
-        "Concurrent package installs can overwrite extensions.ver")
+        samandarin_updater + samandarin_installer,
+        r"ICLRRuntimeHost|ExecuteInDefaultAppDomain|System\.Net\.Http|"
+        r'FileName\s*=\s*"powershell\.exe"|install\.ps1|SharpCompress::',
+        "The native Samandarin updater still contains a CLR, PowerShell, or SharpCompress dependency")
+    if any((ROOT / path).exists() for path in (
+            "src/plugins/samandarin/managed/EntryPoint.cs",
+            "src/plugins/samandarin/managed/PluginInstaller.cs",
+            "src/plugins/samandarin/managed/Samandarin.Managed.csproj",
+            "src/plugins/samandarin/managed_bridge.cpp",
+            "src/plugins/samandarin/managed_bridge.h")):
+        raise AssertionError("Tracked Samandarin C# source or CLR bridge remains in the plugin tree")
 
     require(dialogs, r"HasStablePluginKey\(p->RegKeyName, \"SALAMATRIX\"\).*?IsPluginName\(p->Name, \"Salamatrix Framework\"\)",
             "Salamatrix Framework key/name fallback is missing")

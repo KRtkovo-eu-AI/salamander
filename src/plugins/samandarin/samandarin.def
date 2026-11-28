@@ -1,3 +1,6 @@
+; | Date | Summary | Reason | Ticket | Model |
+; | 2026-11-28 | Export the native process-close recovery callback. | Restore the updater worker if another plugin refuses to unload. | | openrouter/openai/gpt-6-luna-pro |
+; | 2026-11-28 | Export the native post-exit installer entry point. | Replace the PowerShell installation helper with C++. | | openrouter/openai/gpt-6-luna-pro |
 LIBRARY SAMANDARIN.SPL
 
 EXPORTS SalamanderPluginEntry
@@ -12,3 +15,5 @@ EXPORTS Samandarin_UpdateListViewDarkMode
 EXPORTS Samandarin_ExportInstalledPlugins
 EXPORTS Samandarin_ExportInstalledExtensions
 EXPORTS Samandarin_PrepareForProcessExit
+EXPORTS Samandarin_InstallAfterExit
+EXPORTS Samandarin_ResumeAfterProcessExit

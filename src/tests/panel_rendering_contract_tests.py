@@ -65,7 +65,7 @@ def main() -> int:
     salamdr1 = (ROOT / "salamdr1.cpp").read_text(encoding="utf-8")
     salamdr4 = (ROOT / "salamdr4.cpp").read_text(encoding="utf-8")
     samandarin = (ROOT / "plugins/samandarin/samandarin.cpp").read_text(encoding="utf-8")
-    managed_bridge = (ROOT / "plugins/samandarin/managed_bridge.cpp").read_text(encoding="utf-8")
+    native_updater = (ROOT / "plugins/samandarin/native_updater.cpp").read_text(encoding="utf-8")
 
     list_view_start = darkmodelib_controls.find(
         "LRESULT CALLBACK dmlib_subclass::ListViewSubclass("
@@ -329,17 +329,15 @@ def main() -> int:
     )
     if (
         connect is None
-        or "ManagedBridge_BeginInitialize(parent)" not in connect.group(0)
-        or "ManagedBridge_EnsureInitialized(parent)" not in connect.group(0)
-        or "CreateThread(nullptr, 0, InitializeRuntimeThread" not in managed_bridge
-        or managed_bridge.count("WaitForBackgroundInitialization();") < 2
-        or "ResetRuntimeLocked();" not in managed_bridge
+        or "NativeUpdater_Initialize(parent)" not in connect.group(0)
+        or "CreateThread(nullptr, 0, WorkerThreadProc" not in native_updater
+        or "WaitForSamandarinWorker" not in native_updater
+        or "NativeUpdater_Shutdown(2000)" not in samandarin
     ):
-        print("Samandarin CLR prewarm must not block startup and must join before shutdown")
+        print("Samandarin native updater worker must stay off the UI thread and join before shutdown")
         return 1
     clr_bridge_paths = (
         ROOT / "plugins/jsonviewer/managed_bridge.cpp",
-        ROOT / "plugins/samandarin/managed_bridge.cpp",
         ROOT / "plugins/hypervm/managed_bridge.cpp",
         ROOT / "plugins/csdemo/managed_bridge.cpp",
     )

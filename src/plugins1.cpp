@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-28 | Resume Samandarin's updater after an aborted process-close unload. | Restore its worker when another plugin refuses shutdown. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-27 | Refresh menu state through the CPlugins public helper. | CPluginData must not call the protected state-cache implementation directly. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-27 | Forward the version-gated Change Drive submenu callback. | Keep plug-in calls inside the existing EnterPlugin/LeavePlugin boundary. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-13 | Resolve plug-in language keys from the containing directory. | Match embedded resource names for plug-ins stored in nested directories. | | openrouter/openai/gpt-6-luna-pro |
@@ -3256,6 +3257,17 @@ BOOL CPluginData::PrepareNativeProcessExit(BOOL finalize)
     return prepare == NULL || prepare(2000, finalize);
 }
 
+void CPluginData::ResumeNativeProcessExit()
+{
+    if (!UnloadingPluginsForMainWindowClose || DLL == NULL || !IsSamandarinPlugin(DLLName))
+        return;
+    typedef void(WINAPI* FResumeAfterProcessExit)(void);
+    FResumeAfterProcessExit resume = reinterpret_cast<FResumeAfterProcessExit>(
+        GetProcAddress(DLL, "Samandarin_ResumeAfterProcessExit"));
+    if (resume != NULL)
+        resume();
+}
+
 BOOL CPluginData::Unload(HWND parent, BOOL ask, BOOL freeLibrary)
 {
     CALL_STACK_MESSAGE5("CPluginData::Unload(0x%p, %d) (%s v. %s)", parent, ask, DLLName, Version);
@@ -3354,8 +3366,8 @@ BOOL CPluginData::Unload(HWND parent, BOOL ask, BOOL freeLibrary)
                     }
                 }
                 // the plugin may unload: let it delete any remaining temp files from the disk cache
-                // New Samandarin builds can drain native initialization without
-                // invoking the managed callbacks skipped on process close.
+                // Samandarin drains its native updater before host callbacks are
+                // skipped during process close.
                 // A timeout leaves interfaces/module ownership intact.
                 if (skipSamandarinShutdown)
                 {

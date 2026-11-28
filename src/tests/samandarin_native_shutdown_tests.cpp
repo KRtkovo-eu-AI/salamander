@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-28 | Test the native updater module path and bounded worker shutdown. | Keep Unicode/long-path and callback teardown guarantees after removing CLR hosting. | | openrouter/openai/gpt-6-luna-pro |
 #include <windows.h>
 #include <cstdio>
 #include "../plugins/samandarin/native_shutdown.h"
@@ -50,26 +53,25 @@ int wmain(int argc, wchar_t** argv)
     Check(length > 0 && length < expected.size(), "independent module path resolves without truncation");
     expected.resize(length);
     expected.resize(expected.find_last_of(L'\\') + 1);
-    expected.append(L"Samandarin.Managed.dll");
-    const std::wstring assemblyPath = GetSamandarinManagedAssemblyPath(NULL);
-    Check(assemblyPath == expected, "assembly path preserves the actual Unicode/long module directory");
-    Check(GetSamandarinManagedAssemblyPath(reinterpret_cast<HINSTANCE>(static_cast<INT_PTR>(-1))).empty(),
+    const std::wstring moduleDirectory = GetSamandarinModuleDirectory(NULL);
+    Check(moduleDirectory == expected, "module directory preserves the actual Unicode/long module path");
+    Check(GetSamandarinModuleDirectory(reinterpret_cast<HINSTANCE>(static_cast<INT_PTR>(-1))).empty(),
           "invalid module yields an explicit empty path");
-    std::printf("Managed assembly path: %zu UTF16 units\n", assemblyPath.size());
-    Check(WaitForSamandarinInitialization(NULL, 0) != FALSE, "no initialization needs no wait");
-    Check(!WaitForSamandarinInitialization(INVALID_HANDLE_VALUE, 0), "invalid handle is rejected");
-    Check(!WaitForSamandarinInitialization(NULL, INFINITE), "unbounded wait is rejected");
+    std::printf("Native module directory: %zu UTF16 units\n", moduleDirectory.size());
+    Check(WaitForSamandarinWorker(NULL, 0) != FALSE, "no worker needs no wait");
+    Check(!WaitForSamandarinWorker(INVALID_HANDLE_VALUE, 0), "invalid handle is rejected");
+    Check(!WaitForSamandarinWorker(NULL, INFINITE), "unbounded wait is rejected");
     HANDLE gate = CreateEventW(NULL, TRUE, FALSE, NULL);
     HANDLE blocked = gate ? CreateThread(NULL, 0, BlockWorker, gate, 0, NULL) : NULL;
     Check(gate != NULL && blocked != NULL, "own blocked initialization fixture started");
     if (blocked)
     {
         const ULONGLONG started = GetTickCount64();
-        Check(!WaitForSamandarinInitialization(blocked, 20), "active initialization returns timeout");
+        Check(!WaitForSamandarinWorker(blocked, 20), "active worker returns timeout");
         Check(GetTickCount64() - started < 1000, "deadline does not hang the caller");
         Check(WaitForSingleObject(blocked, 0) == WAIT_TIMEOUT, "timeout preserves live worker ownership");
         SetEvent(gate);
-        Check(WaitForSamandarinInitialization(blocked, 2000) != FALSE, "the same worker can complete on retry");
+        Check(WaitForSamandarinWorker(blocked, 2000) != FALSE, "the same worker can complete on retry");
         CloseHandle(blocked);
     }
     if (gate) CloseHandle(gate);
@@ -86,7 +88,7 @@ int wmain(int argc, wchar_t** argv)
         Check(!nativeGate.TryClose(), "live callback prevents host-resource teardown");
         Check(!nativeGate.IsClosing(), "failed close preserves callback admission for retry");
         SetEvent(callback.release);
-        Check(WaitForSamandarinInitialization(activeCallback, 2000) != FALSE, "admitted callback drains normally");
+        Check(WaitForSamandarinWorker(activeCallback, 2000) != FALSE, "admitted callback drains normally");
         Check(nativeGate.TryClose() && nativeGate.IsClosing(), "drained callbacks allow native teardown");
         Check(!nativeGate.Enter(), "callbacks after process-exit transition are rejected");
         nativeGate.Leave();
@@ -111,7 +113,7 @@ int wmain(int argc, wchar_t** argv)
         Check(sender != NULL, "synchronous host callback worker started");
         if (sender)
         {
-            const BOOL joined = WaitForSamandarinInitialization(sender, 2000);
+            const BOOL joined = WaitForSamandarinWorker(sender, 2000);
             Check(joined && SentCalls == 1 && job.result == 42, "sent callback dispatched while joining");
             Check(PostedCalls == 0, "posted UI work is not dispatched during teardown");
             MSG message;

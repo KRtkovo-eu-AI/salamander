@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-28 | Include the native updater lifecycle contract. | Remove the plug-in's CLR bridge dependency. | | openrouter/openai/gpt-6-luna-pro |
 
 //****************************************************************************
 //
@@ -47,7 +50,7 @@
 #include "winliblt.h"
 #include "auxtools.h"
 #include "samandarin.h"
-#include "managed_bridge.h"
+#include "native_shutdown.h"
 #include "samandarin.rh"
 #include "samandarin.rh2"
 #include "lang\lang.rh"

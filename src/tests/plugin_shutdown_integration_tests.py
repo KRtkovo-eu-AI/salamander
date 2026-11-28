@@ -1,6 +1,13 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-28 | Check that the elevated installer loads 7-Zip beside the plugin host. | The rundll32 helper must not resolve archive dependencies from System32. | | openrouter/openai/gpt-6-luna-pro |
+# | 2026-11-28 | Assert forced release waits for native worker termination. | Prevent tests from accepting a plugin-unmap race. | | openrouter/openai/gpt-6-luna-pro |
+# | 2026-11-28 | Isolate Unicode and long-path fixtures per configuration. | Run Debug and Release native shutdown checks in one temporary root. | | openrouter/openai/gpt-6-luna-pro |
+# | 2026-11-28 | Verify process-close recovery after updater preflight pauses. | A refused close must restore native updater work. | | openrouter/openai/gpt-6-luna-pro |
+# | 2026-11-28 | Validate native updater worker and process-exit integration. | Ensure the Samandarin unload hook owns its worker without CLR hosting. | | openrouter/openai/gpt-6-luna-pro |
+# | 2026-11-28 | Keep compiled shutdown fixtures explicitly unelevated. | The noninteractive source-contract test must not inherit an elevation manifest. | | openrouter/openai/gpt-6-luna-pro |
+# | 2026-11-28 | Use neutral names for compiled test executables. | Avoid Windows elevation heuristics for the word shutdown. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-06 | Compile actual Unload ownership through refusal and reload. | Independently count duplicate HMODULE load references and allocation-failure preservation. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 # | 2026-11-06 | Validate merged SDK prefixes and native shutdown ordering. | Keep provider modules mapped through refusal/retry while preserving native callback gates. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 """Compile full actual Unload/UnloadAll and exact InitDLL acquisition fragment, with explicit host doubles."""
@@ -81,22 +88,39 @@ def abi_check():
 
 def integration_contract():
     source = read("src/plugins1.cpp")
+    resume = block(source, "void CPluginData::ResumeNativeProcessExit(")
+    assert "Samandarin_ResumeAfterProcessExit" in resume
     unload = block(source, "BOOL CPluginData::Unload(")
     assert "BOOL freeLibrary" in unload
     assert unload.index("PrepareNativeProcessExit(TRUE)") < unload.index("DeleteManager.PluginMayBeUnloaded") < unload.index("SalamanderGeneral.Clear()") < unload.index("DeferredModules.push_back(DLL)")
     assert unload.index("DeferredModules.reserve(") < unload.index("PrepareNativeProcessExit(TRUE)")
     failure = block(unload, "if (!PrepareNativeProcessExit(TRUE))")
     assert "return FALSE;" in failure and "FreeLibrary" not in failure and "DLL =" not in failure
-    bridge = read("src/plugins/samandarin/managed_bridge.cpp")
-    assert "gRuntimeHost->Stop()" not in bridge
-    assert "gAssemblyPath" not in bridge and "gCurrentVersion" not in bridge and "QueryPluginDirectory" not in bridge
-    assert "GetSamandarinManagedAssemblyPath(DLLInstance)" in bridge
-    assert "runtimeInfo->IsLoadable(&loadable)" in bridge and "ShowClrStartError(parent, hr)" in bridge
-    finalize = block(bridge, 'extern "C" __declspec(dllexport) BOOL __stdcall Samandarin_PrepareForProcessExit')
-    assert finalize.index("WaitForSamandarinInitialization") < finalize.index("gNativeCallbacks.TryClose()") < finalize.index("gRuntimeHost->Release()") < finalize.index("HANDLES_FINALIZE_FOR_PROCESS_EXIT()")
-    assert 'ExecuteCommand(L"Shutdown"' not in finalize
-    assert "if (!finalize)" in finalize and "return TRUE;" in block(finalize, "if (!finalize)")
-    print("Managed/native integration contracts: PASS", flush=True)
+    unload_all = block(read("src/plugins2.cpp"), "BOOL CPlugins::UnloadAll(")
+    assert unload_all.index("PrepareNativeProcessExit(FALSE)") < unload_all.index("Data[i]->Unload")
+    assert "ResumeNativeProcessExit()" in unload_all
+    updater = read("src/plugins/samandarin/native_updater.cpp")
+    archive = read("src/plugins/samandarin/native_archive.cpp")
+    assert "GetModulePath(DLLInstance)" in archive
+    plugin = read("src/plugins/samandarin/samandarin.cpp")
+    assert "NativeUpdater_ShutdownForce()" in plugin
+    force_shutdown = block(updater, "BOOL NativeUpdater_ShutdownForce()")
+    assert force_shutdown.index("StopWorker()") < force_shutdown.index("JoinWorker(2000)")
+    assert force_shutdown.index("JoinWorker(2000)") < force_shutdown.index("CloseWorkerHandles()")
+    ensure_worker = block(updater, "bool EnsureWorker()")
+    assert "CreateThread(nullptr, 0, WorkerThreadProc" in ensure_worker
+    assert "CreateEventW(nullptr, FALSE, FALSE, nullptr)" in ensure_worker
+    assert "FetchPluginCatalog" in updater and "StageAndSchedulePackage" in updater
+    assert "NativeUi_PostCheckCompletion" in updater and "NativeUi_PostCatalogCompletion(completion)" in updater
+    finalize = block(updater, "BOOL NativeUpdater_PrepareForProcessExit(")
+    assert finalize.index("StopWorker()") < finalize.index("JoinWorker(timeoutMs)")
+    assert finalize.index("JoinWorker(timeoutMs)") < finalize.index("SamandarinNativeCallGate.TryClose()")
+    assert finalize.index("SamandarinNativeCallGate.TryClose()") < finalize.index("NativeUi_Shutdown()")
+    assert finalize.index("NativeUi_Shutdown()") < finalize.index("HANDLES_FINALIZE_FOR_PROCESS_EXIT()")
+    assert "WaitForSamandarinWorker" in read("src/plugins/samandarin/native_shutdown.h")
+    assert "ResumeWorkerAfterProcessExit" in updater and "NativeUpdater_ResumeAfterProcessExit" in updater
+    assert not any(token in updater for token in ("ICLRRuntimeHost", "ExecuteInDefaultAppDomain", "mscoree.h", "metahost.h"))
+    print("Native updater integration contracts: PASS", flush=True)
 
 def compiler_environment():
     env = os.environ.copy()
@@ -134,6 +158,7 @@ def main():
                   + "    }\n    return DLL != NULL;\n}")
     replacements = {
         "PREPARE": block(read("src/plugins1.cpp"), "BOOL CPluginData::PrepareNativeProcessExit("),
+        "RESUME": block(read("src/plugins1.cpp"), "void CPluginData::ResumeNativeProcessExit("),
         "FREE": block(read("src/plugins1.cpp"), "void CPluginData::FreeDeferredModule("),
         "UNLOAD_ALL": block(read("src/plugins2.cpp"), "BOOL CPlugins::UnloadAll("),
         "UNLOAD": block(production, "BOOL CPluginData::Unload("),
@@ -152,25 +177,25 @@ def main():
             if args.configuration and args.configuration != config:
                 continue
             print("Native shutdown integration:", config, flush=True)
-            executable = directory / "shutdown.exe"
-            for command in ([compiler, "/nologo", "/std:c++17", "/EHsc", "/utf-8", "/W4", "/WX", "/D_CRT_SECURE_NO_WARNINGS", *flags, str(generated), "/Fe:" + str(executable), "user32.lib"], [str(executable)]):
+            executable = directory / "host-unload-fixture.exe"
+            for command in ([compiler, "/nologo", "/std:c++17", "/EHsc", "/utf-8", "/W4", "/WX", "/D_CRT_SECURE_NO_WARNINGS", *flags, str(generated), "/Fe:" + str(executable), "user32.lib", "/link", "/MANIFESTUAC:level='asInvoker' uiAccess='false'"], [str(executable)]):
                 result = run(command, cwd=directory, env=env)
                 if result.returncode:
                     return result.returncode
-            native = directory / "native-shutdown.exe"
-            result = run([compiler, "/nologo", "/std:c++17", "/EHsc", "/utf-8", "/W4", "/WX", *flags, str(ROOT / "src/tests/samandarin_native_shutdown_tests.cpp"), "/Fe:" + str(native), "user32.lib"], cwd=directory, env=env)
+            native = directory / "native-fixture.exe"
+            result = run([compiler, "/nologo", "/std:c++17", "/EHsc", "/utf-8", "/W4", "/WX", *flags, str(ROOT / "src/tests/samandarin_native_shutdown_tests.cpp"), "/Fe:" + str(native), "user32.lib", "/link", "/MANIFESTUAC:level='asInvoker' uiAccess='false'"], cwd=directory, env=env)
             if result.returncode:
                 return result.returncode
-            unicode_directory = directory / ("Unicode-" + "\u65e5\u010d\U0001f600" * 35)
+            unicode_directory = directory / (config + "-Unicode-" + "\u65e5\u010d\U0001f600" * 35)
             unicode_directory.mkdir()
-            unicode_executable = unicode_directory / "native-shutdown.exe"
+            unicode_executable = unicode_directory / "native-fixture.exe"
             shutil.copy2(native, unicode_executable)
             result = run([str(unicode_executable)], cwd=directory, env=env, timeout=15)
             if result.returncode:
                 return result.returncode
-            long_directory = Path("\\\\?\\" + str(directory / ("Long-" + "\u65e5" * 90) / ("Unicode-" + "\u010d" * 90)))
+            long_directory = Path("\\\\?\\" + str(directory / (config + "-Long-" + "\u65e5" * 90) / ("Unicode-" + "\u010d" * 90)))
             long_directory.mkdir(parents=True)
-            long_executable = long_directory / "native-shutdown.exe"
+            long_executable = long_directory / "native-fixture.exe"
             assert len(str(long_executable)) > 260
             shutil.copy2(native, long_executable)
             try:

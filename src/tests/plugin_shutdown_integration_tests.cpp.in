@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-28 | Exercise updater recovery after an aborted global unload. | Preflight pauses must be reversible when another plugin refuses shutdown. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-06 | Exercise actual Unload ownership through refusal and reload. | Repeated LoadLibrary references may share one HMODULE and must all be released exactly once. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // | 2026-11-06 | Exercise integrated plug-in shutdown ordering and retry. | Provider modules must stay mapped while a consumer refuses shutdown. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 #include <windows.h>
@@ -68,11 +69,22 @@ static BOOL WINAPI NativeExit(DWORD timeout, BOOL finalize)
     Events.push_back(finalize ? "native-finalize" : "native-ready");
     return finalize ? NativeFinalizable : NativeReady;
 }
+static void WINAPI NativeResume() { Events.push_back("native-resume"); }
 static FARPROC FakeGetProcAddress(HMODULE module, const char* name)
 {
     Check(module == Module(2), "only the Samandarin module receives its native hook");
-    Check(strcmp(name, "Samandarin_PrepareForProcessExit") == 0, "host queries the supported native hook");
-    return reinterpret_cast<FARPROC>(NativeExit);
+    if (strcmp(name, "Samandarin_PrepareForProcessExit") == 0)
+    {
+        Check(TRUE, "host queries the supported native hook");
+        return reinterpret_cast<FARPROC>(NativeExit);
+    }
+    if (strcmp(name, "Samandarin_ResumeAfterProcessExit") == 0)
+    {
+        Check(TRUE, "host queries the native recovery hook");
+        return reinterpret_cast<FARPROC>(NativeResume);
+    }
+    Check(FALSE, "host queries only supported native hooks");
+    return NULL;
 }
 static BOOL IsSamandarinPlugin(const char* name) { return strstr(name, "samandarin") != NULL; }
 static BOOL IsTotalCommanderProxyPlugin(const char*) { return FALSE; }
@@ -156,6 +168,7 @@ struct CPluginData
     BOOL GetLoaded() const { return DLL != NULL; }
     BOOL IsGood() const { return TRUE; }
     BOOL PrepareNativeProcessExit(BOOL finalize);
+    void ResumeNativeProcessExit();
     void FreeDeferredModule();
     BOOL Unload(HWND, BOOL, BOOL);
     BOOL InitDLLLoadPhase(BOOL waitCursor);
@@ -193,6 +206,7 @@ struct CPlugins
 #endif
 #define LoadLibrary FakeLoadLibrary
 @@PREPARE@@
+@@RESUME@@
 @@FREE@@
 @@UNLOAD@@
 // The unmodified legacy fragment uses paired waitCursor guards; isolated
@@ -227,7 +241,8 @@ int main()
         CPluginData provider("provider", "C:\\provider.spl", 1), consumer("consumer", "C:\\samandarin.spl", 2);
         Reset(provider, consumer); NativeReady = FALSE;
         Check(!Plugins.UnloadAll(NULL, NULL), "busy native initialization refuses global unload");
-        Check(Events.size() == 1 && Events[0] == "native-ready", "readiness failure precedes every Release and FreeLibrary");
+        Check(Events.size() == 2 && Events[0] == "native-ready" && Events[1] == "native-resume",
+              "readiness failure precedes teardown and restores the paused updater");
         Check(provider.GetLoaded() && consumer.GetLoaded(), "readiness refusal preserves all module ownership");
     }
     CheckReferencesDrained();

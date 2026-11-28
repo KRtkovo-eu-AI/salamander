@@ -1,4 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- | Date | Summary | Reason | Ticket | Model |
+     | 2026-11-28 | Organize native updater sources in the Samandarin project. | Keep the C++ project view aligned with its new files. | | openrouter/openai/gpt-6-luna-pro | -->
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="cpp">
@@ -18,6 +20,33 @@
     <ClCompile Include="..\samandarin.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
+    <ClCompile Include="..\native_archive.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\native_catalog.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\native_http.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\native_install_security.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\native_installer.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\native_json.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\native_ui.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\native_updater.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\native_utils.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
     <ClCompile Include="..\precomp.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
@@ -33,6 +62,33 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\samandarin.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\native_archive.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\native_catalog.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\native_http.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\native_install_security.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\native_installer.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\native_json.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\native_shutdown.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\native_updater.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\native_utils.h">
       <Filter>h</Filter>
     </ClInclude>
     <ClInclude Include="..\precomp.h">

@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-28 | Keep the native updater worker joined during forced release. | Do not unmap the plugin while its cancellation path is still running. | | openrouter/openai/gpt-6-luna-pro |
+// | 2026-11-28 | Route plugin commands through the native updater. | Remove the managed bridge while retaining existing settings and host exports. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-10 | Show update settings once for each configuration. | Let users review automatic update checks after install or upgrade. | | GPT-6 (Codex) |
 
 //****************************************************************************
@@ -46,7 +48,7 @@ typedef int(WINAPI* FSalamanderExportInstalledPlugins)(char* buffer, int cchBuff
 
 extern "C" __declspec(dllexport) int __stdcall Samandarin_ExportInstalledPlugins(char* buffer, int cchBuffer)
 {
-    CManagedBridgeNativeCall nativeCall;
+    CSamandarinNativeCall nativeCall;
     if (!nativeCall.IsAllowed())
         return 0;
     HMODULE host = GetModuleHandle(NULL);
@@ -93,7 +95,7 @@ void AppendUtf8ExportField(std::wstring& output, const char* text)
 
 extern "C" __declspec(dllexport) int __stdcall Samandarin_ExportInstalledExtensions(wchar_t* buffer, int cchBuffer)
 {
-    CManagedBridgeNativeCall nativeCall;
+    CSamandarinNativeCall nativeCall;
     if (!nativeCall.IsAllowed())
         return 0;
     if (SalamanderGeneral == NULL)
@@ -147,7 +149,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 
         INITCOMMONCONTROLSEX initCtrls;
         initCtrls.dwSize = sizeof(INITCOMMONCONTROLSEX);
-        initCtrls.dwICC = ICC_BAR_CLASSES;
+        initCtrls.dwICC = ICC_BAR_CLASSES | ICC_LISTVIEW_CLASSES;
         if (!InitCommonControlsEx(&initCtrls))
         {
             MessageBox(NULL, "InitCommonControlsEx failed!", "Error", MB_OK | MB_ICONERROR);
@@ -167,7 +169,7 @@ char* LoadStr(int resID)
 
 void ShowInitializationError(HWND parent)
 {
-    SalamanderGeneral->SalMessageBox(parent, LoadStr(IDS_INIT_MANAGED_ERROR), LoadStr(IDS_PLUGINNAME),
+    SalamanderGeneral->SalMessageBox(parent, LoadStr(IDS_INIT_NATIVE_ERROR), LoadStr(IDS_PLUGINNAME),
                                      MB_OK | MB_ICONERROR);
 }
 
@@ -184,7 +186,7 @@ BOOL WINAPI CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperations
     switch (id)
     {
     case MENUCMD_CHECKNOW:
-        if (!ManagedBridge_CheckNow(parent))
+        if (!SamandarinNative::NativeUpdater_CheckNow(parent))
         {
             SalamanderGeneral->SalMessageBox(parent,
                                              LoadStr(IDS_TRIGGER_CHECK_ERROR),
@@ -193,7 +195,7 @@ BOOL WINAPI CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperations
         break;
 
     case MENUCMD_PLUGIN_UPDATES:
-        if (!ManagedBridge_ShowPluginUpdates(parent))
+        if (!SamandarinNative::NativeUpdater_ShowPluginUpdates(parent))
         {
             SalamanderGeneral->SalMessageBox(parent,
                                              LoadStr(IDS_TRIGGER_CHECK_ERROR),
@@ -296,11 +298,10 @@ void WINAPI CPluginInterface::About(HWND parent)
     SalamanderGeneral->SalMessageBox(parent, text, LoadStr(IDS_ABOUT), MB_OK | MB_ICONINFORMATION);
 }
 
-BOOL WINAPI CPluginInterface::Release(HWND parent, BOOL /*force*/)
+BOOL WINAPI CPluginInterface::Release(HWND parent, BOOL force)
 {
-    (void)parent;
-    ManagedBridge_Shutdown();
-    return TRUE;
+    return force ? SamandarinNative::NativeUpdater_ShutdownForce()
+                 : SamandarinNative::NativeUpdater_Shutdown(2000);
 }
 
 void WINAPI CPluginInterface::Configuration(HWND parent)
@@ -320,16 +321,7 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
     salamander->AddMenuItem(-1, LoadStr(IDS_MENU_PLUGIN_UPDATES), 0, MENUCMD_PLUGIN_UPDATES, FALSE,
                             MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
 
-    // Loading and starting the CLR costs hundreds of milliseconds on a cold
-    // launch. The managed Initialize command already schedules the update
-    // check asynchronously, so prewarm the bridge without blocking the host's
-    // first window. Interactive entry points wait for this worker through
-    // ManagedBridge_EnsureInitialized, and Release joins it before unloading.
-    if (!ManagedBridge_BeginInitialize(parent) &&
-        !ManagedBridge_EnsureInitialized(parent))
-    {
-        ShowInitializationError(parent);
-    }
+    SamandarinNative::NativeUpdater_Initialize(parent);
 
     if (SalamanderGUI != NULL)
     {
@@ -363,7 +355,7 @@ void WINAPI CPluginInterface::Event(int event, DWORD /*param*/)
 {
     if (event == PLUGINEVENT_COLORSCHANGED)
     {
-        ManagedBridge_NotifyColorsChanged();
+        SamandarinNative::NativeUpdater_NotifyColorsChanged();
     }
     else if (event == PLUGINEVENT_STARTUPCOMPLETE)
     {
@@ -381,25 +373,6 @@ CPluginInterfaceForMenuExtAbstract* WINAPI CPluginInterface::GetInterfaceForMenu
 
 namespace
 {
-    enum class NativeUpdateFrequency
-    {
-        Disabled = 0,
-        Daily = 1,
-        Weekly = 2,
-        Monthly = 3,
-    };
-
-    struct NativeUpdateSettings
-    {
-        int CheckOnStartup;
-        int Frequency;
-        int HasLastCheckUtc;
-        LONGLONG LastCheckUtcTicks;
-        char LastPromptedVersion[128];
-        char LastKnownRemoteVersion[128];
-        char PluginCatalogSources[4096];
-    };
-
     const char* const kConfigCheckOnStartup = "CheckOnStartup";
     const char* const kConfigFrequency = "Frequency";
     const char* const kConfigLastCheckUtcTicks = "LastCheckUtcTicks";
@@ -576,7 +549,7 @@ BOOL HasShownConfigurationDialog()
 
 BOOL ShowConfigurationDialogOnce(HWND parent)
 {
-    if (!ManagedBridge_ShowConfiguration(parent))
+    if (!SamandarinNative::NativeUpdater_ShowConfiguration(parent))
     {
         return FALSE;
     }
@@ -604,7 +577,7 @@ BOOL SynchronizeLoadOnStartFlagFromSettings()
 
 extern "C" __declspec(dllexport) BOOL __stdcall Samandarin_LoadSettings(NativeUpdateSettings* settings)
 {
-    CManagedBridgeNativeCall nativeCall;
+    CSamandarinNativeCall nativeCall;
     if (!nativeCall.IsAllowed())
         return FALSE;
     if (settings == nullptr || SalamanderGeneral == NULL)
@@ -618,7 +591,7 @@ extern "C" __declspec(dllexport) BOOL __stdcall Samandarin_LoadSettings(NativeUp
 
 extern "C" __declspec(dllexport) BOOL __stdcall Samandarin_SaveSettings(const NativeUpdateSettings* settings)
 {
-    CManagedBridgeNativeCall nativeCall;
+    CSamandarinNativeCall nativeCall;
     if (!nativeCall.IsAllowed())
         return FALSE;
     if (settings == nullptr || SalamanderGeneral == NULL)

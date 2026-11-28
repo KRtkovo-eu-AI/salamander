@@ -1,4 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- | Date | Summary | Reason | Ticket | Model |
+     | 2026-11-28 | Build the native updater and remove managed bridge references. | Keep Samandarin independent of C#/.NET. | | openrouter/openai/gpt-6-luna-pro | -->
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -238,7 +240,23 @@
     </ClCompile>
     <ClCompile Include="..\samandarin.cpp">
     </ClCompile>
-    <ClCompile Include="..\managed_bridge.cpp">
+    <ClCompile Include="..\native_archive.cpp">
+    </ClCompile>
+    <ClCompile Include="..\native_catalog.cpp">
+    </ClCompile>
+    <ClCompile Include="..\native_http.cpp">
+    </ClCompile>
+    <ClCompile Include="..\native_install_security.cpp">
+    </ClCompile>
+    <ClCompile Include="..\native_installer.cpp">
+    </ClCompile>
+    <ClCompile Include="..\native_json.cpp">
+    </ClCompile>
+    <ClCompile Include="..\native_ui.cpp">
+    </ClCompile>
+    <ClCompile Include="..\native_updater.cpp">
+    </ClCompile>
+    <ClCompile Include="..\native_utils.cpp">
     </ClCompile>
     <ClCompile Include="..\precomp.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -270,7 +288,23 @@
     </ClInclude>
     <ClInclude Include="..\samandarin.h">
     </ClInclude>
-    <ClInclude Include="..\managed_bridge.h">
+    <ClInclude Include="..\native_archive.h">
+    </ClInclude>
+    <ClInclude Include="..\native_catalog.h">
+    </ClInclude>
+    <ClInclude Include="..\native_http.h">
+    </ClInclude>
+    <ClInclude Include="..\native_install_security.h">
+    </ClInclude>
+    <ClInclude Include="..\native_installer.h">
+    </ClInclude>
+    <ClInclude Include="..\native_json.h">
+    </ClInclude>
+    <ClInclude Include="..\native_shutdown.h">
+    </ClInclude>
+    <ClInclude Include="..\native_updater.h">
+    </ClInclude>
+    <ClInclude Include="..\native_utils.h">
     </ClInclude>
     <ClInclude Include="..\precomp.h">
     </ClInclude>
@@ -298,18 +332,10 @@
       <Project>{3cb8b01d-bcb3-4f4e-b60a-9b46d2af2f69}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
-    <ProjectReference Include="..\managed\Samandarin.Managed.csproj">
-      <Project>{E9F70914-3011-4D4F-9E79-3A9540A5E0F3}</Project>
-      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-    </ProjectReference>
-    <ProjectReference Include="..\..\shared\managedbootstrap\OpenSalamander.ManagedBootstrap.csproj">
-      <Project>{0D11429A-8289-4BC2-B0CE-FCBD66A9F271}</Project>
-      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-    </ProjectReference>
   </ItemGroup>
   <ItemDefinitionGroup>
     <PostBuildEvent>
-      <Command>if not exist "$(SamandarinPluginDir)" mkdir "$(SamandarinPluginDir)"&#x0D;&#x0A;set "MANAGED_DIR=$(ProjectDir)..\managed\bin\$(Platform)\$(Configuration)\"&#x0D;&#x0A;if not exist "%MANAGED_DIR%Samandarin.Managed.dll" set "MANAGED_DIR=$(ProjectDir)..\managed\bin\$(Configuration)\"&#x0D;&#x0A;if not exist "%MANAGED_DIR%Samandarin.Managed.dll" (&#x0D;&#x0A;  echo Samandarin.Managed.dll was not found in the managed build output.&#x0D;&#x0A;  exit /B 1&#x0D;&#x0A;)&#x0D;&#x0A;set "BOOTSTRAP_DIR=$(ProjectDir)..\..\shared\managedbootstrap\bin\$(Configuration)\"&#x0D;&#x0A;if not exist "%BOOTSTRAP_DIR%OpenSalamander.ManagedBootstrap.dll" (&#x0D;&#x0A;  echo OpenSalamander.ManagedBootstrap.dll was not found in %BOOTSTRAP_DIR%.&#x0D;&#x0A;  exit /B 1&#x0D;&#x0A;)&#x0D;&#x0A;for %%F in ("%MANAGED_DIR%*.dll") do copy /Y "%%~fF" "$(SamandarinPluginDir)%%~nxF"&#x0D;&#x0A;copy /Y "%BOOTSTRAP_DIR%OpenSalamander.ManagedBootstrap.dll" "$(SamandarinPluginDir)OpenSalamander.ManagedBootstrap.dll"</Command>
+      <Command>if exist "$(SamandarinPluginDir)Samandarin.Managed.dll" del /q "$(SamandarinPluginDir)Samandarin.Managed.dll"&#x0D;&#x0A;if exist "$(SamandarinPluginDir)Samandarin.Managed.pdb" del /q "$(SamandarinPluginDir)Samandarin.Managed.pdb"&#x0D;&#x0A;if exist "$(SamandarinPluginDir)SharpCompress.dll" del /q "$(SamandarinPluginDir)SharpCompress.dll"&#x0D;&#x0A;if exist "$(SamandarinPluginDir)System.Buffers.dll" del /q "$(SamandarinPluginDir)System.Buffers.dll"&#x0D;&#x0A;if exist "$(SamandarinPluginDir)System.Memory.dll" del /q "$(SamandarinPluginDir)System.Memory.dll"&#x0D;&#x0A;if exist "$(SamandarinPluginDir)System.Numerics.Vectors.dll" del /q "$(SamandarinPluginDir)System.Numerics.Vectors.dll"&#x0D;&#x0A;if exist "$(SamandarinPluginDir)System.Runtime.CompilerServices.Unsafe.dll" del /q "$(SamandarinPluginDir)System.Runtime.CompilerServices.Unsafe.dll"&#x0D;&#x0A;if exist "$(SamandarinPluginDir)System.Text.Encoding.CodePages.dll" del /q "$(SamandarinPluginDir)System.Text.Encoding.CodePages.dll"&#x0D;&#x0A;if exist "$(SamandarinPluginDir)System.Threading.Tasks.Extensions.dll" del /q "$(SamandarinPluginDir)System.Threading.Tasks.Extensions.dll"&#x0D;&#x0A;if exist "$(SamandarinPluginDir)Microsoft.Bcl.AsyncInterfaces.dll" del /q "$(SamandarinPluginDir)Microsoft.Bcl.AsyncInterfaces.dll"&#x0D;&#x0A;if exist "$(SamandarinPluginDir)OpenSalamander.ManagedBootstrap.dll" del /q "$(SamandarinPluginDir)OpenSalamander.ManagedBootstrap.dll"&#x0D;&#x0A;if exist "$(SamandarinPluginDir)install.ps1" del /q "$(SamandarinPluginDir)install.ps1"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets">

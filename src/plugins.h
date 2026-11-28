@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-28 | Resume the Samandarin worker after an aborted global unload. | A preflight pause must not leave the updater idle when another plugin refuses to close. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-27 | Expose a narrow menu-state refresh for plugin-owned cascades. | Callers need current event masks without accessing CPlugins' protected cache implementation. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-27 | Expose the version-gated Change Drive submenu callback. | Forward the append-only SDK hook and preserve older plug-in vtables. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-09 | Give stateless plugins stable file-association identities. | Make installed viewers without private registry configuration visible as targets and preserve their ownership during migration. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -2663,6 +2664,8 @@ public:
     void FreeDeferredModule();
     // Optional Samandarin native exit hook; readiness does not release resources.
     BOOL PrepareNativeProcessExit(BOOL finalize);
+    // Restores native updater work when process-close unloading is aborted.
+    void ResumeNativeProcessExit();
 
     // checks if the plugin can be removed; 'parent' is the parent message box window,
     // 'index' is this plugin index in Plugins; returns TRUE if the plugin can be removed

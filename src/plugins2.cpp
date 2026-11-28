@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-28 | Restore native updater workers when global unload is aborted. | Preserve process-close preflight and allow retry after a plugin refuses shutdown. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-10 | Stop classifying Encrypt as unsupported on x64 by path. | Allow a working x64 Encrypt plug-in to reach normal DLL loading while retaining the WinSCP exception. | | GPT-6 (Codex) |
 // | 2026-11-08 | Resolve plugins by stable registry identity. | Allow canonical file associations to locate the current session plugin without using an ordinal heuristic. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-06 | Retain deferred modules when a plug-in refuses shutdown. | A failed Release may leave a consumer executing provider code until a successful retry. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
@@ -2062,14 +2063,17 @@ BOOL CPlugins::UnloadAll(
     HWND parent, CSalamanderShutdownProgressAbstract* progress)
 {
     CALL_STACK_MESSAGE1("CPlugins::UnloadAll()");
-    // A busy Samandarin initializer must cancel before another plug-in can
-    // stop the shared CLR or release host resources it still needs.
+    // Drain Samandarin's native worker before any plug-in Release can tear down
+    // a service that the worker may be querying.
     if (UnloadingPluginsForMainWindowClose)
     {
         for (int index = 0; index < Data.Count; ++index)
             if (Data[index]->GetLoaded() && !Data[index]->PrepareNativeProcessExit(FALSE))
             {
-                TRACE_E("Samandarin native initialization is still active; close deferred before unloading plugins.");
+                TRACE_E("Samandarin native updater is still active; close deferred before unloading plugins.");
+                for (int resumeIndex = 0; resumeIndex < Data.Count; ++resumeIndex)
+                    if (Data[resumeIndex]->GetLoaded())
+                        Data[resumeIndex]->ResumeNativeProcessExit();
                 return FALSE;
             }
     }
@@ -2101,6 +2105,10 @@ BOOL CPlugins::UnloadAll(
     if (ret)
         for (i = Data.Count - 1; i >= 0; i--)
             Data[i]->FreeDeferredModule();
+    else if (UnloadingPluginsForMainWindowClose)
+        for (i = 0; i < Data.Count; ++i)
+            if (Data[i]->GetLoaded())
+                Data[i]->ResumeNativeProcessExit();
     return ret;
 }
 
