@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-28 | Regress direct local PDF navigation. | Use WebView2's file-URL path for PDFs instead of the failing virtual-host mapping. | https://github.com/KRtkovo-eu-AI/salamander/issues/884 | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-27 | Regress PDF Find-bar Escape ordering. | Parse the raw Find open/close messages so the first Escape closes Find and the next closes the viewer. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-27 | Guard independent viewer activation and taskbar behavior. | Prevent the shared viewer from staying above its host when the user switches windows. | https://github.com/KRtkovo-eu-AI/salamander/issues/866 | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-08 | Guard the shared viewer taskbar window style. | WebView2 render, PrismSharp, and JSON Viewer must keep independent taskbar buttons. |  | openai/gpt-5.6-luna-pro |
@@ -508,6 +509,32 @@ def main() -> None:
         or native_viewer.count("webView_->Navigate(mappedUri.c_str())") < 2
     ):
         raise AssertionError("HTML and SVG documents must stream through mapped WebView2 navigation")
+
+    load_document_start = native_viewer.find("    void LoadDocument()")
+    load_document_end = native_viewer.find("\n    void UpdateZoomDisplay", load_document_start)
+    if load_document_start < 0 or load_document_end < 0:
+        raise AssertionError("LoadDocument was not found")
+    load_document = native_viewer[load_document_start:load_document_end]
+    pdf_branch_start = load_document.find('if (extension == L".pdf")')
+    pdf_branch_end = load_document.find('if (extension == L".html"', pdf_branch_start)
+    if pdf_branch_start < 0 or pdf_branch_end < 0:
+        raise AssertionError("the direct PDF navigation branch was not found")
+    pdf_branch = load_document[pdf_branch_start:pdf_branch_end]
+    if (
+        "PathToFileUri(parameters_->filePath)" not in pdf_branch
+        or "webView_->Navigate(fileUri.c_str())" not in pdf_branch
+        or "ShowError(parameters_->openFailed, hr)" not in pdf_branch
+        or pdf_branch_start > load_document.find("std::wstring uri = MapLocalDocument();")
+    ):
+        raise AssertionError("local PDFs must use file-URL navigation with the immediate HRESULT checked")
+    if (
+        r'constexpr wchar_t kExtendedUncPrefix[] = L"\\\\?\\UNC\\";' not in native_viewer
+        or "uriPath.erase(0, 4);" not in native_viewer
+        or "kUrlCreateFromPathMaxPathLength" not in native_viewer
+        or "EncodeFileUriPathSegments(uriPath, 3)" not in native_viewer
+        or "EncodeFileUriPathSegments(uriPath, serverEnd + 1)" not in native_viewer
+    ):
+        raise AssertionError("file-URL conversion must handle extended and over-limit drive/UNC paths")
 
     if (
         '".cmd"' not in textviewer_source

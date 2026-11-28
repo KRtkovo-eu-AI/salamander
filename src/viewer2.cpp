@@ -4,6 +4,7 @@
 // CommentsTranslationProject: TRANSLATED
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-28 | Route viewer keys through its custom menu bar. | Alt mnemonics and F10 were missing from the viewer message loop. | https://github.com/KRtkovo-eu-AI/salamander/issues/862 | openrouter/openai/gpt-6-luna-pro |
 | 2026-11-25 | Open a protected document and record its report source together. | Viewer startup keeps the approved bytes and the plug-in that produced the report. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 | 2026-11-20 | Initialize optional report source metadata before starting the viewer. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
 | 2026-11-15 | Read verified handles with the existing block reader. | Preserve viewer navigation without a size limit. | #731 | GPT-6 |
@@ -22,6 +23,7 @@
 
 #include "viewer.h"
 #include "viewerhex.h"
+#include "menu.h"
 #include "common/widepath.h"
 #include "codetbl.h"
 #include "codetbl_utils.h"
@@ -66,6 +68,11 @@ static HANDLE OpenViewerFileForRead(const std::wstring& fileNameW, const char* f
     return HANDLES_Q(CreateFileW(ioName.c_str(), GENERIC_READ,
                                  FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
                                  OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+}
+
+BOOL CViewerWindow::IsMenuBarMessage(CONST MSG* lpMsg)
+{
+    return ViewerMenuBar != NULL ? ViewerMenuBar->IsMenuBarMessage(lpMsg) : FALSE;
 }
 
 void ThreadViewerMessageLoopBodyAux()
@@ -182,7 +189,8 @@ unsigned ThreadViewerMessageLoopBody(void* parameter)
         HWND viewHWindow = view->HWindow; // because WM_QUIT leaves the window object unallocated
         while (GetMessage(&msg, NULL, 0, 0))
         {
-            if (!TranslateAccelerator(viewHWindow, ViewerTable, &msg))
+            if (!view->IsMenuBarMessage(&msg) &&
+                !TranslateAccelerator(viewHWindow, ViewerTable, &msg))
             {
                 TranslateMessage(&msg);
                 DispatchMessage(&msg);

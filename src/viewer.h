@@ -4,6 +4,7 @@
 // CommentsTranslationProject: TRANSLATED
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-28 | Expose Internal Viewer menu-key dispatch. | The message-loop thread must route Alt mnemonics and F10 through the custom menu bar. | https://github.com/KRtkovo-eu-AI/salamander/issues/862 | openrouter/openai/gpt-6-luna-pro |
 | 2026-11-25 | Accept a protected read and a generated-report source together. | Internal viewer navigation keeps both the approved handle and the original file. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 | 2026-11-20 | Store the original source and provider beside the generated report. | Preserve UnISO report navigation from its source list. | | gpt-6.2-sol |
 | 2026-11-15 | Own a verified read handle per viewer document. | Read protected files without a whole-file snapshot. | #731 | GPT-6 |
@@ -157,6 +158,7 @@ public:
     // The menu bar is a child CWindow.  Its HWND must be destroyed before the
     // CMenuBar object is released, otherwise WinLib can still dispatch to it.
     void DestroyViewerMenuControls();
+    BOOL IsMenuBarMessage(CONST MSG* lpMsg);
 
     void OpenFile(const char* file, const char* caption, BOOL wholeCaption,
                   std::unique_ptr<std::vector<BYTE>> snapshot = {}, ViewerReadHandle readHandle = {}); // does not manage Lock

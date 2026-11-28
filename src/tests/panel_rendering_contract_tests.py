@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-28 | Guard custom tabs and disabled icon-overlay painting. | Prevent a native tab frame from lingering and avoid compounding dim overlays during partial paints. | https://github.com/KRtkovo-eu-AI/salamander/issues/858, https://github.com/KRtkovo-eu-AI/salamander/issues/863 | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-26 | Guard custom tab rendering during a dark-mode refresh. | Catch a second dark-mode pass taking over the panel tabs at startup. | | GPT-6 |
 # | 2026-11-12 | Keep file panels visible during shell launches and listing replacement. | Guard shell-helper parenting and refresh paint suppression against regression. | | openai/gpt-6-luna-pro |
 # | 2026-11-09 | Track the compact Change Drive configuration layout. | Match the contract with the new ordering selector and reduced dialog height. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | openai/gpt-5.6-luna-pro |
@@ -43,6 +44,7 @@ def main() -> int:
     fileswnd4 = (ROOT / "fileswn4.cpp").read_text(encoding="utf-8")
     fileswndb = (ROOT / "fileswnb.cpp").read_text(encoding="utf-8")
     dialogs5 = (ROOT / "dialogs5.cpp").read_text(encoding="utf-8")
+    dialogs6 = (ROOT / "dialogs6.cpp").read_text(encoding="utf-8")
     darkmodelib_controls = (ROOT / "third_party/darkmodelib/src/DmlibSubclassControl.cpp").read_text(encoding="utf-8")
     darkmodelib = (ROOT / "third_party/darkmodelib/src/Darkmodelib.cpp").read_text(encoding="utf-8")
     darkmode = (ROOT / "darkmode.cpp").read_text(encoding="utf-8")
@@ -192,6 +194,49 @@ def main() -> int:
         re.DOTALL,
     ):
         print("repeated dark-mode application must restore the custom tab renderer after subclassing")
+        return 1
+    restore_tab_start = darkmode_backend.find("static void RestoreCustomTabControl(HWND hwnd)")
+    restore_tab_end = darkmode_backend.find("\nstatic BOOL CALLBACK RestoreCustomTabControlProc", restore_tab_start)
+    if restore_tab_start == -1 or restore_tab_end == -1:
+        print("custom tab renderer restoration must remain available")
+        return 1
+    restore_tab = darkmode_backend[restore_tab_start:restore_tab_end]
+    remove_tab_renderer = restore_tab.find("dmlib::removeTabCtrlSubclass(hwnd);")
+    remove_overflow_renderer = restore_tab.find("dmlib::removeTabCtrlUpDownSubclass(hwnd);")
+    invalidate_custom_tab = restore_tab.find("InvalidateRect(hwnd, NULL, TRUE);")
+    if not (0 <= remove_tab_renderer < remove_overflow_renderer < invalidate_custom_tab):
+        print("restoring a custom tab must invalidate native pixels after removing the dark-mode painter")
+        return 1
+
+    icon_overlay_draw = re.search(
+        r"static void DrawIconOverlaysDisabledOverlay\(.*?^}",
+        dialogs6,
+        re.DOTALL | re.MULTILINE,
+    )
+    icon_overlay_subclass = re.search(
+        r"static LRESULT CALLBACK IconOverlaysDisabledOverlaySubclass\(.*?^}",
+        dialogs6,
+        re.DOTALL | re.MULTILINE,
+    )
+    if icon_overlay_draw is None or icon_overlay_subclass is None:
+        print("disabled icon-overlay painting must remain available")
+        return 1
+    overlay_draw_source = icon_overlay_draw.group(0)
+    overlay_subclass_source = icon_overlay_subclass.group(0)
+    update_region_read = overlay_subclass_source.find("GetUpdateRgn(hwnd, updateRegion, FALSE)")
+    default_paint = overlay_subclass_source.find("DefSubclassProc(hwnd, msg, wParam, lParam)")
+    overlay_paint = overlay_subclass_source.find(
+        "DrawIconOverlaysDisabledOverlay(hwnd, listView, hdc, updateRegion)"
+    )
+    if (
+        "ExtSelectClipRgn(targetDC, clipRegion, RGN_AND)" not in overlay_draw_source
+        or update_region_read < 0
+        or default_paint < 0
+        or overlay_paint < 0
+        or not update_region_read < default_paint < overlay_paint
+        or "DrawIconOverlaysDisabledOverlay(hwnd, listView, reinterpret_cast<HDC>(wParam), NULL)" not in overlay_subclass_source
+    ):
+        print("disabled icon-overlay blending must respect the current paint/print clip")
         return 1
     if "ScrollFixSubclass" in toolbar3 or "kScrollFixSubclassId" in toolbar3:
         print("Customize toolbar must not use a synchronous scroll repaint workaround")

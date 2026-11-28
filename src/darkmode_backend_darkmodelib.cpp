@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-28 | Repaint restored custom tab controls. | A theme refresh can leave the generic painter's last frame visible. | https://github.com/KRtkovo-eu-AI/salamander/issues/858 | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-26 | Restore custom tab rendering after a dark-mode refresh. | Keep saved tab colors visible when the theme is reapplied during startup. | | GPT-6 |
 // | 2026-11-07 | Refresh newly created dark-mode child controls without recursive tree reentry. | A same-state root refresh must discover controls created after the initial dialog pass without reapplying the tree once per descendant. | | GPT-5.6 Luna Pro |
 
@@ -79,6 +80,10 @@ static void RestoreCustomTabControl(HWND hwnd)
 
     dmlib::removeTabCtrlSubclass(hwnd);
     dmlib::removeTabCtrlUpDownSubclass(hwnd);
+    // The theme pass may already have painted with the library's generic tab
+    // renderer. Queue a clean paint now that the custom renderer owns the next
+    // WM_PAINT.
+    InvalidateRect(hwnd, NULL, TRUE);
 }
 
 static BOOL CALLBACK RestoreCustomTabControlProc(HWND hwnd, LPARAM)
