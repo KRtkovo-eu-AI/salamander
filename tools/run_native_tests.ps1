@@ -4,6 +4,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-28 | Run the Internal Viewer menu keyboard regression. | Keep Alt mnemonics and F10 working with the custom viewer menu. | https://github.com/KRtkovo-eu-AI/salamander/issues/862 | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-26 | Run the working-directory history metadata test. | Cover persisted source identity and last-known captions in native CI. | https://github.com/KRtkovo-eu-AI/salamander/issues/867 | GPT-6 |
 # | 2026-11-25 | Run protected copy regressions and PictView performance tests. | Native CI keeps both the UAC worker checks and the viewer timings. | https://github.com/KRtkovo-eu-AI/salamander/pull/843 | Grok 4.7 |
 # | 2026-11-21 | Run native PictView performance logging tests. | Validate exclusive timings, anonymous CSV, and viewer sample lifecycle. | | GPT-6 (Codex) |
@@ -261,6 +262,14 @@ try {
                 '-B',
                 (Join-Path $repositoryRoot `
                     'src\tests\viewer_hex_contract_tests.py')
+            )
+        },
+        @{
+            Name = 'viewer_menu_keyboard_contract_tests'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot `
+                    'src\tests\viewer_menu_keyboard_contract_tests.py')
             )
         },
         @{

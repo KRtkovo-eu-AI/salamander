@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-28 | Navigate local PDFs with a file URL. | WebView2's virtual-host folder mapping fails to open the reported PDF. | https://github.com/KRtkovo-eu-AI/salamander/issues/884 | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-27 | Track document Find open/close messages for Escape. | Keep the first Escape on the Find bar and close the viewer only after it is closed. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-27 | Fix return statements in shared Find-message handling. | Handle open and close actions in the void message dispatcher. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-27 | Keep shared viewer windows switchable with the host. | Owned windows remain above Salamander even when Always On Top is disabled. | https://github.com/KRtkovo-eu-AI/salamander/issues/866 | openrouter/openai/gpt-6-luna-pro |
@@ -599,17 +600,82 @@ std::wstring DecodeText(const std::vector<unsigned char>& bytes)
     return result;
 }
 
+std::wstring UrlEncodePathSegment(const std::wstring& value);
+
+std::wstring EncodeFileUriPathSegments(const std::wstring& path, size_t firstSegment)
+{
+    std::wstring encoded;
+    size_t position = firstSegment;
+    while (position < path.size())
+    {
+        const size_t separator = path.find_first_of(L"\\/", position);
+        const size_t end = separator == std::wstring::npos ? path.size() : separator;
+        if (end > position)
+            encoded += UrlEncodePathSegment(path.substr(position, end - position));
+        if (separator == std::wstring::npos)
+            break;
+        encoded.push_back(L'/');
+        position = separator + 1;
+    }
+    return encoded;
+}
+
 std::wstring PathToFileUri(const std::wstring& path)
 {
-    DWORD chars = 0;
-    UrlCreateFromPathW(path.c_str(), nullptr, &chars, 0);
-    if (chars == 0)
+    if (path.empty())
         return L"";
-    std::wstring uri(chars, L'\0');
-    if (FAILED(UrlCreateFromPathW(path.c_str(), uri.data(), &chars, 0)))
-        return L"";
-    uri.resize(chars);
-    return uri;
+
+    std::wstring uriPath = path;
+    constexpr wchar_t kExtendedUncPrefix[] = L"\\\\?\\UNC\\";
+    if (_wcsnicmp(uriPath.c_str(), kExtendedUncPrefix, _countof(kExtendedUncPrefix) - 1) == 0)
+        uriPath = L"\\\\" + uriPath.substr(_countof(kExtendedUncPrefix) - 1);
+    else if (uriPath.compare(0, 4, L"\\\\?\\") == 0 &&
+             uriPath.size() >= 7 && uriPath[5] == L':')
+        uriPath.erase(0, 4);
+
+    // UrlCreateFromPathW rejects extended paths and limits its input to
+    // INTERNET_MAX_URL_LENGTH. Use it for the ordinary case, then build a
+    // dynamically sized URI for longer paths without a MAX_PATH buffer.
+    constexpr size_t kUrlCreateFromPathMaxPathLength = 2084;
+    if (uriPath.size() < kUrlCreateFromPathMaxPathLength)
+    {
+        DWORD chars = 0;
+        UrlCreateFromPathW(uriPath.c_str(), nullptr, &chars, 0);
+        if (chars != 0)
+        {
+            std::wstring uri(chars, L'\0');
+            if (SUCCEEDED(UrlCreateFromPathW(uriPath.c_str(), uri.data(), &chars, 0)))
+            {
+                uri.resize(chars);
+                return uri;
+            }
+        }
+    }
+
+    if (uriPath.size() >= 3 && uriPath[1] == L':' &&
+        (uriPath[2] == L'\\' || uriPath[2] == L'/'))
+    {
+        std::wstring uri = L"file:///";
+        uri.push_back(uriPath[0]);
+        uri += L":/";
+        uri += EncodeFileUriPathSegments(uriPath, 3);
+        return uri;
+    }
+
+    if (uriPath.size() > 2 && uriPath[0] == L'\\' && uriPath[1] == L'\\')
+    {
+        const size_t serverEnd = uriPath.find_first_of(L"\\/", 2);
+        if (serverEnd == std::wstring::npos || serverEnd == 2 || serverEnd + 1 >= uriPath.size())
+            return L"";
+
+        std::wstring uri = L"file://";
+        uri.append(uriPath, 2, serverEnd - 2);
+        uri.push_back(L'/');
+        uri += EncodeFileUriPathSegments(uriPath, serverEnd + 1);
+        return uri;
+    }
+
+    return L"";
 }
 
 std::string WideToUtf8(const std::wstring& value);
@@ -3879,6 +3945,24 @@ private:
             else
             {
                 StartPreparation(false);
+            }
+            return;
+        }
+
+        if (extension == L".pdf")
+        {
+            // WebView2 documents file URLs as the supported way to load local PDFs.
+            // Virtual-host folder mapping works for the other rendered formats but
+            // can fail with E_INVALIDARG in Chromium's built-in PDF viewer.
+            const std::wstring fileUri = PathToFileUri(parameters_->filePath);
+            if (fileUri.empty())
+                ShowError(parameters_->openFailed, E_INVALIDARG);
+            else
+            {
+                SetLoadProgress(80);
+                const HRESULT hr = webView_->Navigate(fileUri.c_str());
+                if (FAILED(hr))
+                    ShowError(parameters_->openFailed, hr);
             }
             return;
         }

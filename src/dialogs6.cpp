@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-28 | Restrict disabled-overlay blending to dirty pixels. | Repeated partial paints were dimming untouched icon-overlay rows multiple times. | https://github.com/KRtkovo-eu-AI/salamander/issues/863 | openrouter/openai/gpt-6-luna-pro |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -2540,14 +2543,19 @@ static BOOL IsIconOverlaysListDisabled(HWND listView)
     return page != NULL && IsDlgButtonChecked(page, IDC_ICONOVRLS_ENABLE) != BST_CHECKED;
 }
 
-static void DrawIconOverlaysDisabledOverlay(HWND hwnd, HWND listView)
+static void DrawIconOverlaysDisabledOverlay(HWND hwnd, HWND listView, HDC targetDC, HRGN clipRegion)
 {
-    if (!IsIconOverlaysListDisabled(listView))
+    if (!IsIconOverlaysListDisabled(listView) || targetDC == NULL)
         return;
 
-    HDC hdc = HANDLES(GetDC(hwnd));
-    if (hdc == NULL)
+    const int savedDC = SaveDC(targetDC);
+    if (savedDC == 0)
         return;
+    if (clipRegion != NULL && ExtSelectClipRgn(targetDC, clipRegion, RGN_AND) == ERROR)
+    {
+        RestoreDC(targetDC, savedDC);
+        return;
+    }
 
     RECT client;
     GetClientRect(hwnd, &client);
@@ -2555,8 +2563,8 @@ static void DrawIconOverlaysDisabledOverlay(HWND hwnd, HWND listView)
     int height = client.bottom - client.top;
     if (width > 0 && height > 0)
     {
-        HDC memDC = HANDLES(CreateCompatibleDC(hdc));
-        HBITMAP bitmap = HANDLES(CreateCompatibleBitmap(hdc, width, height));
+        HDC memDC = HANDLES(CreateCompatibleDC(targetDC));
+        HBITMAP bitmap = HANDLES(CreateCompatibleBitmap(targetDC, width, height));
         if (memDC != NULL && bitmap != NULL)
         {
             HBITMAP oldBitmap = (HBITMAP)SelectObject(memDC, bitmap);
@@ -2566,11 +2574,10 @@ static void DrawIconOverlaysDisabledOverlay(HWND hwnd, HWND listView)
             {
                 RECT overlayRect = {0, 0, width, height};
                 FillRect(memDC, &overlayRect, brush);
-                DeleteObject(brush);
 
                 BLENDFUNCTION blend = {AC_SRC_OVER, 0, 140, 0};
-                if (!AlphaBlend(hdc, 0, 0, width, height, memDC, 0, 0, width, height, blend))
-                    FillRect(hdc, &client, (HBRUSH)(COLOR_BTNFACE + 1));
+                AlphaBlend(targetDC, 0, 0, width, height, memDC, 0, 0, width, height, blend);
+                HANDLES(DeleteObject(brush));
             }
             SelectObject(memDC, oldBitmap);
         }
@@ -2580,7 +2587,7 @@ static void DrawIconOverlaysDisabledOverlay(HWND hwnd, HWND listView)
             DeleteDC(memDC);
     }
 
-    HANDLES(ReleaseDC(hwnd, hdc));
+    RestoreDC(targetDC, savedDC);
 }
 
 static LRESULT CALLBACK IconOverlaysDisabledOverlaySubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
@@ -2590,6 +2597,17 @@ static LRESULT CALLBACK IconOverlaysDisabledOverlaySubclass(HWND hwnd, UINT msg,
         RemoveWindowSubclass(hwnd, IconOverlaysDisabledOverlaySubclass, subclassId);
 
     HWND listView = (HWND)refData;
+    HRGN updateRegion = NULL;
+    if (msg == WM_PAINT && IsIconOverlaysListDisabled(listView))
+    {
+        updateRegion = HANDLES(CreateRectRgn(0, 0, 0, 0));
+        if (updateRegion != NULL && GetUpdateRgn(hwnd, updateRegion, FALSE) == ERROR)
+        {
+            HANDLES(DeleteObject(updateRegion));
+            updateRegion = NULL;
+        }
+    }
+
     if (IsIconOverlaysListDisabled(listView))
     {
         switch (msg)
@@ -2616,8 +2634,20 @@ static LRESULT CALLBACK IconOverlaysDisabledOverlaySubclass(HWND hwnd, UINT msg,
     }
 
     LRESULT result = DefSubclassProc(hwnd, msg, wParam, lParam);
-    if (msg == WM_PAINT || msg == WM_PRINTCLIENT)
-        DrawIconOverlaysDisabledOverlay(hwnd, listView);
+    if (msg == WM_PAINT && updateRegion != NULL)
+    {
+        HDC hdc = HANDLES(GetDC(hwnd));
+        if (hdc != NULL)
+        {
+            DrawIconOverlaysDisabledOverlay(hwnd, listView, hdc, updateRegion);
+            HANDLES(ReleaseDC(hwnd, hdc));
+        }
+    }
+    else if (msg == WM_PRINTCLIENT)
+        DrawIconOverlaysDisabledOverlay(hwnd, listView, reinterpret_cast<HDC>(wParam), NULL);
+
+    if (updateRegion != NULL)
+        HANDLES(DeleteObject(updateRegion));
     return result;
 }
 
