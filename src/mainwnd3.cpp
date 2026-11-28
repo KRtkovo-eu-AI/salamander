@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-28 | Show a distinct briefcase badge for restricted project workspaces. | Separate workspace state from generic tab locking. | https://github.com/KRtkovo-eu-AI/salamander/issues/853 | openai/gpt-6-luna-pro |
 // | 2026-11-28 | Add project-workspace tab actions and preserve their state through tab lifecycle operations. | Expose fixed-root navigation while keeping project settings independent from tab locking. | https://github.com/KRtkovo-eu-AI/salamander/issues/853 | openai/gpt-6-luna-pro |
 // | 2026-11-08 | Route explicit Refresh to protected archives. | Leave background refresh noninteractive. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
@@ -926,10 +927,12 @@ static std::wstring BuildTabDisplayText(CFilesWindow* panel, int index)
         result = L"\u2691";
     else if (panel->IsTabLocked())
         result = L"\U0001F512";
-    if (index == 0 && panel->IsProjectWorkspaceRestricted())
-        result += L" \U0001F512";
-    else if (index > 0 && panel->IsProjectWorkspaceRestricted() && !panel->IsTabLocked())
-        result = L"\U0001F512";
+    if (panel->IsProjectWorkspaceRestricted())
+    {
+        if (!result.empty())
+            result += L" ";
+        result += L"\U0001F4BC";
+    }
     if (!name.empty())
     {
         if (!result.empty())

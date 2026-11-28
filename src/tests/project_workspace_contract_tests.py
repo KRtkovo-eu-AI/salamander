@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-28 | Assert distinct project-workspace and generic-lock tab badges. | Preserve separate workspace and lock visual states. | https://github.com/KRtkovo-eu-AI/salamander/issues/853 | openai/gpt-6-luna-pro |
 # | 2026-11-28 | Guard project-workspace path routing and tab lifecycle contracts. | Catch bypasses through history, archives, plugin filesystems, recovery, or persistence. | https://github.com/KRtkovo-eu-AI/salamander/issues/853 | openai/gpt-6-luna-pro |
 """Source contracts for project-workspace navigation and tab lifecycle."""
 
@@ -97,6 +98,13 @@ class ProjectWorkspaceContracts(unittest.TestCase):
 
         reopen = body("mainwnd3.cpp", "bool CMainWindow::CommandReopenClosedTab(")
         self.assertIn("panel->SetProjectWorkspace(entry.ProjectWorkspaceRoot.c_str()", reopen)
+
+    def test_project_workspace_badge_is_distinct_from_generic_tab_lock(self):
+        display = body("mainwnd3.cpp", "static std::wstring BuildTabDisplayText(")
+        self.assertIn('else if (panel->IsTabLocked())', display)
+        self.assertIn('result = L"\\U0001F512";', display)
+        self.assertIn('if (panel->IsProjectWorkspaceRestricted())', display)
+        self.assertIn('result += L"\\U0001F4BC";', display)
 
     def test_workspace_strings_are_localized_in_every_language(self):
         translations = ROOT.parent / "translations"
