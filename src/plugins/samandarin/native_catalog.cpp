@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-28 | Retain installed and catalog icon sources and resolve relative catalog images. | Match the original updater dialog's icon selection and loading behavior. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-28 | Restrict elevated package installs to trusted catalog origins. | The post-exit helper revalidates unsigned package contents against HTTPS catalog data. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-28 | Keep catalog status text localized. | Parser diagnostics may include untranslated implementation details. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-28 | Port catalog loading, installed package scanning, and version matching to C++. | Remove the managed catalog service and retain its update classifications. | | openrouter/openai/gpt-6-luna-pro |
@@ -14,12 +15,14 @@
 #include <algorithm>
 #include <limits>
 #include <map>
+#include <shlwapi.h>
 #include <set>
 #include <string>
 #include <vector>
 #include <winver.h>
 
 #pragma comment(lib, "version.lib")
+#pragma comment(lib, "shlwapi.lib")
 
 extern "C" int __stdcall Samandarin_ExportInstalledPlugins(char* buffer, int cchBuffer);
 extern "C" int __stdcall Samandarin_ExportInstalledExtensions(wchar_t* buffer, int cchBuffer);
@@ -470,6 +473,82 @@ std::wstring ResolveApplicationPath(const std::wstring& path)
     return FullPath(CombinePath(GetExecutableDirectory(), trimmed));
 }
 
+std::wstring FileUrlToPath(const std::wstring& url)
+{
+    if (!StartsWithIgnoreCase(url, L"file://")) return std::wstring();
+    std::vector<wchar_t> buffer(url.size() + 2, L'\0');
+    DWORD length = static_cast<DWORD>(buffer.size());
+    if (FAILED(PathCreateFromUrlW(url.c_str(), buffer.data(), &length, 0))) return std::wstring();
+    return std::wstring(buffer.data());
+}
+
+bool IsAbsoluteWindowsPath(const std::wstring& path)
+{
+    return (path.size() >= 3 && path[1] == L':' &&
+            (path[2] == L'\\' || path[2] == L'/')) || path.rfind(L"\\\\", 0) == 0;
+}
+
+std::wstring ResolveHttpIconReference(const std::wstring& baseUrl, const std::wstring& reference)
+{
+    const size_t schemeEnd = baseUrl.find(L"://");
+    if (schemeEnd == std::wstring::npos) return reference;
+    const size_t authorityEnd = baseUrl.find_first_of(L"/?#", schemeEnd + 3);
+    const std::wstring origin = authorityEnd == std::wstring::npos
+                                    ? baseUrl
+                                    : baseUrl.substr(0, authorityEnd);
+    if (reference.rfind(L"//", 0) == 0) return baseUrl.substr(0, schemeEnd) + L":" + reference;
+    if (!reference.empty() && reference[0] == L'/') return origin + reference;
+
+    const size_t baseFragment = baseUrl.find(L'#');
+    const std::wstring withoutFragment = baseUrl.substr(0, baseFragment);
+    if (!reference.empty() && reference[0] == L'#') return withoutFragment + reference;
+    const size_t baseQuery = withoutFragment.find(L'?');
+    const std::wstring basePath = withoutFragment.substr(0, baseQuery);
+    if (!reference.empty() && reference[0] == L'?') return basePath + reference;
+
+    const size_t slash = basePath.find_last_of(L'/');
+    const std::wstring directory = slash == std::wstring::npos || slash <= schemeEnd + 2
+                                       ? origin + L"/"
+                                       : basePath.substr(0, slash + 1);
+    const std::wstring combined = directory + reference;
+    const size_t suffixStart = combined.find_first_of(L"?#");
+    const std::wstring path = combined.substr(0, suffixStart);
+    const std::wstring suffix = suffixStart == std::wstring::npos
+                                    ? std::wstring()
+                                    : combined.substr(suffixStart);
+    const std::wstring relativePath = path.size() >= origin.size()
+                                          ? path.substr(origin.size())
+                                          : path;
+    std::vector<std::wstring> segments;
+    size_t start = 0;
+    while (start < relativePath.size())
+    {
+        while (start < relativePath.size() && relativePath[start] == L'/') ++start;
+        if (start >= relativePath.size()) break;
+        const size_t end = relativePath.find(L'/', start);
+        const std::wstring segment = relativePath.substr(
+            start, end == std::wstring::npos ? std::wstring::npos : end - start);
+        if (segment == L"..")
+        {
+            if (!segments.empty()) segments.pop_back();
+        }
+        else if (!segment.empty() && segment != L".")
+        {
+            segments.push_back(segment);
+        }
+        if (end == std::wstring::npos) break;
+        start = end + 1;
+    }
+    std::wstring normalized = origin + L"/";
+    for (size_t index = 0; index < segments.size(); ++index)
+    {
+        if (index != 0) normalized.push_back(L'/');
+        normalized += segments[index];
+    }
+    if (!path.empty() && path.back() == L'/' && normalized.back() != L'/') normalized.push_back(L'/');
+    return normalized + suffix;
+}
+
 bool IsDemoExtensionId(const std::wstring& id)
 {
     return StartsWithIgnoreCase(id, L"Salamatrix.Demo.") ||
@@ -715,6 +794,7 @@ PluginUpdateRow BuildNotInCatalogRow(const InstalledPackage& package)
     row.InstalledVersion = package.Version;
     row.StatusText = GetLocalizedString(IDS_PLUGIN_STATUS_NOT_IN_CATALOG);
     row.Status = PluginUpdateStatus::NotInCatalog;
+    row.IconPath = package.IconPath;
     row.Id = package.Id;
     row.InstalledKind = package.Kind;
     row.InstallDirectory = package.InstallDirectory;
@@ -733,6 +813,8 @@ PluginUpdateRow BuildCatalogRow(const CatalogEntry& entry, const InstalledPackag
     row.Source = entry.Source;
     row.WebUrl = entry.DownloadPage.empty() ? entry.Homepage : entry.DownloadPage;
     row.Description = entry.Description;
+    row.IconPath = package == nullptr ? std::wstring() : package->IconPath;
+    row.CatalogIconReference = entry.Icon;
     row.CatalogSourceUrl = entry.SourceUrl;
     row.Id = entry.Id;
     row.InstalledKind = package == nullptr ? PackageKind::Unknown : package->Kind;
@@ -908,6 +990,25 @@ bool IsTrustedInstallCatalogUrl(const std::wstring& url)
     const std::wstring file = url.substr(prefix.size());
     if (file.find_first_of(L"/?#%\\:") != std::wstring::npos || file == L"." || file == L"..") return false;
     return file.size() > 5 && EqualsIgnoreCase(file.substr(file.size() - 5), L".json");
+}
+
+std::wstring ResolveCatalogIconReference(const PluginUpdateRow& row)
+{
+    const std::wstring reference = Trim(row.CatalogIconReference);
+    if (reference.empty() || EqualsIgnoreCase(reference, L"plugin")) return std::wstring();
+    if (IsAbsoluteHttpUrl(reference)) return reference;
+    if (StartsWithIgnoreCase(reference, L"file://")) return FileUrlToPath(reference);
+    if (IsAbsoluteWindowsPath(reference)) return reference;
+
+    const std::wstring source = Trim(row.CatalogSourceUrl);
+    if (IsAbsoluteHttpUrl(source)) return ResolveHttpIconReference(source, reference);
+
+    std::wstring sourcePath = StartsWithIgnoreCase(source, L"file://")
+                                  ? FileUrlToPath(source)
+                                  : source;
+    if (IsAbsoluteWindowsPath(sourcePath))
+        return CombinePath(GetParentDirectory(sourcePath), reference);
+    return reference;
 }
 
 int CompareVersions(const std::wstring& inputLeft, const std::wstring& inputRight)

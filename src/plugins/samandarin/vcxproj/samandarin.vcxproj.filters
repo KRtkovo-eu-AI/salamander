@@ -1,5 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <!-- | Date | Summary | Reason | Ticket | Model |
+     | 2026-11-28 | Organize the native image-list renderer in the C++ project. | Keep the icon decoder visible with the rest of the updater code. | | openrouter/openai/gpt-6-luna-pro |
      | 2026-11-28 | Organize native updater sources in the Samandarin project. | Keep the C++ project view aligned with its new files. | | openrouter/openai/gpt-6-luna-pro | -->
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
@@ -36,6 +37,9 @@
       <Filter>cpp</Filter>
     </ClCompile>
     <ClCompile Include="..\native_json.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\native_icons.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
     <ClCompile Include="..\native_ui.cpp">
@@ -80,6 +84,9 @@
       <Filter>h</Filter>
     </ClInclude>
     <ClInclude Include="..\native_json.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\native_icons.h">
       <Filter>h</Filter>
     </ClInclude>
     <ClInclude Include="..\native_shutdown.h">

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-28 | Protect native updater icon, link, and layout parity. | Prevent the replacement dialog from losing the original plugin artwork or row actions. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-27 | Verify nested extension commands and Change Drive click behavior. | Prevent no-op actions, missing package dropdowns, and loss of the original drive-row command. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-27 | Verify accessible Change Drive menu-state refresh. | Prevent CPluginData from calling CPlugins' protected state-cache method. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-27 | Verify the real Change Drive cascade and command union. | Prevent a regression to the separate right-click context menu or to an incomplete extension-command list. | | openrouter/openai/gpt-6-luna-pro |
@@ -147,6 +148,10 @@ def main() -> int:
     samandarin_shell = read("src/plugins/samandarin/samandarin.cpp")
     samandarin_updater = read("src/plugins/samandarin/native_updater.cpp")
     samandarin_catalog = read("src/plugins/samandarin/native_catalog.cpp")
+    samandarin_ui = read("src/plugins/samandarin/native_ui.cpp")
+    samandarin_icons = read("src/plugins/samandarin/native_icons.cpp")
+    samandarin_resources = read("src/plugins/samandarin/samandarin.rc2")
+    samandarin_resource_ids = read("src/plugins/samandarin/samandarin.rh2")
     samandarin_installer = read("src/plugins/samandarin/native_installer.cpp")
     samandarin_archive = read("src/plugins/samandarin/native_archive.cpp")
     samandarin_project = read("src/plugins/samandarin/vcxproj/samandarin.vcxproj")
@@ -399,6 +404,53 @@ def main() -> int:
         samandarin_updater,
         r"CreateThread\(nullptr, 0, WorkerThreadProc",
         "Samandarin native updater does not own a dedicated worker")
+    require(
+        samandarin_updater,
+        r"kCatalogIconWorkerCount = 6.*?HttpGet\(reference.*?"
+        r"ProcessCatalogIcons\(const WorkItem& work\).*?NativeUi_PostCatalogIcons",
+        "Samandarin catalog icons are not deduplicated and loaded asynchronously with bounded concurrency")
+    require(
+        samandarin_updater,
+        r"void NativeUpdater_CancelCatalogIcons\(HWND target\).*?gCatalogIconCancelRequested",
+        "A catalog refresh cannot cancel stale icon downloads")
+    require(
+        samandarin_catalog,
+        r"row\.IconPath = package == nullptr \? std::wstring\(\) : package->IconPath.*?"
+        r"row\.CatalogIconReference = entry\.Icon.*?ResolveCatalogIconReference",
+        "Native catalog rows do not retain and resolve installed/catalog image sources")
+    require(
+        samandarin_ui,
+        r"const int ids\[\] = \{0, IDS_PLUGIN_COL_SOURCE, IDS_PLUGIN_COL_NAME.*?"
+        r"LVIF_IMAGE.*?NativeUpdater_RequestCatalogIcons.*?RefreshCatalogImages",
+        "The native update list is missing its separate icon column or asynchronous image refresh")
+    require(
+        samandarin_icons,
+        r"GUID_WICPixelFormat32bppPBGRA.*?ImageList_Add.*?IDR_SAMANDARIN_DEFAULT_PLUGIN_IMAGE.*?"
+        r"ExtractIconExW.*?ImageList_AddIcon",
+        "Native updater icons are missing the bundled fallback, installed-package icons, or WIC decoding")
+    require(
+        samandarin_ui,
+        r"LayoutUpdatesDialog.*?available \* 42.*?AdjustListViewColumns.*?"
+        r"OpenSelectedDetailLink.*?STN_CLICKED",
+        "The native updates window is missing its responsive layout or clickable detail links")
+    require(
+        samandarin_ui,
+        r"CanInstallPluginRow\(row\).*?row\.InstallDirectory\.empty\(\).*?"
+        r"IDS_PLUGIN_UPDATES_OPEN_PAGE",
+        "The selected-row action does not switch between Install, Update, and Open page")
+    require_absent(
+        samandarin_ui,
+        r"IDC_UPDATES_OPEN_PAGE",
+        "The native dialog still exposes Open page as a separate action button")
+    require(
+        samandarin_resources,
+        r"IDD_SAMANDARIN_UPDATES DIALOGEX.*?WS_THICKFRAME.*?"
+        r"IDC_UPDATES_DETAIL_HOMEPAGE.*?SS_NOTIFY.*?IDC_UPDATES_DETAIL_DOWNLOAD.*?SS_NOTIFY",
+        "The native updates dialog is not resizable or its detail links are not clickable")
+    require(
+        samandarin_resource_ids,
+        r"IDR_SAMANDARIN_DEFAULT_PLUGIN_IMAGE.*?IDC_UPDATES_DETAIL_GROUP",
+        "The native updates dialog is missing resource identifiers for its icon and responsive details group")
     require(
         samandarin_catalog,
         r"plugins-stable\.json.*?extensions-stable\.json.*?plugins-unofficial\.json.*?"

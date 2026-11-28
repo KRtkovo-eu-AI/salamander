@@ -1,16 +1,19 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-28 | Restore the original icon column, responsive layout, hyperlinks, and dynamic row action. | Keep the native updates dialog visually and functionally aligned with its C# predecessor. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-28 | Keep updater error dialogs fully localized. | Native Win32 error details can contain English API text. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-28 | Implement localized native settings, catalog, and notification dialogs. | Replace the managed WinForms updater UI. | | openrouter/openai/gpt-6-luna-pro |
 
 #include "precomp.h"
 #include "native_updater.h"
 #include "native_installer.h"
+#include "native_icons.h"
 #include "native_utils.h"
 #include "../../darkmode.h"
 
 #include <algorithm>
+#include <map>
 #include <memory>
 #include <new>
 #include <set>
@@ -27,6 +30,7 @@ constexpr UINT WM_SAMANDARIN_CHECK_COMPLETE = WM_APP + 0x450;
 constexpr UINT WM_SAMANDARIN_CATALOG_COMPLETE = WM_APP + 0x451;
 constexpr UINT WM_SAMANDARIN_INSTALL_COMPLETE = WM_APP + 0x452;
 constexpr UINT WM_SAMANDARIN_CONFIG_REFRESH = WM_APP + 0x453;
+constexpr UINT WM_SAMANDARIN_CATALOG_ICONS_COMPLETE = WM_APP + 0x454;
 const wchar_t* const kMessageWindowClass = L"OpenSamandarin.NativeUpdater.MessageWindow";
 
 constexpr int kColorItemForeground = 6;
@@ -50,19 +54,35 @@ struct ConfigurationParameters
     bool Saved = false;
 };
 
+struct CaseInsensitiveStringLess
+{
+    bool operator()(const std::wstring& left, const std::wstring& right) const
+    {
+        return CompareStringOrdinal(left.c_str(), static_cast<int>(left.size()),
+                                    right.c_str(), static_cast<int>(right.size()), TRUE) == CSTR_LESS_THAN;
+    }
+};
+
 struct UpdatesDialogState
 {
     HWND Window = nullptr;
     HWND Parent = nullptr;
     std::vector<PluginUpdateRow> Rows;
+    std::vector<CatalogIconImage> CatalogImages;
     std::vector<size_t> VisibleRows;
-    int SortColumn = 1;
+    std::map<std::wstring, int, CaseInsensitiveStringLess> ImageIndexes;
+    HIMAGELIST ImageList = nullptr;
+    HFONT LinkFont = nullptr;
+    int DefaultImageIndex = -1;
+    int SortColumn = 2;
     bool SortDescending = false;
     bool RefreshInProgress = false;
     bool InstallInProgress = false;
     bool ShowOnlyUpdates = false;
     int ContextRow = -1;
     int ContextColumn = -1;
+    std::wstring PreferredSelectionId;
+    std::wstring PreferredSelectionName;
 };
 
 struct SourcesDialogState
@@ -483,38 +503,188 @@ std::wstring ValueForColumn(const PluginUpdateRow& row, int column)
 {
     switch (column)
     {
-    case 0: return row.Source;
-    case 1: return row.Name;
-    case 2: return row.InstalledVersion;
-    case 3: return row.LatestVersion;
-    case 4: return row.StatusText;
-    case 5: return row.Author;
+    case 0: return std::wstring();
+    case 1: return row.Source;
+    case 2: return row.Name;
+    case 3: return row.InstalledVersion;
+    case 4: return row.LatestVersion;
+    case 5: return row.StatusText;
+    case 6: return row.Author;
     default: return row.Name;
     }
 }
 
+std::wstring SortValueForColumn(const PluginUpdateRow& row, int column)
+{
+    return column == 0 ? row.Name : ValueForColumn(row, column);
+}
+
+int ScaleLogical(HWND window, int value)
+{
+    HDC dc = GetDC(window);
+    const int dpi = dc != nullptr ? GetDeviceCaps(dc, LOGPIXELSX) : 96;
+    if (dc != nullptr) ReleaseDC(window, dc);
+    return MulDiv(value, dpi > 0 ? dpi : 96, 96);
+}
+
+void SetDialogItemRect(HWND dialog, int control, int x, int y, int width, int height)
+{
+    RECT rect = {x, y, x + width, y + height};
+    if (!MapDialogRect(dialog, &rect)) return;
+    SetWindowPos(GetDlgItem(dialog, control), nullptr, rect.left, rect.top,
+                 rect.right - rect.left, rect.bottom - rect.top,
+                 SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+void LayoutUpdatesDialog(HWND dialog)
+{
+    RECT client = {};
+    RECT base = {0, 0, 650, 415};
+    if (!GetClientRect(dialog, &client) || !MapDialogRect(dialog, &base) ||
+        base.right <= 0 || base.bottom <= 0)
+        return;
+    const int width = MulDiv(client.right, 650, base.right);
+    const int height = MulDiv(client.bottom, 415, base.bottom);
+    if (width < 40 || height < 120) return;
+
+    constexpr int listTop = 30;
+    constexpr int checkboxHeight = 12;
+    constexpr int listCheckboxGap = 11;
+    constexpr int checkboxGroupGap = 10;
+    const int groupBottom = (std::max)(listTop + 100, height - 40);
+    const int available = (std::max)(100, groupBottom - listTop - listCheckboxGap -
+                                                checkboxHeight - checkboxGroupGap);
+    const int groupHeight = (available * 42 + 50) / 100;
+    const int listHeight = available - groupHeight;
+    const int checkboxY = listTop + listHeight + listCheckboxGap;
+    const int groupY = checkboxY + checkboxHeight + checkboxGroupGap;
+    const int contentWidth = (std::max)(1, width - 20);
+
+    SetDialogItemRect(dialog, IDC_UPDATES_DESCRIPTION, 10, 8, contentWidth, 20);
+    SetDialogItemRect(dialog, IDC_UPDATES_LIST, 10, listTop, contentWidth, listHeight);
+    SetDialogItemRect(dialog, IDC_UPDATES_ONLY, 10, checkboxY, 250, checkboxHeight);
+    SetDialogItemRect(dialog, IDC_UPDATES_DETAIL_GROUP, 10, groupY, contentWidth, groupHeight);
+
+    const int leftValueX = 82;
+    const int rightLabelX = width / 2 - 15;
+    const int rightValueX = width / 2 + 49;
+    const int leftValueWidth = (std::max)(1, rightLabelX - 18 - leftValueX);
+    const int rightValueWidth = (std::max)(1, width - 26 - rightValueX);
+    const int rowY[] = {groupY + 14, groupY + 30, groupY + 46, groupY + 62};
+    const int leftLabels[] = {IDC_UPDATES_DETAIL_NAME_LABEL, IDC_UPDATES_DETAIL_AUTHOR_LABEL,
+                              IDC_UPDATES_DETAIL_INSTALLED_LABEL, IDC_UPDATES_DETAIL_HOMEPAGE_LABEL};
+    const int leftValues[] = {IDC_UPDATES_DETAIL_NAME, IDC_UPDATES_DETAIL_AUTHOR,
+                              IDC_UPDATES_DETAIL_INSTALLED, IDC_UPDATES_DETAIL_HOMEPAGE};
+    const int rightLabels[] = {IDC_UPDATES_DETAIL_SOURCE_LABEL, IDC_UPDATES_DETAIL_STATUS_LABEL,
+                               IDC_UPDATES_DETAIL_LATEST_LABEL, IDC_UPDATES_DETAIL_DOWNLOAD_LABEL};
+    const int rightValues[] = {IDC_UPDATES_DETAIL_SOURCE, IDC_UPDATES_DETAIL_STATUS,
+                               IDC_UPDATES_DETAIL_LATEST, IDC_UPDATES_DETAIL_DOWNLOAD};
+    for (int index = 0; index < 4; ++index)
+    {
+        SetDialogItemRect(dialog, leftLabels[index], 18, rowY[index], 62, 12);
+        SetDialogItemRect(dialog, leftValues[index], leftValueX, rowY[index], leftValueWidth, 12);
+        SetDialogItemRect(dialog, rightLabels[index], rightLabelX, rowY[index], 62, 12);
+        SetDialogItemRect(dialog, rightValues[index], rightValueX, rowY[index], rightValueWidth, 12);
+    }
+
+    const int descriptionTop = groupY + 76;
+    const int textBottom = groupHeight - 10;
+    const int textGap = 3;
+    const int textHeight = (std::max)(16, (textBottom - 76 - textGap) / 2);
+    const int securityTop = descriptionTop + textHeight + textGap;
+    const int securityHeight = (std::max)(16, textBottom - (securityTop - groupY));
+    const int detailTextWidth = (std::max)(1, width - 108);
+    SetDialogItemRect(dialog, IDC_UPDATES_DESCRIPTION_LABEL, 18, descriptionTop + 3, 62, 12);
+    SetDialogItemRect(dialog, IDC_UPDATES_DESCRIPTION_TEXT, leftValueX, descriptionTop,
+                      detailTextWidth, textHeight);
+    SetDialogItemRect(dialog, IDC_UPDATES_SECURITY_LABEL, 18, securityTop + 3, 62, 12);
+    SetDialogItemRect(dialog, IDC_UPDATES_SECURITY_TEXT, leftValueX, securityTop,
+                      detailTextWidth, securityHeight);
+
+    SetDialogItemRect(dialog, IDC_UPDATES_STATUS, 10, height - 36,
+                      (std::max)(100, width / 3), 22);
+    const int buttonY = height - 33;
+    constexpr int buttonGap = 3;
+    constexpr int installWidth = 77;
+    constexpr int sourcesWidth = 77;
+    constexpr int refreshWidth = 50;
+    constexpr int closeWidth = 50;
+    const int closeX = width - 10 - closeWidth;
+    const int refreshX = closeX - buttonGap - refreshWidth;
+    const int sourcesX = refreshX - buttonGap - sourcesWidth;
+    const int installX = sourcesX - buttonGap - installWidth;
+    SetDialogItemRect(dialog, IDC_UPDATES_INSTALL, installX, buttonY, installWidth, 18);
+    SetDialogItemRect(dialog, IDC_UPDATES_SOURCES, sourcesX, buttonY, sourcesWidth, 18);
+    SetDialogItemRect(dialog, IDC_UPDATES_REFRESH, refreshX, buttonY, refreshWidth, 18);
+    SetDialogItemRect(dialog, IDCANCEL, closeX, buttonY, closeWidth, 18);
+}
+
 void SetListViewColumns(HWND list)
 {
-    const int ids[] = {IDS_PLUGIN_COL_SOURCE, IDS_PLUGIN_COL_NAME, IDS_PLUGIN_COL_INSTALLED,
+    const int ids[] = {0, IDS_PLUGIN_COL_SOURCE, IDS_PLUGIN_COL_NAME, IDS_PLUGIN_COL_INSTALLED,
                        IDS_PLUGIN_COL_LATEST, IDS_PLUGIN_COL_STATUS, IDS_PLUGIN_COL_AUTHOR};
-    const int widths[] = {95, 160, 90, 90, 120, 80};
+    const int widths[] = {46, 120, 180, 90, 90, 120, 110};
     for (int index = 0; index < _countof(ids); ++index)
     {
         LVCOLUMNW column = {};
         column.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
-        std::wstring title = String(ids[index]);
+        std::wstring title = ids[index] == 0 ? std::wstring() : String(ids[index]);
         column.pszText = title.data();
-        column.cx = widths[index];
+        column.cx = ScaleLogical(list, widths[index]);
         column.iSubItem = index;
         SendMessageW(list, LVM_INSERTCOLUMNW, static_cast<WPARAM>(index), reinterpret_cast<LPARAM>(&column));
     }
+}
+
+void AdjustListViewColumns(HWND list)
+{
+    constexpr int columnCount = 7;
+    constexpr int logicalMinimums[columnCount] = {46, 120, 180, 90, 90, 120, 110};
+    constexpr double extraWidthWeights[columnCount] = {0.0, 0.15, 0.30, 0.12, 0.12, 0.18, 0.13};
+    RECT client = {};
+    if (list == nullptr || ListView_GetHeader(list) == nullptr ||
+        ListView_GetItemCount(list) < 0 || !GetClientRect(list, &client) || client.right <= 0)
+        return;
+    const int available = (std::max)(0, static_cast<int>(client.right) - ScaleLogical(list, 4));
+    int minimums[columnCount] = {};
+    int totalMinimum = 0;
+    for (int index = 0; index < columnCount; ++index)
+    {
+        minimums[index] = ScaleLogical(list, logicalMinimums[index]);
+        totalMinimum += minimums[index];
+    }
+    int widths[columnCount] = {};
+    int assigned = 0;
+    if (available <= totalMinimum)
+    {
+        for (int index = 0; index < columnCount; ++index)
+        {
+            widths[index] = index == columnCount - 1
+                                ? available - assigned
+                                : (totalMinimum == 0 ? 0 : MulDiv(minimums[index], available, totalMinimum));
+            assigned += widths[index];
+        }
+    }
+    else
+    {
+        const int extra = available - totalMinimum;
+        for (int index = 0; index < columnCount; ++index)
+        {
+            widths[index] = index == columnCount - 1
+                                ? available - assigned
+                                : minimums[index] + static_cast<int>(extra * extraWidthWeights[index]);
+            assigned += widths[index];
+        }
+    }
+    for (int index = 0; index < columnCount; ++index)
+        ListView_SetColumnWidth(list, index, (std::max)(0, widths[index]));
 }
 
 void SetSortArrow(HWND list, int sortColumn, bool descending)
 {
     HWND header = ListView_GetHeader(list);
     if (header == nullptr) return;
-    for (int index = 0; index < 6; ++index)
+    for (int index = 0; index < 7; ++index)
     {
         HDITEMW item = {};
         item.mask = HDI_FORMAT;
@@ -530,15 +700,18 @@ void UpdateInstallButton(HWND dialog, const UpdatesDialogState& state)
     const int selected = ListView_GetNextItem(GetDlgItem(dialog, IDC_UPDATES_LIST), -1, LVNI_SELECTED);
     if (selected < 0 || static_cast<size_t>(selected) >= state.VisibleRows.size())
     {
+        SetText(dialog, IDC_UPDATES_INSTALL, String(IDS_PLUGIN_UPDATES_OPEN_PAGE));
         EnableWindow(GetDlgItem(dialog, IDC_UPDATES_INSTALL), FALSE);
-        EnableWindow(GetDlgItem(dialog, IDC_UPDATES_OPEN_PAGE), FALSE);
         return;
     }
     const PluginUpdateRow& row = state.Rows[state.VisibleRows[static_cast<size_t>(selected)]];
+    const bool canInstall = CanInstallPluginRow(row);
+    const bool canOpenPage = !row.WebUrl.empty() || !row.Homepage.empty();
     SetText(dialog, IDC_UPDATES_INSTALL,
-            row.InstalledVersion.empty() ? String(IDS_PLUGIN_INSTALL) : String(IDS_PLUGIN_UPDATE));
-    EnableWindow(GetDlgItem(dialog, IDC_UPDATES_INSTALL), !state.RefreshInProgress && !state.InstallInProgress);
-    EnableWindow(GetDlgItem(dialog, IDC_UPDATES_OPEN_PAGE), !row.WebUrl.empty() || !row.Homepage.empty());
+            canInstall ? (row.InstallDirectory.empty() ? String(IDS_PLUGIN_INSTALL) : String(IDS_PLUGIN_UPDATE))
+                       : String(IDS_PLUGIN_UPDATES_OPEN_PAGE));
+    EnableWindow(GetDlgItem(dialog, IDC_UPDATES_INSTALL),
+                 !state.RefreshInProgress && !state.InstallInProgress && (canInstall || canOpenPage));
 }
 
 void UpdateSelectedDetails(HWND dialog, UpdatesDialogState* state)
@@ -569,13 +742,88 @@ void UpdateSelectedDetails(HWND dialog, UpdatesDialogState* state)
     UpdateInstallButton(dialog, *state);
 }
 
+int FindCachedImageIndex(const UpdatesDialogState& state, const std::wstring& key)
+{
+    if (key.empty()) return -1;
+    const auto image = state.ImageIndexes.find(key);
+    return image == state.ImageIndexes.end() ? -1 : image->second;
+}
+
+int PluginImageIndex(UpdatesDialogState* state, const PluginUpdateRow& row)
+{
+    if (state == nullptr) return -1;
+    const std::wstring catalogReference = ResolveCatalogIconReference(row);
+    int imageIndex = FindCachedImageIndex(*state, catalogReference);
+    if (imageIndex >= 0) return imageIndex;
+
+    if (!row.IconPath.empty())
+    {
+        const auto cached = state->ImageIndexes.find(row.IconPath);
+        if (cached != state->ImageIndexes.end())
+        {
+            imageIndex = cached->second;
+        }
+        else
+        {
+            imageIndex = NativeIcons_AddImageFromPath(state->ImageList, row.IconPath);
+            state->ImageIndexes.emplace(row.IconPath, imageIndex);
+        }
+        if (imageIndex >= 0) return imageIndex;
+    }
+    return state->DefaultImageIndex;
+}
+
+void RefreshCatalogImages(HWND dialog, UpdatesDialogState* state)
+{
+    if (state == nullptr) return;
+    HWND list = GetDlgItem(dialog, IDC_UPDATES_LIST);
+    for (size_t displayIndex = 0; displayIndex < state->VisibleRows.size(); ++displayIndex)
+    {
+        const size_t rowIndex = state->VisibleRows[displayIndex];
+        if (rowIndex >= state->Rows.size()) continue;
+        LVITEMW item = {};
+        item.mask = LVIF_IMAGE;
+        item.iItem = static_cast<int>(displayIndex);
+        item.iImage = PluginImageIndex(state, state->Rows[rowIndex]);
+        SendMessageW(list, LVM_SETITEMW, 0, reinterpret_cast<LPARAM>(&item));
+    }
+    InvalidateRect(list, nullptr, TRUE);
+}
+
 void BindRows(HWND dialog, UpdatesDialogState* state)
 {
     if (state == nullptr) return;
     HWND list = GetDlgItem(dialog, IDC_UPDATES_LIST);
     const int previous = ListView_GetNextItem(list, -1, LVNI_SELECTED);
     size_t selectedRow = static_cast<size_t>(-1);
-    if (previous >= 0 && static_cast<size_t>(previous) < state->VisibleRows.size())
+    if (!state->PreferredSelectionId.empty() || !state->PreferredSelectionName.empty())
+    {
+        if (!state->PreferredSelectionName.empty())
+        {
+            for (size_t index = 0; index < state->Rows.size(); ++index)
+            {
+                if (EqualsIgnoreCase(state->Rows[index].Name, state->PreferredSelectionName))
+                {
+                    selectedRow = index;
+                    break;
+                }
+            }
+        }
+        if (selectedRow == static_cast<size_t>(-1) && !state->PreferredSelectionId.empty())
+        {
+            for (size_t index = 0; index < state->Rows.size(); ++index)
+            {
+                if (EqualsIgnoreCase(state->Rows[index].Id, state->PreferredSelectionId))
+                {
+                    selectedRow = index;
+                    break;
+                }
+            }
+        }
+        state->PreferredSelectionId.clear();
+        state->PreferredSelectionName.clear();
+    }
+    else if (previous >= 0 && static_cast<size_t>(previous) < state->VisibleRows.size())
         selectedRow = state->VisibleRows[static_cast<size_t>(previous)];
 
     state->VisibleRows.clear();
@@ -586,10 +834,11 @@ void BindRows(HWND dialog, UpdatesDialogState* state)
     }
     std::stable_sort(state->VisibleRows.begin(), state->VisibleRows.end(), [&](size_t left, size_t right)
     {
-        const std::wstring a = ValueForColumn(state->Rows[left], state->SortColumn);
-        const std::wstring b = ValueForColumn(state->Rows[right], state->SortColumn);
-        const int compare = CompareStringOrdinal(a.c_str(), static_cast<int>(a.size()),
-                                                b.c_str(), static_cast<int>(b.size()), TRUE);
+        const std::wstring a = SortValueForColumn(state->Rows[left], state->SortColumn);
+        const std::wstring b = SortValueForColumn(state->Rows[right], state->SortColumn);
+        const int compare = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE,
+                                           a.c_str(), static_cast<int>(a.size()),
+                                           b.c_str(), static_cast<int>(b.size()));
         return state->SortDescending ? compare == CSTR_GREATER_THAN : compare == CSTR_LESS_THAN;
     });
 
@@ -599,15 +848,16 @@ void BindRows(HWND dialog, UpdatesDialogState* state)
     {
         const size_t rowIndex = state->VisibleRows[displayIndex];
         const PluginUpdateRow& row = state->Rows[rowIndex];
-        const std::wstring first = row.Source;
+        const std::wstring first;
         LVITEMW item = {};
-        item.mask = LVIF_TEXT | LVIF_PARAM;
+        item.mask = LVIF_TEXT | LVIF_PARAM | LVIF_IMAGE;
         item.iItem = static_cast<int>(displayIndex);
         item.pszText = const_cast<wchar_t*>(first.c_str());
         item.lParam = static_cast<LPARAM>(rowIndex);
+        item.iImage = PluginImageIndex(state, row);
         const int inserted = static_cast<int>(SendMessageW(list, LVM_INSERTITEMW, 0, reinterpret_cast<LPARAM>(&item)));
         if (inserted < 0) continue;
-        for (int column = 1; column < 6; ++column)
+        for (int column = 1; column < 7; ++column)
         {
             const std::wstring value = ValueForColumn(row, column);
             LVITEMW subItem = {};
@@ -624,6 +874,7 @@ void BindRows(HWND dialog, UpdatesDialogState* state)
         }
     }
     SetSortArrow(list, state->SortColumn, state->SortDescending);
+    AdjustListViewColumns(list);
     SendMessageW(list, WM_SETREDRAW, TRUE, 0);
     InvalidateRect(list, nullptr, TRUE);
     DarkModeUpdateListViewColors(list,
@@ -795,20 +1046,18 @@ void ShowCopyMenu(HWND dialog, UpdatesDialogState* state, LPARAM position)
     }
     else if (command == IDM_UPDATES_COPY_ROW)
     {
-        const int ids[] = {IDS_PLUGIN_COL_SOURCE, IDS_PLUGIN_COL_NAME, IDS_PLUGIN_COL_INSTALLED,
+        const int ids[] = {0, IDS_PLUGIN_COL_SOURCE, IDS_PLUGIN_COL_NAME, IDS_PLUGIN_COL_INSTALLED,
                            IDS_PLUGIN_COL_LATEST, IDS_PLUGIN_COL_STATUS, IDS_PLUGIN_COL_AUTHOR};
         std::wstring text;
         for (int index = 0; index < _countof(ids); ++index)
         {
-            if (index != 0) text.push_back(L'\t');
-            text += String(ids[index]);
-        }
-        text.append(L"\r\n");
-        for (int index = 0; index < _countof(ids); ++index)
-        {
-            if (index != 0) text.push_back(L'\t');
+            if (index != 0) text.append(L"\r\n");
+            if (ids[index] != 0) text += String(ids[index]);
+            text.append(L": ");
             text += ValueForColumn(row, index);
         }
+        if (!row.Description.empty())
+            text += L"\r\n" + String(IDS_PLUGIN_DESCRIPTION_LABEL) + L": " + row.Description;
         CopyTextToClipboard(dialog, text);
     }
 }
@@ -895,9 +1144,81 @@ bool InstallSelected(HWND dialog, UpdatesDialogState* state)
     return true;
 }
 
+void SetUpdatesDialogIcon(HWND dialog)
+{
+    HICON icon = LoadIconW(DLLInstance, MAKEINTRESOURCEW(IDI_PLUGINICON));
+    if (icon != nullptr)
+    {
+        SendMessageW(dialog, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(icon));
+        SendMessageW(dialog, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(icon));
+    }
+}
+
+void SetUpdatesLinkFont(HWND dialog, UpdatesDialogState* state)
+{
+    if (state == nullptr) return;
+    HFONT baseFont = reinterpret_cast<HFONT>(SendMessageW(dialog, WM_GETFONT, 0, 0));
+    if (baseFont == nullptr) baseFont = static_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
+    if (state->LinkFont != nullptr)
+    {
+        for (int control : {IDC_UPDATES_DETAIL_HOMEPAGE, IDC_UPDATES_DETAIL_DOWNLOAD})
+            SendDlgItemMessageW(dialog, control, WM_SETFONT, reinterpret_cast<WPARAM>(baseFont), TRUE);
+        DeleteObject(state->LinkFont);
+        state->LinkFont = nullptr;
+    }
+    LOGFONTW description = {};
+    if (baseFont == nullptr || GetObjectW(baseFont, sizeof(description), &description) == 0) return;
+    description.lfUnderline = TRUE;
+    state->LinkFont = CreateFontIndirectW(&description);
+    if (state->LinkFont == nullptr) return;
+    for (int control : {IDC_UPDATES_DETAIL_HOMEPAGE, IDC_UPDATES_DETAIL_DOWNLOAD})
+        SendDlgItemMessageW(dialog, control, WM_SETFONT, reinterpret_cast<WPARAM>(state->LinkFont), TRUE);
+}
+
+void OpenSelectedDetailLink(HWND dialog, const UpdatesDialogState& state, int control)
+{
+    const int selected = ListView_GetNextItem(GetDlgItem(dialog, IDC_UPDATES_LIST), -1, LVNI_SELECTED);
+    if (selected < 0 || static_cast<size_t>(selected) >= state.VisibleRows.size()) return;
+    const PluginUpdateRow& row = state.Rows[state.VisibleRows[static_cast<size_t>(selected)]];
+    OpenUrl(dialog, control == IDC_UPDATES_DETAIL_HOMEPAGE ? row.Homepage : row.WebUrl);
+}
+
+void RebuildUpdatesImageList(HWND dialog, UpdatesDialogState* state)
+{
+    if (state == nullptr) return;
+    int defaultImageIndex = -1;
+    HIMAGELIST imageList = NativeIcons_CreateImageList(ScaleLogical(dialog, 16), &defaultImageIndex);
+    if (imageList == nullptr) return;
+    HIMAGELIST previous = state->ImageList;
+    state->ImageList = imageList;
+    state->DefaultImageIndex = defaultImageIndex;
+    state->ImageIndexes.clear();
+    ListView_SetImageList(GetDlgItem(dialog, IDC_UPDATES_LIST), imageList, LVSIL_SMALL);
+    if (previous != nullptr) ImageList_Destroy(previous);
+    for (const CatalogIconImage& image : state->CatalogImages)
+    {
+        const int imageIndex = NativeIcons_AddImage(imageList, image.Bytes);
+        if (imageIndex >= 0) state->ImageIndexes[image.Reference] = imageIndex;
+    }
+    BindRows(dialog, state);
+}
+
 INT_PTR CALLBACK UpdatesDialogProc(HWND dialog, UINT message, WPARAM wParam, LPARAM lParam)
 {
     auto* state = reinterpret_cast<UpdatesDialogState*>(GetWindowLongPtrW(dialog, GWLP_USERDATA));
+    if (message == WM_GETMINMAXINFO)
+    {
+        auto* limits = reinterpret_cast<MINMAXINFO*>(lParam);
+        RECT minimum = {0, 0, ScaleLogical(dialog, 940), ScaleLogical(dialog, 650)};
+        if (limits != nullptr && AdjustWindowRectEx(&minimum,
+                static_cast<DWORD>(GetWindowLongPtrW(dialog, GWL_STYLE)), FALSE,
+                static_cast<DWORD>(GetWindowLongPtrW(dialog, GWL_EXSTYLE))))
+        {
+            limits->ptMinTrackSize.x = minimum.right - minimum.left;
+            limits->ptMinTrackSize.y = minimum.bottom - minimum.top;
+        }
+        return TRUE;
+    }
     if (message == WM_INITDIALOG)
     {
         state = reinterpret_cast<UpdatesDialogState*>(lParam);
@@ -905,6 +1226,8 @@ INT_PTR CALLBACK UpdatesDialogProc(HWND dialog, UINT message, WPARAM wParam, LPA
         SetWindowLongPtrW(dialog, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(state));
         gUpdatesWindow = dialog;
         SetWindowTextW(dialog, String(IDS_PLUGIN_UPDATES_TITLE).c_str());
+        SetUpdatesDialogIcon(dialog);
+        SetUpdatesLinkFont(dialog, state);
         SetText(dialog, IDC_UPDATES_DESCRIPTION, String(IDS_PLUGIN_UPDATES_DESCRIPTION));
         SetText(dialog, IDC_UPDATES_ONLY, String(IDS_PLUGIN_UPDATES_SHOW_ONLY));
         SetText(dialog, IDC_UPDATES_DETAIL_NAME_LABEL, String(IDS_PLUGIN_COL_NAME) + L":");
@@ -920,21 +1243,45 @@ INT_PTR CALLBACK UpdatesDialogProc(HWND dialog, UINT message, WPARAM wParam, LPA
         SetText(dialog, IDC_UPDATES_REFRESH, String(IDS_PLUGIN_UPDATES_REFRESH));
         SetText(dialog, IDC_UPDATES_SOURCES, String(IDS_PLUGIN_UPDATES_CONFIGURE_SOURCES));
         SetText(dialog, IDC_UPDATES_INSTALL, String(IDS_PLUGIN_INSTALL));
-        SetText(dialog, IDC_UPDATES_OPEN_PAGE, String(IDS_PLUGIN_UPDATES_OPEN_PAGE));
         SetText(dialog, IDCANCEL, String(IDS_PLUGIN_UPDATES_CLOSE));
         HWND list = GetDlgItem(dialog, IDC_UPDATES_LIST);
         ListView_SetExtendedListViewStyle(list, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES | LVS_EX_DOUBLEBUFFER);
+        state->ImageList = NativeIcons_CreateImageList(ScaleLogical(dialog, 16), &state->DefaultImageIndex);
+        if (state->ImageList != nullptr) ListView_SetImageList(list, state->ImageList, LVSIL_SMALL);
         SetListViewColumns(list);
+        LayoutUpdatesDialog(dialog);
+        AdjustListViewColumns(list);
         ApplyDarkMode(dialog);
         DarkModeUpdateListViewColors(list,
                                      SalamanderGeneral != nullptr ? SalamanderGeneral->GetCurrentColor(kColorItemForeground) : GetSysColor(COLOR_WINDOWTEXT),
                                      SalamanderGeneral != nullptr ? SalamanderGeneral->GetCurrentColor(kColorItemBackground) : GetSysColor(COLOR_WINDOW),
                                      true);
+        CenterDialog(dialog, state->Parent);
         SetText(dialog, IDC_UPDATES_STATUS, String(IDS_PLUGIN_UPDATES_LOADING));
         state->RefreshInProgress = true;
+        EnableWindow(GetDlgItem(dialog, IDC_UPDATES_ONLY), FALSE);
         EnableWindow(GetDlgItem(dialog, IDC_UPDATES_REFRESH), FALSE);
         EnableWindow(GetDlgItem(dialog, IDC_UPDATES_SOURCES), FALSE);
         NativeUpdater_RequestCatalogRefresh(dialog);
+        return TRUE;
+    }
+    if (message == WM_SIZE && state != nullptr && wParam != SIZE_MINIMIZED)
+    {
+        LayoutUpdatesDialog(dialog);
+        AdjustListViewColumns(GetDlgItem(dialog, IDC_UPDATES_LIST));
+        return TRUE;
+    }
+    if (message == WM_DPICHANGED && state != nullptr)
+    {
+        const auto* suggested = reinterpret_cast<const RECT*>(lParam);
+        if (suggested != nullptr)
+            SetWindowPos(dialog, nullptr, suggested->left, suggested->top,
+                         suggested->right - suggested->left, suggested->bottom - suggested->top,
+                         SWP_NOZORDER | SWP_NOACTIVATE);
+        RebuildUpdatesImageList(dialog, state);
+        SetUpdatesLinkFont(dialog, state);
+        LayoutUpdatesDialog(dialog);
+        AdjustListViewColumns(GetDlgItem(dialog, IDC_UPDATES_LIST));
         return TRUE;
     }
     if (message == WM_NOTIFY && state != nullptr)
@@ -969,6 +1316,13 @@ INT_PTR CALLBACK UpdatesDialogProc(HWND dialog, UINT message, WPARAM wParam, LPA
     }
     if (message == WM_COMMAND && state != nullptr)
     {
+        if (HIWORD(wParam) == STN_CLICKED &&
+            (LOWORD(wParam) == IDC_UPDATES_DETAIL_HOMEPAGE ||
+             LOWORD(wParam) == IDC_UPDATES_DETAIL_DOWNLOAD))
+        {
+            OpenSelectedDetailLink(dialog, *state, LOWORD(wParam));
+            return TRUE;
+        }
         switch (LOWORD(wParam))
         {
         case IDC_UPDATES_ONLY:
@@ -980,6 +1334,7 @@ INT_PTR CALLBACK UpdatesDialogProc(HWND dialog, UINT message, WPARAM wParam, LPA
             {
                 state->RefreshInProgress = true;
                 SetText(dialog, IDC_UPDATES_STATUS, String(IDS_PLUGIN_UPDATES_LOADING));
+                EnableWindow(GetDlgItem(dialog, IDC_UPDATES_ONLY), FALSE);
                 EnableWindow(GetDlgItem(dialog, IDC_UPDATES_REFRESH), FALSE);
                 EnableWindow(GetDlgItem(dialog, IDC_UPDATES_SOURCES), FALSE);
                 NativeUpdater_RequestCatalogRefresh(dialog);
@@ -994,6 +1349,7 @@ INT_PTR CALLBACK UpdatesDialogProc(HWND dialog, UINT message, WPARAM wParam, LPA
             {
                 state->RefreshInProgress = true;
                 SetText(dialog, IDC_UPDATES_STATUS, String(IDS_PLUGIN_UPDATES_LOADING));
+                EnableWindow(GetDlgItem(dialog, IDC_UPDATES_ONLY), FALSE);
                 EnableWindow(GetDlgItem(dialog, IDC_UPDATES_REFRESH), FALSE);
                 EnableWindow(GetDlgItem(dialog, IDC_UPDATES_SOURCES), FALSE);
                 NativeUpdater_RequestCatalogRefresh(dialog);
@@ -1003,16 +1359,6 @@ INT_PTR CALLBACK UpdatesDialogProc(HWND dialog, UINT message, WPARAM wParam, LPA
         case IDC_UPDATES_INSTALL:
             InstallSelected(dialog, state);
             return TRUE;
-        case IDC_UPDATES_OPEN_PAGE:
-        {
-            const int selected = ListView_GetNextItem(GetDlgItem(dialog, IDC_UPDATES_LIST), -1, LVNI_SELECTED);
-            if (selected >= 0 && static_cast<size_t>(selected) < state->VisibleRows.size())
-            {
-                const PluginUpdateRow& row = state->Rows[state->VisibleRows[static_cast<size_t>(selected)]];
-                OpenUrl(dialog, row.WebUrl.empty() ? row.Homepage : row.WebUrl);
-            }
-            return TRUE;
-        }
         case IDCANCEL:
             if (state->InstallInProgress)
             {
@@ -1028,8 +1374,19 @@ INT_PTR CALLBACK UpdatesDialogProc(HWND dialog, UINT message, WPARAM wParam, LPA
         std::unique_ptr<CatalogCompletion> completion(reinterpret_cast<CatalogCompletion*>(lParam));
         if (completion != nullptr)
         {
+            const int selected = ListView_GetNextItem(GetDlgItem(dialog, IDC_UPDATES_LIST), -1, LVNI_SELECTED);
+            if (selected >= 0 && static_cast<size_t>(selected) < state->VisibleRows.size())
+            {
+                const size_t rowIndex = state->VisibleRows[static_cast<size_t>(selected)];
+                if (rowIndex < state->Rows.size())
+                {
+                    state->PreferredSelectionId = state->Rows[rowIndex].Id;
+                    state->PreferredSelectionName = state->Rows[rowIndex].Name;
+                }
+            }
             state->Rows = std::move(completion->Rows);
             state->RefreshInProgress = false;
+            EnableWindow(GetDlgItem(dialog, IDC_UPDATES_ONLY), TRUE);
             SetText(dialog, IDC_UPDATES_STATUS, String(IDS_PLUGIN_UPDATES_READY));
             if (!completion->Errors.empty())
             {
@@ -1039,6 +1396,28 @@ INT_PTR CALLBACK UpdatesDialogProc(HWND dialog, UINT message, WPARAM wParam, LPA
             EnableWindow(GetDlgItem(dialog, IDC_UPDATES_REFRESH), TRUE);
             EnableWindow(GetDlgItem(dialog, IDC_UPDATES_SOURCES), TRUE);
             BindRows(dialog, state);
+            NativeUpdater_RequestCatalogIcons(dialog, state->Rows);
+        }
+        return TRUE;
+    }
+    if (message == WM_SAMANDARIN_CATALOG_ICONS_COMPLETE && state != nullptr)
+    {
+        std::unique_ptr<CatalogIconsCompletion> completion(reinterpret_cast<CatalogIconsCompletion*>(lParam));
+        if (completion != nullptr && completion->Target == dialog && state->ImageList != nullptr)
+        {
+            for (const CatalogIconImage& image : completion->Images)
+            {
+                auto cached = std::find_if(state->CatalogImages.begin(), state->CatalogImages.end(),
+                                           [&](const CatalogIconImage& existing)
+                                           { return EqualsIgnoreCase(existing.Reference, image.Reference); });
+                if (cached == state->CatalogImages.end())
+                    state->CatalogImages.push_back(image);
+                else
+                    cached->Bytes = image.Bytes;
+                const int imageIndex = NativeIcons_AddImage(state->ImageList, image.Bytes);
+                if (imageIndex >= 0) state->ImageIndexes[image.Reference] = imageIndex;
+            }
+            RefreshCatalogImages(dialog, state);
         }
         return TRUE;
     }
@@ -1070,17 +1449,51 @@ INT_PTR CALLBACK UpdatesDialogProc(HWND dialog, UINT message, WPARAM wParam, LPA
         ApplyDarkMode(dialog);
         DarkModeUpdateListViewColors(GetDlgItem(dialog, IDC_UPDATES_LIST));
     }
+    if (message == WM_SETCURSOR &&
+        (reinterpret_cast<HWND>(wParam) == GetDlgItem(dialog, IDC_UPDATES_DETAIL_HOMEPAGE) ||
+         reinterpret_cast<HWND>(wParam) == GetDlgItem(dialog, IDC_UPDATES_DETAIL_DOWNLOAD)))
+    {
+        SetCursor(LoadCursorW(nullptr, MAKEINTRESOURCEW(32649)));
+        return TRUE;
+    }
     if (message == WM_CLOSE)
     {
         if (state != nullptr && state->InstallInProgress) return TRUE;
         EndDialog(dialog, IDCANCEL);
         return TRUE;
     }
+    if (message == WM_CTLCOLORSTATIC && state != nullptr &&
+        (reinterpret_cast<HWND>(lParam) == GetDlgItem(dialog, IDC_UPDATES_DETAIL_HOMEPAGE) ||
+         reinterpret_cast<HWND>(lParam) == GetDlgItem(dialog, IDC_UPDATES_DETAIL_DOWNLOAD)))
+    {
+        HDC dc = reinterpret_cast<HDC>(wParam);
+        SetTextColor(dc, DarkModeShouldUseDarkColors() ? RGB(86, 156, 255) : GetSysColor(COLOR_HOTLIGHT));
+        SetBkMode(dc, TRANSPARENT);
+        return reinterpret_cast<INT_PTR>(gDialogBrush != nullptr ? gDialogBrush : GetSysColorBrush(COLOR_BTNFACE));
+    }
     INT_PTR colorResult = 0;
     if (message >= WM_CTLCOLORMSGBOX && message <= WM_CTLCOLORSTATIC &&
         HandleDarkColor(dialog, message, wParam, lParam, &colorResult))
         return colorResult;
-    if (message == WM_NCDESTROY && gUpdatesWindow == dialog) gUpdatesWindow = nullptr;
+    if (message == WM_NCDESTROY)
+    {
+        NativeUpdater_CancelCatalogIcons(dialog);
+        if (state != nullptr)
+        {
+            if (state->ImageList != nullptr)
+            {
+                ListView_SetImageList(GetDlgItem(dialog, IDC_UPDATES_LIST), nullptr, LVSIL_SMALL);
+                ImageList_Destroy(state->ImageList);
+                state->ImageList = nullptr;
+            }
+            if (state->LinkFont != nullptr)
+            {
+                DeleteObject(state->LinkFont);
+                state->LinkFont = nullptr;
+            }
+        }
+        if (gUpdatesWindow == dialog) gUpdatesWindow = nullptr;
+    }
     return FALSE;
 }
 
@@ -1315,6 +1728,19 @@ LRESULT CALLBACK MessageWindowProc(HWND window, UINT message, WPARAM wParam, LPA
         }
         return 0;
     }
+    if (message == WM_SAMANDARIN_CATALOG_ICONS_COMPLETE)
+    {
+        std::unique_ptr<CatalogIconsCompletion> completion(reinterpret_cast<CatalogIconsCompletion*>(lParam));
+        if (completion != nullptr && completion->Target != nullptr &&
+            completion->Target == gUpdatesWindow && IsWindow(completion->Target))
+        {
+            CatalogIconsCompletion* raw = completion.release();
+            if (!PostMessageW(raw->Target, WM_SAMANDARIN_CATALOG_ICONS_COMPLETE, 0,
+                              reinterpret_cast<LPARAM>(raw)))
+                delete raw;
+        }
+        return 0;
+    }
     if (message == WM_SAMANDARIN_INSTALL_COMPLETE)
     {
         std::unique_ptr<InstallCompletion> completion(reinterpret_cast<InstallCompletion*>(lParam));
@@ -1431,6 +1857,16 @@ void NativeUi_PostCatalogCompletion(CatalogCompletion* completion)
     HWND window = NativeUi_GetMessageWindow();
     if (completion == nullptr) return;
     if (window == nullptr || !PostMessageW(window, WM_SAMANDARIN_CATALOG_COMPLETE, 0, reinterpret_cast<LPARAM>(completion)))
+        delete completion;
+}
+
+void NativeUi_PostCatalogIcons(CatalogIconsCompletion* completion)
+{
+    HWND window = NativeUi_GetMessageWindow();
+    if (completion == nullptr) return;
+    if (window == nullptr ||
+        !PostMessageW(window, WM_SAMANDARIN_CATALOG_ICONS_COMPLETE, 0,
+                      reinterpret_cast<LPARAM>(completion)))
         delete completion;
 }
 

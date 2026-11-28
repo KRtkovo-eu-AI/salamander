@@ -1,4 +1,6 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-28 | Add an addressable details group for responsive update-dialog layout. | Keep the resizable native dialog aligned with the original form. | | openrouter/openai/gpt-6-luna-pro |
+// | 2026-11-28 | Add the bundled default image for the plugin updates list. | Preserve the original fallback icon when a package has no specific artwork. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-28 | Add native updater dialogs and controls. | Replace managed UI with localized Win32 resources. | | openrouter/openai/gpt-6-luna-pro |
 //****************************************************************************
 //
@@ -126,6 +128,7 @@
 #define IDD_SAMANDARIN_CONFIG 161
 #define IDD_SAMANDARIN_UPDATES 162
 #define IDD_SAMANDARIN_SOURCES 163
+#define IDR_SAMANDARIN_DEFAULT_PLUGIN_IMAGE 164
 
 #define IDC_MESSAGE_ICON 1001
 #define IDC_MESSAGE_TEXT 1002
@@ -165,7 +168,7 @@
 #define IDC_UPDATES_REFRESH 1044
 #define IDC_UPDATES_SOURCES 1045
 #define IDC_UPDATES_INSTALL 1046
-#define IDC_UPDATES_OPEN_PAGE 1047
+#define IDC_UPDATES_DETAIL_GROUP 1048
 #define IDC_SOURCES_DESCRIPTION 1050
 #define IDC_SOURCES_LIST 1051
 #define IDC_SOURCES_SAVE 1052

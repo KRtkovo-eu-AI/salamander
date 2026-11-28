@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-28 | Add asynchronous catalog-icon worker handoff. | Keep image downloads off the dialog thread while restoring the original icon loading behavior. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-28 | Distinguish native installer errors from release-check errors. | Show the correct localized status after a scheduled installation fails. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-28 | Define native updater worker and UI handoff contracts. | Keep network work off the Salamander UI thread. | | openrouter/openai/gpt-6-luna-pro |
 #pragma once
@@ -33,6 +34,12 @@ struct CatalogCompletion
     bool Success = false;
 };
 
+struct CatalogIconsCompletion
+{
+    HWND Target = nullptr;
+    std::vector<CatalogIconImage> Images;
+};
+
 struct InstallCompletion
 {
     HWND Target = nullptr;
@@ -51,12 +58,15 @@ BOOL NativeUi_ShowPluginUpdates(HWND parent);
 void NativeUi_NotifyColorsChanged();
 void NativeUi_PostCheckCompletion(CheckCompletion* completion);
 void NativeUi_PostCatalogCompletion(CatalogCompletion* completion);
+void NativeUi_PostCatalogIcons(CatalogIconsCompletion* completion);
 void NativeUi_PostInstallCompletion(InstallCompletion* completion);
 } // namespace SamandarinNative
 
 namespace SamandarinNative
 {
 void NativeUpdater_RequestCatalogRefresh(HWND target);
+void NativeUpdater_RequestCatalogIcons(HWND target, const std::vector<PluginUpdateRow>& rows);
+void NativeUpdater_CancelCatalogIcons(HWND target);
 void NativeUpdater_QueueInstallPlan(HWND target, std::vector<PluginUpdateRow> packages,
                                     std::vector<std::wstring> webUrls);
 }

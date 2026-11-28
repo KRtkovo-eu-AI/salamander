@@ -1,5 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <!-- | Date | Summary | Reason | Ticket | Model |
+     | 2026-11-28 | Build the WIC-backed native plugin icon renderer. | Restore catalog and installed package icons in the updates dialog. | | openrouter/openai/gpt-6-luna-pro |
      | 2026-11-28 | Build the native updater and remove managed bridge references. | Keep Samandarin independent of C#/.NET. | | openrouter/openai/gpt-6-luna-pro | -->
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
@@ -252,6 +253,8 @@
     </ClCompile>
     <ClCompile Include="..\native_json.cpp">
     </ClCompile>
+    <ClCompile Include="..\native_icons.cpp">
+    </ClCompile>
     <ClCompile Include="..\native_ui.cpp">
     </ClCompile>
     <ClCompile Include="..\native_updater.cpp">
@@ -299,6 +302,8 @@
     <ClInclude Include="..\native_installer.h">
     </ClInclude>
     <ClInclude Include="..\native_json.h">
+    </ClInclude>
+    <ClInclude Include="..\native_icons.h">
     </ClInclude>
     <ClInclude Include="..\native_shutdown.h">
     </ClInclude>
